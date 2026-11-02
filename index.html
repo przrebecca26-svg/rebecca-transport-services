@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#101010">
 <title>Rebecca Transport & Services</title>
 <style>
@@ -13,6 +12,7 @@
   --gold:#c99b83;
   --light:#f8eee9;
   --muted:#b8aaa3;
+  --line:#49382f;
 }
 * { box-sizing:border-box; }
 body {
@@ -24,8 +24,8 @@ body {
 header {
   text-align:center;
   padding:38px 18px 30px;
-  border-bottom:1px solid #49382f;
-  background:linear-gradient(145deg,#171313,#080808);
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(145deg,#211815,#080808);
 }
 .logo {
   color:var(--gold);
@@ -40,7 +40,7 @@ header {
   margin-top:9px;
 }
 header p { margin-top:24px; line-height:1.6; }
-main { max-width:650px; margin:auto; padding:22px 16px 45px; }
+main { max-width:680px; margin:auto; padding:22px 16px 45px; }
 h2 { color:var(--gold); font-size:23px; }
 .intro { color:var(--muted); line-height:1.6; }
 .services {
@@ -49,18 +49,22 @@ h2 { color:var(--gold); font-size:23px; }
   gap:10px;
   margin:22px 0;
 }
-.service {
+.service-card {
   background:var(--panel);
-  border:1px solid #49382f;
+  border:1px solid var(--line);
   border-radius:12px;
   padding:15px 8px;
   text-align:center;
   font-size:13px;
 }
-.service span { display:block; font-size:23px; margin-bottom:8px; }
+.service-card span {
+  display:block;
+  font-size:23px;
+  margin-bottom:8px;
+}
 form {
   background:var(--panel);
-  border:1px solid #49382f;
+  border:1px solid var(--line);
   padding:20px;
   border-radius:16px;
 }
@@ -82,17 +86,24 @@ input,select,textarea {
 textarea { min-height:85px; resize:vertical; }
 button {
   width:100%;
-  margin-top:20px;
-  padding:16px;
+  margin-top:16px;
+  padding:15px;
   border:0;
   border-radius:10px;
   background:var(--gold);
   color:#17100d;
-  font-size:16px;
+  font-size:15px;
   font-weight:bold;
+  cursor:pointer;
+}
+button:disabled { opacity:.55; cursor:wait; }
+.secondary {
+  background:#30251f;
+  color:var(--light);
+  border:1px solid var(--gold);
 }
 .price {
-  margin-top:18px;
+  margin-top:20px;
   padding:18px;
   border:1px solid var(--gold);
   border-radius:12px;
@@ -104,10 +115,30 @@ button {
   font-size:27px;
   margin-top:8px;
 }
-.note { font-size:12px; color:var(--muted); line-height:1.6; }
+.note {
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.6;
+}
+.hidden { display:none !important; }
+.checkline {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:15px;
+  color:var(--light);
+  font-size:14px;
+}
+.checkline input { width:auto; }
+.status {
+  margin-top:12px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.5;
+}
 footer {
   text-align:center;
-  border-top:1px solid #49382f;
+  border-top:1px solid var(--line);
   padding:25px 15px;
   color:var(--muted);
   font-size:13px;
@@ -117,97 +148,119 @@ a { color:var(--gold); }
 </style>
 </head>
 <body>
-
 <header>
   <div class="logo">REBECCA</div>
   <div class="subtitle">TRANSPORT & SERVICES</div>
-  <p>Votre temps est précieux,<br>
-  je vous aide à en profiter.</p>
+  <p>Votre temps est précieux,<br>je vous aide à en profiter.</p>
 </header>
-
 <main>
   <h2>Bienvenue</h2>
   <p class="intro">
     Vos déplacements et services privés en Israël.
-    Un service personnalisé, sur réservation et selon disponibilités.
+    Un service personnalisé, élégant et ponctuel,
+    sur réservation et selon disponibilités.
   </p>
-
   <div class="services">
-    <div class="service"><span>🚘</span>Transport privé</div>
-    <div class="service"><span>✈️</span>Transfert aéroport</div>
-    <div class="service"><span>📦</span>Livraisons</div>
-    <div class="service"><span>🛍️</span>Courses et achats</div>
-    <div class="service"><span>💍</span>Hatan & Kala</div>
-    <div class="service"><span>🎀</span>Événements et autres services</div>
+    <div class="service-card"><span>🚘</span>Transport privé</div>
+    <div class="service-card"><span>✈️</span>Transfert aéroport</div>
+    <div class="service-card"><span>📦</span>Livraisons</div>
+    <div class="service-card"><span>🛍️</span>Courses et achats</div>
+    <div class="service-card"><span>💍</span>Hatan & Kala</div>
+    <div class="service-card"><span>🎀</span>Événements et autres services</div>
   </div>
-
   <h2>Demander une réservation</h2>
-
   <form id="booking">
-    <label>Votre nom</label>
-    <input id="name" required placeholder="Nom et prénom">
-
-    <label>Votre téléphone</label>
-    <input id="phone" type="tel" required placeholder="Votre numéro">
-
-    <label>Type de service</label>
-    <select id="service">
-      <option>Transport privé</option>
-      <option>Transfert aéroport</option>
-      <option>Livraison de colis ou clés</option>
-      <option>Courses et achats</option>
-      <option>Transport Hatan & Kala</option>
-      <option>Petit déménagement</option>
-      <option>Attente et événement</option>
+    <label for="name">Votre nom</label>
+    <input id="name" required autocomplete="name" placeholder="Nom et prénom">
+    <label for="phone">Votre téléphone</label>
+    <input id="phone" type="tel" required autocomplete="tel" placeholder="Votre numéro">
+    <label for="service">Type de service</label>
+    <select id="service" required>
+      <option value="Transport privé">Transport privé</option>
+      <option value="Transfert aéroport">Transfert aéroport</option>
+      <option value="Livraison de colis ou clés">Livraison de colis ou clés</option>
+      <option value="Courses et achats">Courses et achats</option>
+      <option value="Transport Hatan & Kala">Transport Hatan & Kala</option>
+      <option value="Petit déménagement">Petit déménagement</option>
+      <option value="Attente et événement">Attente et événement</option>
     </select>
-
-    <label>Lieu de départ</label>
-    <input id="from" required placeholder="Ex : Netanya">
-
-    <label>Destination</label>
-    <select id="destination" required>
-      <option value="">Choisir une destination</option>
-      <option value="Netanya">Netanya et environs</option>
-      <option value="Hadera">Hadera</option>
-      <option value="Herzliya">Herzliya / Ra'anana</option>
-      <option value="Tel Aviv">Tel-Aviv</option>
-      <option value="Ben Gurion">Aéroport Ben Gourion</option>
-      <option value="Haifa">Haïfa</option>
-      <option value="Jerusalem">Jérusalem</option>
-      <option value="Autre">Autre destination</option>
-    </select>
-
-    <label>Date souhaitée</label>
-    <input id="date" type="date" required>
-
-    <label>Heure souhaitée</label>
-    <input id="time" type="time" required>
-
-    <label>Nombre de passagers</label>
-    <select id="passengers">
-      <option>1</option><option>2</option>
-      <option>3</option><option>4</option>
-    </select>
-
-    <label>Informations complémentaires</label>
-    <textarea id="details" placeholder="Bagages, attente, adresse précise..."></textarea>
-
-    <div class="price">
-      Tarif indicatif
-      <strong id="amount">À calculer</strong>
-      <p class="note" id="priceNote">
-        Sélectionnez votre destination pour obtenir une estimation.
+    <div id="routeFields">
+      <label for="from">Adresse de départ</label>
+      <input id="from" required placeholder="Rue, ville, Israël">
+      <label for="destination">Adresse d'arrivée</label>
+      <input id="destination" required placeholder="Rue, ville, Israël">
+      <label class="checkline">
+        <input type="checkbox" id="roundTrip">
+        <span>Trajet aller-retour</span>
+      </label>
+      <button type="button" class="secondary" id="routeButton">
+        Calculer mon trajet
+      </button>
+      <p class="status" id="routeStatus">
+        Saisissez les deux adresses pour calculer la distance et la durée.
       </p>
     </div>
-
+    <div id="deliveryFields" class="hidden">
+      <label for="deliveryType">Type de livraison</label>
+      <select id="deliveryType">
+        <option>Petit colis</option>
+        <option>Clés ou documents</option>
+        <option>Livraison urgente</option>
+        <option>Courses et achats</option>
+      </select>
+      <label for="recipient">Nom du destinataire</label>
+      <input id="recipient" placeholder="Nom du destinataire">
+    </div>
+    <div id="eventFields" class="hidden">
+      <label for="eventType">Prestation souhaitée</label>
+      <select id="eventType">
+        <option>Transport Hatan & Kala</option>
+        <option>Attente pendant un événement</option>
+        <option>Transport avec décoration</option>
+      </select>
+      <label for="waiting">Durée d'attente souhaitée</label>
+      <select id="waiting">
+        <option value="0">Pas d'attente</option>
+        <option value="1">1 heure</option>
+        <option value="2">2 heures</option>
+        <option value="3">3 heures</option>
+        <option value="4">4 heures</option>
+      </select>
+    </div>
+    <div id="moveFields" class="hidden">
+      <label for="moveDetails">Détails du petit déménagement</label>
+      <textarea id="moveDetails" placeholder="Nombre de cartons, meubles, étages, ascenseur..."></textarea>
+    </div>
+    <label for="date">Date souhaitée</label>
+    <input id="date" type="date" required>
+    <label for="time">Heure souhaitée</label>
+    <input id="time" type="time" required>
+    <div id="passengerFields">
+      <label for="passengers">Nombre de passagers</label>
+      <select id="passengers">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </div>
+    <label for="details">Informations complémentaires</label>
+    <textarea id="details" placeholder="Bagages, adresse précise, consignes particulières..."></textarea>
+    <div class="price">
+      Estimation indicative
+      <strong id="amount">À calculer</strong>
+      <p class="note" id="priceNote">
+        Le prix sera estimé après calcul du trajet ou selon la prestation.
+      </p>
+    </div>
     <button type="submit">Envoyer ma demande sur WhatsApp</button>
     <p class="note">
-      Votre demande ne constitue pas une réservation confirmée.
+      Cette demande ne constitue pas une réservation confirmée.
       Le tarif et la disponibilité seront validés personnellement.
+      Aucun service pendant Chabbat.
     </p>
   </form>
 </main>
-
 <footer>
   <strong>REBECCA TRANSPORT & SERVICES</strong><br>
   Netanya – Déplacements dans tout Israël<br>
@@ -215,84 +268,220 @@ a { color:var(--gold); }
   Sur réservation et selon disponibilités.<br>
   Aucun service pendant Chabbat.
 </footer>
-
 <script>
-const prices = {
-  "Netanya":50,
-  "Hadera":120,
-  "Herzliya":130,
-  "Tel Aviv":170,
-  "Ben Gurion":250,
-  "Haifa":280,
-  "Jerusalem":350
+const WHATSAPP = "972547380193";
+// Grille tarifaire minimum, en shekels
+const minimumPrices = {
+  netanya: 50,
+  hadera: 120,
+  herzliya: 130,
+  "tel aviv": 170,
+  "ben gurion": 250,
+  haifa: 280,
+  jerusalem: 350
 };
-
-const destination = document.getElementById("destination");
-const service = document.getElementById("service");
-const amount = document.getElementById("amount");
-const priceNote = document.getElementById("priceNote");
-
-function calculate() {
-  const place = destination.value;
+// Formule de calcul validée à partir des exemples tarifaires
+// (kilomètres × 1,8227 + heures × 120) × 1,20
+const KM_RATE = 1.8227;
+const HOUR_RATE = 120;
+const MARGIN = 1.20;
+let routeData = null;
+const $ = id => document.getElementById(id);
+const service = $("service");
+const amount = $("amount");
+const priceNote = $("priceNote");
+function roundUpFive(value) {
+  return Math.ceil(value / 5) * 5;
+}
+function getCityMinimum(address) {
+  const text = address.toLowerCase();
+  if (text.includes("netanya")) return minimumPrices.netanya;
+  if (text.includes("hadera")) return minimumPrices.hadera;
+  if (text.includes("herzliya") || text.includes("ra'anana") || text.includes("raanana")) return minimumPrices.herzliya;
+  if (text.includes("tel aviv") || text.includes("tel-aviv")) return minimumPrices["tel aviv"];
+  if (text.includes("ben gurion") || text.includes("ben-gurion")) return minimumPrices["ben gurion"];
+  if (text.includes("haifa") || text.includes("haïfa")) return minimumPrices.haifa;
+  if (text.includes("jerusalem") || text.includes("jérusalem")) return minimumPrices.jerusalem;
+  return 0;
+}
+function calculatePrice() {
   const type = service.value;
-
-  if (!place) {
-    amount.textContent = "À calculer";
-    priceNote.textContent = "Sélectionnez une destination.";
+  if (type === "Transport Hatan & Kala") {
+    const decorated = $("eventType").value === "Transport avec décoration";
+    const base = 220 + (decorated ? 150 : 0);
+    amount.textContent = "À partir de " + base + " ₪";
+    priceNote.textContent = "Prestation Hatan & Kala. Le tarif final dépend du trajet et de l'organisation.";
     return;
   }
-
-  if (type === "Transport Hatan & Kala") {
-    amount.textContent = "À partir de 220 ₪";
-    priceNote.textContent = "Décoration éventuelle : supplément de 150 ₪.";
-  } else if (type === "Livraison de colis ou clés" ||
-             type === "Courses et achats") {
-    amount.textContent = "60 à 250 ₪";
-    priceNote.textContent = "Selon distance et prestation. Urgence : +30 ₪.";
-  } else if (place === "Autre") {
+  if (type === "Livraison de colis ou clés" || type === "Courses et achats") {
+    if (routeData) {
+      const estimate = roundUpFive(Math.max(
+        60,
+        (routeData.km * KM_RATE + routeData.hours * HOUR_RATE) * MARGIN
+      ));
+      amount.textContent = "À partir de " + estimate + " ₪";
+      priceNote.textContent = "Estimation calculée selon le trajet. Livraison urgente : supplément de 30 ₪.";
+    } else {
+      amount.textContent = "60 à 250 ₪";
+      priceNote.textContent = "Selon distance et prestation. Livraison urgente : supplément de 30 ₪.";
+    }
+    return;
+  }
+  if (type === "Petit déménagement") {
     amount.textContent = "Sur devis";
-    priceNote.textContent = "Tarif à confirmer selon la destination.";
-  } else if (place === "Netanya") {
-    amount.textContent = "50 à 100 ₪";
-    priceNote.textContent = "Selon le trajet exact.";
-  } else {
-    amount.textContent = "À partir de " + prices[place] + " ₪";
-    priceNote.textContent = place === "Ben Gurion"
-      ? "Supplément bagages éventuel."
-      : "Tarif indicatif, à confirmer.";
+    priceNote.textContent = "Le prix dépend du volume, des étages, de l'accès et du trajet.";
+    return;
+  }
+  if (!routeData) {
+    amount.textContent = "À calculer";
+    priceNote.textContent = "Calculez le trajet pour obtenir une estimation indicative.";
+    return;
+  }
+  const baseByFormula = (routeData.km * KM_RATE + routeData.hours * HOUR_RATE) * MARGIN;
+  const cityMinimum = getCityMinimum($("destination").value);
+  const estimate = roundUpFive(Math.max(baseByFormula, cityMinimum));
+  amount.textContent = "Environ " + estimate + " ₪";
+  priceNote.textContent =
+    "Estimation basée sur " + routeData.km.toFixed(1) +
+    " km et " + Math.round(routeData.hours * 60) +
+    " minutes. Tarif à confirmer.";
+}
+function updateServiceFields() {
+  const type = service.value;
+  $("routeFields").classList.toggle("hidden",
+    type === "Transport Hatan & Kala" || type === "Petit déménagement");
+  $("deliveryFields").classList.toggle("hidden",
+    type !== "Livraison de colis ou clés" && type !== "Courses et achats");
+  $("eventFields").classList.toggle("hidden",
+    type !== "Transport Hatan & Kala" && type !== "Attente et événement");
+  $("moveFields").classList.toggle("hidden", type !== "Petit déménagement");
+  $("passengerFields").classList.toggle("hidden",
+    type === "Livraison de colis ou clés" || type === "Courses et achats");
+  const routeRequired =
+    type !== "Transport Hatan & Kala" && type !== "Petit déménagement";
+  $("from").required = routeRequired;
+  $("destination").required = routeRequired;
+  routeData = null;
+  $("routeStatus").textContent = "Saisissez les deux adresses puis calculez le trajet.";
+  calculatePrice();
+}
+service.addEventListener("change", updateServiceFields);
+$("eventType").addEventListener("change", calculatePrice);
+$("roundTrip").addEventListener("change", () => {
+  routeData = null;
+  $("routeStatus").textContent = "Recalculez le trajet après ce changement.";
+  calculatePrice();
+});
+async function geocode(address) {
+  const url = "https://photon.komoot.io/api/?limit=1&q=" +
+    encodeURIComponent(address + ", Israel");
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Recherche d'adresse indisponible.");
+  const data = await response.json();
+  if (!data.features || !data.features.length) {
+    throw new Error("Adresse introuvable : " + address);
+  }
+  return data.features[0].geometry.coordinates;
+}
+async function calculateRoute() {
+  const from = $("from").value.trim();
+  const to = $("destination").value.trim();
+  const button = $("routeButton");
+  if (!from || !to) {
+    $("routeStatus").textContent = "Veuillez remplir les deux adresses.";
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Calcul en cours...";
+  $("routeStatus").textContent = "Recherche des adresses et calcul de l'itinéraire...";
+  try {
+    const start = await geocode(from);
+    const end = await geocode(to);
+    let coordinates = start[0] + "," + start[1] + ";" + end[0] + "," + end[1];
+    const url = "https://router.project-osrm.org/route/v1/driving/" +
+      coordinates + "?overview=false";
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Calcul d'itinéraire indisponible.");
+    const data = await response.json();
+    if (data.code !== "Ok" || !data.routes || !data.routes.length) {
+      throw new Error("Aucun itinéraire trouvé.");
+    }
+    let km = data.routes[0].distance / 1000;
+    let hours = data.routes[0].duration / 3600;
+    if ($("roundTrip").checked) {
+      km *= 2;
+      hours *= 2;
+    }
+    routeData = { km, hours };
+    $("routeStatus").textContent =
+      "Trajet estimé : " + km.toFixed(1) + " km – " +
+      Math.round(hours * 60) + " minutes" +
+      ($("roundTrip").checked ? " (aller-retour)" : " (aller simple)") +
+      ". Le trafic réel peut modifier la durée.";
+    calculatePrice();
+  } catch (error) {
+    routeData = null;
+    $("routeStatus").textContent =
+      "Impossible de calculer automatiquement ce trajet. Vérifiez les adresses ou envoyez une demande de devis.";
+    amount.textContent = "Sur devis";
+    priceNote.textContent = "Le tarif sera confirmé personnellement.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Calculer mon trajet";
   }
 }
-
-destination.addEventListener("change",calculate);
-service.addEventListener("change",calculate);
-
-document.getElementById("booking").addEventListener("submit",function(e) {
-  e.preventDefault();
-
-  const message =
+$("routeButton").addEventListener("click", calculateRoute);
+$("booking").addEventListener("submit", function(event) {
+  event.preventDefault();
+  if (!$("booking").reportValidity()) return;
+  const type = service.value;
+  const isDelivery =
+    type === "Livraison de colis ou clés" || type === "Courses et achats";
+  const isEvent =
+    type === "Transport Hatan & Kala" || type === "Attente et événement";
+  let message =
 `Bonjour Rebecca, je souhaite faire une demande de réservation.
-
-Nom : ${document.getElementById("name").value}
-Téléphone : ${document.getElementById("phone").value}
-Service : ${service.value}
-Départ : ${document.getElementById("from").value}
-Destination : ${destination.value}
-Date : ${document.getElementById("date").value}
-Heure : ${document.getElementById("time").value}
-Passagers : ${document.getElementById("passengers").value}
+Nom : ${$("name").value}
+Téléphone : ${$("phone").value}
+Service : ${type}
+Date : ${$("date").value}
+Heure : ${$("time").value}`;
+  if (type !== "Transport Hatan & Kala" && type !== "Petit déménagement") {
+    message += `
+Départ : ${$("from").value}
+Destination : ${$("destination").value}
+Aller-retour : ${$("roundTrip").checked ? "Oui" : "Non"}`;
+  }
+  if (!isDelivery && type !== "Petit déménagement") {
+    message += `
+Passagers : ${$("passengers").value}`;
+  }
+  if (isDelivery) {
+    message += `
+Type de livraison : ${$("deliveryType").value}
+Destinataire : ${$("recipient").value}`;
+  }
+  if (isEvent) {
+    message += `
+Prestation : ${$("eventType").value}
+Attente : ${$("waiting").value} heure(s)`;
+  }
+  if (type === "Petit déménagement") {
+    message += `
+Détails du déménagement : ${$("moveDetails").value}`;
+  }
+  message += `
+Distance estimée : ${routeData ? routeData.km.toFixed(1) + " km" : "À vérifier"}
+Durée estimée : ${routeData ? Math.round(routeData.hours * 60) + " minutes" : "À vérifier"}
 Estimation : ${amount.textContent}
-Informations : ${document.getElementById("details").value}
-
-Merci de me confirmer la disponibilité et le tarif.`;
-
-  window.open(
-    "https://wa.me/972547380193?text=" + encodeURIComponent(message),
-    "_blank"
-  );
+Informations complémentaires : ${$("details").value}
+Merci de me confirmer la disponibilité et le tarif définitif.`;
+  const url = "https://wa.me/" + WHATSAPP + "?text=" +
+    encodeURIComponent(message);
+  window.open(url, "_blank");
 });
-
-document.getElementById("date").min =
-  new Date().toISOString().split("T")[0];
+$("date").min = new Date().toISOString().split("T")[0];
+updateServiceFields();
 </script>
 </body>
 </html>

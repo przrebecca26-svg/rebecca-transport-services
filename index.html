@@ -1,0 +1,298 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101010">
+<title>Rebecca Transport & Services</title>
+<style>
+:root {
+  --black:#101010;
+  --panel:#1b1b1b;
+  --gold:#c99b83;
+  --light:#f8eee9;
+  --muted:#b8aaa3;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  background:var(--black);
+  color:var(--light);
+  font-family:Arial,sans-serif;
+}
+header {
+  text-align:center;
+  padding:38px 18px 30px;
+  border-bottom:1px solid #49382f;
+  background:linear-gradient(145deg,#171313,#080808);
+}
+.logo {
+  color:var(--gold);
+  font-size:29px;
+  font-weight:bold;
+  letter-spacing:2px;
+}
+.subtitle {
+  color:var(--muted);
+  letter-spacing:3px;
+  font-size:11px;
+  margin-top:9px;
+}
+header p { margin-top:24px; line-height:1.6; }
+main { max-width:650px; margin:auto; padding:22px 16px 45px; }
+h2 { color:var(--gold); font-size:23px; }
+.intro { color:var(--muted); line-height:1.6; }
+.services {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:22px 0;
+}
+.service {
+  background:var(--panel);
+  border:1px solid #49382f;
+  border-radius:12px;
+  padding:15px 8px;
+  text-align:center;
+  font-size:13px;
+}
+.service span { display:block; font-size:23px; margin-bottom:8px; }
+form {
+  background:var(--panel);
+  border:1px solid #49382f;
+  padding:20px;
+  border-radius:16px;
+}
+label {
+  display:block;
+  color:var(--gold);
+  margin:15px 0 7px;
+  font-size:14px;
+}
+input,select,textarea {
+  width:100%;
+  padding:14px;
+  border:1px solid #59483e;
+  border-radius:9px;
+  background:#101010;
+  color:white;
+  font-size:16px;
+}
+textarea { min-height:85px; resize:vertical; }
+button {
+  width:100%;
+  margin-top:20px;
+  padding:16px;
+  border:0;
+  border-radius:10px;
+  background:var(--gold);
+  color:#17100d;
+  font-size:16px;
+  font-weight:bold;
+}
+.price {
+  margin-top:18px;
+  padding:18px;
+  border:1px solid var(--gold);
+  border-radius:12px;
+  text-align:center;
+}
+.price strong {
+  display:block;
+  color:var(--gold);
+  font-size:27px;
+  margin-top:8px;
+}
+.note { font-size:12px; color:var(--muted); line-height:1.6; }
+footer {
+  text-align:center;
+  border-top:1px solid #49382f;
+  padding:25px 15px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.8;
+}
+a { color:var(--gold); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">REBECCA</div>
+  <div class="subtitle">TRANSPORT & SERVICES</div>
+  <p>Votre temps est précieux,<br>
+  je vous aide à en profiter.</p>
+</header>
+
+<main>
+  <h2>Bienvenue</h2>
+  <p class="intro">
+    Vos déplacements et services privés en Israël.
+    Un service personnalisé, sur réservation et selon disponibilités.
+  </p>
+
+  <div class="services">
+    <div class="service"><span>🚘</span>Transport privé</div>
+    <div class="service"><span>✈️</span>Transfert aéroport</div>
+    <div class="service"><span>📦</span>Livraisons</div>
+    <div class="service"><span>🛍️</span>Courses et achats</div>
+    <div class="service"><span>💍</span>Hatan & Kala</div>
+    <div class="service"><span>🎀</span>Événements et autres services</div>
+  </div>
+
+  <h2>Demander une réservation</h2>
+
+  <form id="booking">
+    <label>Votre nom</label>
+    <input id="name" required placeholder="Nom et prénom">
+
+    <label>Votre téléphone</label>
+    <input id="phone" type="tel" required placeholder="Votre numéro">
+
+    <label>Type de service</label>
+    <select id="service">
+      <option>Transport privé</option>
+      <option>Transfert aéroport</option>
+      <option>Livraison de colis ou clés</option>
+      <option>Courses et achats</option>
+      <option>Transport Hatan & Kala</option>
+      <option>Petit déménagement</option>
+      <option>Attente et événement</option>
+    </select>
+
+    <label>Lieu de départ</label>
+    <input id="from" required placeholder="Ex : Netanya">
+
+    <label>Destination</label>
+    <select id="destination" required>
+      <option value="">Choisir une destination</option>
+      <option value="Netanya">Netanya et environs</option>
+      <option value="Hadera">Hadera</option>
+      <option value="Herzliya">Herzliya / Ra'anana</option>
+      <option value="Tel Aviv">Tel-Aviv</option>
+      <option value="Ben Gurion">Aéroport Ben Gourion</option>
+      <option value="Haifa">Haïfa</option>
+      <option value="Jerusalem">Jérusalem</option>
+      <option value="Autre">Autre destination</option>
+    </select>
+
+    <label>Date souhaitée</label>
+    <input id="date" type="date" required>
+
+    <label>Heure souhaitée</label>
+    <input id="time" type="time" required>
+
+    <label>Nombre de passagers</label>
+    <select id="passengers">
+      <option>1</option><option>2</option>
+      <option>3</option><option>4</option>
+    </select>
+
+    <label>Informations complémentaires</label>
+    <textarea id="details" placeholder="Bagages, attente, adresse précise..."></textarea>
+
+    <div class="price">
+      Tarif indicatif
+      <strong id="amount">À calculer</strong>
+      <p class="note" id="priceNote">
+        Sélectionnez votre destination pour obtenir une estimation.
+      </p>
+    </div>
+
+    <button type="submit">Envoyer ma demande sur WhatsApp</button>
+    <p class="note">
+      Votre demande ne constitue pas une réservation confirmée.
+      Le tarif et la disponibilité seront validés personnellement.
+    </p>
+  </form>
+</main>
+
+<footer>
+  <strong>REBECCA TRANSPORT & SERVICES</strong><br>
+  Netanya – Déplacements dans tout Israël<br>
+  WhatsApp : 0547380193<br>
+  Sur réservation et selon disponibilités.<br>
+  Aucun service pendant Chabbat.
+</footer>
+
+<script>
+const prices = {
+  "Netanya":50,
+  "Hadera":120,
+  "Herzliya":130,
+  "Tel Aviv":170,
+  "Ben Gurion":250,
+  "Haifa":280,
+  "Jerusalem":350
+};
+
+const destination = document.getElementById("destination");
+const service = document.getElementById("service");
+const amount = document.getElementById("amount");
+const priceNote = document.getElementById("priceNote");
+
+function calculate() {
+  const place = destination.value;
+  const type = service.value;
+
+  if (!place) {
+    amount.textContent = "À calculer";
+    priceNote.textContent = "Sélectionnez une destination.";
+    return;
+  }
+
+  if (type === "Transport Hatan & Kala") {
+    amount.textContent = "À partir de 220 ₪";
+    priceNote.textContent = "Décoration éventuelle : supplément de 150 ₪.";
+  } else if (type === "Livraison de colis ou clés" ||
+             type === "Courses et achats") {
+    amount.textContent = "60 à 250 ₪";
+    priceNote.textContent = "Selon distance et prestation. Urgence : +30 ₪.";
+  } else if (place === "Autre") {
+    amount.textContent = "Sur devis";
+    priceNote.textContent = "Tarif à confirmer selon la destination.";
+  } else if (place === "Netanya") {
+    amount.textContent = "50 à 100 ₪";
+    priceNote.textContent = "Selon le trajet exact.";
+  } else {
+    amount.textContent = "À partir de " + prices[place] + " ₪";
+    priceNote.textContent = place === "Ben Gurion"
+      ? "Supplément bagages éventuel."
+      : "Tarif indicatif, à confirmer.";
+  }
+}
+
+destination.addEventListener("change",calculate);
+service.addEventListener("change",calculate);
+
+document.getElementById("booking").addEventListener("submit",function(e) {
+  e.preventDefault();
+
+  const message =
+`Bonjour Rebecca, je souhaite faire une demande de réservation.
+
+Nom : ${document.getElementById("name").value}
+Téléphone : ${document.getElementById("phone").value}
+Service : ${service.value}
+Départ : ${document.getElementById("from").value}
+Destination : ${destination.value}
+Date : ${document.getElementById("date").value}
+Heure : ${document.getElementById("time").value}
+Passagers : ${document.getElementById("passengers").value}
+Estimation : ${amount.textContent}
+Informations : ${document.getElementById("details").value}
+
+Merci de me confirmer la disponibilité et le tarif.`;
+
+  window.open(
+    "https://wa.me/972547380193?text=" + encodeURIComponent(message),
+    "_blank"
+  );
+});
+
+document.getElementById("date").min =
+  new Date().toISOString().split("T")[0];
+</script>
+</body>
+</html>

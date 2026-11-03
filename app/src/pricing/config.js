@@ -129,8 +129,27 @@ export const TARIFS = {
     fraisAvanceAchats: 0.1, // 10 % du ticket si Rebecca avance l'argent
   },
 
-  hatanKala: { base: 220, decoration: 150 },
-  demenagement: { valises: 130, cartons: 180 },
+  // Bagages : petit sac et valise cabine gratuits ; supplement par bagage en soute (grande valise)
+  bagages: { supplementParSoute: 10 },
+
+  // Arrets supplementaires (livraison, Hatan & Kala) : dans Netanya = forfait ; ailleurs = prix de la grille B de la ville
+  arretsSupplementaires: { netanya: 20 },
+
+  // Hatan & Kala : 220 minimum ; hors Netanya = trajet + prestation mariage
+  hatanKala: { base: 220, decoration: 150, prestationHorsNetanya: 70 },
+  // Demenagement : prestation de base + trajet hors Netanya + etages sans ascenseur (a partir du 2e)
+  demenagement: { valises: 130, cartons: 180, parEtageSansAscenseur: 10 },
+
+  // CODES PROMO : pourcentage OU montant fixe, appliques sur la prestation seulement (pas sur peages/frais annonces)
+  // Exemples a remplacer par tes vrais codes. Ecris le code en MAJUSCULES.
+  codesPromo: {
+    BIENVENUE: { type: "pourcentage", valeur: 10, libelle: "-10 %" },
+    FIDELE15: { type: "pourcentage", valeur: 15, libelle: "-15 %" },
+    VIP20: { type: "pourcentage", valeur: 20, libelle: "-20 %" },
+    AMI10: { type: "montant", valeur: 10, libelle: "-10 ₪" },
+    MERCI20: { type: "montant", valeur: 20, libelle: "-20 ₪" },
+    CADEAU30: { type: "montant", valeur: 30, libelle: "-30 ₪" },
+  },
 
   // Pas de paiement en ligne au lancement : on enregistre seulement le moyen et les sommes
   moyensPaiement: ["Espèces", "Carte bancaire", "Revolut", "Bit"],

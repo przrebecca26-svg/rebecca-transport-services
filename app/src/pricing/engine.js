@@ -4,6 +4,7 @@
 
 import { TARIFS, coutParKm, partRetourAVide } from "./config.js";
 import { verifierDisponibilite, localVersUtc, ajouterJours as ajouterJoursLocal } from "./calendrier.js";
+import { aujourdhui, calculerRemise, etatCode, libelleRemise, normaliserCode } from "./promos.js";
 
 /* ---------- Outils ---------- */
 
@@ -228,7 +229,7 @@ function calculerTrajet(d, t) {
     const base = Math.min(Math.max(avecRetour, minSimple), plafond);
     details.formuleSansRetour = Math.round(A * 100) / 100;
     details.avecPartRetourAVide = avecRetour;
-    lignes.push({ libelle: "Trajet aller simple", montant: base });
+    lignes.push({ libelle: "Trajet aller simple", montant: base, base: true });
     supplementNuit(lignes, "Aller", base, d.heure, t);
   } else {
     // ALLER-RETOUR : deux trajets reellement calcules, chacun avec son minimum
@@ -237,9 +238,9 @@ function calculerTrajet(d, t) {
     const A2 = prixFormule(retour.km, retour.minutes, t);
     const base1 = Math.min(Math.max(arrondiSup(A1, t.arrondi), plancher.prixParTrajetAR), plafond);
     const base2 = Math.min(Math.max(arrondiSup(A2, t.arrondi), plancher.prixParTrajetAR), plafond);
-    lignes.push({ libelle: "Trajet aller", montant: base1 });
+    lignes.push({ libelle: "Trajet aller", montant: base1, base: true });
     supplementNuit(lignes, "Aller", base1, d.heure, t);
-    lignes.push({ libelle: "Trajet retour", montant: base2 });
+    lignes.push({ libelle: "Trajet retour", montant: base2, base: true });
     const debutRetour = d.heureRetour
       ? { date: d.dateRetour || d.date, heure: d.heureRetour }
       : ajouterMinutes(d.date, d.heure, d.aller.minutes + attente);
@@ -305,7 +306,7 @@ function calculerLivraison(d, t) {
     return construire({ lignes: [], devis: true, aConfirmer: ["Livraison longue distance : sur devis."], details: { estimation: base } });
   }
 
-  const lignes = [{ libelle: directions.length ? `Livraison jusqu'à ${nomZone(directions[0].zone)}` : "Livraison", montant: base }];
+  const lignes = [{ libelle: directions.length ? `Livraison jusqu'à ${nomZone(directions[0].zone)}` : "Livraison", montant: base, base: true }];
   supplementNuit(lignes, "Livraison", base, d.heure, t);
   const aConfirmer = [];
   // Une autre direction (ex : nord et sud) = un trajet complet en plus
@@ -341,6 +342,7 @@ function calculerCourses(d, t) {
         ? `Courses réalisées par Rebecca (jusqu'à ${palier.max} articles)`
         : `Récupération d'achats déjà payés (jusqu'à ${palier.max} articles)`,
       montant: palier.prix,
+      base: true,
     },
   ];
   const separe = [];
@@ -375,7 +377,7 @@ function calculerHatanKala(d, t) {
     details.trajet = trajet;
     base = Math.max(base, arrondiSup(trajet + t.hatanKala.prestationHorsNetanya, t.arrondi));
   }
-  const lignes = [{ libelle: "Transport Hatan & Kala", montant: base }];
+  const lignes = [{ libelle: "Transport Hatan & Kala", montant: base, base: true }];
   supplementNuit(lignes, "Transport", base, d.heure, t);
   const aConfirmer = [];
   lignesArrets(lignes, aConfirmer, d, t, "Arrêt supplémentaire", base);
@@ -391,13 +393,13 @@ function calculerDemenagement(d, t) {
   }
   if (d.categorie !== "valises" && d.categorie !== "cartons") return erreur("Type de déménagement manquant.");
   const scenario = d.scenario || t.scenarioActif;
-  const lignes = [{ libelle: "Petit déménagement (prestation de base)", montant: t.demenagement[d.categorie] }];
+  const lignes = [{ libelle: "Petit déménagement (prestation de base)", montant: t.demenagement[d.categorie], base: true }];
   const aConfirmer = [];
   const plancher = plancherGrille(d.zoneDepart, d.zoneArrivee, t);
   if (!estLocal(d, plancher, t)) {
     const B = d.aller && d.aller.km > 0 && d.aller.minutes > 0 ? prixAllerSimple(d.aller.km, d.aller.minutes, scenario, t) : 0;
     const trajet = Math.max(minimumSimple(plancher, scenario), B);
-    if (trajet > 0) lignes.push({ libelle: "Trajet hors Netanya", montant: trajet });
+    if (trajet > 0) lignes.push({ libelle: "Trajet hors Netanya", montant: trajet, base: true });
     else if (d.zoneDepart || d.zoneArrivee || d.aller) aConfirmer.push("Trajet hors Netanya : prix à confirmer par Rebecca.");
   }
   const etages = (etage, ascenseur) => (ascenseur === "oui" || !(etage >= 2) ? 0 : (etage - 1) * t.demenagement.parEtageSansAscenseur);
@@ -421,6 +423,7 @@ function calculerMiseADisposition(d, t) {
     {
       libelle: `Mise à disposition : ${facturees / 60} h facturée(s) (minimum ${t.attente.miseADispositionMinHeures} h)`,
       montant: (facturees * t.attente.tarifHeure) / 60,
+      base: true,
     },
   ];
   const aConfirmer = [];
@@ -431,7 +434,7 @@ function calculerMiseADisposition(d, t) {
       const formule = d.aller && d.aller.km > 0 && d.aller.minutes > 0 ? arrondiSup(prixFormule(d.aller.km, d.aller.minutes, t), t.arrondi) : 0;
       const parTrajet = Math.max(plancher.prixParTrajetAR, formule);
       prixUnTrajet = parTrajet;
-      if (parTrajet > 0) lignes.push({ libelle: `Trajet aller-retour (2 x ${parTrajet} ₪)`, montant: parTrajet * 2 });
+      if (parTrajet > 0) lignes.push({ libelle: `Trajet aller-retour (2 x ${parTrajet} ₪)`, montant: parTrajet * 2, base: true });
       else aConfirmer.push("Déplacement hors Netanya : prix à confirmer par Rebecca.");
     }
   }
@@ -458,16 +461,16 @@ function calculerRamassage(d, t) {
   const details = { parTrajet, trajets, jours, hebdo };
 
   if (!hebdo) {
-    lignes.push({ libelle: trajets === 2 ? `Ramassage : 2 trajets x ${parTrajet} ₪` : "Ramassage : 1 trajet", montant: parTrajet * trajets });
+    lignes.push({ libelle: trajets === 2 ? `Ramassage : 2 trajets x ${parTrajet} ₪` : "Ramassage : 1 trajet", montant: parTrajet * trajets, base: true });
     supplementNuit(lignes, "Trajet 1", parTrajet, d.heure, t);
     if (trajets === 2) supplementNuit(lignes, "Trajet 2", parTrajet, d.heure2 || d.heure, t);
   } else {
     const brut = parTrajet * trajets * jours;
     const palier = [...t.ramassage.reductions].sort((a, b) => b.minJours - a.minJours).find((r) => jours >= r.minJours);
-    lignes.push({ libelle: `Forfait semaine : ${jours} jour(s) x ${trajets} trajet(s) x ${parTrajet} ₪`, montant: brut });
+    lignes.push({ libelle: `Forfait semaine : ${jours} jour(s) x ${trajets} trajet(s) x ${parTrajet} ₪`, montant: brut, base: true });
     if (palier) {
       const apres = arrondiSup(brut * (1 - palier.pourcentage), t.arrondi);
-      if (apres < brut) lignes.push({ libelle: `Réduction forfait ${Math.round(palier.pourcentage * 100)} %`, montant: apres - brut });
+      if (apres < brut) lignes.push({ libelle: `Réduction forfait ${Math.round(palier.pourcentage * 100)} %`, montant: apres - brut, base: true });
       details.reduction = Math.round(palier.pourcentage * 100);
     }
     aConfirmer.push("Forfait par semaine : Rebecca confirme les jours et les horaires avec vous.");
@@ -568,20 +571,24 @@ function verifierFermetures(d, t) {
 
 /* ---------- Code promo ---------- */
 
-// Reduction sur la prestation seulement : les peages / frais annonces ne sont pas reduits
+// Remise sur le TARIF DE BASE seulement (lignes marquees base: true).
+// Jamais sur : nuit, urgence, bagages, arrets, etages, colis, attente, peages, frais de gestion.
+// Les codes viennent de t.codesPromo (lus dans Firestore par le formulaire) : aucun code n'est ecrit dans le programme.
+// Le prix final est arrondi au shekel superieur.
 function appliquerPromo(r, d, t) {
-  const code = String(d.codePromo || "").trim().toUpperCase();
+  const code = normaliserCode(d.codePromo);
   if (!code || !r || !r.ok || r.bloque || r.total == null) return r;
   const promo = t.codesPromo && t.codesPromo[code];
-  if (!promo) {
-    return { ...r, aConfirmer: [...r.aConfirmer, `Code promo « ${code} » non reconnu : aucune réduction appliquée.`], details: { ...r.details, promo: { statut: "inconnu", code } } };
-  }
-  const eligible = r.lignes.filter((l) => !/^Péages/.test(l.libelle)).reduce((s, l) => s + (l.montant || 0), 0);
-  const brut = promo.type === "pourcentage" ? (eligible * promo.valeur) / 100 : promo.valeur;
-  const reduction = Math.min(Math.round(brut), eligible);
+  const refuse = (statut, message) => ({ ...r, aConfirmer: [...r.aConfirmer, message], details: { ...r.details, promo: { statut, code } } });
+  if (!promo) return refuse("inconnu", `Code promo « ${code} » non reconnu : aucune réduction appliquée.`);
+  const etat = etatCode(promo, aujourdhui());
+  if (etat === "expire") return refuse("expire", `Code promo « ${code} » expiré : aucune réduction appliquée.`);
+  if (etat !== "actif") return refuse("inactif", `Code promo « ${code} » non valable : aucune réduction appliquée.`);
+  const eligible = r.lignes.filter((l) => l.base).reduce((s, l) => s + (l.montant || 0), 0);
+  const reduction = calculerRemise(eligible, promo);
   if (reduction <= 0) return r;
-  const lignes = [...r.lignes, { libelle: `Code promo ${code} (${promo.libelle})`, montant: -reduction }];
-  const total = r.total - reduction;
+  const lignes = [...r.lignes, { libelle: `Code promo ${code} (${libelleRemise(promo)})`, montant: -reduction }];
+  const total = Math.ceil(r.total - reduction - 1e-9);
   const details = { ...r.details, promo: { statut: "applique", code, reduction } };
   if (details.rentabilite) details.rentabilite = analyserRentabilite(d, total, t); // gain reel apres reduction
   return { ...r, lignes, total, details };

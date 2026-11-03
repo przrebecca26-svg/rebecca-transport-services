@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Champ from "./Champ.jsx";
 import Devis from "./Devis.jsx";
-import { SERVICES, FORMULAIRES, CHAMPS_CLIENT, valeursInitiales, champsVisibles, valider, trajetACalculer, besoinDistance, versDemande, messageWhatsApp } from "../services.js";
+import { SERVICES, FORMULAIRES, CHAMPS_CLIENT, PROMO_CHAMPS, valeursInitiales, champsVisibles, valider, trajetACalculer, besoinDistance, versDemande, messageWhatsApp } from "../services.js";
 import { calculerTrajet } from "../routing.js";
 import { calculer } from "../pricing/engine.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
@@ -94,6 +94,12 @@ export default function ServiceForm({ service, onRetour, onEnvoye }) {
       <div className="bloc">
         <h3>Vos coordonnées</h3>
         {CHAMPS_CLIENT.map((c) => (
+          <Champ key={c.name} champ={c} valeurs={v} erreur={erreurs[c.name]} onChange={changer} />
+        ))}
+      </div>
+
+      <div className="bloc promo">
+        {PROMO_CHAMPS.filter((c) => !c.si || c.si(v)).map((c) => (
           <Champ key={c.name} champ={c} valeurs={v} erreur={erreurs[c.name]} onChange={changer} />
         ))}
       </div>

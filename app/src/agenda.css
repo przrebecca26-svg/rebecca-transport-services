@@ -1,0 +1,23 @@
+/* Agenda : gestion des fermetures - Rebecca Transport & Services */
+.fm-form { display: grid; gap: 10px; margin-top: 10px; }
+.fm-ligne { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fm-champ { display: grid; gap: 4px; font-size: 14px; color: var(--gris); }
+.fm-champ input { min-width: 0; min-height: 48px; padding: 10px 12px; font: inherit; color: var(--noir); border: 1px solid var(--or-clair); border-radius: 12px; background: var(--creme); }
+.fm-erreur { margin: 0; color: var(--erreur); font-weight: 600; }
+.fm-ok { margin: 0; color: #2e7d32; font-weight: 600; }
+.fm-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--rose); }
+.fm-item:first-of-type { border-top: 0; }
+.fm-item p { margin: 0 !important; }
+.fm-item small { color: var(--gris); }
+.fm-petit { flex: none; min-height: 44px; padding: 8px 14px; font: inherit; font-size: 14px; font-weight: 600; color: var(--blanc); background: var(--noir); border: 0; border-radius: 12px; cursor: pointer; }
+.fm-petit:disabled { opacity: 0.6; cursor: default; }
+.fm-petit.clair { color: var(--noir); background: var(--rose); }
+.fm-petit.alerte { background: var(--erreur); }
+.fm-ferme { color: var(--erreur); font-weight: 600; }
+.cf-item { padding: 6px 0; border-top: 1px solid var(--rose); }
+.cf-item:first-of-type { border-top: 0; }
+.cf-item .fm-item { border-top: 0; padding-bottom: 4px; }
+.cf-modifier { padding: 8px 0; font: inherit; font-size: 14px; color: var(--or); background: none; border: 0; cursor: pointer; }
+.cf-jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cf-jour { min-height: 44px; padding: 0; font: inherit; font-size: 13px; color: var(--noir); background: var(--rose); border: 0; border-radius: 10px; cursor: pointer; }
+.cf-jour.actif { color: var(--blanc); background: var(--noir); }

@@ -3,7 +3,7 @@
 // Toutes les valeurs viennent de config.js (jamais de prix ecrit ailleurs).
 
 import { TARIFS, coutParKm, partRetourAVide } from "./config.js";
-import { verifierDisponibilite, localVersUtc } from "./calendrier.js";
+import { verifierDisponibilite, localVersUtc, ajouterJours as ajouterJoursLocal } from "./calendrier.js";
 
 /* ---------- Outils ---------- */
 
@@ -91,28 +91,58 @@ export function estLocal(d, plancher, t = TARIFS) {
 // Minimum d'un aller simple : grille B validee si le scenario actif est B
 const minimumSimple = (plancher, scenario) => (scenario === "B" ? plancher.prixSimple : plancher.prix);
 
-// Arrets supplementaires (livraison, Hatan & Kala, mise a disposition) :
-// - dans Netanya ou SUR LA ROUTE (meme direction, pas plus loin que le point le plus eloigne deja atteint) = forfait
-// - plus loin = prix de la ville (grille B)
-function lignesArrets(lignes, aConfirmer, d, t, libelle) {
-  // Points deja atteints par le trajet principal : on retient le plus eloigne dans chaque direction
+// Arrets supplementaires (livraison, Hatan & Kala, mise a disposition).
+// L'ORDRE DES ARRETS NE COMPTE PAS : on facture le point le plus loin dans chaque direction
+// (nord / sud) au prix de la grille B, et chaque autre arret = forfait (Netanya ou sur la route).
+// basePrix = prix deja facture pour le trajet principal (il est deduit du complement).
+function lignesArrets(lignes, aConfirmer, d, t, libelle, basePrix = 0) {
+  const grille = (z) => (t.zones[z].grilleB || {}).simple || t.zones[z].minimum;
+  const axeDe = (z) => (z && t.zones[z] ? t.zones[z].axe : null);
+  const arrets = d.arretsZones || [];
+
+  // Ce que le trajet principal atteint deja, par direction
+  const portee = {};
+  const porteeZone = {};
+  [d.zoneDepart, d.zoneArrivee].forEach((z) => {
+    const a = axeDe(z);
+    if (a && a.sens !== "centre" && (portee[a.sens] || 0) < a.rang) {
+      portee[a.sens] = a.rang;
+      porteeZone[a.sens] = z;
+    }
+  });
+
+  // Arret le plus loin par direction
   const loin = {};
-  const atteint = (zone) => {
-    const a = zone && t.zones[zone] && t.zones[zone].axe;
-    if (a && a.sens !== "centre" && (loin[a.sens] || 0) < a.rang) loin[a.sens] = a.rang;
-  };
-  atteint(d.zoneDepart);
-  atteint(d.zoneArrivee);
-  (d.arretsZones || []).forEach((zone, i) => {
+  arrets.forEach((z, i) => {
+    const a = axeDe(z);
+    if (a && a.sens !== "centre" && a.rang > ((loin[a.sens] && loin[a.sens].rang) || 0)) loin[a.sens] = { rang: a.rang, zone: z, indice: i };
+  });
+
+  // Complement de trajet quand un arret depasse ce que le trajet principal atteint
+  const principaux = {};
+  Object.keys(loin).forEach((sens) => {
+    if (loin[sens].rang > (portee[sens] || 0)) {
+      principaux[sens] = loin[sens].indice;
+      const deja = portee[sens] ? basePrix : 0;
+      lignes.push({ libelle: `Trajet jusqu'à ${t.zones[loin[sens].zone].nom}`, montant: Math.max(0, grille(loin[sens].zone) - deja) });
+      // la destination principale devient une etape sur la route
+      if (porteeZone[sens] && porteeZone[sens] !== "netanya") {
+        lignes.push({ libelle: `Étape principale : ${t.zones[porteeZone[sens]].nom} (sur la route)`, montant: t.arretsSupplementaires.surLaRoute });
+      }
+    }
+  });
+  const principalIndices = Object.keys(principaux).map((k) => principaux[k]);
+
+  arrets.forEach((zone, i) => {
+    if (principalIndices.includes(i)) return; // deja facture dans le complement de trajet
     const nom = `${libelle} ${i + 1}`;
-    const axe = zone && t.zones[zone] ? t.zones[zone].axe : null;
+    const a = axeDe(zone);
     if (zone === "netanya") {
       lignes.push({ libelle: `${nom} (Netanya)`, montant: t.arretsSupplementaires.netanya });
-    } else if (axe && (loin[axe.sens] || 0) >= axe.rang) {
+    } else if (a && a.sens !== "centre") {
       lignes.push({ libelle: `${nom} : ${t.zones[zone].nom} (sur la route)`, montant: t.arretsSupplementaires.surLaRoute });
     } else if (zone && t.zones[zone]) {
-      lignes.push({ libelle: `${nom} : ${t.zones[zone].nom}`, montant: (t.zones[zone].grilleB || {}).simple || t.zones[zone].minimum });
-      atteint(zone);
+      lignes.push({ libelle: `${nom} : ${t.zones[zone].nom}`, montant: grille(zone) });
     } else aConfirmer.push(`${nom} : adresse hors grille, prix à confirmer par Rebecca.`);
   });
 }
@@ -258,7 +288,7 @@ function calculerLivraison(d, t) {
   const lignes = [{ libelle: "Livraison", montant: base }];
   supplementNuit(lignes, "Livraison", base, d.heure, t);
   const aConfirmer = [];
-  lignesArrets(lignes, aConfirmer, d, t, "Livraison supplémentaire");
+  lignesArrets(lignes, aConfirmer, d, t, "Livraison supplémentaire", base);
   if (d.urgent) lignes.push({ libelle: "Livraison urgente", montant: t.livraison.urgence });
   if (d.zoneArrivee && d.zoneArrivee !== "netanya") aConfirmer.push("Livraison hors secteur Netanya : supplément annoncé avant validation.");
   return construire({ lignes, aConfirmer });
@@ -316,7 +346,7 @@ function calculerHatanKala(d, t) {
   const lignes = [{ libelle: "Transport Hatan & Kala", montant: base }];
   supplementNuit(lignes, "Transport", base, d.heure, t);
   const aConfirmer = [];
-  lignesArrets(lignes, aConfirmer, d, t, "Arrêt supplémentaire");
+  lignesArrets(lignes, aConfirmer, d, t, "Arrêt supplémentaire", base);
   if (d.decoration) lignes.push({ libelle: "Décoration du véhicule", montant: t.hatanKala.decoration });
   return construire({ lignes, aConfirmer, details });
 }
@@ -362,17 +392,60 @@ function calculerMiseADisposition(d, t) {
     },
   ];
   const aConfirmer = [];
+  let prixUnTrajet = 0;
   const plancher = plancherGrille(d.zoneDepart, d.zoneArrivee, t);
   if (d.zoneDepart || d.zoneArrivee || d.aller) {
     if (!estLocal(d, plancher, t)) {
       const formule = d.aller && d.aller.km > 0 && d.aller.minutes > 0 ? arrondiSup(prixFormule(d.aller.km, d.aller.minutes, t), t.arrondi) : 0;
       const parTrajet = Math.max(plancher.prixParTrajetAR, formule);
+      prixUnTrajet = parTrajet;
       if (parTrajet > 0) lignes.push({ libelle: `Trajet aller-retour (2 x ${parTrajet} ₪)`, montant: parTrajet * 2 });
       else aConfirmer.push("Déplacement hors Netanya : prix à confirmer par Rebecca.");
     }
   }
-  lignesArrets(lignes, aConfirmer, d, t, "Arrêt supplémentaire");
+  lignesArrets(lignes, aConfirmer, d, t, "Arrêt supplémentaire", prixUnTrajet);
   return construire({ lignes, aConfirmer, details: { minutesFacturees: facturees } });
+}
+
+/* ---------- Ramassage scolaire ---------- */
+
+function calculerRamassage(d, t) {
+  if (!d.aller || !(d.aller.km > 0) || !(d.aller.minutes > 0)) return erreur("Distance du trajet manquante.");
+  const lignes = [];
+  const aConfirmer = [];
+  const plancher = plancherGrille(d.zoneDepart, d.zoneArrivee, t);
+  if (!plancher.zone && !estLocal(d, plancher, t)) aConfirmer.push("Trajet hors axe Netanya : prix à confirmer par Rebecca.");
+  const intraNetanya = d.zoneDepart === "netanya" && d.zoneArrivee === "netanya" && d.aller.km <= t.netanyaPlafond.kmMax;
+  const plafond = intraNetanya ? t.netanyaPlafond.prix : Infinity;
+  const formule = arrondiSup(prixFormule(d.aller.km, d.aller.minutes, t), t.arrondi);
+  const parTrajet = Math.min(Math.max(formule, plancher.prixParTrajetAR), plafond);
+  const trajets = d.trajets === 2 ? 2 : 1;
+  const hebdo = d.frequence === "semaine";
+  const jours = hebdo ? (d.joursSemaine || []).length : 1;
+  if (hebdo && jours === 0) return erreur("Choisissez au moins un jour.");
+  const details = { parTrajet, trajets, jours, hebdo };
+
+  if (!hebdo) {
+    lignes.push({ libelle: trajets === 2 ? `Ramassage : 2 trajets x ${parTrajet} ₪` : "Ramassage : 1 trajet", montant: parTrajet * trajets });
+    supplementNuit(lignes, "Trajet 1", parTrajet, d.heure, t);
+    if (trajets === 2) supplementNuit(lignes, "Trajet 2", parTrajet, d.heure2 || d.heure, t);
+  } else {
+    const brut = parTrajet * trajets * jours;
+    const palier = [...t.ramassage.reductions].sort((a, b) => b.minJours - a.minJours).find((r) => jours >= r.minJours);
+    lignes.push({ libelle: `Forfait semaine : ${jours} jour(s) x ${trajets} trajet(s) x ${parTrajet} ₪`, montant: brut });
+    if (palier) {
+      const apres = arrondiSup(brut * (1 - palier.pourcentage), t.arrondi);
+      if (apres < brut) lignes.push({ libelle: `Réduction forfait ${Math.round(palier.pourcentage * 100)} %`, montant: apres - brut });
+      details.reduction = Math.round(palier.pourcentage * 100);
+    }
+    aConfirmer.push("Forfait par semaine : Rebecca confirme les jours et les horaires avec vous.");
+  }
+  const r = construire({ lignes, aConfirmer, details });
+  // Rentabilite sur une journee type (retour a vide pris en compte si un seul trajet)
+  const totalJour = r.total / jours;
+  r.details.rentabilite = analyserRentabilite({ ...d, allerRetour: trajets === 2, retour: d.aller }, totalJour, t);
+  if (r.details.rentabilite.alerte) r.aConfirmer.push("Rentabilité faible (retour à vide) : vérifier le prix avant de confirmer.");
+  return r;
 }
 
 /* ---------- Disponibilite : Chabbat, fetes, fermetures exceptionnelles ---------- */
@@ -400,6 +473,19 @@ export function creneauxOccupes(d, t = TARIFS) {
       return [{ date: d.date, heure: d.heure, minutes: d.aller && d.aller.minutes ? d.aller.minutes * 2 : defaut.livraison }];
     case "attente":
       return [{ date: d.date, heure: d.heure, minutes: d.dureeMinutes || 60 }];
+    case "ramassage": {
+      const minutes = d.aller && d.aller.minutes ? d.aller.minutes * 2 : 60;
+      const heures = [d.heure, ...(d.trajets === 2 && d.heure2 ? [d.heure2] : [])];
+      const dates = [];
+      if (d.frequence === "semaine") {
+        for (let k = 0; k < 7; k++) {
+          const jour = ajouterJoursLocal(d.date, k);
+          const [a, m, j] = jour.split("-").map(Number);
+          if ((d.joursSemaine || []).includes(new Date(Date.UTC(a, m - 1, j, 12)).getUTCDay())) dates.push(jour);
+        }
+      } else dates.push(d.date);
+      return dates.flatMap((date) => heures.map((heure) => ({ date, heure, minutes })));
+    }
     default:
       return [{ date: d.date, heure: d.heure, minutes: d.dureeEstimeeMinutes || defaut[d.service] || 60 }];
   }
@@ -499,6 +585,9 @@ export function calculer(demande, t = TARIFS) {
       break;
     case "attente":
       r = calculerMiseADisposition(d, t);
+      break;
+    case "ramassage":
+      r = calculerRamassage(d, t);
       break;
     default:
       return erreur(`Service inconnu : ${d.service}`);

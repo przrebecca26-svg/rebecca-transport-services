@@ -1,0 +1,7 @@
+/* Depenses - Rebecca Transport & Services */
+.dp-mois { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.dp-mois strong { flex: 1; text-align: center; font-size: 18px; text-transform: capitalize; }
+.dp-fleche { flex: none; width: 48px; min-height: 48px; font: inherit; font-size: 22px; color: var(--noir); background: var(--rose); border: 0; border-radius: 12px; cursor: pointer; }
+.dp-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 18px; }
+.dp-total strong { font-size: 24px; white-space: nowrap; }
+.pm-resume strong, .pm-liste strong { white-space: nowrap; }

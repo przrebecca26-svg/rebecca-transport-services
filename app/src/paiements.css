@@ -12,3 +12,7 @@
 .pm-form h4 { margin: 0; font-size: 16px; }
 .pm-champ { display: grid; gap: 4px; font-size: 14px; color: var(--gris); }
 .pm-champ input, .pm-champ select { min-width: 0; min-height: 48px; padding: 10px 12px; font: inherit; font-size: 16px; color: var(--noir); border: 1px solid var(--or-clair); border-radius: 12px; background: var(--creme); }
+.pm-cas { display: grid; gap: 4px; margin: 0; padding: 8px 12px; border: 1px solid var(--rose); border-radius: 12px; }
+.pm-cas legend { padding: 0 6px; font-size: 14px; color: var(--gris); }
+.pm-radio { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 16px; color: var(--noir); }
+.pm-radio input { flex: none; width: 22px; height: 22px; accent-color: var(--or); }

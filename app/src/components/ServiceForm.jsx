@@ -6,6 +6,7 @@ import { calculerTrajet } from "../routing.js";
 import { calculer } from "../pricing/engine.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
+import { construireDemande, enregistrerDemande } from "../demandes.js";
 
 const adresseSaisie = (a) => !!(a && a.label && a.label.trim());
 
@@ -73,7 +74,15 @@ export default function ServiceForm({ service, onRetour, onEnvoye }) {
     if (bloque) return;
     const message = messageWhatsApp(service, v, resultat && resultat.ok ? resultat : null);
     const url = lienWhatsApp(WHATSAPP, message);
+    // WhatsApp d'abord (le navigateur exige l'ouverture au moment du clic)
     window.open(url, "_blank", "noopener");
+    // Puis enregistrement dans la base : si cela echoue, le client n'est jamais bloque
+    try {
+      const demande = construireDemande(service, v, resultat && resultat.ok ? resultat : null, distanceOk ? trajet : null, message);
+      enregistrerDemande(demande).catch(() => {});
+    } catch {
+      /* WhatsApp est deja parti : on continue */
+    }
     onEnvoye({ url, message, service: infos.titre });
   };
 
@@ -115,6 +124,7 @@ export default function ServiceForm({ service, onRetour, onEnvoye }) {
         </button>
       </div>
       <p className="mention">Votre demande n'est pas une réservation : Rebecca la valide selon ses disponibilités et vous répond sur WhatsApp.</p>
+      <p className="mention">Vos informations sont enregistrées pour traiter votre demande.</p>
     </form>
   );
 }

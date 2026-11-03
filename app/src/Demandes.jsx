@@ -160,7 +160,7 @@ function Detail({ d, onFermer }) {
               <small>{a.nom}</small>
               <p dir="auto">{a.label}</p>
             </div>
-            <a className="tb-bouton tb-clair" href={lienWaze({ adresse: a.label, lat: a.lat, lon: a.lon })} target="_blank" rel="noopener noreferrer">Waze</a>
+            <a className="tb-bouton tb-clair" href={lienWaze(typeof a.lat === "number" && typeof a.lon === "number" ? { lat: a.lat, lon: a.lon } : { adresse: a.label })} target="_blank" rel="noopener noreferrer">Waze</a>
           </div>
         ))}
         {typeof d.kmEstime === "number" && <p className="tb-note">Distance estimée : {Math.round(d.kmEstime * 10) / 10} km{typeof d.minutesEstimees === "number" ? ` · ${Math.round(d.minutesEstimees)} min` : ""}</p>}

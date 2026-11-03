@@ -44,6 +44,11 @@ export default function Depenses() {
     );
   }, []);
 
+  // Un message d'erreur disparait des qu'un champ est modifie
+  useEffect(() => {
+    setErreur("");
+  }, [montant, motif, date, categorie]);
+
   const resume = useMemo(() => resumeMois(depenses || [], mois), [depenses, mois]);
 
   if (lectureImpossible) return <p className="admin-erreur tb-pad" role="alert">Lecture des dépenses impossible. Vérifie la connexion et les règles Firebase.</p>;

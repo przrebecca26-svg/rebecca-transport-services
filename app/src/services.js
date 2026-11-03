@@ -48,6 +48,12 @@ export const CHAMPS_CLIENT = [
   { name: "moyenPaiement", label: "Moyen de paiement prévu", type: "select", required: true, options: TARIFS.moyensPaiement.map((m) => ({ v: m, l: m })), defaut: TARIFS.moyensPaiement[0], indice: "Le paiement se fait directement avec Rebecca." },
 ];
 
+// Code promo : affiche juste avant le devis
+export const PROMO_CHAMPS = [
+  { name: "promoActif", label: "J'ai un code promo", type: "case" },
+  { name: "codePromo", label: "Votre code promo", type: "text", placeholder: "Entrez votre code", si: (v) => !!v.promoActif },
+];
+
 /* ---------- Un formulaire par service ---------- */
 
 export const FORMULAIRES = {
@@ -56,7 +62,7 @@ export const FORMULAIRES = {
     { name: "arrivee", label: "Adresse d'arrivée", type: "adresse", required: true },
     ...quand(),
     { name: "passagers", label: "Passagers", type: "nombre", min: 1, max: 6, defaut: "1", required: true },
-    { name: "bagages", label: "Bagages", type: "nombre", min: 0, max: 10, defaut: "0" },
+    { name: "bagages", label: "Bagages en soute (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
     ...retour,
     { name: "arrets", label: "Arrêts supplémentaires", type: "nombre", min: 0, max: 5, defaut: "0", indice: "Le tarif des arrêts vous est communiqué avant validation." },
     urgence,
@@ -72,7 +78,7 @@ export const FORMULAIRES = {
     { name: "heureVol", label: (v) => (v.direction === "depuis" ? "Heure d'atterrissage" : "Heure du vol"), type: "time", required: true },
     ...quand(" souhaitée"),
     { name: "passagers", label: "Passagers", type: "nombre", min: 1, max: 6, defaut: "1", required: true },
-    { name: "valises", label: "Valises", type: "nombre", min: 0, max: 10, defaut: "1" },
+    { name: "valises", label: "Bagages en soute (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
     ...retour,
     urgence,
     { name: "infos", label: "Informations complémentaires", type: "texte-long" },
@@ -85,7 +91,8 @@ export const FORMULAIRES = {
     { name: "telDestinataire", label: "Téléphone du destinataire", type: "tel", required: true },
     { name: "typeColis", label: "Que livrer ?", type: "select", required: true, defaut: "Colis", options: ["Colis", "Clés", "Documents", "Achats", "Petit objet"].map((x) => ({ v: x, l: x })) },
     ...quand(),
-    { name: "plusieursAdresses", label: "Plusieurs adresses de livraison", type: "case", indice: "Dans ce cas, le prix est établi sur devis." },
+    { name: "nbLivraisons", label: "Nombre de livraisons", type: "select", defaut: "1", options: [1, 2, 3, 4, 5].map((n) => ({ v: String(n), l: String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par livraison supplémentaire dans Netanya ; ailleurs, le trajet est ajouté au devis.` },
+    ...[2, 3, 4, 5].map((n) => ({ name: "arretL" + n, label: `Adresse de la livraison ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbLivraisons) >= n })),
     urgence,
     { name: "infos", label: "Instructions particulières", type: "texte-long" },
   ],
@@ -106,7 +113,8 @@ export const FORMULAIRES = {
     { name: "depart", label: "Adresse de départ", type: "adresse", required: true },
     { name: "arrivee", label: "Adresse d'arrivée (lieu de l'événement)", type: "adresse", required: true },
     ...quand(),
-    { name: "arrets", label: "Arrêts supplémentaires", type: "nombre", min: 0, max: 8, defaut: "0", indice: "Plusieurs arrêts : devis personnalisé." },
+    { name: "nbArrets", label: "Arrêts supplémentaires", type: "select", defaut: "0", options: [0, 1, 2, 3].map((n) => ({ v: String(n), l: n === 0 ? "Aucun" : String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par arrêt dans Netanya ; ailleurs, le trajet est ajouté au devis.` },
+    ...[1, 2, 3].map((n) => ({ name: "arretH" + n, label: `Adresse de l'arrêt ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbArrets) >= n })),
     { name: "vehiculeReserve", label: "Mise à disposition du véhicule sur la durée", type: "case", indice: "Devis personnalisé." },
     { name: "decoration", label: "Décoration du véhicule (+150 ₪)", type: "case" },
     { name: "programme", label: "Programme et horaires", type: "texte-long", required: true, placeholder: "Adresses, horaires, déroulé de la journée…" },
@@ -131,7 +139,9 @@ export const FORMULAIRES = {
     ...quand(" de début"),
     { name: "dureeHeures", label: "Durée", type: "select", required: true, defaut: "1", options: [1, 2, 3, 4, 5, 6, 7, 8].map((h) => ({ v: String(h), l: h === 1 ? "1 heure (minimum)" : `${h} heures` })) },
     { name: "dureeSupp", label: "Minutes en plus", type: "select", defaut: "0", options: [{ v: "0", l: "Aucune" }, { v: "15", l: "15 min" }, { v: "30", l: "30 min" }, { v: "45", l: "45 min" }] },
-    { name: "lieux", label: "Lieux", type: "texte-long", required: true, placeholder: "Adresse(s) concernée(s)" },
+    { name: "depart", label: "Adresse de prise en charge", type: "adresse", required: true },
+    { name: "arrivee", label: "Lieu principal", type: "adresse", required: true, indice: "Hors de Netanya, le trajet aller-retour est ajouté au devis." },
+    { name: "lieux", label: "Autres lieux (facultatif)", type: "texte-long", placeholder: "Autres adresses concernées" },
     { name: "arrets", label: "Nombre d'arrêts", type: "nombre", min: 0, max: 10, defaut: "0" },
     { name: "programme", label: "Programme", type: "texte-long", required: true },
     { name: "infos", label: "Informations complémentaires", type: "texte-long" },
@@ -142,7 +152,7 @@ export const FORMULAIRES = {
 
 export function valeursInitiales(service) {
   const v = {};
-  for (const c of [...FORMULAIRES[service], ...CHAMPS_CLIENT]) {
+  for (const c of [...FORMULAIRES[service], ...CHAMPS_CLIENT, ...PROMO_CHAMPS]) {
     if (c.defaut !== undefined) v[c.name] = c.defaut;
     else if (c.type === "case") v[c.name] = false;
     else v[c.name] = "";
@@ -176,7 +186,7 @@ export function valider(service, v) {
 export function trajetACalculer(service, v) {
   let a = null;
   let b = null;
-  if (service === "transport" || service === "hatan_kala" || service === "demenagement") [a, b] = [v.depart, v.arrivee];
+  if (service === "transport" || service === "hatan_kala" || service === "demenagement" || service === "attente") [a, b] = [v.depart, v.arrivee];
   if (service === "livraison") [a, b] = [v.recuperation, v.livraison];
   if (service === "aeroport") [a, b] = v.direction === "depuis" ? [AEROPORT, v.adresse] : [v.adresse, AEROPORT];
   if (service === "courses") [a, b] = [DEPART_ACTIVITE, v.livraison];
@@ -188,6 +198,10 @@ export function trajetACalculer(service, v) {
 /* ---------- Formulaire -> demande pour le moteur de calcul ---------- */
 
 const nb = (x) => Number(x) || 0;
+
+// Zones (grille) des adresses d'arret : une entree par arret, null si la ville n'est pas dans la grille
+const zonesArrets = (v, prefixe, nombre) =>
+  Array.from({ length: Math.max(0, nombre || 0) }, (_, i) => detecterZone(v[prefixe + (prefixe === "arretL" ? i + 2 : i + 1)] && v[prefixe + (prefixe === "arretL" ? i + 2 : i + 1)].label));
 
 export function versDemande(service, v, route, maintenantMs = Date.now()) {
   const d = { service, date: v.date, heure: v.heure };
@@ -208,12 +222,13 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
     }
     d.arrets = nb(v.arrets);
     d.urgent = !!v.urgent;
+    d.bagagesSoute = nb(service === "aeroport" ? v.valises : v.bagages);
   }
 
   if (service === "livraison") {
     d.zoneDepart = detecterZone(v.recuperation && v.recuperation.label);
     d.zoneArrivee = detecterZone(v.livraison && v.livraison.label);
-    d.arrets = v.plusieursAdresses ? 1 : 0;
+    d.arretsZones = zonesArrets(v, "arretL", Number(v.nbLivraisons) - 1);
     d.urgent = !!v.urgent;
   }
 
@@ -226,25 +241,36 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
   }
 
   if (service === "hatan_kala") {
-    d.arrets = nb(v.arrets);
+    d.zoneDepart = detecterZone(v.depart && v.depart.label);
+    d.zoneArrivee = detecterZone(v.arrivee && v.arrivee.label);
+    d.arretsZones = zonesArrets(v, "arretH", Number(v.nbArrets));
     d.vehiculeReserve = !!v.vehiculeReserve;
     d.decoration = !!v.decoration;
   }
 
   if (service === "demenagement") {
     d.categorie = v.typeDemenagement;
+    d.zoneDepart = detecterZone(v.depart && v.depart.label);
+    d.zoneArrivee = detecterZone(v.arrivee && v.arrivee.label);
+    d.etageDepart = nb(v.etageDepart);
+    d.ascenseurDepart = v.ascenseurDepart;
+    d.etageArrivee = nb(v.etageArrivee);
+    d.ascenseurArrivee = v.ascenseurArrivee;
     d.manutention = !!v.manutention;
     d.trajets = nb(v.trajets) || 1;
   }
 
   if (service === "attente") {
     d.dureeMinutes = nb(v.dureeHeures) * 60 + nb(v.dureeSupp);
+    d.zoneDepart = detecterZone(v.depart && v.depart.label);
+    d.zoneArrivee = detecterZone(v.arrivee && v.arrivee.label);
     d.arrets = nb(v.arrets);
   }
 
   if (v.urgent && v.date && v.heure) {
     d.minutesAvantDepart = Math.round((localVersUtc(v.date, v.heure) - maintenantMs) / 60000);
   }
+  d.codePromo = v.promoActif ? String(v.codePromo || "").trim() : "";
   d._trajet = !!trajet;
   return d;
 }
@@ -270,6 +296,10 @@ function texteValeur(c, val) {
     const o = (c.options || []).find((x) => x.v === val);
     return o ? o.l : String(val ?? "");
   }
+  if (c.type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(val || "")) {
+    const [a, m, j] = val.split("-").map(Number);
+    return new Date(Date.UTC(a, m - 1, j, 12)).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  }
   return val === undefined || val === null ? "" : String(val);
 }
 
@@ -286,6 +316,8 @@ export function messageWhatsApp(service, v, devis) {
     if (devis.devis) lignes.push("Prix : sur devis");
     else if (devis.total != null) lignes.push(`Estimation : ${devis.total} ₪`);
     else lignes.push("Prix : à confirmer");
+    const promo = devis.details && devis.details.promo;
+    if (promo && promo.statut === "applique") lignes.push(`Code promo : ${promo.code} (-${promo.reduction} ₪)`);
     for (const a of aConfirmerClient(devis)) lignes.push(`• ${a}`);
   }
   lignes.push("", "Merci de me confirmer la disponibilité.");

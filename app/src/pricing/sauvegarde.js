@@ -21,9 +21,13 @@ export function nettoyer(v) {
   return v;
 }
 
+// Les lettres accentuees et l'hebreu sont ecrits en \uXXXX : le fichier ne contient que des caracteres simples,
+// donc aucun logiciel ne peut mal lire les accents. Une fois relu, le texte est identique.
+const enAscii = (json) => json.replace(/[\u0080-\uffff]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+
 // Copie complete (format JSON) : demandes, mouvements d'argent, depenses
 export function sauvegardeJson({ demandes, mouvements, depenses }, maintenant = new Date()) {
-  return JSON.stringify(
+  return enAscii(JSON.stringify(
     {
       application: "Rebecca Transport & Services",
       exporteLe: maintenant.toISOString(),
@@ -34,7 +38,7 @@ export function sauvegardeJson({ demandes, mouvements, depenses }, maintenant = 
     },
     null,
     2
-  );
+  ));
 }
 
 const cellule = (v) => {

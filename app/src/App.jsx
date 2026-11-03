@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import ServiceForm from "./components/ServiceForm.jsx";
 import { SERVICES } from "./services.js";
 import { prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 import { NOM, SIGNATURE } from "./contact.js";
+
+// Espace prive : charge seulement quand on ouvre /#/admin (les clients ne le telechargent jamais)
+const Admin = lazy(() => import("./Admin.jsx"));
+const enAdmin = () => window.location.hash.startsWith("#/admin");
 
 const jourFr = (d) => d.split("-").reverse().join("/");
 
@@ -65,10 +69,23 @@ function Envoye({ info, onRetour }) {
 
 export default function App() {
   const [ecran, setEcran] = useState({ nom: "accueil" });
+  const [admin, setAdmin] = useState(enAdmin());
+  useEffect(() => {
+    const suivre = () => setAdmin(enAdmin());
+    window.addEventListener("hashchange", suivre);
+    return () => window.removeEventListener("hashchange", suivre);
+  }, []);
   const aller = (e) => {
     setEcran(e);
     window.scrollTo(0, 0);
   };
+  if (admin) {
+    return (
+      <Suspense fallback={<p className="consigne" style={{ padding: 24 }}>Chargement…</p>}>
+        <Admin />
+      </Suspense>
+    );
+  }
   return (
     <div className="appli">
       <main>

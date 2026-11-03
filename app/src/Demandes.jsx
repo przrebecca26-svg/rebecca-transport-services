@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { arrayUnion, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
+import PaiementsCourse from "./PaiementsCourse.jsx";
 
 // Liste et traitement des demandes (espace prive de Rebecca)
 
@@ -150,6 +151,8 @@ function Detail({ d, onFermer }) {
           </ul>
         )}
       </div>
+
+      <PaiementsCourse d={d} />
 
       <div className="tb-bloc">
         <h3>Itinéraires</h3>

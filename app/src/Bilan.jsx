@@ -3,6 +3,7 @@ import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { indicateurs } from "./pricing/comptes.js";
 import { TYPES, decaler, libelle, periodeDe, suivantPossible } from "./pricing/bilan.js";
+import { journalCsv, joursEntre, nomFichier, sauvegardeJson } from "./pricing/sauvegarde.js";
 import "./paiements.css";
 import "./depenses.css";
 import "./bilan.css";
@@ -12,6 +13,32 @@ import "./bilan.css";
 
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
 const euros = (n) => Math.round(n * 100) / 100 + " ₪";
+
+const CLE_SAUVEGARDE = "rebecca-derniere-sauvegarde";
+const dateSauvegarde = () => {
+  try {
+    return localStorage.getItem(CLE_SAUVEGARDE) || "";
+  } catch {
+    return "";
+  }
+};
+const noterSauvegarde = (d) => {
+  try {
+    localStorage.setItem(CLE_SAUVEGARDE, d);
+  } catch {
+    /* sans importance : le fichier est deja telecharge */
+  }
+};
+function telecharger(nom, contenu, type) {
+  const url = URL.createObjectURL(new Blob([contenu], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nom;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
 
 function Ligne({ nom, valeur, sous }) {
   return (
@@ -29,6 +56,8 @@ export default function Bilan() {
   const [lectureImpossible, setLectureImpossible] = useState(false);
   const [type, setType] = useState("mois");
   const [ref, setRef] = useState(aujourdhui());
+  const [derniere, setDerniere] = useState(dateSauvegarde());
+  const [erreurFichier, setErreurFichier] = useState("");
 
   useEffect(() => {
     const echec = () => setLectureImpossible(true);
@@ -58,6 +87,27 @@ export default function Bilan() {
     .filter(([, m]) => m !== 0)
     .sort((a, b) => b[1] - a[1]);
   const nbCourses = ind.nbCoursesTerminees;
+
+  const sauvegarder = () => {
+    setErreurFichier("");
+    try {
+      const jour = aujourdhui();
+      telecharger(nomFichier("sauvegarde", jour, "json"), sauvegardeJson({ demandes, mouvements, depenses }), "application/json");
+      noterSauvegarde(jour);
+      setDerniere(jour);
+    } catch {
+      setErreurFichier("Le téléchargement a échoué. Réessaie.");
+    }
+  };
+  const exporterJournal = () => {
+    setErreurFichier("");
+    try {
+      telecharger(nomFichier("journal", aujourdhui(), "csv"), journalCsv({ demandes, mouvements, depenses }), "text/csv;charset=utf-8");
+    } catch {
+      setErreurFichier("Le téléchargement a échoué. Réessaie.");
+    }
+  };
+  const ageSauvegarde = derniere ? joursEntre(derniere, aujourdhui()) : null;
 
   return (
     <section className="tb-liste">
@@ -127,6 +177,35 @@ export default function Bilan() {
           <Ligne nom="Reste à encaisser" valeur={euros(ind.resteAEncaisser)} />
         </ul>
         <p className="tb-note">Avances : argent reçu pour des courses pas encore faites. Reste à encaisser : courses terminées pas encore payées en totalité. Ces trois lignes montrent la situation d'aujourd'hui, quelle que soit la période choisie.</p>
+      </div>
+
+      <div className="tb-bloc">
+        <h3>Sauvegarde</h3>
+        <p className="tb-note">
+          {derniere === ""
+            ? "Aucune sauvegarde faite depuis cet appareil."
+            : ageSauvegarde >= 7
+              ? "Dernière sauvegarde il y a " + ageSauvegarde + " jours : pense à en faire une nouvelle."
+              : ageSauvegarde === 0
+                ? "Dernière sauvegarde : aujourd'hui."
+                : "Dernière sauvegarde il y a " + ageSauvegarde + " jour" + (ageSauvegarde > 1 ? "s" : "") + "."}
+        </p>
+        <div className="tb-actions">
+          <button className="tb-bouton" onClick={sauvegarder}>
+            Télécharger ma sauvegarde
+          </button>
+          <button className="tb-bouton tb-clair" onClick={exporterJournal}>
+            Journal des comptes (tableur)
+          </button>
+        </div>
+        {erreurFichier && (
+          <p className="admin-erreur" role="alert">
+            {erreurFichier}
+          </p>
+        )}
+        <p className="tb-note">
+          La sauvegarde contient toutes tes demandes, paiements, remboursements et dépenses. Le journal s'ouvre dans Excel ou Numbers. Garde ces fichiers en lieu sûr : ils contiennent les noms et numéros de tes clients. Une sauvegarde par semaine est conseillée.
+        </p>
       </div>
     </section>
   );

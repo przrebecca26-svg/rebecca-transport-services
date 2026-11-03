@@ -1,4 +1,4 @@
-// LES 7 SERVICES - Rebecca Transport & Services
+// LES 8 SERVICES - Rebecca Transport & Services
 // Chaque service a SON formulaire : les champs ci-dessous sont propres a chaque prestation.
 // Les prix ne sont jamais ecrits ici : tout vient de pricing/config.js (base tarifaire unique).
 
@@ -23,6 +23,7 @@ export const SERVICES = [
   { id: "courses", titre: "Courses et achats", icone: "🛍️", texte: "Je récupère vos achats ou je fais les courses pour vous.", prix: "dès 60 ₪" },
   { id: "hatan_kala", titre: "Hatan & Kala", icone: "💍", texte: "Transport des mariés, décoration du véhicule possible.", prix: "dès 220 ₪" },
   { id: "demenagement", titre: "Petit déménagement", icone: "📚", texte: "Valises, cartons, petits objets.", prix: "dès 130 ₪" },
+  { id: "ramassage", titre: "Ramassage scolaire", icone: "🎒", texte: "Je vais chercher votre enfant à l'école ou je l'y emmène : trajet unique ou forfait à la semaine.", prix: "dès 55 ₪ / trajet" },
   { id: "attente", titre: "Mise à disposition", icone: "⏱️", texte: "Attente, accompagnement, événements : à l'heure.", prix: "100 ₪ / heure" },
 ];
 
@@ -135,6 +136,25 @@ export const FORMULAIRES = {
     { name: "trajets", label: "Nombre de trajets prévus", type: "nombre", min: 1, max: 5, defaut: "1" },
   ],
 
+  ramassage: [
+    { name: "frequence", label: "Fréquence", type: "choix", required: true, defaut: "unique", options: [{ v: "unique", l: "Une seule fois" }, { v: "semaine", l: "Forfait à la semaine" }] },
+    { name: "trajetsRamassage", label: "Quels trajets ?", type: "choix", required: true, defaut: "matin", options: [{ v: "matin", l: "Matin : domicile → école" }, { v: "apres", l: "Après-midi : école → domicile" }, { v: "deux", l: "Les deux" }] },
+    { name: "enfant", label: "Prénom de l'enfant", type: "text", required: true },
+    { name: "domicile", label: "Adresse du domicile", type: "adresse", required: true },
+    { name: "ecole", label: "Adresse de l'école", type: "adresse", required: true },
+    { name: "date", label: (v) => (v.frequence === "semaine" ? "Premier jour" : "Date"), type: "date", required: true },
+    { name: "heure", label: (v) => (v.trajetsRamassage === "apres" ? "Heure de sortie de l'école" : "Heure de prise en charge au domicile"), type: "time", required: true },
+    { name: "heure2", label: "Heure de sortie de l'école", type: "time", required: true, si: (v) => v.trajetsRamassage === "deux" },
+    ...["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"].map((j, i) => ({
+      name: "jour" + i,
+      label: j,
+      type: "case",
+      si: (v) => v.frequence === "semaine",
+      ...(i === 0 ? { indice: "Cochez les jours souhaités. Dès 3 jours : -10 %, 5 jours : -15 %." } : {}),
+    })),
+    { name: "infos", label: "Informations utiles (classe, personne autorisée, code du portail…)", type: "texte-long" },
+  ],
+
   attente: [
     ...quand(" de début"),
     { name: "dureeHeures", label: "Durée", type: "select", required: true, defaut: "1", options: [1, 2, 3, 4, 5, 6, 7, 8].map((h) => ({ v: String(h), l: h === 1 ? "1 heure (minimum)" : `${h} heures` })) },
@@ -177,6 +197,7 @@ export function valider(service, v) {
       erreurs[c.name] = "Ce champ est obligatoire.";
     }
   }
+  if (service === "ramassage" && v.frequence === "semaine" && ![0, 1, 2, 3, 4, 5].some((i) => v["jour" + i])) erreurs.jour0 = "Choisissez au moins un jour.";
   if (v.telephone && String(v.telephone).replace(/\D/g, "").length < 9) erreurs.telephone = "Numéro de téléphone trop court.";
   if (v.telDestinataire && String(v.telDestinataire).replace(/\D/g, "").length < 9) erreurs.telDestinataire = "Numéro de téléphone trop court.";
   return erreurs;
@@ -191,6 +212,7 @@ export function trajetACalculer(service, v) {
   if (service === "livraison") [a, b] = [v.recuperation, v.livraison];
   if (service === "aeroport") [a, b] = v.direction === "depuis" ? [AEROPORT, v.adresse] : [v.adresse, AEROPORT];
   if (service === "courses") [a, b] = [DEPART_ACTIVITE, v.livraison];
+  if (service === "ramassage") [a, b] = [v.domicile, v.ecole];
   if (!a || !b) return null;
   if (typeof a.lat !== "number" || typeof b.lat !== "number") return null;
   return { depart: a, arrivee: b };
@@ -261,6 +283,15 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
     d.trajets = nb(v.trajets) || 1;
   }
 
+  if (service === "ramassage") {
+    d.zoneDepart = detecterZone(v.domicile && v.domicile.label);
+    d.zoneArrivee = detecterZone(v.ecole && v.ecole.label);
+    d.frequence = v.frequence;
+    d.trajets = v.trajetsRamassage === "deux" ? 2 : 1;
+    d.heure2 = v.heure2;
+    d.joursSemaine = [0, 1, 2, 3, 4, 5].filter((i) => v["jour" + i]);
+  }
+
   if (service === "attente") {
     d.dureeMinutes = nb(v.dureeHeures) * 60 + nb(v.dureeSupp);
     d.zoneDepart = detecterZone(v.depart && v.depart.label);
@@ -279,7 +310,7 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
 /* ---------- Le calcul a-t-il besoin de la distance ? ---------- */
 
 export const besoinDistance = (service, v) => {
-  if (["transport", "aeroport", "livraison"].includes(service)) return true;
+  if (["transport", "aeroport", "livraison", "ramassage"].includes(service)) return true;
   if (service === "hatan_kala") return true; // optionnel mais ameliore le prix
   if (service === "demenagement") return v.typeDemenagement !== "important";
   return false;

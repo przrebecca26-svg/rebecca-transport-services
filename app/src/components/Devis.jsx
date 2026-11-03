@@ -62,7 +62,7 @@ export default function Devis({ resultat, trajet, pretPourCalcul, manque }) {
       {notes.map((n, i) => (
         <p className="note" key={i}>• {n}</p>
       ))}
-      {trajet && trajet.statut === "ok" && <p className="note">Trajet estimé : {trajet.km} km, environ {trajet.minutes} min.</p>}
+      {trajet && trajet.statut === "ok" && trajet.km >= 1 && <p className="note">Trajet estimé : {trajet.km} km, environ {trajet.minutes} min.</p>}
       <p className="note">Prix estimatif : Rebecca confirme le prix définitif avec la réservation. Aucun supplément surprise.</p>
     </section>
   );

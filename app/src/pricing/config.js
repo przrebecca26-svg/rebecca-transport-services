@@ -178,16 +178,9 @@ export const TARIFS = {
   // Demenagement : prestation de base + trajet hors Netanya + etages sans ascenseur (a partir du 2e)
   demenagement: { valises: 130, cartons: 180, parEtageSansAscenseur: 10 },
 
-  // CODES PROMO : pourcentage OU montant fixe, appliques sur la prestation seulement (pas sur peages/frais annonces)
-  // Exemples a remplacer par tes vrais codes. Ecris le code en MAJUSCULES.
-  codesPromo: {
-    BIENVENUE: { type: "pourcentage", valeur: 10, libelle: "-10 %" },
-    FIDELE15: { type: "pourcentage", valeur: 15, libelle: "-15 %" },
-    VIP20: { type: "pourcentage", valeur: 20, libelle: "-20 %" },
-    AMI10: { type: "montant", valeur: 10, libelle: "-10 ₪" },
-    MERCI20: { type: "montant", valeur: 20, libelle: "-20 ₪" },
-    CADEAU30: { type: "montant", valeur: 30, libelle: "-30 ₪" },
-  },
+  // CODES PROMO : ils ne sont plus ecrits ici (ce fichier est public).
+  // Rebecca les cree dans son espace prive (onglet Codes promo) ; le formulaire lit le code saisi dans Firestore.
+  codesPromo: {},
 
   // Pas de paiement en ligne au lancement : on enregistre seulement le moyen et les sommes
   moyensPaiement: ["Espèces", "Carte bancaire", "Revolut", "Bit"],

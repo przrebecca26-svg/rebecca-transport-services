@@ -5,7 +5,8 @@
 //  - Un mouvement d'argent n'est JAMAIS modifie ni supprime : on ajoute une nouvelle ligne
 //    (une erreur se corrige par une "correction" avec motif).
 //  - Aucune penalite ni aucun frais d'annulation n'est applique sans validation de Rebecca.
-//  - Les penalites sont DESACTIVEES par defaut (cadre juridique du transport en Israel a confirmer).
+//  - Regle choisie par Rebecca : annulation client / tardive / absence = l'acompte reste acquis.
+//    A faire confirmer par un juriste ou comptable (plafonds legaux possibles en Israel) : tout est modifiable ici.
 //  - Un remboursement n'est "effectue" que lorsque Rebecca enregistre le virement reel.
 //
 // MOUVEMENTS (liste ajoutee au fil du temps) :
@@ -24,14 +25,14 @@ export const REGLAGES_PAR_DEFAUT = {
   acomptePourcent: 20,
   acompteMinimum: 10, // en shekels
   annulation: {
-    // actif:false = aucun frais retenu (remboursement complet propose)
+    // actif:true = l'acompte est conserve (choix de Rebecca) ; actif:false = remboursement complet
     // mode : "aucun" | "acompte" | "pourcentage" | "montant" | "plafond_legal"
     //   pourcentage : valeur = % du prix        montant : valeur = somme fixe
     //   plafond_legal : le plus bas de (valeur % du prix) et plafond (ex. 5 % ou 100 shekels)
     // plafond (facultatif) : les frais ne depassent jamais cette somme
-    client: { actif: false, mode: "plafond_legal", valeur: 5, plafond: 100 },
-    tardive: { actif: false, mode: "acompte", valeur: 0, plafond: null, heuresAvant: 24 },
-    absence: { actif: false, mode: "acompte", valeur: 0, plafond: null },
+    client: { actif: true, mode: "acompte", valeur: 0, plafond: null },
+    tardive: { actif: true, mode: "acompte", valeur: 0, plafond: null, heuresAvant: 24 },
+    absence: { actif: true, mode: "acompte", valeur: 0, plafond: null },
   },
 };
 

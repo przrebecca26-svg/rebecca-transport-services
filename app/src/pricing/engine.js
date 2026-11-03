@@ -91,7 +91,7 @@ export function estLocal(d, plancher, t = TARIFS) {
 // Minimum d'un aller simple : grille B validee si le scenario actif est B
 const minimumSimple = (plancher, scenario) => (scenario === "B" ? plancher.prixSimple : plancher.prix);
 
-// Arrets supplementaires (livraison, Hatan & Kala, mise a disposition).
+// Arrets supplementaires (Hatan & Kala, mise a disposition).
 // L'ORDRE DES ARRETS NE COMPTE PAS : on facture le point le plus loin dans chaque direction
 // (nord / sud) au prix de la grille B, et chaque autre arret = forfait (Netanya ou sur la route).
 // basePrix = prix deja facture pour le trajet principal (il est deduit du complement).
@@ -281,14 +281,45 @@ function calculerLivraison(d, t) {
   if (!d.aller || !(d.aller.km > 0)) return erreur("Distance de la livraison manquante.");
   const minutes = d.aller.minutes || (d.aller.km / 40) * 60;
   const B = prixAllerSimple(d.aller.km, minutes, d.scenario, t);
-  const base = Math.max(t.livraison.minimum, B);
+  const grille = (z) => (z && t.zones[z] ? (t.zones[z].grilleB || {}).simple || t.zones[z].minimum : 0);
+  const axeDe = (z) => (z && t.zones[z] ? t.zones[z].axe : null);
+  const nomZone = (z) => t.zones[z].nom;
+
+  // RESULTAT INDEPENDANT DE L'ORDRE DES ADRESSES : toutes les livraisons forment une tournee.
+  // Le point le plus loin (au tarif de la grille) porte le prix de base ; chaque autre livraison = forfait.
+  const drops = [d.zoneArrivee, ...(d.arretsZones || [])];
+  const loin = {};
+  drops.forEach((z, i) => {
+    const a = axeDe(z);
+    if (a && a.sens !== "centre" && (!loin[a.sens] || a.rang > loin[a.sens].rang)) loin[a.sens] = { rang: a.rang, zone: z, i };
+  });
+  const directions = Object.values(loin).sort((x, y) => grille(y.zone) - grille(x.zone));
+  const couverts = new Set();
+  let base = Math.max(t.livraison.minimum, B);
+  if (directions.length) {
+    base = Math.max(base, grille(directions[0].zone));
+    couverts.add(directions[0].i);
+  } else couverts.add(0);
   if (base > t.livraison.plafondAvantDevis) {
     return construire({ lignes: [], devis: true, aConfirmer: ["Livraison longue distance : sur devis."], details: { estimation: base } });
   }
-  const lignes = [{ libelle: "Livraison", montant: base }];
+
+  const lignes = [{ libelle: directions.length ? `Livraison jusqu'à ${nomZone(directions[0].zone)}` : "Livraison", montant: base }];
   supplementNuit(lignes, "Livraison", base, d.heure, t);
   const aConfirmer = [];
-  lignesArrets(lignes, aConfirmer, d, t, "Livraison supplémentaire", base);
+  // Une autre direction (ex : nord et sud) = un trajet complet en plus
+  directions.slice(1).forEach((x) => {
+    lignes.push({ libelle: `Trajet jusqu'à ${nomZone(x.zone)}`, montant: grille(x.zone) });
+    couverts.add(x.i);
+  });
+  drops.forEach((z, i) => {
+    if (couverts.has(i)) return;
+    const nom = i === 0 ? "Livraison principale" : `Livraison supplémentaire ${i}`;
+    const a = axeDe(z);
+    if (z === "netanya") lignes.push({ libelle: `${nom} (Netanya)`, montant: t.arretsSupplementaires.netanya });
+    else if (a && a.sens !== "centre") lignes.push({ libelle: `${nom} : ${nomZone(z)} (sur la route)`, montant: t.arretsSupplementaires.surLaRoute });
+    else aConfirmer.push(`${nom} : adresse hors grille, prix à confirmer par Rebecca.`);
+  });
   if (d.urgent) lignes.push({ libelle: "Livraison urgente", montant: t.livraison.urgence });
   if (d.zoneArrivee && d.zoneArrivee !== "netanya") aConfirmer.push("Livraison hors secteur Netanya : supplément annoncé avant validation.");
   return construire({ lignes, aConfirmer });

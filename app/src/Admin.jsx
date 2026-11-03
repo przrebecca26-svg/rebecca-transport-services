@@ -5,6 +5,7 @@ import { NOM } from "./contact.js";
 import Demandes from "./Demandes.jsx";
 import Agenda from "./Agenda.jsx";
 import Depenses from "./Depenses.jsx";
+import Bilan from "./Bilan.jsx";
 import "./admin.css";
 
 // Seul ce compte Google est l'administrateur.
@@ -57,8 +58,9 @@ export default function Admin() {
           <button className={"tb-onglet" + (onglet === "demandes" ? " actif" : "")} onClick={() => setOnglet("demandes")}>Demandes</button>
           <button className={"tb-onglet" + (onglet === "agenda" ? " actif" : "")} onClick={() => setOnglet("agenda")}>Agenda</button>
           <button className={"tb-onglet" + (onglet === "depenses" ? " actif" : "")} onClick={() => setOnglet("depenses")}>Dépenses</button>
+          <button className={"tb-onglet" + (onglet === "bilan" ? " actif" : "")} onClick={() => setOnglet("bilan")}>Bilan</button>
         </nav>
-        {onglet === "demandes" ? <Demandes /> : onglet === "agenda" ? <Agenda /> : <Depenses />}
+        {onglet === "demandes" ? <Demandes /> : onglet === "agenda" ? <Agenda /> : onglet === "depenses" ? <Depenses /> : <Bilan />}
         <a className="admin-retour tb-pad" href="#/">← Retour au site</a>
       </div>
     );

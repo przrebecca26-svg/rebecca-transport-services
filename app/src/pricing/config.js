@@ -187,7 +187,7 @@ export const coutParKm = (t = TARIFS) =>
 
 // Part du retour a vide selon le scenario (A, B ou C) ; par defaut le scenario actif
 export const partRetourAVide = (scenario, t = TARIFS) => {
-  const cle = scenario && t.scenarios[cle] ? scenario : t.scenarioActif;
+  const cle = scenario && t.scenarios[scenario] ? scenario : t.scenarioActif;
   return t.scenarios[cle].partRetourAVide;
 };
 

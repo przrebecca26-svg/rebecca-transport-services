@@ -6,3 +6,5 @@
 .bl-neg { color: var(--erreur); }
 .bl-sous span { padding-left: 14px; color: var(--gris); font-size: 15px; }
 .bl-sous strong { font-weight: 600; color: var(--gris); }
+.admin-tableau .dp-mois strong { text-transform: none; }
+.admin-tableau .dp-mois strong::first-letter { text-transform: uppercase; }

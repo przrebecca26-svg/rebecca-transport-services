@@ -91,7 +91,7 @@ export const FORMULAIRES = {
     { name: "telDestinataire", label: "Téléphone du destinataire", type: "tel", required: true },
     { name: "typeColis", label: "Que livrer ?", type: "select", required: true, defaut: "Colis", options: ["Colis", "Clés", "Documents", "Achats", "Petit objet"].map((x) => ({ v: x, l: x })) },
     ...quand(),
-    { name: "nbLivraisons", label: "Nombre de livraisons", type: "select", defaut: "1", options: [1, 2, 3, 4, 5].map((n) => ({ v: String(n), l: String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par livraison supplémentaire dans Netanya ; ailleurs, le trajet est ajouté au devis.` },
+    { name: "nbLivraisons", label: "Nombre de livraisons", type: "select", defaut: "1", options: [1, 2, 3, 4, 5].map((n) => ({ v: String(n), l: String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par livraison supplémentaire dans Netanya ou sur la route ; plus loin, le trajet est ajouté au devis.` },
     ...[2, 3, 4, 5].map((n) => ({ name: "arretL" + n, label: `Adresse de la livraison ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbLivraisons) >= n })),
     urgence,
     { name: "infos", label: "Instructions particulières", type: "texte-long" },
@@ -113,7 +113,7 @@ export const FORMULAIRES = {
     { name: "depart", label: "Adresse de départ", type: "adresse", required: true },
     { name: "arrivee", label: "Adresse d'arrivée (lieu de l'événement)", type: "adresse", required: true },
     ...quand(),
-    { name: "nbArrets", label: "Arrêts supplémentaires", type: "select", defaut: "0", options: [0, 1, 2, 3].map((n) => ({ v: String(n), l: n === 0 ? "Aucun" : String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par arrêt dans Netanya ; ailleurs, le trajet est ajouté au devis.` },
+    { name: "nbArrets", label: "Arrêts supplémentaires", type: "select", defaut: "0", options: [0, 1, 2, 3].map((n) => ({ v: String(n), l: n === 0 ? "Aucun" : String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par arrêt dans Netanya ou sur la route ; plus loin, le trajet est ajouté au devis.` },
     ...[1, 2, 3].map((n) => ({ name: "arretH" + n, label: `Adresse de l'arrêt ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbArrets) >= n })),
     { name: "vehiculeReserve", label: "Mise à disposition du véhicule sur la durée", type: "case", indice: "Devis personnalisé." },
     { name: "decoration", label: "Décoration du véhicule (+150 ₪)", type: "case" },
@@ -142,7 +142,8 @@ export const FORMULAIRES = {
     { name: "depart", label: "Adresse de prise en charge", type: "adresse", required: true },
     { name: "arrivee", label: "Lieu principal", type: "adresse", required: true, indice: "Hors de Netanya, le trajet aller-retour est ajouté au devis." },
     { name: "lieux", label: "Autres lieux (facultatif)", type: "texte-long", placeholder: "Autres adresses concernées" },
-    { name: "arrets", label: "Nombre d'arrêts", type: "nombre", min: 0, max: 10, defaut: "0" },
+    { name: "nbArrets", label: "Arrêts supplémentaires", type: "select", defaut: "0", options: [0, 1, 2, 3].map((n) => ({ v: String(n), l: n === 0 ? "Aucun" : String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par arrêt dans Netanya ou sur la route ; plus loin, le trajet est ajouté au devis.` },
+    ...[1, 2, 3].map((n) => ({ name: "arretH" + n, label: `Adresse de l'arrêt ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbArrets) >= n })),
     { name: "programme", label: "Programme", type: "texte-long", required: true },
     { name: "infos", label: "Informations complémentaires", type: "texte-long" },
   ],
@@ -264,7 +265,7 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
     d.dureeMinutes = nb(v.dureeHeures) * 60 + nb(v.dureeSupp);
     d.zoneDepart = detecterZone(v.depart && v.depart.label);
     d.zoneArrivee = detecterZone(v.arrivee && v.arrivee.label);
-    d.arrets = nb(v.arrets);
+    d.arretsZones = zonesArrets(v, "arretH", Number(v.nbArrets));
   }
 
   if (v.urgent && v.date && v.heure) {

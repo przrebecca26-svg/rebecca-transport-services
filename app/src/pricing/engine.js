@@ -91,13 +91,28 @@ export function estLocal(d, plancher, t = TARIFS) {
 // Minimum d'un aller simple : grille B validee si le scenario actif est B
 const minimumSimple = (plancher, scenario) => (scenario === "B" ? plancher.prixSimple : plancher.prix);
 
-// Arrets supplementaires (livraison, Hatan & Kala) : forfait dans Netanya, sinon prix de la ville
+// Arrets supplementaires (livraison, Hatan & Kala, mise a disposition) :
+// - dans Netanya ou SUR LA ROUTE (meme direction, pas plus loin que le point le plus eloigne deja atteint) = forfait
+// - plus loin = prix de la ville (grille B)
 function lignesArrets(lignes, aConfirmer, d, t, libelle) {
+  // Points deja atteints par le trajet principal : on retient le plus eloigne dans chaque direction
+  const loin = {};
+  const atteint = (zone) => {
+    const a = zone && t.zones[zone] && t.zones[zone].axe;
+    if (a && a.sens !== "centre" && (loin[a.sens] || 0) < a.rang) loin[a.sens] = a.rang;
+  };
+  atteint(d.zoneDepart);
+  atteint(d.zoneArrivee);
   (d.arretsZones || []).forEach((zone, i) => {
     const nom = `${libelle} ${i + 1}`;
-    if (zone === "netanya") lignes.push({ libelle: `${nom} (Netanya)`, montant: t.arretsSupplementaires.netanya });
-    else if (zone && t.zones[zone]) {
+    const axe = zone && t.zones[zone] ? t.zones[zone].axe : null;
+    if (zone === "netanya") {
+      lignes.push({ libelle: `${nom} (Netanya)`, montant: t.arretsSupplementaires.netanya });
+    } else if (axe && (loin[axe.sens] || 0) >= axe.rang) {
+      lignes.push({ libelle: `${nom} : ${t.zones[zone].nom} (sur la route)`, montant: t.arretsSupplementaires.surLaRoute });
+    } else if (zone && t.zones[zone]) {
       lignes.push({ libelle: `${nom} : ${t.zones[zone].nom}`, montant: (t.zones[zone].grilleB || {}).simple || t.zones[zone].minimum });
+      atteint(zone);
     } else aConfirmer.push(`${nom} : adresse hors grille, prix à confirmer par Rebecca.`);
   });
 }
@@ -356,7 +371,7 @@ function calculerMiseADisposition(d, t) {
       else aConfirmer.push("Déplacement hors Netanya : prix à confirmer par Rebecca.");
     }
   }
-  if (d.arrets > 0) aConfirmer.push("Plusieurs arrêts ou retour tardif : prix convenu à l'avance.");
+  lignesArrets(lignes, aConfirmer, d, t, "Arrêt supplémentaire");
   return construire({ lignes, aConfirmer, details: { minutesFacturees: facturees } });
 }
 

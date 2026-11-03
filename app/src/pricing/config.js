@@ -68,6 +68,18 @@ export const TARIFS = {
     // JOURS LIBRES : dates ou tous les creneaux personnels sont leves (desistement, vacances, pas d'ecole...)
     // Exemple : ["2026-11-10", "2026-11-11"]
     joursLibres: [],
+    // VACANCES SCOLAIRES D'ISRAEL (ecoles officielles juives, ministere de l'Education, annee 2026-2027) :
+    // pendant ces dates, les creneaux personnels d'ecole sont leves (Chabbat et fetes restent fermes).
+    // Dates inclusives. Mets actif: false sur une ligne si tu dois quand meme emmener tes enfants ce jour-la.
+    // Les classes de college finissent le 20 juin 2027 ; verifie aussi la circulaire de l'ecole de ta fille.
+    vacancesScolaires: [
+      { debut: "2026-12-06", fin: "2026-12-12", motif: "Vacances de Hanoucca", actif: true },
+      { debut: "2027-03-23", fin: "2027-03-24", motif: "Vacances de Pourim", actif: true },
+      { debut: "2027-04-13", fin: "2027-04-28", motif: "Vacances de Pessah", actif: true },
+      { debut: "2027-05-12", fin: "2027-05-12", motif: "Yom Haatsmaout", actif: true },
+      { debut: "2027-06-10", fin: "2027-06-11", motif: "Vacances de Chavouot", actif: true },
+      { debut: "2027-07-01", fin: "2027-08-31", motif: "Grandes vacances", actif: true },
+    ],
     // CRENEAUX PONCTUELS : un horaire exceptionnel sur une date precise (changement d'horaire de l'ecole...)
     // Exemple : { date: "2026-11-12", debut: "11:45", fin: "13:15", motif: "Créneau déjà réservé" }
     creneauxPonctuels: [],

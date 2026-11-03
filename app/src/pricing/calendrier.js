@@ -136,7 +136,7 @@ function periode(debutUtc, finUtc, label, type) {
     debut: utcVersLocal(debutUtc),
     fin: utcVersLocal(finUtc),
     label,
-    type, // "chabbat_fete" ou "exceptionnelle"
+    type, // "chabbat_fete", "exceptionnelle" ou "personnel"
   };
 }
 
@@ -177,6 +177,23 @@ export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
     const [d2, h2] = f.fin.split("T");
     resultat.push({ ...periode(localVersUtc(d1, h1), localVersUtc(d2, h2), f.motif || "Fermeture exceptionnelle", "exceptionnelle") });
   }
+  // Creneaux personnels recurrents (chaque semaine), leves les jours libres et pendant les vacances scolaires
+  for (let i = -1; i <= nbJours + 1; i++) {
+    const jour = ajouterJours(depuis, i);
+    const [a, m, j] = jour.split("-").map(Number);
+    const jourSemaine = new Date(Date.UTC(a, m - 1, j, 12)).getUTCDay();
+    const enVacances = (cal.vacancesScolaires || []).some((v) => v.actif !== false && jour >= v.debut && jour <= v.fin);
+    if (!(cal.joursLibres || []).includes(jour) && !enVacances) {
+      for (const c of cal.creneauxPersonnels || []) {
+        if (!c.jours.includes(jourSemaine)) continue;
+        resultat.push(periode(localVersUtc(jour, c.debut), localVersUtc(jour, c.fin), c.motif || "Créneau déjà réservé", "personnel"));
+      }
+    }
+    for (const c of cal.creneauxPonctuels || []) {
+      if (c.date !== jour) continue;
+      resultat.push(periode(localVersUtc(jour, c.debut), localVersUtc(jour, c.fin), c.motif || "Créneau déjà réservé", "personnel"));
+    }
+  }
   return resultat.sort((a, b) => a.debutUtc - b.debutUtc);
 }
 
@@ -196,6 +213,7 @@ export function prochainesFermetures(depuis, nombre = 5, t = TARIFS) {
   const trouvees = [];
   for (let decalage = 0; decalage < 400 && trouvees.length < nombre; decalage += 30) {
     for (const p of periodesFermees(ajouterJours(depuis, decalage), 30, t)) {
+      if (p.type === "personnel") continue; // les creneaux personnels ne s'affichent pas dans les annonces
       if (p.finUtc > maintenant && !trouvees.some((x) => x.debutUtc === p.debutUtc)) trouvees.push(p);
     }
   }

@@ -55,6 +55,22 @@ export const TARIFS = {
     // Fermetures exceptionnelles saisies dans l'espace admin
     // Exemple : { debut: "2026-12-24T18:00", fin: "2026-12-26T08:00", motif: "Vacances" }
     fermeturesExceptionnelles: [],
+    // CRENEAUX PERSONNELS RECURRENTS (ecole des enfants, etc.) : bloques chaque semaine, pour tous les services.
+    // jours : 0 = dimanche, 1 = lundi ... 5 = vendredi, 6 = samedi. Heures locales Israel.
+    // Le client voit seulement "creneau deja reserve" (jamais le motif prive).
+    // Pour des horaires differents un jour precis (ex : vendredi), ajoute une ligne avec ce jour seulement
+    // et retire ce jour des autres lignes.
+    creneauxPersonnels: [
+      { jours: [0, 1, 2, 3, 4, 5], debut: "07:15", fin: "08:45", motif: "Créneau déjà réservé" }, // matin, dimanche a vendredi
+      { jours: [0, 1, 2, 3, 4], debut: "13:15", fin: "14:45", motif: "Créneau déjà réservé" }, // sorties 13h30 et 14h, dimanche a jeudi
+      { jours: [5], debut: "11:35", fin: "13:35", motif: "Créneau déjà réservé" }, // vendredi : sorties 11h50 et 12h50
+    ],
+    // JOURS LIBRES : dates ou tous les creneaux personnels sont leves (desistement, vacances, pas d'ecole...)
+    // Exemple : ["2026-11-10", "2026-11-11"]
+    joursLibres: [],
+    // CRENEAUX PONCTUELS : un horaire exceptionnel sur une date precise (changement d'horaire de l'ecole...)
+    // Exemple : { date: "2026-11-12", debut: "11:45", fin: "13:15", motif: "Créneau déjà réservé" }
+    creneauxPonctuels: [],
   },
 
   // AGENDA : une seule course a la fois. Apres chaque mission confirmee, un tampon est reserve.
@@ -141,6 +157,10 @@ export const TARIFS = {
   // - plus loin = prix de la grille B de la ville
   arretsSupplementaires: { netanya: 20, surLaRoute: 20 },
 
+  // Ramassage scolaire : prix d'un trajet = prix par trajet de la grille B ; forfait semaine = reduction selon le nombre de jours
+  // (de la plus forte a la plus faible). Exemple : 3 jours = -10 %, 5 jours ou plus = -15 %.
+  ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }] },
+
   // Hatan & Kala : 220 minimum ; hors Netanya = trajet + prestation mariage
   hatanKala: { base: 220, decoration: 150, prestationHorsNetanya: 70 },
   // Demenagement : prestation de base + trajet hors Netanya + etages sans ascenseur (a partir du 2e)
@@ -167,7 +187,7 @@ export const coutParKm = (t = TARIFS) =>
 
 // Part du retour a vide selon le scenario (A, B ou C) ; par defaut le scenario actif
 export const partRetourAVide = (scenario, t = TARIFS) => {
-  const cle = scenario && t.scenarios[scenario] ? scenario : t.scenarioActif;
+  const cle = scenario && t.scenarios[cle] ? scenario : t.scenarioActif;
   return t.scenarios[cle].partRetourAVide;
 };
 

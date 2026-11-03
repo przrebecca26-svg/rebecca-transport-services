@@ -91,7 +91,7 @@ export function estLocal(d, plancher, t = TARIFS) {
 // Minimum d'un aller simple : grille B validee si le scenario actif est B
 const minimumSimple = (plancher, scenario) => (scenario === "B" ? plancher.prixSimple : plancher.prix);
 
-// Arrets supplementaires (Hatan & Kala, mise a disposition).
+// Arrets supplementaires (livraison, Hatan & Kala, mise a disposition).
 // L'ORDRE DES ARRETS NE COMPTE PAS : on facture le point le plus loin dans chaque direction
 // (nord / sud) au prix de la grille B, et chaque autre arret = forfait (Netanya ou sur la route).
 // basePrix = prix deja facture pour le trajet principal (il est deduit du complement).
@@ -278,7 +278,8 @@ function calculerTrajet(d, t) {
 /* ---------- Livraison ---------- */
 
 function calculerLivraison(d, t) {
-  if (!d.aller || !(d.aller.km > 0)) return erreur("Distance de la livraison manquante.");
+  // 0 km est normal (recuperation et livraison a la meme adresse) : seule l'absence de distance est une erreur
+  if (!d.aller || !(d.aller.km >= 0)) return erreur("Distance de la livraison manquante.");
   const minutes = d.aller.minutes || (d.aller.km / 40) * 60;
   const B = prixAllerSimple(d.aller.km, minutes, d.scenario, t);
   const grille = (z) => (z && t.zones[z] ? (t.zones[z].grilleB || {}).simple || t.zones[z].minimum : 0);

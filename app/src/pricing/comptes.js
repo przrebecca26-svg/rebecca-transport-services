@@ -63,7 +63,7 @@ export function validerMouvement(m, t = TARIFS) {
   const montant = Number(m.montant);
   if (!Number.isFinite(montant) || montant === 0 || Math.abs(montant) > 100000) return "Montant invalide.";
   if (m.kind === "paiement" || m.kind === "remboursement_effectue") {
-    if (montant < 0) return "Le montant doit etre positif.";
+    if (montant < 0) return "Le montant doit être positif.";
     if (!t.moyensPaiement.includes(m.moyen)) return "Moyen de paiement inconnu.";
   } else if (m.kind === "correction") {
     if (typeof m.motif !== "string" || m.motif.trim().length < 3) return "Un motif est obligatoire pour une correction.";
@@ -131,21 +131,21 @@ export function calculerAnnulation({ cas, prixConvenu, encaisse }, reglages = RE
   let frais = 0;
   let regleActive = false;
   if (cas === "rebecca") {
-    notes.push("Annulation de ton cote : remboursement integral, aucun frais.");
+    notes.push("Annulation de ton côté : remboursement intégral, aucun frais.");
   } else {
     const regle = reglages.annulation[cas];
     if (!regle || !regle.actif || !MODES.includes(regle.mode) || regle.mode === "aucun") {
-      notes.push("Aucune penalite activee pour ce cas : remboursement complet propose.");
+      notes.push("Aucune pénalité activée pour ce cas : remboursement complet proposé.");
     } else {
       regleActive = true;
       frais = fraisSelonRegle(regle, prix, acompte);
-      notes.push("Frais calcules selon la regle activee : " + frais + " ₪.");
+      notes.push("Frais calculés selon la règle activée : " + frais + " ₪.");
     }
   }
 
   const fraisRetenus = Math.min(frais, recu); // on ne retient que l'argent reellement recu
   const fraisNonEncaisses = cents(frais - fraisRetenus);
-  if (fraisNonEncaisses > 0) notes.push("Frais non encaisses (rien recu a retenir) : " + fraisNonEncaisses + " ₪.");
+  if (fraisNonEncaisses > 0) notes.push("Frais non encaissés (rien reçu à retenir) : " + fraisNonEncaisses + " ₪.");
   return {
     cas,
     frais, // frais autorises par la regle
@@ -197,9 +197,9 @@ export function etatRemboursement(annulation, mouvements) {
 export function verifierRemboursementEffectue(montant, annulation, mouvements) {
   const e = etatRemboursement(annulation, mouvements);
   const m = Number(montant);
-  if (!annulation) return "Aucune annulation validee pour cette course.";
+  if (!annulation) return "Aucune annulation validée pour cette course.";
   if (!Number.isFinite(m) || m <= 0) return "Montant invalide.";
-  if (m > e.reste + 0.001) return "Maximum a rembourser : " + e.reste + " ₪.";
+  if (m > e.reste + 0.001) return "Maximum à rembourser : " + e.reste + " ₪.";
   return null;
 }
 

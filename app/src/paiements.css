@@ -1,0 +1,14 @@
+/* Paiements d'une course - Rebecca Transport & Services */
+.pm-etat { display: inline-block; padding: 3px 12px; font-size: 14px; font-weight: 600; border-radius: 12px; background: #f6ecd5; color: #7a5a12; }
+.pm-etat.pm-confirmee { background: #e3f1e4; color: #2e7d32; }
+.pm-etat.pm-terminee { background: #e3eaf3; color: #2c4a6e; }
+.pm-etat.pm-annulee { background: #e9e5e6; color: var(--gris); }
+.pm-resume, .pm-liste { margin: 10px 0 0; padding: 0; list-style: none; }
+.pm-resume li, .pm-liste li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--rose); }
+.pm-resume li:first-child, .pm-liste li:first-child { border-top: 0; }
+.pm-liste { margin-top: 12px; padding-top: 4px; border-top: 2px solid var(--rose); font-size: 15px; color: var(--gris); }
+.pm-liste small { color: var(--gris); }
+.pm-form { display: grid; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--rose); }
+.pm-form h4 { margin: 0; font-size: 16px; }
+.pm-champ { display: grid; gap: 4px; font-size: 14px; color: var(--gris); }
+.pm-champ input, .pm-champ select { min-width: 0; min-height: 48px; padding: 10px 12px; font: inherit; color: var(--noir); border: 1px solid var(--or-clair); border-radius: 12px; background: var(--creme); }

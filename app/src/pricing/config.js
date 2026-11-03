@@ -67,27 +67,33 @@ export const TARIFS = {
   // Duree d'occupation supposee quand elle n'est pas connue (pour verifier les fermetures)
   dureeParDefautMinutes: { courses: 90, hatan_kala: 120, demenagement: 180, livraison: 45 },
 
-  // Grille officielle = prix MINIMUM par destination (trajets depuis/vers Netanya)
+  // Grille officielle = prix MINIMUM par destination (trajets depuis/vers Netanya).
+  // minimum = grille de départ ; grilleB = grille B validée : minimum d'un aller simple,
+  // et minimum PAR TRAJET en aller-retour (Tel-Aviv : 2 x 175 = 350).
   zones: {
     netanya: {
       nom: "Netanya et alentours",
       minimum: 50,
+      grilleB: { simple: 75, parTrajetAR: 55 },
       alias: ["netanya", "natanya", "netania", "nethanya", "natania", "נתניה"],
     },
-    hadera: { nom: "Hadera", minimum: 120, alias: ["hadera", "hedera", "חדרה"] },
+    hadera: { nom: "Hadera", minimum: 120, grilleB: { simple: 155, parTrajetAR: 120 }, alias: ["hadera", "hedera", "חדרה"] },
     herzliya_raanana: {
       nom: "Herzliya / Ra'anana",
       minimum: 130,
+      grilleB: { simple: 150, parTrajetAR: 130 },
       alias: ["herzliya", "herzlia", "hertzliya", "raanana", "ra anana", "הרצליה", "רעננה"],
     },
     tel_aviv: {
       nom: "Tel-Aviv",
       minimum: 170,
+      grilleB: { simple: 235, parTrajetAR: 175 },
       alias: ["tel aviv", "telaviv", "tel aviv yafo", "תל אביב"],
     },
     ben_gurion: {
       nom: "Aéroport Ben Gourion",
       minimum: 250,
+      grilleB: { simple: 290, parTrajetAR: 250 },
       alias: [
         "ben gurion airport",
         "ben gourion airport",
@@ -101,8 +107,8 @@ export const TARIFS = {
         "נתב",
       ],
     },
-    haifa: { nom: "Haïfa", minimum: 280, alias: ["haifa", "חיפה"] },
-    jerusalem: { nom: "Jérusalem", minimum: 400, alias: ["jerusalem", "yerushalayim", "ירושלים"] },
+    haifa: { nom: "Haïfa", minimum: 280, grilleB: { simple: 365, parTrajetAR: 280 }, alias: ["haifa", "חיפה"] },
+    jerusalem: { nom: "Jérusalem", minimum: 400, grilleB: { simple: 540, parTrajetAR: 400 }, alias: ["jerusalem", "yerushalayim", "ירושלים"] },
   },
 
   // Courses a l'interieur de Netanya : plafond 100 NIS (si trajet court)

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauValide, lireCreneaux } from "./fermetures.js";
+import "./agenda.css";
 import { lienAppel, lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
-// Agenda de Rebecca : jour, semaine, mois. Lecture seule : Chabbat, fetes, creneaux personnels et courses.
+// Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
 
 const STATUTS = {
   "en attente": { label: "En attente", classe: "attente" },
@@ -12,6 +14,11 @@ const STATUTS = {
   terminee: { label: "Terminée", classe: "terminee" },
 };
 const NOMS_JOURS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+const texteJours = (jours) => {
+  const j = [...jours].sort();
+  const suite = j.length > 2 && j.every((x, i) => i === 0 || x === j[i - 1] + 1);
+  return suite ? `${NOMS_JOURS[j[0]]} → ${NOMS_JOURS[j[j.length - 1]]}` : j.map((x) => NOMS_JOURS[x]).join(", ");
+};
 
 const deuxChiffres = (x) => String(x).padStart(2, "0");
 const dateUtc = (d) => {
@@ -68,6 +75,193 @@ function etatJour(creneaux) {
   return "libre";
 }
 // ---- fin des fonctions de calcul ----
+
+// Ajout d'une fermeture (vacances, jour de repos...)
+function AjoutFermeture({ aujourdhui }) {
+  const [dateDebut, setDateDebut] = useState(aujourdhui);
+  const [heureDebut, setHeureDebut] = useState("00:00");
+  const [dateFin, setDateFin] = useState(aujourdhui);
+  const [heureFin, setHeureFin] = useState("23:59");
+  const [motif, setMotif] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const [ok, setOk] = useState("");
+
+  const changerDebut = (v) => {
+    setDateDebut(v);
+    if (!dateFin || dateFin < v) setDateFin(v);
+  };
+
+  const ajouter = async (e) => {
+    e.preventDefault();
+    setErreur("");
+    setOk("");
+    if (!dateDebut || !heureDebut || !dateFin || !heureFin) return setErreur("Remplissez les dates et les heures.");
+    const debut = `${dateDebut}T${heureDebut}`;
+    const fin = `${dateFin}T${heureFin}`;
+    if (fin <= debut) return setErreur("La fin doit être après le début.");
+    setEnCours(true);
+    try {
+      await addDoc(collection(db, "fermetures"), { debut, fin, motif: motif.trim().slice(0, 60), creeLe: serverTimestamp() });
+      setMotif("");
+      setOk("Fermeture ajoutée. Les clients ne pourront plus réserver sur ces horaires.");
+    } catch {
+      setErreur("Enregistrement impossible. Vérifiez la connexion.");
+    }
+    setEnCours(false);
+  };
+
+  return (
+    <form className="fm-form" onSubmit={ajouter}>
+      <div className="fm-ligne">
+        <label className="fm-champ">Début : date<input type="date" value={dateDebut} onChange={(e) => changerDebut(e.target.value)} /></label>
+        <label className="fm-champ">Heure<input type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} /></label>
+      </div>
+      <div className="fm-ligne">
+        <label className="fm-champ">Fin : date<input type="date" value={dateFin} min={dateDebut} onChange={(e) => setDateFin(e.target.value)} /></label>
+        <label className="fm-champ">Heure<input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} /></label>
+      </div>
+      <label className="fm-champ">
+        Motif (visible par les clients)
+        <input type="text" maxLength={60} value={motif} placeholder="Ex : Indisponible" onChange={(e) => setMotif(e.target.value)} />
+      </label>
+      {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
+      {ok && <p className="fm-ok">{ok}</p>}
+      <button className="tb-bouton" type="submit" disabled={enCours}>{enCours ? "Enregistrement…" : "Ajouter cette fermeture"}</button>
+    </form>
+  );
+}
+
+// Une fermeture a venir, avec suppression en deux touches
+function LigneFermeture({ f }) {
+  const [confirmer, setConfirmer] = useState(false);
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const supprimer = async () => {
+    setEnCours(true);
+    setErreur("");
+    try {
+      await deleteDoc(doc(db, "fermetures", f.id));
+    } catch {
+      setErreur("Suppression impossible.");
+      setEnCours(false);
+      setConfirmer(false);
+    }
+  };
+  const [d1, h1] = f.debut.split("T");
+  const [d2, h2] = f.fin.split("T");
+  return (
+    <div className="fm-item">
+      <div>
+        <p><strong>{f.motif || "Fermeture exceptionnelle"}</strong></p>
+        <small>du {jourFr(d1)} {h1} au {jourFr(d2)} {h2}</small>
+        {erreur && <p className="fm-erreur">{erreur}</p>}
+      </div>
+      {confirmer ? (
+        <button className="fm-petit alerte" onClick={supprimer} disabled={enCours}>Confirmer ?</button>
+      ) : (
+        <button className="fm-petit clair" onClick={() => setConfirmer(true)}>Supprimer</button>
+      )}
+    </div>
+  );
+}
+
+// Un jour de Hol Hamoed : ouvert par defaut, Rebecca le ferme ou le rouvre
+function LigneHolHamoed({ x, fermeture }) {
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const basculer = async () => {
+    setEnCours(true);
+    setErreur("");
+    try {
+      if (fermeture) await deleteDoc(doc(db, "fermetures", fermeture.id));
+      else
+        await addDoc(collection(db, "fermetures"), {
+          debut: `${x.date}T00:00`,
+          fin: `${x.date}T23:59`,
+          motif: "Hol Hamoed : jour fermé",
+          holHamoed: x.date,
+          creeLe: serverTimestamp(),
+        });
+    } catch {
+      setErreur("Modification impossible.");
+    }
+    setEnCours(false);
+  };
+  return (
+    <div className="fm-item">
+      <div>
+        <p><strong>{libelleJour(x.date)}</strong></p>
+        <small>{x.nom} · {fermeture ? <span className="fm-ferme">Fermé</span> : "Ouvert"}</small>
+        {erreur && <p className="fm-erreur">{erreur}</p>}
+      </div>
+      <button className={"fm-petit" + (fermeture ? " clair" : "")} onClick={basculer} disabled={enCours}>
+        {fermeture ? "Rouvrir" : "Fermer"}
+      </button>
+    </div>
+  );
+}
+
+// Un creneau fixe (ecole, trajets reguliers) : actif = bloque les clients, libre = ne bloque plus
+function LigneCreneau({ c, onChanger }) {
+  const [edition, setEdition] = useState(false);
+  const [jours, setJours] = useState(c.jours);
+  const [debut, setDebut] = useState(c.debut);
+  const [fin, setFin] = useState(c.fin);
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState("");
+
+  const enregistrer = async (nouveau) => {
+    setEnCours(true);
+    setErreur("");
+    try {
+      await onChanger(nouveau);
+      setEdition(false);
+    } catch {
+      setErreur("Enregistrement impossible. Vérifiez la connexion.");
+    }
+    setEnCours(false);
+  };
+  const basculer = () => enregistrer({ ...c, actif: !c.actif });
+  const sauver = () => {
+    const nouveau = { ...c, jours: [...jours].sort(), debut, fin };
+    if (!creneauValide(nouveau)) return setErreur("Choisissez au moins un jour et une heure de fin après le début.");
+    enregistrer(nouveau);
+  };
+  const cocher = (n) => setJours((j) => (j.includes(n) ? j.filter((x) => x !== n) : [...j, n]));
+
+  return (
+    <div className="cf-item">
+      <div className="fm-item">
+        <div>
+          <p><strong>{c.debut} – {c.fin}</strong></p>
+          <small>{texteJours(c.jours)} · {c.actif ? "Actif (bloque les clients)" : <span className="fm-ferme">Libre (ne bloque plus)</span>}</small>
+        </div>
+        <button className={"fm-petit" + (c.actif ? "" : " clair")} onClick={basculer} disabled={enCours}>
+          {c.actif ? "Me libérer" : "Réactiver"}
+        </button>
+      </div>
+      <button className="cf-modifier" onClick={() => setEdition(!edition)}>{edition ? "Fermer" : "Modifier les jours et les heures"}</button>
+      {edition && (
+        <div className="fm-form">
+          <div className="cf-jours">
+            {NOMS_JOURS.map((nom, n) => (
+              <button key={n} type="button" className={"cf-jour" + (jours.includes(n) ? " actif" : "")} onClick={() => cocher(n)} aria-pressed={jours.includes(n)}>
+                {nom}
+              </button>
+            ))}
+          </div>
+          <div className="fm-ligne">
+            <label className="fm-champ">De<input type="time" value={debut} onChange={(e) => setDebut(e.target.value)} /></label>
+            <label className="fm-champ">À<input type="time" value={fin} onChange={(e) => setFin(e.target.value)} /></label>
+          </div>
+          <button className="tb-bouton" onClick={sauver} disabled={enCours}>{enCours ? "Enregistrement…" : "Enregistrer"}</button>
+        </div>
+      )}
+      {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
+    </div>
+  );
+}
 
 function Fermeture({ c }) {
   return (
@@ -132,6 +326,41 @@ export default function Agenda() {
   const [erreur, setErreur] = useState("");
   const [vue, setVue] = useState("semaine");
   const [ref, setRef] = useState(aujourdhui);
+  const [fermetures, setFermetures] = useState([]); // fermetures enregistrees par Rebecca
+  const [creneaux, setCreneaux] = useState(CRENEAUX_PAR_DEFAUT); // creneaux fixes (actifs ou libres)
+
+  // Creneaux fixes : en direct, et appliques au calendrier du site
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, "reglages", "creneaux"),
+        (snap) => {
+          const liste = (snap.exists() && lireCreneaux(snap.data().json)) || CRENEAUX_PAR_DEFAUT;
+          appliquerCreneaux(liste, true);
+          setCreneaux(liste);
+        },
+        () => {}
+      ),
+    []
+  );
+  const changerCreneau = (index, nouveau) => {
+    const liste = creneaux.map((c, i) => (i === index ? nouveau : c));
+    return setDoc(doc(db, "reglages", "creneaux"), { json: JSON.stringify(liste), majLe: serverTimestamp() });
+  };
+
+  // Fermetures de Rebecca : en direct, et appliquees au calendrier du site
+  useEffect(() => {
+    const q = query(collection(db, "fermetures"), orderBy("debut"));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const liste = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+        appliquerFermetures(liste, true);
+        setFermetures(liste);
+      },
+      () => {}
+    );
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, "demandes"), orderBy("creeLe", "desc"));
@@ -156,7 +385,7 @@ export default function Agenda() {
   // Plage de jours affichee
   const premier = vue === "jour" ? ref : vue === "semaine" ? debutSemaine(ref) : debutSemaine(debutMois(ref));
   const nbJours = vue === "jour" ? 1 : vue === "semaine" ? 7 : Math.ceil((jourSemaine(debutMois(ref)) + nbJoursDuMois(ref)) / 7) * 7;
-  const periodes = useMemo(() => periodesFermees(premier, nbJours), [premier, nbJours]);
+  const periodes = useMemo(() => periodesFermees(premier, nbJours), [premier, nbJours, fermetures, creneaux]);
   const jours = useMemo(() => Array.from({ length: nbJours }, (_, i) => ajouterJours(premier, i)), [premier, nbJours]);
   const creneauxParJour = useMemo(() => {
     const m = {};
@@ -164,8 +393,12 @@ export default function Agenda() {
     return m;
   }, [jours, periodes]);
 
-  const prochaines = useMemo(() => prochainesFermetures(aujourdhui, 4), [aujourdhui]);
-  const adecider = useMemo(() => joursADecider(aujourdhui, 60).slice(0, 6), [aujourdhui]);
+  const prochaines = useMemo(() => prochainesFermetures(aujourdhui, 4), [aujourdhui, fermetures]);
+  const adecider = useMemo(() => joursADecider(aujourdhui, 60), [aujourdhui]);
+  const maintenant = `${aujourdhui}T00:00`;
+  const aVenir = fermetures.filter((f) => typeof f.fin === "string" && f.fin >= maintenant && !f.holHamoed);
+  const holFermes = {};
+  for (const f of fermetures) if (f.holHamoed) holFermes[f.holHamoed] = f;
 
   const pas = (sens) => {
     if (vue === "jour") setRef(ajouterJours(ref, sens));
@@ -246,15 +479,35 @@ export default function Agenda() {
 
       {adecider.length > 0 && (
         <div className="tb-bloc">
-          <h3>Jours à décider (Hol Hamoed)</h3>
+          <h3>Hol Hamoed : à décider</h3>
+          <p className="tb-note">Ces jours restent ouverts tant que tu ne les fermes pas.</p>
           {adecider.map((x) => (
-            <p key={x.date}>
-              <strong>{libelleJour(x.date)}</strong> · {x.nom}
-            </p>
+            <LigneHolHamoed key={x.date} x={x} fermeture={holFermes[x.date]} />
           ))}
-          <p className="tb-note">Ces jours restent ouverts tant que tu ne les fermes pas. Tu pourras décider jour par jour à l'étape suivante.</p>
         </div>
       )}
+
+      <div className="tb-bloc">
+        <h3>Mes créneaux fixes</h3>
+        <p className="tb-note">Ces horaires reviennent chaque semaine et bloquent les clients. Touche « Me libérer » quand tu es disponible (par exemple si ta copine a une voiture).</p>
+        {creneaux.map((c, i) => (
+          <LigneCreneau key={i + c.debut + c.fin + c.jours.join("") + c.actif} c={c} onChanger={(nouveau) => changerCreneau(i, nouveau)} />
+        ))}
+      </div>
+
+      <div className="tb-bloc">
+        <h3>Mes fermetures</h3>
+        <p className="tb-note">Vacances, jour de repos, rendez-vous : les clients ne peuvent plus réserver sur ces horaires.</p>
+        {aVenir.length === 0 && <p className="tb-note">Aucune fermeture à venir.</p>}
+        {aVenir.map((f) => (
+          <LigneFermeture key={f.id} f={f} />
+        ))}
+      </div>
+
+      <div className="tb-bloc">
+        <h3>Ajouter une fermeture</h3>
+        <AjoutFermeture aujourdhui={aujourdhui} />
+      </div>
     </section>
   );
 }

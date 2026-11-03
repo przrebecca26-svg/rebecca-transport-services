@@ -126,14 +126,14 @@ function Detail({ d, onFermer }) {
           {d.statut === "acceptee" && (
             <>
               <button className="tb-bouton" disabled={enCours} onClick={() => changerStatut("terminee")}>Course terminée</button>
-              <button className="tb-bouton tb-danger" disabled={enCours} onClick={() => changerStatut("annulee")}>Annuler</button>
             </>
           )}
-          {d.statut !== "en attente" && (
+          {d.statut !== "en attente" && d.statut !== "annulee" && (
             <button className="tb-bouton tb-clair" disabled={enCours} onClick={() => changerStatut("en attente")}>Remettre en attente</button>
           )}
         </div>
         <p className="tb-note">Après avoir accepté ou refusé, utilisez le bouton WhatsApp : le message est prêt.</p>
+        {d.statut === "acceptee" && <p className="tb-note">Pour annuler une course, utilisez le bloc « Paiements » plus bas : l'argent reçu y est calculé.</p>}
       </div>
 
       <div className="tb-bloc">

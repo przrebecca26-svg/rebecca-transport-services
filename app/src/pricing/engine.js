@@ -82,6 +82,26 @@ function plancherGrille(zoneDepart, zoneArrivee, t = TARIFS) {
   return { prix: z.minimum, prixSimple: g.simple || z.minimum, prixParTrajetAR: g.parTrajetAR || z.minimum, zone };
 }
 
+// Trajet local : Netanya vers Netanya, ou court trajet sans ville reconnue de la grille
+export function estLocal(d, plancher, t = TARIFS) {
+  if (d.zoneDepart === "netanya" && d.zoneArrivee === "netanya") return true;
+  return !plancher.zone && !!d.aller && d.aller.km > 0 && d.aller.km <= t.netanyaPlafond.kmMax;
+}
+
+// Minimum d'un aller simple : grille B validee si le scenario actif est B
+const minimumSimple = (plancher, scenario) => (scenario === "B" ? plancher.prixSimple : plancher.prix);
+
+// Arrets supplementaires (livraison, Hatan & Kala) : forfait dans Netanya, sinon prix de la ville
+function lignesArrets(lignes, aConfirmer, d, t, libelle) {
+  (d.arretsZones || []).forEach((zone, i) => {
+    const nom = `${libelle} ${i + 1}`;
+    if (zone === "netanya") lignes.push({ libelle: `${nom} (Netanya)`, montant: t.arretsSupplementaires.netanya });
+    else if (zone && t.zones[zone]) {
+      lignes.push({ libelle: `${nom} : ${t.zones[zone].nom}`, montant: (t.zones[zone].grilleB || {}).simple || t.zones[zone].minimum });
+    } else aConfirmer.push(`${nom} : adresse hors grille, prix à confirmer par Rebecca.`);
+  });
+}
+
 /* ---------- Resultat ---------- */
 
 function construire({ lignes, aConfirmer = [], devis = false, separe = [], details = {} }) {
@@ -159,7 +179,7 @@ function calculerTrajet(d, t) {
     // ALLER SIMPLE : formule + part du retour a vide (selon le scenario)
     const A = prixFormule(d.aller.km, d.aller.minutes, t);
     const avecRetour = prixAllerSimple(d.aller.km, d.aller.minutes, scenario, t);
-    const minSimple = scenario === "B" ? plancher.prixSimple : plancher.prix; // grille B validée
+    const minSimple = minimumSimple(plancher, scenario); // grille B validée
     const base = Math.min(Math.max(avecRetour, minSimple), plafond);
     details.formuleSansRetour = Math.round(A * 100) / 100;
     details.avecPartRetourAVide = avecRetour;
@@ -184,6 +204,13 @@ function calculerTrajet(d, t) {
 
   attenteEnLigne(lignes, attente, t);
 
+  if (d.bagagesSoute > 0) {
+    lignes.push({
+      libelle: `Bagages en soute : ${d.bagagesSoute} x ${t.bagages.supplementParSoute} ₪`,
+      montant: d.bagagesSoute * t.bagages.supplementParSoute,
+    });
+  }
+
   if (d.urgent) {
     const immediate = typeof d.minutesAvantDepart === "number" && d.minutesAvantDepart <= t.urgence.seuilImmediatMinutes;
     lignes.push({
@@ -206,9 +233,6 @@ function calculerTrajet(d, t) {
 /* ---------- Livraison ---------- */
 
 function calculerLivraison(d, t) {
-  if (d.arrets > 0) {
-    return construire({ lignes: [], devis: true, aConfirmer: ["Plusieurs adresses sur un même parcours : sur devis."] });
-  }
   if (!d.aller || !(d.aller.km > 0)) return erreur("Distance de la livraison manquante.");
   const minutes = d.aller.minutes || (d.aller.km / 40) * 60;
   const B = prixAllerSimple(d.aller.km, minutes, d.scenario, t);
@@ -218,8 +242,9 @@ function calculerLivraison(d, t) {
   }
   const lignes = [{ libelle: "Livraison", montant: base }];
   supplementNuit(lignes, "Livraison", base, d.heure, t);
-  if (d.urgent) lignes.push({ libelle: "Livraison urgente", montant: t.livraison.urgence });
   const aConfirmer = [];
+  lignesArrets(lignes, aConfirmer, d, t, "Livraison supplémentaire");
+  if (d.urgent) lignes.push({ libelle: "Livraison urgente", montant: t.livraison.urgence });
   if (d.zoneArrivee && d.zoneArrivee !== "netanya") aConfirmer.push("Livraison hors secteur Netanya : supplément annoncé avant validation.");
   return construire({ lignes, aConfirmer });
 }
@@ -260,20 +285,25 @@ function calculerCourses(d, t) {
 /* ---------- Hatan & Kala ---------- */
 
 function calculerHatanKala(d, t) {
-  if (d.arrets > 1 || d.vehiculeReserve) {
-    return construire({ lignes: [], devis: true, aConfirmer: ["Plusieurs arrêts ou véhicule réservé : devis personnalisé."] });
+  if (d.vehiculeReserve) {
+    return construire({ lignes: [], devis: true, aConfirmer: ["Véhicule réservé sur la durée : devis personnalisé."] });
   }
+  const scenario = d.scenario || t.scenarioActif;
+  const plancher = plancherGrille(d.zoneDepart, d.zoneArrivee, t);
   let base = t.hatanKala.base;
   const details = {};
-  if (d.aller && d.aller.km > 0 && d.aller.minutes > 0) {
-    const B = prixAllerSimple(d.aller.km, d.aller.minutes, d.scenario, t);
-    details.formule = B;
-    base = Math.max(base, B);
+  if (!estLocal(d, plancher, t)) {
+    const B = d.aller && d.aller.km > 0 && d.aller.minutes > 0 ? prixAllerSimple(d.aller.km, d.aller.minutes, scenario, t) : 0;
+    const trajet = Math.max(minimumSimple(plancher, scenario), B);
+    details.trajet = trajet;
+    base = Math.max(base, arrondiSup(trajet + t.hatanKala.prestationHorsNetanya, t.arrondi));
   }
   const lignes = [{ libelle: "Transport Hatan & Kala", montant: base }];
   supplementNuit(lignes, "Transport", base, d.heure, t);
+  const aConfirmer = [];
+  lignesArrets(lignes, aConfirmer, d, t, "Arrêt supplémentaire");
   if (d.decoration) lignes.push({ libelle: "Décoration du véhicule", montant: t.hatanKala.decoration });
-  return construire({ lignes, details });
+  return construire({ lignes, aConfirmer, details });
 }
 
 /* ---------- Petit demenagement ---------- */
@@ -283,14 +313,24 @@ function calculerDemenagement(d, t) {
     return construire({ lignes: [], devis: true, aConfirmer: ["Volume important ou objets lourds : sur devis."] });
   }
   if (d.categorie !== "valises" && d.categorie !== "cartons") return erreur("Type de déménagement manquant.");
-  let base = t.demenagement[d.categorie];
-  if (d.aller && d.aller.km > 0 && d.aller.minutes > 0) {
-    base = Math.max(base, prixAllerSimple(d.aller.km, d.aller.minutes, d.scenario, t));
-  }
+  const scenario = d.scenario || t.scenarioActif;
+  const lignes = [{ libelle: "Petit déménagement (prestation de base)", montant: t.demenagement[d.categorie] }];
   const aConfirmer = [];
+  const plancher = plancherGrille(d.zoneDepart, d.zoneArrivee, t);
+  if (!estLocal(d, plancher, t)) {
+    const B = d.aller && d.aller.km > 0 && d.aller.minutes > 0 ? prixAllerSimple(d.aller.km, d.aller.minutes, scenario, t) : 0;
+    const trajet = Math.max(minimumSimple(plancher, scenario), B);
+    if (trajet > 0) lignes.push({ libelle: "Trajet hors Netanya", montant: trajet });
+    else if (d.zoneDepart || d.zoneArrivee || d.aller) aConfirmer.push("Trajet hors Netanya : prix à confirmer par Rebecca.");
+  }
+  const etages = (etage, ascenseur) => (ascenseur === "oui" || !(etage >= 2) ? 0 : (etage - 1) * t.demenagement.parEtageSansAscenseur);
+  const eDep = etages(d.etageDepart, d.ascenseurDepart);
+  const eArr = etages(d.etageArrivee, d.ascenseurArrivee);
+  if (eDep > 0) lignes.push({ libelle: `Étages au départ sans ascenseur (${d.etageDepart})`, montant: eDep });
+  if (eArr > 0) lignes.push({ libelle: `Étages à l'arrivée sans ascenseur (${d.etageArrivee})`, montant: eArr });
   if (d.manutention) aConfirmer.push("Manutention : sur devis.");
   if (d.trajets > 1) aConfirmer.push(`${d.trajets} trajets : prix ajusté sur devis.`);
-  return construire({ lignes: [{ libelle: "Petit déménagement (à partir de)", montant: base }], aConfirmer });
+  return construire({ lignes, aConfirmer });
 }
 
 /* ---------- Mise a disposition / attente / evenements ---------- */
@@ -307,6 +347,15 @@ function calculerMiseADisposition(d, t) {
     },
   ];
   const aConfirmer = [];
+  const plancher = plancherGrille(d.zoneDepart, d.zoneArrivee, t);
+  if (d.zoneDepart || d.zoneArrivee || d.aller) {
+    if (!estLocal(d, plancher, t)) {
+      const formule = d.aller && d.aller.km > 0 && d.aller.minutes > 0 ? arrondiSup(prixFormule(d.aller.km, d.aller.minutes, t), t.arrondi) : 0;
+      const parTrajet = Math.max(plancher.prixParTrajetAR, formule);
+      if (parTrajet > 0) lignes.push({ libelle: `Trajet aller-retour (2 x ${parTrajet} ₪)`, montant: parTrajet * 2 });
+      else aConfirmer.push("Déplacement hors Netanya : prix à confirmer par Rebecca.");
+    }
+  }
   if (d.arrets > 0) aConfirmer.push("Plusieurs arrêts ou retour tardif : prix convenu à l'avance.");
   return construire({ lignes, aConfirmer, details: { minutesFacturees: facturees } });
 }
@@ -384,6 +433,27 @@ function verifierFermetures(d, t) {
   return null;
 }
 
+/* ---------- Code promo ---------- */
+
+// Reduction sur la prestation seulement : les peages / frais annonces ne sont pas reduits
+function appliquerPromo(r, d, t) {
+  const code = String(d.codePromo || "").trim().toUpperCase();
+  if (!code || !r || !r.ok || r.bloque || r.total == null) return r;
+  const promo = t.codesPromo && t.codesPromo[code];
+  if (!promo) {
+    return { ...r, aConfirmer: [...r.aConfirmer, `Code promo « ${code} » non reconnu : aucune réduction appliquée.`], details: { ...r.details, promo: { statut: "inconnu", code } } };
+  }
+  const eligible = r.lignes.filter((l) => !/^Péages/.test(l.libelle)).reduce((s, l) => s + (l.montant || 0), 0);
+  const brut = promo.type === "pourcentage" ? (eligible * promo.valeur) / 100 : promo.valeur;
+  const reduction = Math.min(Math.round(brut), eligible);
+  if (reduction <= 0) return r;
+  const lignes = [...r.lignes, { libelle: `Code promo ${code} (${promo.libelle})`, montant: -reduction }];
+  const total = r.total - reduction;
+  const details = { ...r.details, promo: { statut: "applique", code, reduction } };
+  if (details.rentabilite) details.rentabilite = analyserRentabilite(d, total, t); // gain reel apres reduction
+  return { ...r, lignes, total, details };
+}
+
 /* ---------- Point d'entree unique ---------- */
 
 export function calculer(demande, t = TARIFS) {
@@ -394,23 +464,31 @@ export function calculer(demande, t = TARIFS) {
   const ferme = verifierFermetures(d, t);
   if (ferme) return ferme;
 
+  let r;
   switch (d.service) {
     case "transport":
     case "aeroport":
-      return calculerTrajet(d, t);
+      r = calculerTrajet(d, t);
+      break;
     case "livraison":
-      return calculerLivraison(d, t);
+      r = calculerLivraison(d, t);
+      break;
     case "courses":
-      return calculerCourses(d, t);
+      r = calculerCourses(d, t);
+      break;
     case "hatan_kala":
-      return calculerHatanKala(d, t);
+      r = calculerHatanKala(d, t);
+      break;
     case "demenagement":
-      return calculerDemenagement(d, t);
+      r = calculerDemenagement(d, t);
+      break;
     case "attente":
-      return calculerMiseADisposition(d, t);
+      r = calculerMiseADisposition(d, t);
+      break;
     default:
       return erreur(`Service inconnu : ${d.service}`);
   }
+  return appliquerPromo(r, d, t);
 }
 
 // Compare les trois scenarios A, B et C pour une meme demande

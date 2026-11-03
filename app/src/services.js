@@ -91,6 +91,7 @@ export const FORMULAIRES = {
     { name: "destinataire", label: "Nom du destinataire", type: "text", required: true },
     { name: "telDestinataire", label: "Téléphone du destinataire", type: "tel", required: true },
     { name: "typeColis", label: "Que livrer ?", type: "select", required: true, defaut: "Colis", options: ["Colis", "Clés", "Documents", "Achats", "Petit objet"].map((x) => ({ v: x, l: x })) },
+    { name: "nbColis", label: "Nombre de colis ou d'objets", type: "nombre", min: 1, max: 30, defaut: "1", indice: "Pour que Rebecca s'organise. Le prix dépend du nombre d'adresses, pas du nombre de colis." },
     ...quand(),
     { name: "nbLivraisons", label: "Nombre de livraisons", type: "select", defaut: "1", options: [1, 2, 3, 4, 5].map((n) => ({ v: String(n), l: String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par livraison supplémentaire dans Netanya ou sur la route ; plus loin, le trajet est ajouté au devis.` },
     ...[2, 3, 4, 5].map((n) => ({ name: "arretL" + n, label: `Adresse de la livraison ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbLivraisons) >= n })),

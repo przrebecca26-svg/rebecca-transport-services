@@ -87,7 +87,7 @@
   border-radius: var(--rayon);
   cursor: pointer;
 }
-.tb-carte > span { display: block; }
+.tb-carte > .tb-quand { display: block; }
 .tb-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tb-carte .tb-ligne { margin: 2px 0; }
 .tb-quand { margin: 2px 0; color: var(--gris); font-size: 15px; }

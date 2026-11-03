@@ -3,6 +3,7 @@ import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider } from "./firebase.js";
 import { NOM } from "./contact.js";
 import Demandes from "./Demandes.jsx";
+import Agenda from "./Agenda.jsx";
 import "./admin.css";
 
 // Seul ce compte Google est l'administrateur.
@@ -21,6 +22,7 @@ export default function Admin() {
   const [user, setUser] = useState(undefined); // undefined = chargement, null = deconnectee
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
+  const [onglet, setOnglet] = useState("demandes");
 
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
 
@@ -46,11 +48,15 @@ export default function Admin() {
         <header className="tb-entete">
           <div>
             <p className="admin-surtitre">{NOM}</p>
-            <h1>Demandes</h1>
+            <h1>Mon activité</h1>
           </div>
           <button className="tb-sortir" onClick={deconnecter}>Se déconnecter</button>
         </header>
-        <Demandes />
+        <nav className="tb-onglets" aria-label="Sections">
+          <button className={"tb-onglet" + (onglet === "demandes" ? " actif" : "")} onClick={() => setOnglet("demandes")}>Demandes</button>
+          <button className={"tb-onglet" + (onglet === "agenda" ? " actif" : "")} onClick={() => setOnglet("agenda")}>Agenda</button>
+        </nav>
+        {onglet === "demandes" ? <Demandes /> : <Agenda />}
         <a className="admin-retour tb-pad" href="#/">← Retour au site</a>
       </div>
     );

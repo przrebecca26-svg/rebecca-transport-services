@@ -79,6 +79,11 @@ export default function PaiementsCourse({ d }) {
     );
   }, [d.id]);
 
+  // Un message d'erreur disparait des qu'un champ est modifie
+  useEffect(() => {
+    setErreur("");
+  }, [montant, motif, date, moyen, reference, cas]);
+
   const prix = typeof d.prixFinal === "number" ? d.prixFinal : typeof d.prixEstime === "number" ? d.prixEstime : null;
   const liste = useMemo(
     () =>

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import ServiceForm from "./components/ServiceForm.jsx";
 import { SERVICES } from "./services.js";
 import { prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
+import { useFermetures } from "./fermetures.js";
 import { NOM, SIGNATURE } from "./contact.js";
 
 // Espace prive : charge seulement quand on ouvre /#/admin (les clients ne le telechargent jamais)
@@ -70,6 +71,7 @@ function Envoye({ info, onRetour }) {
 export default function App() {
   const [ecran, setEcran] = useState({ nom: "accueil" });
   const [admin, setAdmin] = useState(enAdmin());
+  useFermetures(); // fermetures et creneaux fixes decides par Rebecca (redessine le site quand ils arrivent)
   useEffect(() => {
     const suivre = () => setAdmin(enAdmin());
     window.addEventListener("hashchange", suivre);

@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider } from "./firebase.js";
 import { NOM } from "./contact.js";
+import Demandes from "./Demandes.jsx";
 import "./admin.css";
 
 // Seul ce compte Google est l'administrateur.
-// (La vraie protection des donnees sera dans les regles de securite Firestore.)
+// La vraie protection des donnees est dans les regles de securite Firestore.
 export const ADMIN_EMAIL = "przrebecca26@gmail.com";
 
 const MESSAGES = {
@@ -38,6 +39,23 @@ export default function Admin() {
 
   const estAdmin = !!user && user.email === ADMIN_EMAIL && user.emailVerified;
 
+  // Tableau de bord de Rebecca
+  if (estAdmin) {
+    return (
+      <div className="admin admin-tableau">
+        <header className="tb-entete">
+          <div>
+            <p className="admin-surtitre">{NOM}</p>
+            <h1>Demandes</h1>
+          </div>
+          <button className="tb-sortir" onClick={deconnecter}>Se déconnecter</button>
+        </header>
+        <Demandes />
+        <a className="admin-retour tb-pad" href="#/">← Retour au site</a>
+      </div>
+    );
+  }
+
   return (
     <div className="admin">
       <div className="admin-carte">
@@ -61,15 +79,6 @@ export default function Admin() {
             <p className="admin-erreur" role="alert">Accès refusé : ce compte n'est pas autorisé.</p>
             <p className="admin-texte">{user.email}</p>
             <button className="admin-bouton" onClick={deconnecter}>Se déconnecter</button>
-          </>
-        )}
-
-        {estAdmin && (
-          <>
-            <p className="admin-ok">✓ Connexion réussie</p>
-            <p className="admin-texte">Bonjour Rebecca. Votre tableau de bord arrive à la prochaine étape.</p>
-            <p className="admin-mail">{user.email}</p>
-            <button className="admin-bouton admin-secondaire" onClick={deconnecter}>Se déconnecter</button>
           </>
         )}
 

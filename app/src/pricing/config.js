@@ -74,25 +74,29 @@ export const TARIFS = {
     netanya: {
       nom: "Netanya et alentours",
       minimum: 50,
+      axe: { sens: "centre", rang: 0 },
       grilleB: { simple: 75, parTrajetAR: 55 },
       alias: ["netanya", "natanya", "netania", "nethanya", "natania", "נתניה"],
     },
-    hadera: { nom: "Hadera", minimum: 120, grilleB: { simple: 155, parTrajetAR: 120 }, alias: ["hadera", "hedera", "חדרה"] },
+    hadera: { nom: "Hadera", minimum: 120, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 155, parTrajetAR: 120 }, alias: ["hadera", "hedera", "חדרה"] },
     herzliya_raanana: {
       nom: "Herzliya / Ra'anana",
       minimum: 130,
+      axe: { sens: "sud", rang: 1 },
       grilleB: { simple: 150, parTrajetAR: 130 },
       alias: ["herzliya", "herzlia", "hertzliya", "raanana", "ra anana", "הרצליה", "רעננה"],
     },
     tel_aviv: {
       nom: "Tel-Aviv",
       minimum: 170,
+      axe: { sens: "sud", rang: 2 },
       grilleB: { simple: 235, parTrajetAR: 175 },
       alias: ["tel aviv", "telaviv", "tel aviv yafo", "תל אביב"],
     },
     ben_gurion: {
       nom: "Aéroport Ben Gourion",
       minimum: 250,
+      axe: { sens: "sud", rang: 3 },
       grilleB: { simple: 290, parTrajetAR: 250 },
       alias: [
         "ben gurion airport",
@@ -107,8 +111,8 @@ export const TARIFS = {
         "נתב",
       ],
     },
-    haifa: { nom: "Haïfa", minimum: 280, grilleB: { simple: 365, parTrajetAR: 280 }, alias: ["haifa", "חיפה"] },
-    jerusalem: { nom: "Jérusalem", minimum: 400, grilleB: { simple: 540, parTrajetAR: 400 }, alias: ["jerusalem", "yerushalayim", "ירושלים"] },
+    haifa: { nom: "Haïfa", minimum: 280, axe: { sens: "nord", rang: 2 }, grilleB: { simple: 365, parTrajetAR: 280 }, alias: ["haifa", "חיפה"] },
+    jerusalem: { nom: "Jérusalem", minimum: 400, axe: { sens: "sud", rang: 4 }, grilleB: { simple: 540, parTrajetAR: 400 }, alias: ["jerusalem", "yerushalayim", "ירושלים"] },
   },
 
   // Courses a l'interieur de Netanya : plafond 100 NIS (si trajet court)
@@ -132,8 +136,10 @@ export const TARIFS = {
   // Bagages : petit sac et valise cabine gratuits ; supplement par bagage en soute (grande valise)
   bagages: { supplementParSoute: 10 },
 
-  // Arrets supplementaires (livraison, Hatan & Kala) : dans Netanya = forfait ; ailleurs = prix de la grille B de la ville
-  arretsSupplementaires: { netanya: 20 },
+  // Arrets supplementaires (livraison, Hatan & Kala, mise a disposition) :
+  // - dans Netanya ou SUR LA ROUTE (meme direction, pas plus loin que le point le plus eloigne deja atteint) = forfait
+  // - plus loin = prix de la grille B de la ville
+  arretsSupplementaires: { netanya: 20, surLaRoute: 20 },
 
   // Hatan & Kala : 220 minimum ; hors Netanya = trajet + prestation mariage
   hatanKala: { base: 220, decoration: 150, prestationHorsNetanya: 70 },

@@ -8,3 +8,5 @@
 .bl-sous strong { font-weight: 600; color: var(--gris); }
 .admin-tableau .dp-mois strong { text-transform: none; }
 .admin-tableau .dp-mois strong::first-letter { text-transform: uppercase; }
+/* iPhone : un champ de saisie de moins de 16 px fait zoomer la page (agenda) */
+.admin-tableau .fm-champ input, .admin-tableau .fm-champ select { font-size: 16px; }

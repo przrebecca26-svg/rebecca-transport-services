@@ -6,6 +6,7 @@ import { calculerTrajet } from "../routing.js";
 import { calculer } from "../pricing/engine.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
+import { useFermetures } from "../fermetures.js";
 import { construireDemande, enregistrerDemande } from "../demandes.js";
 
 const adresseSaisie = (a) => !!(a && a.label && a.label.trim());
@@ -16,6 +17,7 @@ export default function ServiceForm({ service, onRetour, onEnvoye }) {
   const [erreurs, setErreurs] = useState({});
   const [trajet, setTrajet] = useState(null); // { statut: chargement | ok | erreur, km, minutes }
   const formRef = useRef(null);
+  const reglages = useFermetures(); // change quand les fermetures de Rebecca sont chargees : le prix se recalcule
 
   const changer = (nom, valeur) => {
     setV((o) => ({ ...o, [nom]: valeur }));
@@ -54,7 +56,7 @@ export default function ServiceForm({ service, onRetour, onEnvoye }) {
     const route = distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null;
     const r = calculer(versDemande(service, v, route));
     return r;
-  }, [service, v, trajet, pretPourCalcul, distanceOk]);
+  }, [service, v, trajet, pretPourCalcul, distanceOk, reglages]);
 
   const bloque = !!(resultat && resultat.bloque);
 

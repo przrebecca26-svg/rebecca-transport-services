@@ -1,0 +1,7 @@
+/* Codes promo - Rebecca Transport & Services */
+.pr-liste { margin: 12px 0 0; padding: 0; list-style: none; }
+.pr-ligne { padding: 12px 0; border-top: 1px solid var(--rose); }
+.pr-ligne:first-child { border-top: 0; }
+.pr-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pr-tete strong { font-size: 18px; letter-spacing: 0.5px; overflow-wrap: anywhere; }
+.pr-meta { margin: 4px 0 0; color: var(--gris); font-size: 15px; }

@@ -145,4 +145,22 @@ export default function PromoBloc({ code, promo, onChange, onCompte }) {
           autoComplete="off"
           placeholder="Ex : AMI10"
           onChange={(e) => {
-            setSaisie(e.
+            setSaisie(e.target.value);
+            setErreur("");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              appliquer(saisie);
+            }
+          }}
+        />
+        <button type="button" className="bouton" disabled={enCours || !saisie.trim()} onClick={() => appliquer(saisie)}>
+          {enCours ? "…" : "Appliquer"}
+        </button>
+      </div>
+      <span className="aide">Un code reçu d'un ami ou vu sur une publicité se tape ici.</span>
+      {erreur && <span className="erreur" role="alert">{erreur}</span>}
+    </div>
+  );
+}

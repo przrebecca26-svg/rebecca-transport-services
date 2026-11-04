@@ -1,4 +1,4 @@
-// BASE TARIFAIRE CENTRALE - Rebecca Transport & Services
+// BASE TARIFAIRE CENTRALE - Rebecca Services
 // Un seul endroit pour tous les prix et toutes les regles.
 // Plus tard, ces valeurs seront lues depuis la base de donnees (modifiables dans l'espace admin).
 
@@ -182,8 +182,28 @@ export const TARIFS = {
   // Rebecca les cree dans son espace prive (onglet Codes promo) ; le formulaire lit le code saisi dans Firestore.
   codesPromo: {},
 
+  // COMPTES CLIENTS : limites et code de bienvenue (donne automatiquement a l'inscription verifiee)
+  clients: {
+    codeBienvenue: "BIENVENUE10",
+    adressesMax: 5,
+    enfantsMax: 6,
+    favorisMax: 10,
+    demandesParJour: 10, // limite douce par compte (le code Firebase gratuit ne peut pas la garantir seul)
+    rechargesEnAttenteMax: 3,
+  },
+
+  // Lien pour laisser un avis Google (Google Business Profile > "Demander des avis"). Vide = le lien n'est pas affiche.
+  avisGoogleUrl: "",
+
+  // POURBOIRE : 100 % pour Rebecca, jamais reduit par un code, jamais compte dans le chiffre d'affaires de la course
+  pourboire: { montants: [5, 10, 15, 20, 50], max: 200 },
+
+  // CREDIT PREPAYE : recharge declaree par le client, ajoutee seulement quand Rebecca confirme la reception.
+  // Le bonus est du credit offert (pas de l'argent encaisse) : compte a part dans le bilan.
+  credit: { rechargeMin: 50, rechargeMax: 5000, bonusSeuil: 300, bonusPourcentage: 0.05 },
+
   // Pas de paiement en ligne au lancement : on enregistre seulement le moyen et les sommes
-  moyensPaiement: ["Espèces", "Carte bancaire", "Revolut", "Bit"],
+  moyensPaiement: ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement"],
 };
 
 // Cout du kilometre = carburant + usure du vehicule

@@ -1,6 +1,11 @@
-// Enregistrement des demandes dans la base (Firestore) + e-mail de notification a Rebecca.
-// Le client peut CREER une demande, jamais la relire : seule Rebecca la voit (regles de securite).
+// ENREGISTREMENT DES DEMANDES - Rebecca Services
+// Une demande part dans la base (Firestore) + un e-mail de notification a Rebecca.
+// Sans compte : seule la demande est enregistree (le client ne peut jamais la relire).
+// Avec un compte verifie : la demande + son "suivi" (visible dans "Mon historique") + l'utilisation du code promo,
+// le tout en UNE seule operation (tout passe ou rien ne passe). Respecte exactement les regles Firebase v6.1.
 import { SERVICES, champsVisibles } from "./services.js";
+import { lirePourboire, nettoyer, normaliserTelephone } from "./profil.js";
+import { TARIFS } from "./pricing/config.js";
 
 // Notification e-mail (EmailJS, plan gratuit). Ces trois codes sont publics : ils sont visibles dans le site.
 const EMAILJS = { service: "service_apqztvn", modele: "template_g52zuwf", cle: "bdJTayNK-YJyKZ79V" };
@@ -8,6 +13,7 @@ const EMAILJS = { service: "service_apqztvn", modele: "template_g52zuwf", cle: "
 const texte = (x, max) => String(x ?? "").slice(0, max);
 const nombre = (x) => (typeof x === "number" && isFinite(x) ? x : null);
 const propre = (x, max) => texte(x, max).replace(/[<>]/g, "");
+const CODE_OK = /^[A-Z0-9_-]{3,20}$/;
 
 // Transforme une valeur de formulaire en donnee simple (Firestore refuse "undefined")
 function simple(val) {
@@ -18,18 +24,30 @@ function simple(val) {
   return texte(val, 1000);
 }
 
-// Construit le document a enregistrer (sans date : elle est ajoutee par le serveur)
-export function construireDemande(service, v, devis, route, message) {
+// Code promo reellement applique par le moteur de prix (sinon null)
+function promoAppliquee(devis) {
+  const p = devis && devis.details && devis.details.promo;
+  if (!p || p.statut !== "applique") return null;
+  const code = String(p.code || "").trim().toUpperCase();
+  const remise = Math.round(Number(p.reduction) || 0);
+  if (!CODE_OK.test(code) || remise < 0 || remise > 100000) return null;
+  return { code, remise };
+}
+
+// Construit le document "demande" (sans date : elle est ajoutee par le serveur).
+// compte = { uid, remplace } quand le client est connecte avec un e-mail verifie (sinon null).
+export function construireDemande(service, v, devis, route, message, compte = null) {
   const infos = SERVICES.find((s) => s.id === service);
   const details = {};
   for (const c of champsVisibles(service, v)) details[c.name] = simple(v[c.name]);
   if (v.promoActif && v.codePromo) details.codePromo = texte(v.codePromo, 50);
-  return {
+
+  const d = {
     service: texte(service, 40),
     serviceTitre: texte(infos ? infos.titre : service, 100),
     date: texte(v.date, 10),
     heure: texte(v.heure, 5),
-    nom: texte(v.nom, 100).trim(),
+    nom: texte(v.nom, 100).trim() || "Client",
     telephone: texte(v.telephone, 30).trim(),
     moyenPaiement: texte(v.moyenPaiement, 30),
     prixEstime: devis && !devis.devis ? nombre(devis.total) : null,
@@ -41,6 +59,43 @@ export function construireDemande(service, v, devis, route, message) {
     statut: "en attente",
     source: "site",
   };
+
+  // Passager (reservation pour quelqu'un d'autre)
+  if (v.pourAutrui && nettoyer(v.passagerNom, 80)) {
+    d.passager = { nom: nettoyer(v.passagerNom, 80), telephone: normaliserTelephone(v.passagerTel).slice(0, 30) };
+  }
+  // Pourboire prevu par le client (100 % pour Rebecca, jamais reduit par un code)
+  const tip = lirePourboire(v.pourboire, TARIFS.pourboire.max);
+  if (!tip.erreur && tip.montant > 0) d.pourboire = tip.montant;
+
+  // Champs reserves aux comptes verifies
+  if (compte && compte.uid) {
+    d.uid = compte.uid;
+    if (compte.remplace) d.remplace = texte(compte.remplace, 40);
+    const promo = promoAppliquee(devis);
+    if (promo) {
+      d.codePromo = promo.code;
+      d.remise = promo.remise;
+    }
+  }
+  return d;
+}
+
+// Le "suivi" visible par le client : copie des informations utiles de la demande
+export function construireSuivi(d) {
+  const s = {
+    uid: d.uid,
+    service: d.service,
+    serviceTitre: d.serviceTitre,
+    date: d.date,
+    heure: d.heure,
+    prixEstime: d.prixEstime,
+    surDevis: d.surDevis,
+    statut: "en attente",
+    details: d.details,
+  };
+  for (const k of ["pourboire", "passager", "codePromo", "remise", "remplace"]) if (k in d) s[k] = d[k];
+  return s;
 }
 
 const jourLong = (d) => {
@@ -55,6 +110,9 @@ export async function envoyerEmail(d) {
     .split("\n")
     .map((l) => l.trim())
     .filter((l, i) => l && i > 0 && !/^(Nom|Téléphone|Paiement prévu|Estimation|Prix) :/.test(l) && !/^Merci de me confirmer/.test(l));
+  if (d.uid) lignes.push("Client avec compte");
+  if (d.remplace) lignes.push("Remplace une demande précédente");
+  if (d.pourboire) lignes.push("Pourboire prévu : " + d.pourboire + " ₪");
   const prix = d.surDevis ? "Sur devis" : typeof d.prixEstime === "number" ? d.prixEstime + " ₪" : "À confirmer";
   const reponse = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
     method: "POST",
@@ -78,11 +136,51 @@ export async function envoyerEmail(d) {
   if (!reponse.ok) throw new Error("E-mail refuse : " + reponse.status);
 }
 
-// Envoie la demande a Firestore. Le code Firebase n'est charge qu'a ce moment-la.
+// Envoie la demande. Le code Firebase n'est charge qu'a ce moment-la. Renvoie l'identifiant de la demande.
 export async function enregistrerDemande(demande) {
-  // L'e-mail et la base sont independants : si l'un echoue, l'autre part quand meme
+  const [{ db }, fs] = await Promise.all([import("./firebase.js"), import("firebase/firestore")]);
+  const { addDoc, collection, doc, runTransaction, serverTimestamp } = fs;
+
+  // Sans compte : la demande seule (comme avant). L'e-mail et la base sont independants : si l'un echoue, l'autre part quand meme.
+  if (!demande.uid) {
+    envoyerEmail(demande).catch(() => {});
+    const ref = await addDoc(collection(db, "demandes"), { ...demande, creeLe: serverTimestamp() });
+    return ref.id;
+  }
+
+  // Avec un compte : demande + suivi (+ code promo, + ancienne demande "remplacée") en une seule operation
+  const ref = doc(collection(db, "demandes"));
+  const suiviRef = doc(db, "suivi", ref.id);
+  const usageRef = demande.codePromo ? doc(db, "utilisationsPromo", demande.codePromo + "__" + demande.uid) : null;
+  const ancienRef = demande.remplace ? doc(db, "suivi", demande.remplace) : null;
+
+  await runTransaction(db, async (tx) => {
+    // 1. Lectures d'abord (regle des transactions)
+    const usage = usageRef ? await tx.get(usageRef) : null;
+    const ancien = ancienRef ? await tx.get(ancienRef) : null;
+    // 2. Ecritures
+    tx.set(ref, { ...demande, creeLe: serverTimestamp() });
+    tx.set(suiviRef, { ...construireSuivi(demande), creeLe: serverTimestamp(), majLe: serverTimestamp() });
+    if (usageRef) {
+      const deja = usage.exists() ? Number(usage.data().nombre) || 0 : 0;
+      tx.set(usageRef, { code: demande.codePromo, uid: demande.uid, nombre: deja + 1, majLe: serverTimestamp() });
+    }
+    // L'ancienne demande n'est marquee "remplacée" que si elle est encore en attente
+    if (ancien && ancien.exists() && ancien.data().statut === "en attente") {
+      tx.update(ancienRef, { statut: "remplacée", majLe: serverTimestamp() });
+    }
+  });
+
   envoyerEmail(demande).catch(() => {});
-  const [{ db }, { addDoc, collection, serverTimestamp }] = await Promise.all([import("./firebase.js"), import("firebase/firestore")]);
-  const ref = await addDoc(collection(db, "demandes"), { ...demande, creeLe: serverTimestamp() });
   return ref.id;
+}
+
+// Message clair quand l'enregistrement est refuse (code promo epuise, compte bloque, connexion...)
+export function messageEchec(e, demande) {
+  const code = (e && e.code) || "";
+  if (code === "permission-denied" && demande && demande.codePromo) {
+    return "Ce code promo n'est plus utilisable sur votre compte. Retirez-le puis renvoyez la demande.";
+  }
+  if (code === "permission-denied") return "Votre demande n'a pas pu être enregistrée. Contactez Rebecca sur WhatsApp.";
+  return "Enregistrement impossible pour le moment. Vérifiez la connexion puis réessayez.";
 }

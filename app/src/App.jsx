@@ -18,8 +18,10 @@ const enAdmin = () => window.location.hash.startsWith("#/admin");
 
 // Mise en page des espaces (sans toucher aux fichiers CSS deja en place)
 const ESPACE = { margin: "0 0 24px" };
-const TITRE = { fontSize: 22, margin: "0 0 6px" };
-const BIENTOT_STYLE = { opacity: 0.65, cursor: "default" };
+const TITRE = { fontSize: 22, margin: 0 };
+const BIENTOT_STYLE = { opacity: 0.8, cursor: "default" };
+const ENTETE = { display: "flex", alignItems: "center", gap: 12, margin: "0 0 6px" };
+const MARQUES = { display: "flex", gap: 6, marginTop: 6 };
 
 const jourFr = (d) => d.split("-").reverse().join("/");
 const POPUP = "rts_bienvenue_vue";
@@ -38,11 +40,31 @@ const fermerPopup = () => {
   }
 };
 
+// Medaillon Rebecca Services (meme image que l'icone de l'ecran d'accueil, affichee en rond)
+const MEDAILLON = "/icon-512.png";
+const ROND = { borderRadius: "50%", objectFit: "cover" };
+
+// Textes des espaces sur l'accueil (valides par Rebecca le 4 novembre)
+const TEXTES_ACCUEIL = {
+  coursier: { titre: "Services coursier", texte: "Livraisons, courses et petits déménagements", logo: MEDAILLON },
+};
+
 // Espaces bientot ouverts (catalogues en preparation) : affiches sans reservation possible
 const BIENTOT = [
-  { id: "beaute", icone: "💅", titre: "Services beauté", texte: "Nails Prestige, Prestige Hair, Prestige Slim & Lift et RegenX. À Netanya, sur rendez-vous." },
-  { id: "epoxy", icone: "✨", titre: "Boutique Epoxy", texte: "Créations artisanales en résine époxy, réalisées à la main et sur commande." },
+  {
+    id: "beaute",
+    logo: "/brand/logo-prestige-beautys.png",
+    titre: "Beauté & bien-être",
+    texte: "Ongles, coiffure, reconstruction du cheveu et du poil, soins et beauté de la silhouette",
+    marques: ["/brand/logo-nails-prestige.png", "/brand/logo-prestige-hair.png", "/brand/logo-prestige-slim-lift.png", "/brand/logo-regenx.png"],
+  },
+  { id: "epoxy", logo: "/brand/logo-epoxy.png", titre: "Boutique Epoxy", texte: "Créations personnalisées en résine" },
 ];
+
+// Petit logo rond (cache s'il ne se charge pas)
+const Logo = ({ src, taille = 44 }) => (
+  <img src={src} alt="" width={taille} height={taille} style={ROND} loading="lazy" onError={(e) => (e.currentTarget.style.display = "none")} />
+);
 
 // Acces au Transport prive : accorde client par client par Rebecca (document autorisations/{uid}__transport).
 // Tant que les regles v7 ne sont pas publiees, la lecture est refusee : le Transport reste invisible.
@@ -90,7 +112,7 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori }) {
   return (
     <>
       <section className="hero">
-        <img className="hero-logo" src="/brand/logo-medaillon.png" alt="" width="112" height="112" onError={(e) => (e.currentTarget.style.display = "none")} />
+        <img className="hero-logo" src={MEDAILLON} alt="" width="112" height="112" style={ROND} onError={(e) => (e.currentTarget.style.display = "none")} />
         <p className="surtitre">Netanya · toute Israël</p>
         <h1>{NOM}</h1>
         <p className="signature">« {SIGNATURE} »</p>
@@ -122,27 +144,40 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori }) {
         </section>
       )}
 
-      {activitesVisibles(acces).map((a) => (
+      {activitesVisibles(acces).map((a) => {
+        const t = TEXTES_ACCUEIL[a.id] || a;
+        return (
         <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
-          <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
-          <p className="consigne">{a.texte} Le devis s'affiche en direct.</p>
+          <div style={ENTETE}>
+            {t.logo && <Logo src={t.logo} taille={52} />}
+            <h2 id={"titre-" + a.id} style={TITRE}>{t.titre}</h2>
+          </div>
+          <p className="consigne">{t.texte}. Le devis s'affiche en direct.</p>
           <div className="services">
             {servicesDe(a.id).map((s) => (
               <Carte key={s.id} s={s} onClick={() => onChoix(s.id)} />
             ))}
           </div>
         </section>
-      ))}
+        );
+      })}
 
       <section className="espace" style={ESPACE} aria-labelledby="titre-bientot">
         <h2 id="titre-bientot" style={TITRE}>Bientôt sur {NOM}</h2>
         <div className="services">
           {BIENTOT.map((b) => (
             <div key={b.id} className="carte-service bientot" style={BIENTOT_STYLE} aria-disabled="true">
-              <span className="icone" aria-hidden="true">{b.icone}</span>
+              <span className="icone" aria-hidden="true"><Logo src={b.logo} /></span>
               <span className="corps">
                 <strong>{b.titre}</strong>
                 <small>{b.texte}</small>
+                {b.marques && (
+                  <span style={MARQUES}>
+                    {b.marques.map((m) => (
+                      <Logo key={m} src={m} taille={30} />
+                    ))}
+                  </span>
+                )}
               </span>
               <span className="prix">Bientôt</span>
             </div>

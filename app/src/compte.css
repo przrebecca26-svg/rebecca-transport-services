@@ -1,0 +1,56 @@
+
+/* ---------- Espace client ---------- */
+.compte-onglets.quatre { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.compte-onglets.quatre button { padding: 0 4px; font-size: 15px; }
+.compte-entete { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 4px 0 12px; }
+.compte-bonjour { margin: 0; font-family: var(--serif); font-size: 24px; }
+.compte-credit-badge { margin-top: 6px; min-height: 36px; padding: 4px 14px; font: inherit; font-weight: 700; color: var(--noir); background: var(--rose); border: 1.5px solid var(--or-clair); border-radius: 999px; cursor: pointer; }
+.compte-lien-legal { justify-self: start; padding: 4px 0; min-height: 36px; font-size: 14px; }
+.compte .bloc { margin-bottom: 14px; }
+.compte textarea, .compte input[type="text"], .compte input[type="tel"], .compte input[type="date"], .compte select { font-size: 16px; }
+
+/* Historique */
+.hist { display: grid; gap: 0; }
+.hist-carte h4 { font-size: 16px; }
+.hist-tete { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.hist-tete strong { font-size: 17px; }
+.hist-quand, .hist-prix, .hist-paye { margin: 0; }
+.hist-prix { font-weight: 600; }
+.hist-prix small { font-weight: 400; color: var(--gris); }
+.hist-paye { color: var(--gris); font-size: 15px; }
+.hist-statut { flex: none; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--rose); color: var(--noir); }
+.hist-statut.ok { background: #e1f3e6; color: #1f6b3b; }
+.hist-statut.non { background: #f6dcd9; color: var(--erreur); }
+.hist-statut.fin { background: #ebe7e4; color: var(--gris); }
+.hist-bouton { min-height: 44px; padding: 8px 16px; }
+.hist-avis { display: grid; gap: 12px; border-top: 1px solid var(--rose); padding-top: 12px; }
+.hist-etoiles { display: flex; gap: 6px; }
+.hist-etoiles button { width: 48px; height: 48px; font-size: 30px; line-height: 1; color: #d7cdc9; background: none; border: 0; cursor: pointer; }
+.hist-etoiles button.actif { color: #d99a3e; }
+
+/* Codes promo */
+.promo-carte { text-align: center; }
+.promo-motif { margin: 0; color: var(--gris); font-size: 14px; }
+.promo-code { margin: 4px 0; font-family: var(--serif); font-size: 30px; letter-spacing: 1px; }
+.promo-remise { margin: 0; font-weight: 700; color: var(--or); }
+
+/* Credit */
+.credit-solde { text-align: center; background: var(--noir); color: var(--rose); border: 0; }
+.credit-etiquette { margin: 0; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--or-clair); }
+.credit-montant { margin: 4px 0; font-family: var(--serif); font-size: 44px; color: var(--blanc); }
+.credit-solde .aide { color: var(--rose-fonce); }
+.credit-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.credit-liste li { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--rose); padding-top: 8px; }
+.credit-liste li:first-child { border-top: 0; padding-top: 0; }
+.credit-liste .neg { color: var(--erreur); }
+.credit-liste .pos { color: #1f6b3b; }
+
+/* Carnet : adresses, enfants, favoris */
+.carnet-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.carnet-liste li { display: grid; gap: 4px; border-top: 1px solid var(--rose); padding-top: 10px; }
+.carnet-liste li:first-child { border-top: 0; padding-top: 0; }
+.carnet-liste span, .carnet-liste small { display: block; color: var(--gris); font-size: 15px; overflow-wrap: anywhere; }
+.carnet-liste small { font-size: 13px; }
+.infos .bloc { margin-bottom: 14px; }
+.legal h3 { font-size: 18px; margin-top: 6px; }
+.legal p { margin: 0; }

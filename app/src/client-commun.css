@@ -1,0 +1,63 @@
+/* Elements du formulaire et de l'accueil lies aux comptes clients (charge avec le site) */
+
+/* Pourboire */
+.pourboire-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
+.pourboire-boutons button {
+  min-height: 44px; min-width: 56px; padding: 8px 14px; font: inherit; color: var(--noir); background: var(--creme);
+  border: 1.5px solid #e4d6d1; border-radius: 12px; cursor: pointer;
+}
+.pourboire-boutons button.actif { background: var(--noir); border-color: var(--noir); color: var(--rose); font-weight: 600; }
+.pourboire input[type="text"] { max-width: 180px; }
+
+/* Raccourcis d'adresses (Maison, Travail...) et position */
+.adresse-raccourcis { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.adresse-raccourcis button {
+  min-height: 40px; padding: 6px 12px; font: inherit; font-size: 15px; color: var(--noir); background: var(--rose);
+  border: 0; border-radius: 999px; cursor: pointer;
+}
+.adresse-position { background: var(--blanc) !important; border: 1.5px solid var(--or-clair) !important; color: var(--or) !important; }
+
+/* Bloc code promo du formulaire */
+.promo-bloc { display: grid; gap: 10px; }
+.promo-ligne { display: flex; gap: 8px; }
+.promo-ligne input { flex: 1; min-width: 0; text-transform: uppercase; }
+.promo-ligne .bouton { min-height: 48px; padding: 8px 16px; }
+.promo-ok { color: #2e7d4f; font-weight: 600; font-size: 15px; }
+.promo-invite { background: var(--rose); border-radius: 12px; padding: 12px; font-size: 15px; display: grid; gap: 6px; justify-items: start; }
+.promo-invite p { margin: 0; }
+
+/* Accueil : favoris et fenetre de bienvenue */
+.accueil-favoris { margin: 0 0 16px; display: grid; gap: 8px; }
+.accueil-favoris h3 { font-size: 16px; }
+.accueil-favoris div { display: flex; flex-wrap: wrap; gap: 8px; }
+.accueil-favoris button { min-height: 44px; padding: 8px 14px; font: inherit; background: var(--blanc); border: 1.5px solid var(--rose-fonce); border-radius: 12px; cursor: pointer; }
+.accueil-favoris button:active { background: var(--rose); }
+.popup-fond { position: fixed; inset: 0; z-index: 50; display: grid; align-items: end; background: rgba(20, 18, 20, 0.55); padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+.popup { max-width: 460px; width: 100%; margin: 0 auto; background: var(--noir); color: var(--rose); border-radius: 20px; padding: 22px 20px; display: grid; gap: 10px; text-align: center; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4); }
+.popup h2 { color: var(--blanc); font-size: 24px; }
+.popup p { margin: 0; color: var(--rose-fonce); }
+.popup .bouton { width: 100%; }
+.popup .lien { color: var(--rose-fonce); justify-self: center; }
+
+/* Passager different */
+.passager-bloc { display: grid; gap: 12px; }
+.accueil-compte { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+.hero-logo { display: block; margin: 0 auto 14px; width: 112px; height: 112px; }
+
+/* Choix rapide de l'horaire */
+.horaires-titre { display: block; font-weight: 600; margin: 0 0 6px; }
+.horaires-rapides { display: flex; flex-wrap: wrap; gap: 8px; }
+.horaires-rapides button {
+  min-height: 48px; padding: 8px 14px; font: inherit; color: var(--noir); background: var(--creme);
+  border: 1.5px solid #e4d6d1; border-radius: 12px; cursor: pointer; display: grid; justify-items: center; line-height: 1.2;
+}
+.horaires-rapides button.actif { background: var(--noir); border-color: var(--noir); color: var(--rose); font-weight: 600; }
+.horaires-rapides button:disabled { opacity: 0.5; cursor: not-allowed; }
+.horaires-rapides small { font-size: 12px; color: var(--gris); }
+
+/* Bandeau de disponibilite de l'accueil */
+.dispo-bandeau { display: inline-flex; align-items: flex-start; gap: 10px; margin: 16px auto 0; padding: 10px 16px; max-width: 100%; text-align: left; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(233, 164, 181, 0.35); border-radius: 16px; }
+.dispo-bandeau .pastille { flex: none; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: #4cc38a; box-shadow: 0 0 0 4px rgba(76, 195, 138, 0.2); }
+.dispo-bandeau.ferme .pastille { background: #e0707e; box-shadow: 0 0 0 4px rgba(224, 112, 126, 0.2); }
+.dispo-bandeau strong { display: block; color: var(--blanc); font-size: 15px; }
+.dispo-bandeau span { display: block; color: var(--rose); font-size: 13px; }

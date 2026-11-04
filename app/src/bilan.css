@@ -1,6 +1,6 @@
 /* Bilan - Rebecca Transport & Services */
-.admin-tableau .tb-onglets { gap: 6px; padding-left: 12px; padding-right: 12px; }
-.admin-tableau .tb-onglet { min-width: 0; padding: 0 2px; font-size: 15px; }
+.admin-tableau .tb-onglets { gap: 5px; padding-left: 12px; padding-right: 12px; flex-wrap: wrap; }
+.admin-tableau .tb-onglet { flex: 1 1 auto; min-width: 0; padding: 0 3px; font-size: 14px; }
 .bl-gros { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 18px; }
 .bl-gros strong { font-size: 28px; white-space: nowrap; }
 .bl-neg { color: var(--erreur); }

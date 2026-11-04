@@ -1,8 +1,11 @@
-// LES 8 SERVICES - Rebecca Transport & Services
+// LES 8 SERVICES - Rebecca Services
 // Chaque service a SON formulaire : les champs ci-dessous sont propres a chaque prestation.
 // Les prix ne sont jamais ecrits ici : tout vient de pricing/config.js (base tarifaire unique).
+// Chaque service est rattache a un ESPACE (activite) pour l'affichage seulement.
+// Le vrai controle d'acces (Transport prive ferme par defaut) sera fait par les regles Firebase v7.
 
 import { TARIFS } from "./pricing/config.js";
+import { validerPassager } from "./profil.js";
 import { detecterZone } from "./pricing/engine.js";
 import { localVersUtc } from "./pricing/calendrier.js";
 
@@ -14,18 +17,59 @@ const ouiNon = [
   { v: "oui", l: "Oui" },
 ];
 
+/* ---------- Espaces (activites) qui ont des formulaires de service ---------- */
+// Services beaute et Boutique Epoxy viendront avec leurs propres catalogues (lots suivants).
+// visibleParDefaut : false = espace invisible pour tous, sauf les clients que Rebecca autorise un par un.
+
+export const ACTIVITES = {
+  coursier: {
+    id: "coursier",
+    titre: "Services coursier",
+    texte: "Livraison de colis, clés, documents et enveloppes, courses et achats, petits déménagements.",
+    visibleParDefaut: true,
+    ordre: 1,
+  },
+  transport: {
+    id: "transport",
+    titre: "Transport privé",
+    texte: "Trajets, aéroport, Hatan & Kala, ramassage scolaire et mise à disposition.",
+    visibleParDefaut: false,
+    ordre: 4,
+  },
+};
+
 /* ---------- Description des services (page d'accueil) ---------- */
 
 export const SERVICES = [
-  { id: "transport", titre: "Transport privé", icone: "🚗", texte: "Un trajet d'une adresse à une autre, aller simple ou aller-retour.", prix: "dès 50 ₪" },
-  { id: "aeroport", titre: "Aéroport Ben Gourion", icone: "✈️", texte: "Départ vers l'aéroport ou arrivée et transfert à votre adresse.", prix: "dès 250 ₪" },
-  { id: "livraison", titre: "Livraison", icone: "📦", texte: "Colis, clés, documents, achats, petits objets.", prix: "dès 60 ₪" },
-  { id: "courses", titre: "Courses et achats", icone: "🛍️", texte: "Je récupère vos achats ou je fais les courses pour vous.", prix: "dès 60 ₪" },
-  { id: "hatan_kala", titre: "Hatan & Kala", icone: "💍", texte: "Transport des mariés, décoration du véhicule possible.", prix: "dès 220 ₪" },
-  { id: "demenagement", titre: "Petit déménagement", icone: "📚", texte: "Valises, cartons, petits objets.", prix: "dès 130 ₪" },
-  { id: "ramassage", titre: "Ramassage scolaire", icone: "🎒", texte: "Je vais chercher votre enfant à l'école ou je l'y emmène : trajet unique ou forfait à la semaine.", prix: "dès 55 ₪ / trajet" },
-  { id: "attente", titre: "Mise à disposition", icone: "⏱️", texte: "Attente, accompagnement, événements : à l'heure.", prix: "100 ₪ / heure" },
+  { id: "transport", activite: "transport", titre: "Transport privé", icone: "🚗", texte: "Un trajet d'une adresse à une autre, aller simple ou aller-retour.", prix: "dès 50 ₪" },
+  { id: "aeroport", activite: "transport", titre: "Aéroport Ben Gourion", icone: "✈️", texte: "Départ vers l'aéroport ou arrivée et transfert à votre adresse.", prix: "dès 250 ₪" },
+  { id: "livraison", activite: "coursier", titre: "Livraison", icone: "📦", texte: "Colis, clés, documents, enveloppes, achats, petits objets.", prix: "dès 60 ₪" },
+  { id: "courses", activite: "coursier", titre: "Courses et achats", icone: "🛍️", texte: "Je récupère vos achats ou je fais les courses pour vous.", prix: "dès 60 ₪" },
+  { id: "hatan_kala", activite: "transport", titre: "Hatan & Kala", icone: "💍", texte: "Transport des mariés, décoration du véhicule possible.", prix: "dès 220 ₪" },
+  { id: "demenagement", activite: "coursier", titre: "Petit déménagement", icone: "📚", texte: "Valises, cartons, petits objets.", prix: "dès 130 ₪" },
+  { id: "ramassage", activite: "transport", titre: "Ramassage scolaire", icone: "🎒", texte: "Je vais chercher votre enfant à l'école ou je l'y emmène : trajet unique ou forfait à la semaine.", prix: "dès 55 ₪ / trajet" },
+  { id: "attente", activite: "transport", titre: "Mise à disposition", icone: "⏱️", texte: "Attente, accompagnement, événements : à l'heure.", prix: "100 ₪ / heure" },
 ];
+
+// Espace d'un service ("coursier" ou "transport")
+export const activiteDe = (service) => {
+  const s = SERVICES.find((x) => x.id === service);
+  return s ? s.activite : null;
+};
+
+// Services d'un espace, dans l'ordre d'affichage
+export const servicesDe = (activite) => SERVICES.filter((s) => s.activite === activite);
+
+// Espaces a montrer a ce visiteur. acces = { transport: true } quand Rebecca a autorise ce client.
+// (Affichage seulement : les regles Firebase v7 refuseront aussi une demande non autorisee.)
+export function activitesVisibles(acces = {}) {
+  return Object.values(ACTIVITES)
+    .filter((a) => a.visibleParDefaut || acces[a.id] === true)
+    .sort((a, b) => a.ordre - b.ordre);
+}
+
+// Les boutons "Choix rapide" (Dans 1 h, Ce soir, Demain) n'ont pas de sens pour le ramassage scolaire
+export const horaireRapidePossible = (service) => service !== "ramassage";
 
 /* ---------- Champs communs ---------- */
 
@@ -39,6 +83,13 @@ const retour = [
   { name: "dateRetour", label: "Date du retour", type: "date", required: true, si: (v) => v.typeTrajet === "ar" },
   { name: "heureRetour", label: "Heure du retour", type: "time", required: true, si: (v) => v.typeTrajet === "ar" },
   { name: "attenteMinutes", label: "Attente sur place pendant le trajet", type: "select", si: (v) => v.typeTrajet === "ar", defaut: "0", options: [{ v: "0", l: "Aucune" }, { v: "30", l: "30 minutes" }, { v: "60", l: "1 heure" }, { v: "90", l: "1 h 30" }, { v: "120", l: "2 heures" }], indice: "10 minutes offertes, puis 100 ₪ / heure." },
+];
+
+// Reserver pour quelqu'un d'autre (transport de personnes uniquement)
+const passager = [
+  { name: "pourAutrui", label: "Je réserve pour quelqu'un d'autre", type: "case" },
+  { name: "passagerNom", label: "Nom du passager", type: "text", required: true, si: (v) => !!v.pourAutrui },
+  { name: "passagerTel", label: "Téléphone du passager", type: "tel", required: true, si: (v) => !!v.pourAutrui, indice: "Ses coordonnées servent uniquement à organiser le trajet." },
 ];
 
 const urgence = { name: "urgent", label: "C'est urgent", type: "case", indice: "Supplément de 30 à 50 ₪ selon le délai." };
@@ -67,6 +118,7 @@ export const FORMULAIRES = {
     ...retour,
     { name: "arrets", label: "Arrêts supplémentaires", type: "nombre", min: 0, max: 5, defaut: "0", indice: "Le tarif des arrêts vous est communiqué avant validation." },
     urgence,
+    ...passager,
     { name: "infos", label: "Informations complémentaires", type: "texte-long" },
   ],
 
@@ -82,6 +134,7 @@ export const FORMULAIRES = {
     { name: "valises", label: "Bagages en soute (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
     ...retour,
     urgence,
+    ...passager,
     { name: "infos", label: "Informations complémentaires", type: "texte-long" },
   ],
 
@@ -90,7 +143,7 @@ export const FORMULAIRES = {
     { name: "livraison", label: "Adresse de livraison", type: "adresse", required: true },
     { name: "destinataire", label: "Nom du destinataire", type: "text", required: true },
     { name: "telDestinataire", label: "Téléphone du destinataire", type: "tel", required: true },
-    { name: "typeColis", label: "Que livrer ?", type: "select", required: true, defaut: "Colis", options: ["Colis", "Clés", "Documents", "Achats", "Petit objet"].map((x) => ({ v: x, l: x })) },
+    { name: "typeColis", label: "Que livrer ?", type: "select", required: true, defaut: "Colis", options: ["Colis", "Clés", "Documents", "Enveloppes", "Achats", "Petit objet"].map((x) => ({ v: x, l: x })) },
     { name: "nbColis", label: "Nombre de colis ou d'objets", type: "nombre", min: 1, max: 30, defaut: "1", indice: "Pour que Rebecca s'organise. Le prix dépend du nombre d'adresses, pas du nombre de colis." },
     ...quand(),
     { name: "nbLivraisons", label: "Nombre de livraisons", type: "select", defaut: "1", options: [1, 2, 3, 4, 5].map((n) => ({ v: String(n), l: String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par livraison supplémentaire dans Netanya ou sur la route ; plus loin, le trajet est ajouté au devis.` },
@@ -119,6 +172,7 @@ export const FORMULAIRES = {
     ...[1, 2, 3].map((n) => ({ name: "arretH" + n, label: `Adresse de l'arrêt ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbArrets) >= n })),
     { name: "vehiculeReserve", label: "Mise à disposition du véhicule sur la durée", type: "case", indice: "Devis personnalisé." },
     { name: "decoration", label: "Décoration du véhicule (+150 ₪)", type: "case" },
+    ...passager,
     { name: "programme", label: "Programme et horaires", type: "texte-long", required: true, placeholder: "Adresses, horaires, déroulé de la journée…" },
   ],
 
@@ -140,7 +194,10 @@ export const FORMULAIRES = {
   ramassage: [
     { name: "frequence", label: "Fréquence", type: "choix", required: true, defaut: "unique", options: [{ v: "unique", l: "Une seule fois" }, { v: "semaine", l: "Forfait à la semaine" }] },
     { name: "trajetsRamassage", label: "Quels trajets ?", type: "choix", required: true, defaut: "matin", options: [{ v: "matin", l: "Matin : domicile → école" }, { v: "apres", l: "Après-midi : école → domicile" }, { v: "deux", l: "Les deux" }] },
-    { name: "enfant", label: "Prénom de l'enfant", type: "text", required: true },
+    { name: "enfant", label: "Prénom de l'enfant", type: "text", required: true, indice: "Avec un compte, choisissez votre enfant enregistré : ses informations se remplissent seules." },
+    { name: "classe", label: "Classe", type: "text" },
+    { name: "telUrgence", label: "Téléphone en cas d'urgence", type: "tel", required: true },
+    { name: "personnesAutorisees", label: "Personnes autorisées à récupérer ou accueillir l'enfant", type: "texte-long", required: true, placeholder: "Nom, téléphone et lien avec l'enfant", indice: "Rebecca ne remet l'enfant qu'à ces personnes." },
     { name: "domicile", label: "Adresse du domicile", type: "adresse", required: true },
     { name: "ecole", label: "Adresse de l'école", type: "adresse", required: true },
     { name: "date", label: (v) => (v.frequence === "semaine" ? "Premier jour" : "Date"), type: "date", required: true },
@@ -153,7 +210,7 @@ export const FORMULAIRES = {
       si: (v) => v.frequence === "semaine",
       ...(i === 0 ? { indice: "Cochez les jours souhaités. Dès 3 jours : -10 %, 5 jours : -15 %." } : {}),
     })),
-    { name: "infos", label: "Informations utiles (classe, personne autorisée, code du portail…)", type: "texte-long" },
+    { name: "infos", label: "Informations utiles (code du portail, allergies à connaître…)", type: "texte-long" },
   ],
 
   attente: [
@@ -166,6 +223,7 @@ export const FORMULAIRES = {
     { name: "nbArrets", label: "Arrêts supplémentaires", type: "select", defaut: "0", options: [0, 1, 2, 3].map((n) => ({ v: String(n), l: n === 0 ? "Aucun" : String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par arrêt dans Netanya ou sur la route ; plus loin, le trajet est ajouté au devis.` },
     ...[1, 2, 3].map((n) => ({ name: "arretH" + n, label: `Adresse de l'arrêt ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbArrets) >= n })),
     { name: "programme", label: "Programme", type: "texte-long", required: true },
+    ...passager,
     { name: "infos", label: "Informations complémentaires", type: "texte-long" },
   ],
 };
@@ -178,6 +236,60 @@ export function valeursInitiales(service) {
     if (c.defaut !== undefined) v[c.name] = c.defaut;
     else if (c.type === "case") v[c.name] = false;
     else v[c.name] = "";
+  }
+  return v;
+}
+
+/* ---------- Pre-remplissage (compte client, enfant enregistre, "Refaire" / "Modifier") ---------- */
+
+// Coordonnees du compte connecte -> champs "Votre nom", "Votre telephone", "Moyen de paiement"
+export function valeursDepuisProfil(profil) {
+  if (!profil) return {};
+  const r = {};
+  const nom = [profil.prenom, profil.nom].filter(Boolean).join(" ").trim();
+  if (nom) r.nom = nom;
+  if (profil.telephone) r.telephone = profil.telephone;
+  const moyen = (profil.moyensPreferes || []).find((m) => TARIFS.moyensPaiement.includes(m));
+  if (moyen) r.moyenPaiement = moyen;
+  return r;
+}
+
+// Enfant enregistre dans "Mes informations" -> champs du ramassage scolaire (l'adresse de l'ecole reste a choisir)
+export function remplirDepuisEnfant(enfant) {
+  if (!enfant) return {};
+  const r = {
+    enfant: enfant.prenom || "",
+    classe: enfant.classe || "",
+    telUrgence: enfant.telephoneUrgence || "",
+    personnesAutorisees: enfant.personnesAutorisees || "",
+  };
+  if (enfant.adresse) r.domicile = { label: enfant.adresse };
+  return r;
+}
+
+// Une adresse enregistree n'a pas toujours ses coordonnees : sans elles, le client la choisit a nouveau
+const adresseRelue = (a) => {
+  if (!a || typeof a !== "object" || !a.label) return "";
+  const r = { label: String(a.label) };
+  if (typeof a.lat === "number" && typeof a.lon === "number") {
+    r.lat = a.lat;
+    r.lon = a.lon;
+  }
+  return r;
+};
+
+// Details d'une ancienne demande ou d'un favori -> valeurs du formulaire.
+// garderDate = true pour "Modifier" (meme jour) ; false pour "Refaire ce trajet" (nouvelle date a choisir).
+export function valeursDepuisDetails(service, details, garderDate = false) {
+  const v = valeursInitiales(service);
+  if (!FORMULAIRES[service] || !details) return v;
+  const exclus = garderDate ? new Set(["promoActif", "codePromo"]) : new Set(["date", "heure", "dateRetour", "heureRetour", "urgent", "promoActif", "codePromo"]);
+  for (const c of FORMULAIRES[service]) {
+    if (exclus.has(c.name) || !(c.name in details)) continue;
+    const val = details[c.name];
+    if (c.type === "adresse") v[c.name] = adresseRelue(val);
+    else if (c.type === "case") v[c.name] = val === true;
+    else v[c.name] = val === null || val === undefined ? "" : String(val);
   }
   return v;
 }
@@ -198,9 +310,11 @@ export function valider(service, v) {
       erreurs[c.name] = "Ce champ est obligatoire.";
     }
   }
+  Object.assign(erreurs, validerPassager(v));
   if (service === "ramassage" && v.frequence === "semaine" && ![0, 1, 2, 3, 4, 5].some((i) => v["jour" + i])) erreurs.jour0 = "Choisissez au moins un jour.";
   if (v.telephone && String(v.telephone).replace(/\D/g, "").length < 9) erreurs.telephone = "Numéro de téléphone trop court.";
   if (v.telDestinataire && String(v.telDestinataire).replace(/\D/g, "").length < 9) erreurs.telDestinataire = "Numéro de téléphone trop court.";
+  if (service === "ramassage" && v.telUrgence && String(v.telUrgence).replace(/\D/g, "").length < 9) erreurs.telUrgence = "Numéro de téléphone trop court.";
   return erreurs;
 }
 
@@ -338,7 +452,8 @@ function texteValeur(c, val) {
 
 export function messageWhatsApp(service, v, devis) {
   const s = SERVICES.find((x) => x.id === service);
-  const lignes = [`Bonjour Rebecca, nouvelle demande : ${s.titre}`, ""];
+  const a = ACTIVITES[s.activite];
+  const lignes = [`Bonjour Rebecca, nouvelle demande : ${s.titre}`, a ? `Espace : ${a.titre}` : "", ""].filter((l, i) => i !== 1 || l);
   for (const c of champsVisibles(service, v)) {
     const t = texteValeur(c, v[c.name]);
     if (t !== "" && t !== "0" && !(c.type === "texte-long" && !t.trim())) lignes.push(`${libelle(c, v)} : ${t}`);

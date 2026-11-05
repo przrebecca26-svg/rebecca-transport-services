@@ -8,6 +8,7 @@ import { useFermetures } from "./fermetures.js";
 import { compteOuvert, demarrer, useClient } from "./client.js";
 import { TARIFS } from "./pricing/config.js";
 import { NOM, SIGNATURE } from "./contact.js";
+import IconeService from "./components/IconeService.jsx";
 import "./client-commun.css";
 
 // Espace prive et espace client : charges seulement quand on les ouvre (un visiteur ne telecharge rien de plus)
@@ -92,7 +93,7 @@ function useAcces(client) {
 function Carte({ s, onClick }) {
   return (
     <button className="carte-service" onClick={onClick}>
-      <span className="icone" aria-hidden="true">{s.icone}</span>
+      <span className="icone" aria-hidden="true"><IconeService id={s.id} /></span>
       <span className="corps">
         <strong>{s.titre}</strong>
         <small>{s.texte}</small>

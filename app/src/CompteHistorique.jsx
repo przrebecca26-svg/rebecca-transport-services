@@ -9,6 +9,9 @@ import { dateFr } from "./CompteChamps.jsx";
 import Pourboire from "./Pourboire.jsx";
 import { rafraichir } from "./client.js";
 
+// Espace entre les boutons et liens (Refaire, Modifier, Annuler, Favori)
+const BOUTONS = { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 18px" };
+
 // "Mon historique" : demandes, statuts, paiements. Refaire / modifier / annuler une demande. Avis, etoiles et pourboire apres chaque course.
 
 const millis = (t) => (t && typeof t.toMillis === "function" ? t.toMillis() : 0);
@@ -175,7 +178,7 @@ export default function CompteHistorique({ client, onRefaire, onModifier }) {
             {d.pourboire > 0 && <p className="hist-paye">Pourboire prévu : {d.pourboire} ₪</p>}
             {d.messageClient && <p className="compte-info">{d.messageClient}</p>}
 
-            <div className="compte-boutons">
+            <div className="compte-boutons" style={BOUTONS}>
               <button type="button" className="bouton hist-bouton" onClick={() => onRefaire({ service: d.service, details: d.details })}>
                 Refaire ce trajet
               </button>
@@ -197,7 +200,7 @@ export default function CompteHistorique({ client, onRefaire, onModifier }) {
             {annulation === d.id && (
               <div className="compte-alerte">
                 <p>Annuler cette demande ? Rebecca sera prévenue par WhatsApp.</p>
-                <div className="compte-boutons">
+                <div className="compte-boutons" style={BOUTONS}>
                   <button type="button" className="bouton compte-supprimer" disabled={enCours} onClick={() => annuler(d)}>
                     Oui, annuler
                   </button>
@@ -214,7 +217,7 @@ export default function CompteHistorique({ client, onRefaire, onModifier }) {
                   <label htmlFor={"fav-" + d.id}>Nom du trajet favori (ex : Maison → Aéroport)</label>
                   <input id={"fav-" + d.id} type="text" maxLength={40} value={favori.nom} onChange={(e) => { setFavori({ ...favori, nom: e.target.value }); setErreur(""); }} />
                 </div>
-                <div className="compte-boutons">
+                <div className="compte-boutons" style={BOUTONS}>
                   <button type="button" className="bouton" disabled={enCours} onClick={enregistrerFavori}>
                     Enregistrer
                   </button>

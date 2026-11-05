@@ -32,6 +32,7 @@ import { construireDemande, enregistrerDemande, messageEchec } from "../demandes
 import { aujourdhui, lirePourboire } from "../profil.js";
 import { compteOuvert, useClient } from "../client.js";
 import "../client-commun.css";
+import IconeService from "./IconeService.jsx";
 
 const adresseSaisie = (a) => !!(a && a.label && a.label.trim());
 
@@ -199,7 +200,7 @@ export default function ServiceForm({ service, depart, onRetour, onEnvoye, onCom
     <form className="formulaire" onSubmit={envoyer} ref={formRef} noValidate>
       <button type="button" className="retour" onClick={onRetour}>← Tous les services</button>
       <header className="titre-service">
-        <span aria-hidden="true">{infos.icone}</span>
+        <span aria-hidden="true"><IconeService id={service} taille={40} /></span>
         <h2>{remplace ? "Modifier ma demande" : infos.titre}</h2>
       </header>
       {remplace && <p className="note">Votre nouvelle demande remplacera la précédente, qui sera marquée « remplacée ».</p>}

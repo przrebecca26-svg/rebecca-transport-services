@@ -1,4 +1,4 @@
-/* Espace prive - Rebecca Transport & Services */
+/* Espace prive - Rebecca Services */
 .admin {
   min-height: 100dvh;
   display: grid;
@@ -132,8 +132,24 @@
 .tb-message { margin: 0; padding: 12px; font: inherit; font-size: 15px; white-space: pre-wrap; word-break: break-word; background: var(--creme); border-radius: 12px; }
 
 /* ---------- Onglets et agenda ---------- */
-.tb-onglets { display: flex; gap: 8px; padding: 12px 16px 0; }
-.tb-onglet { flex: 1; min-height: 48px; font: inherit; font-weight: 600; color: var(--noir); background: var(--rose); border: 0; border-radius: 14px; cursor: pointer; }
+.tb-onglets {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  background: var(--creme);
+  box-shadow: 0 6px 10px -10px rgba(0, 0, 0, 0.35);
+}
+.tb-onglets::-webkit-scrollbar { display: none; }
+/* Plus precis que bilan.css : les onglets restent sur une seule ligne qui defile */
+.admin.admin-tableau .tb-onglets { flex-wrap: nowrap; gap: 8px; padding-left: 16px; padding-right: 16px; }
+.admin.admin-tableau .tb-onglet { flex: none; padding: 8px 16px; font-size: 16px; }
+.tb-onglet { flex: none; min-height: 48px; padding: 8px 16px; font: inherit; font-weight: 600; white-space: nowrap; color: var(--noir); background: var(--rose); border: 0; border-radius: 14px; cursor: pointer; }
 .tb-onglet.actif { color: var(--blanc); background: var(--noir); }
 .ag { padding: 14px 16px 0; }
 .ag-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -172,3 +188,28 @@
 .ag-legende .ferme { color: var(--blanc); background: var(--noir-2); }
 .ag-legende .partiel { background: var(--rose-fonce); }
 .ag-legende em { padding: 0 6px; font-style: normal; font-weight: 700; color: var(--blanc); background: var(--or); border-radius: 10px; }
+
+/* ---------- Aujourd'hui (Lot B, seance B1) ---------- */
+.aj { padding: 14px 16px 0; }
+.aj-date { margin: 0 0 12px; font-size: 22px; }
+.aj-date::first-letter { text-transform: uppercase; }
+.aj-resume { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+.aj-chiffre { min-height: 76px; padding: 10px 6px; font: inherit; text-align: center; color: var(--noir); background: var(--blanc); border: 1px solid var(--rose); border-radius: var(--rayon); cursor: pointer; }
+.aj-chiffre strong { display: block; font-size: 20px; }
+.aj-chiffre small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.25; color: var(--gris); }
+.aj-chiffre.alerte { border-color: var(--or); box-shadow: 0 0 0 2px var(--rose-fonce); }
+.aj-course { margin: 0 0 10px; border: 1px solid var(--rose); border-left: 5px solid var(--or); border-radius: 12px; overflow: hidden; background: var(--blanc); }
+.aj-course-tete { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 10px 12px; font: inherit; text-align: left; color: var(--noir); background: var(--blanc); border: 0; cursor: pointer; }
+.aj-heure { flex: none; font-size: 17px; font-weight: 700; }
+.aj-corps { flex: 1; min-width: 0; }
+.aj-corps strong, .aj-corps small { display: block; }
+.aj-corps small { margin-top: 2px; color: var(--gris); word-break: break-word; }
+.aj-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px 12px; }
+.aj-actions .tb-bouton { flex: 1; min-height: 44px; padding: 8px 10px; font-size: 15px; }
+.aj-mini { display: block; width: 100%; min-height: 44px; padding: 8px 0; font: inherit; text-align: left; color: var(--noir); background: none; border: 0; border-top: 1px solid var(--rose); cursor: pointer; }
+.aj-mini:first-of-type { border-top: 0; }
+.aj-alerte { border-color: var(--or); }
+.aj-sous-titre { margin: 10px 0 8px !important; font-size: 14px; font-weight: 600; color: var(--or); }
+.aj-lien { margin: 4px 0 0; }
+.fi-choix { padding-bottom: 0; }
+.tb-attente-module { margin: 14px 16px; }

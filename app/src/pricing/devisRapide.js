@@ -4,9 +4,12 @@
 
 import { champsAdresses } from "./ajoutManuel.js";
 
+// Nom de la ville : dernier morceau de l'adresse, sans le district ni le pays
+// (ex. « Raanana, נפת פתח תקווה » -> Raanana ; D2b, 9 nov. 2026)
+const HORS_VILLE = /^(נפת|מחוז|ישראל$|israel$|district\b)|\bdistrict$/i;
 const ville = (a) => {
   if (!a || !a.label) return "";
-  const morceaux = String(a.label).split(",").map((s) => s.trim()).filter(Boolean);
+  const morceaux = String(a.label).split(",").map((s) => s.trim()).filter((s) => s && !HORS_VILLE.test(s) && !/^\d+$/.test(s));
   return morceaux[morceaux.length - 1] || "";
 };
 const jourFr = (d) => {

@@ -10,3 +10,25 @@
 .dm-motifs { display: flex; flex-wrap: wrap; gap: 6px; }
 .dm-motifs .tb-filtre { min-height: 38px; padding: 6px 12px; font-size: 14px; }
 .dm-rattrapage { margin: 24px 0 8px; padding-top: 14px; border-top: 1px solid var(--rose); }
+/* Ajout a la main - Lot B, seance B7 */
+.am-ajouter { width: 100%; margin: 0 0 12px; }
+.am h2 { margin: 6px 0 2px; }
+.am-champ { display: block; width: 100%; min-height: 48px; margin-top: 4px; padding: 10px 12px; font: inherit; font-size: 16px; color: var(--noir); background: var(--creme); border: 1px solid var(--or-clair); border-radius: 12px; }
+textarea.am-champ { resize: vertical; }
+.am-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.am-grille label, .am-label { display: block; font-size: 14px; color: var(--gris); }
+.am-label { margin-top: 12px; }
+.am-large { grid-column: 1 / -1; }
+.am-titre { margin: 14px 0 6px; font-size: 14px; font-weight: 600; color: var(--noir); }
+.am-choix { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.am-choix .tb-filtre { min-height: 40px; padding: 6px 12px; font-size: 14px; }
+.am-resultat { display: block; width: 100%; margin-top: 6px; padding: 10px 12px; font: inherit; text-align: left; color: var(--noir); background: var(--creme); border: 1px solid var(--rose); border-radius: 12px; cursor: pointer; }
+.am-resultat small { color: var(--gris); }
+.am-choisi { padding: 10px 12px; background: var(--creme); border-radius: 12px; }
+.am-choisi p { margin: 0; }
+.am-case { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-weight: 600; }
+.am-case input { width: 22px; height: 22px; accent-color: var(--or); }
+.am-fin { margin: 16px 0 8px; }
+.am .adresse { margin-top: 4px; }
+.cl-origines { margin: 0 0 10px; }
+.fc-avant { white-space: pre-wrap; }

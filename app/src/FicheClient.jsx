@@ -11,6 +11,7 @@ import { Remerciement } from "./AjoutManuel.jsx";
 // Notes privees et blocage : clientsAdmin/{cle} (jamais visibles du client).
 // Acces Transport prive : autorisations/{uid}__transport (remplace la console Firebase).
 // Credit : Rebecca confirme les recharges declarees ; le carnet (creditMouvements) n'est jamais modifie, on ajoute des lignes.
+// B8 : correction du credit avec deux boutons « Ajouter » / « Retirer » (le clavier iPhone n'a pas de signe moins).
 // B7 : origine du client, pre-fiche (client ajoute a la main) et sa fusion avec le compte, message de remerciement.
 
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
@@ -50,7 +51,7 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
   const [confirmerBlocage, setConfirmerBlocage] = useState(false);
   const [credit, setCredit] = useState(uid ? null : []);
   const [avis, setAvis] = useState([]);
-  const [correction, setCorrection] = useState({ ouvert: false, montant: "", motif: "" });
+  const [correction, setCorrection] = useState({ ouvert: false, montant: "", motif: "", sens: "retirer" });
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState("");
   const [info, setInfo] = useState("");
@@ -114,15 +115,17 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
   const refuserRecharge = (r) => executer(() => updateDoc(doc(db, "recharges", r.id), { statut: "refusée", refuseLe: serverTimestamp() }), "Recharge refusée.");
 
   const ajouterCorrection = () => {
-    const v = validerCorrectionCredit(correction.montant, correction.motif);
+    // Le montant est saisi sans signe : le bouton choisi decide s'il est ajoute ou retire
+    const brut = Math.abs(Number(String(correction.montant || "").replace(",", ".").replace(/[^\d.]/g, "")) || 0);
+    const v = validerCorrectionCredit(String(correction.sens === "retirer" ? -brut : brut), correction.motif);
     if (v.erreur) {
       setErreur(v.erreur);
       return;
     }
     executer(async () => {
       await addDoc(collection(db, "creditMouvements"), { uid, kind: "correction", montant: v.montant, motif: correction.motif.trim().slice(0, 200), date: aujourdhui(), creeLe: serverTimestamp() });
-      setCorrection({ ouvert: false, montant: "", motif: "" });
-    }, "Correction ajoutée au carnet.");
+      setCorrection({ ouvert: false, montant: "", motif: "", sens: "retirer" });
+    }, correction.sens === "retirer" ? "Crédit retiré." : "Crédit ajouté.");
   };
 
   const prenom = (p && p.prenom) || fiche.nom.split(" ")[0];
@@ -250,11 +253,15 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
             <button className="tb-retour aj-lien" onClick={() => setCorrection({ ...correction, ouvert: true })}>Corriger le crédit</button>
           ) : (
             <div className="fc-correction">
-              <input inputMode="decimal" placeholder="Montant (ex : 50 ou -20)" aria-label="Montant de la correction" value={correction.montant} onChange={(e) => setCorrection({ ...correction, montant: e.target.value })} />
+              <div className="tb-filtres fc-sens" role="radiogroup" aria-label="Ajouter ou retirer">
+                <button type="button" role="radio" aria-checked={correction.sens === "retirer"} className={"tb-filtre" + (correction.sens === "retirer" ? " actif" : "")} onClick={() => setCorrection({ ...correction, sens: "retirer" })}>− Retirer du crédit</button>
+                <button type="button" role="radio" aria-checked={correction.sens === "ajouter"} className={"tb-filtre" + (correction.sens === "ajouter" ? " actif" : "")} onClick={() => setCorrection({ ...correction, sens: "ajouter" })}>+ Ajouter au crédit</button>
+              </div>
+              <input inputMode="decimal" placeholder="Montant en ₪ (ex : 100)" aria-label="Montant de la correction" value={correction.montant} onChange={(e) => setCorrection({ ...correction, montant: e.target.value })} />
               <input placeholder="Motif (obligatoire)" aria-label="Motif de la correction" maxLength={200} value={correction.motif} onChange={(e) => setCorrection({ ...correction, motif: e.target.value })} />
               <div className="tb-actions">
-                <button className="tb-bouton" disabled={enCours} onClick={ajouterCorrection}>Ajouter la correction</button>
-                <button className="tb-bouton tb-clair" onClick={() => setCorrection({ ouvert: false, montant: "", motif: "" })}>Annuler</button>
+                <button className="tb-bouton" disabled={enCours} onClick={ajouterCorrection}>{correction.sens === "retirer" ? "Retirer" : "Ajouter"}{correction.montant ? ` ${String(correction.montant).replace("-", "")} ₪` : ""}</button>
+                <button className="tb-bouton tb-clair" onClick={() => setCorrection({ ouvert: false, montant: "", motif: "", sens: "retirer" })}>Annuler</button>
               </div>
             </div>
           )}

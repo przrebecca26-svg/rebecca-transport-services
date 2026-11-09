@@ -6,6 +6,8 @@
 //   - client avec compte : son uid
 //   - client sans compte : "tel_" + numero normalise (ex : tel_0547380193)
 // Les notes privees et le blocage sont dans clientsAdmin/{cle} (jamais visibles du client).
+// B7 : une pre-fiche (client ajoute a la main) est dans clientsAdmin/{cle} avec preFiche: true.
+// Quand ce client cree son compte avec le meme numero, la pre-fiche se rattache a son compte (fusion).
 
 import { encaisseBrut, situationCourse } from "./comptes.js";
 
@@ -34,7 +36,7 @@ const cents = (x) => Math.round(x * 100) / 100;
 export const sansAccents = (s) =>
   String(s == null ? "" : s)
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim();
 
@@ -67,27 +69,45 @@ export function construireFiches({ clients = [], demandes = [], admins = {}, tra
     fiches.get(cle).demandes.push(d);
   }
 
+  // Pre-fiches (B7) : rattachees au compte de meme numero, sinon fiche « sans compte »
+  for (const [cle, adm] of Object.entries(admins)) {
+    if (!adm || adm.preFiche !== true) continue;
+    const t = telNormalise(adm.telephone);
+    let cible = fiches.has(cle) && !estSansCompte(cle) ? cle : t && parTel.has(t) ? parTel.get(t) : "";
+    if (!cible) cible = estSansCompte(cle) ? cle : t ? "tel_" + t : "";
+    if (!cible) continue;
+    if (!fiches.has(cible)) fiches.set(cible, { cle: cible, avecCompte: !estSansCompte(cible), profil: null, demandes: [] });
+    const f = fiches.get(cible);
+    f.preFiche = { ...adm, cle };
+  }
+
   const resultat = [];
   for (const f of fiches.values()) {
     const tri = [...f.demandes].sort((a, b) => (String(b.date) + String(b.heure || "")).localeCompare(String(a.date) + String(a.heure || "")));
     const derniere = tri[0] || null;
     const p = f.profil;
-    const nom = p ? `${p.prenom || ""} ${p.nom || ""}`.trim() : (derniere && derniere.nom) || "Client";
-    const telephone = (p && p.telephone) || (derniere && derniere.telephone) || "";
+    const pf = f.preFiche || null;
+    const nomPf = pf ? `${pf.prenom || ""} ${pf.nom || ""}`.trim() : "";
+    const nom = p ? `${p.prenom || ""} ${p.nom || ""}`.trim() : nomPf || (derniere && derniere.nom) || "Client";
+    const telephone = (p && p.telephone) || (pf && pf.telephone) || (derniere && derniere.telephone) || "";
     const adm = admins[f.cle] || {};
+    const manuelle = tri.find((d) => d.source === "manuel" && d.origine);
+    const origine = adm.origine || (pf && pf.origine) || (manuelle && manuelle.origine) || (tri.some((d) => d.source === "site") ? "site" : "");
+    const email = (p && p.email) || (pf && pf.email) || "";
     resultat.push({
       ...f,
       demandes: tri,
       nom,
       telephone,
-      email: (p && p.email) || "",
+      email,
+      origine,
       derniereDate: derniere ? String(derniere.date || "") : "",
       transport: f.avecCompte && transport.has(f.cle),
       bloque: adm.bloque === true,
-      aNotes: !!(adm.notes && String(adm.notes).trim()),
+      aNotes: !!((adm.notes && String(adm.notes).trim()) || (pf && pf.cle !== f.cle && pf.notes && String(pf.notes).trim())),
       rechargesEnAttente: f.avecCompte ? recharges.filter((r) => r.uid === f.cle && r.statut === "en attente").length : 0,
       stats: statistiques(tri, mouvements),
-      recherche: sansAccents([nom, telephone, telNormalise(telephone), p && p.email].filter(Boolean).join(" ")),
+      recherche: sansAccents([nom, telephone, telNormalise(telephone), email].filter(Boolean).join(" ")),
     });
   }
   // Activite la plus recente en premier, puis par nom
@@ -122,6 +142,14 @@ export function statistiques(demandes, mouvements = []) {
     moyensUtilises,
     moyensPrevus,
   };
+}
+
+/* ---------- D'ou viennent mes clients (B7) ---------- */
+// Renvoie [[origine, nombre de clients], ...], du plus frequent au moins frequent (origine inconnue exclue)
+export function compterOrigines(fiches) {
+  const n = {};
+  for (const f of fiches) if (f.origine) n[f.origine] = (n[f.origine] || 0) + 1;
+  return Object.entries(n).sort((a, b) => b[1] - a[1]);
 }
 
 /* ---------- Filtres de la liste ---------- */

@@ -1,0 +1,118 @@
+{
+  "transport": {
+    "nombre": 1764,
+    "empreinte": "25bc733743ac67ba"
+  },
+  "aeroport": {
+    "nombre": 168,
+    "empreinte": "01f108a1334f5c79"
+  },
+  "livraison": {
+    "nombre": 84,
+    "empreinte": "619961afeea73445"
+  },
+  "courses": {
+    "nombre": 20,
+    "empreinte": "e695356d1d295aa0"
+  },
+  "hatanKala": {
+    "nombre": 28,
+    "empreinte": "1a5ed49360be9c27"
+  },
+  "demenagement": {
+    "nombre": 42,
+    "empreinte": "38c273a34d3130b1"
+  },
+  "attente": {
+    "nombre": 27,
+    "empreinte": "bb04be07a81008a3"
+  },
+  "ramassage": {
+    "nombre": 18,
+    "empreinte": "e04bbad81d341fa7"
+  },
+  "scenarios": {
+    "nombre": 7,
+    "empreinte": "01e6b2ed1e9616eb"
+  },
+  "creneaux": {
+    "nombre": 7,
+    "empreinte": "a949a341bce91dfb"
+  },
+  "calendrier": {
+    "nombre": 730,
+    "empreinte": "237283b97ec20b5f"
+  },
+  "fermetures": {
+    "nombre": 2,
+    "empreinte": "c388878fea17b959"
+  },
+  "disponibilite": {
+    "nombre": 112,
+    "empreinte": "bb5a0d93c5809780"
+  },
+  "verifierDispo": {
+    "nombre": 84,
+    "empreinte": "0f8bd4ba42f13d37"
+  },
+  "formulaires": {
+    "nombre": 8,
+    "empreinte": "91d99c954572827a"
+  },
+  "whatsapp": {
+    "nombre": 8,
+    "empreinte": "a264ad36af032964"
+  },
+  "validation": {
+    "nombre": 8,
+    "empreinte": "967ab5a36d9aa430"
+  },
+  "versDemande": {
+    "nombre": 8,
+    "empreinte": "51419a820f32c517"
+  },
+  "comptes": {
+    "nombre": 182,
+    "empreinte": "028e5f0e726534f6"
+  },
+  "situations": {
+    "nombre": 4,
+    "empreinte": "a8f9f89acc727eb2"
+  },
+  "indicateurs": {
+    "nombre": 2,
+    "empreinte": "0c4a8efc5412cc76"
+  },
+  "finances": {
+    "nombre": 4,
+    "empreinte": "a2a25f12abdff72b"
+  },
+  "financesAnnee": {
+    "nombre": 5,
+    "empreinte": "844b47bbb145b32a"
+  },
+  "bilanPeriodes": {
+    "nombre": 16,
+    "empreinte": "962f511fe1af991f"
+  },
+  "clients": {
+    "nombre": 5,
+    "empreinte": "5ca62128ce588787"
+  },
+  "sauvegarde": {
+    "nombre": 4,
+    "empreinte": "3e07ca5f11cb3387"
+  },
+  "ajoutManuel": {
+    "nombre": 10,
+    "empreinte": "06b007606c02f0ff"
+  },
+  "enchainement": {
+    "nombre": 4,
+    "empreinte": "f5a45534eed9ec80"
+  },
+  "navigation": {
+    "nombre": 4,
+    "empreinte": "2ab9f8e9f64d21e4"
+  }
+}

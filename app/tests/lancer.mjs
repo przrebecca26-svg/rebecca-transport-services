@@ -3,6 +3,9 @@
 import { bilan } from "./outils.mjs";
 await import("./metier.test.mjs");
 await import("./reference.test.mjs");
+await import("./equipe.test.mjs");
+await import("./tableauBord.test.mjs");
+await import("./devisRapide.test.mjs");
 const r = bilan();
 console.log(`Tests reussis : ${r.ok} / ${r.ok + r.echecs.length}`);
 r.echecs.forEach((e) => console.log("ECHEC  " + e));

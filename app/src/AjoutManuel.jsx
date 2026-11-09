@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { useEquipeContexte } from "./equipeContexte.jsx";
+import { champOperateur } from "./pricing/reverser.js";
 import AddressField from "./components/AddressField.jsx";
 import { SERVICES } from "./services.js";
 import { TARIFS } from "./pricing/config.js";
@@ -88,6 +90,7 @@ export { Remerciement };
 
 // D2a (9 nov. 2026) : prerempli = course venant du « Devis rapide » (service, date, heure, adresses, prix)
 export default function AjoutManuel({ mode = "course", demandes = [], marge = MARGE_DEFAUT, cleInitiale = null, prerempli = null, onFermer, onOuvrirDemande, onOuvrirFiche }) {
+  const { moi } = useEquipeContexte(); // J5 : course ajoutee par un coequipier = sa course, son encaissement
   const [base, setBase] = useState({});
   const [lectureImpossible, setLectureImpossible] = useState(false);
   const [recherche, setRecherche] = useState("");
@@ -254,9 +257,10 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
         }
         const ref = doc(collection(db, "demandes"));
         demandeId = ref.id;
-        lot.set(ref, { ...d, creeLe: serverTimestamp(), majLe: serverTimestamp() });
+        const qui = moi && moi !== "rebecca" ? { attribueA: moi, ...(d.statut === "terminee" ? { realisePar: moi } : {}) } : {};
+        lot.set(ref, { ...d, ...qui, creeLe: serverTimestamp(), majLe: serverTimestamp() });
         const paiement = paiementCourse(f, ref.id, jour);
-        if (paiement) lot.set(doc(collection(db, "mouvements")), { ...paiement, creeLe: serverTimestamp() });
+        if (paiement) lot.set(doc(collection(db, "mouvements")), { ...paiement, ...champOperateur(moi), creeLe: serverTimestamp() });
         lignes.push(`${d.serviceTitre} · ${d.nom} · ${shekels(d.prixFinal)}`);
         lignes.push(d.statut === "terminee" ? "Marquée terminée : elle compte dans tes finances à sa date." : "Ajoutée à ton agenda et à « Aujourd'hui ».");
         if (paiement) lignes.push(`Paiement enregistré : ${shekels(paiement.montant)} (${paiement.moyen}).`);

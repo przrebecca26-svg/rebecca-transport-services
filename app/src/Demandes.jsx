@@ -166,7 +166,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
     return ok;
   };
 
-  const changerStatut = (s) => executer({ statut: s });
+  // J5 : a la fin de la course, on fige qui l'a faite (son chiffre d'affaires et son plafond)
+  const changerStatut = (s) => executer({ statut: s, ...(s === "terminee" ? { realisePar: d.attribueA || "rebecca" } : {}) });
   // J3 : la personne qui accepte fait la course (sauf si elle est deja attribuee) ; modifiable ensuite
   const quiAccepte = d.attribueA || moi;
   const accepterChamps = () => executer({ statut: "acceptee", ...(d.attribueA ? {} : { attribueA: moi }) });

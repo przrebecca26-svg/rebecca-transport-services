@@ -1,0 +1,17 @@
+/* Onglet Reglages - Rebecca Services (Lot B, seance B5) */
+.rg-ligne { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.rg-ligne input { width: 120px; min-height: 48px; padding: 10px 12px; font: inherit; font-size: 16px; color: var(--noir); background: var(--creme); border: 1px solid var(--or-clair); border-radius: 12px; }
+.rg-ligne span { color: var(--gris); }
+.rg-case { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 6px 0; }
+.rg-case input { width: 22px; height: 22px; accent-color: var(--or); }
+.rg-etat { margin: 8px 0 !important; padding: 6px 10px; font-size: 14px; font-weight: 600; color: #7a4e00; background: #fff1d6; border-radius: 10px; display: inline-block; }
+.rg-etat.rg-verifie { color: #1f6a2b; background: #dff2e1; }
+.rg-ok { margin: 8px 0 0; font-weight: 600; color: #1f6a2b; }
+.rg-section { margin: 12px 0; padding: 10px; background: var(--creme); border: 1px solid var(--rose); border-radius: 12px; }
+.rg-section-tete { display: flex; gap: 6px; align-items: center; }
+.rg-section-tete input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 10px; font: inherit; font-size: 16px; font-weight: 600; border: 1px solid var(--or-clair); border-radius: 10px; background: var(--blanc); }
+.rg-section textarea { display: block; width: 100%; margin-top: 8px; padding: 10px; font: inherit; font-size: 16px; line-height: 1.45; border: 1px solid var(--or-clair); border-radius: 10px; background: var(--blanc); resize: vertical; }
+.rg-mini { flex: none; width: 40px; min-height: 44px; font: inherit; color: var(--noir); background: var(--rose); border: 0; border-radius: 10px; cursor: pointer; }
+.rg-mini:disabled { opacity: 0.35; }
+.rg-statut { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--rose); border-radius: 12px; }
+.rg-statut legend { padding: 0 6px; font-weight: 600; }

@@ -1,0 +1,12 @@
+/* Onglet Demandes - Rebecca Services (Lot B, seance B3) */
+.dm-activite { font-size: 14px; }
+.dm-verif { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; }
+.dm-verif p { margin: 4px 0; }
+.dm-calcul { color: var(--gris); background: var(--creme); border: 1px dashed var(--or-clair); }
+.dm-ok { background: #e9f6ec; border: 1px solid #b7dfc0; }
+.dm-alerte { background: #fff4e0; border: 1px solid #f0c987; }
+.dm-supp { margin-top: 10px; padding: 12px; background: var(--creme); border-radius: 12px; }
+.dm-supp input { display: block; width: 100%; min-height: 48px; margin-top: 8px; padding: 10px 12px; font: inherit; font-size: 16px; border: 1px solid var(--or-clair); border-radius: 12px; background: var(--blanc); }
+.dm-motifs { display: flex; flex-wrap: wrap; gap: 6px; }
+.dm-motifs .tb-filtre { min-height: 38px; padding: 6px 12px; font-size: 14px; }
+.dm-rattrapage { margin: 24px 0 8px; padding-top: 14px; border-top: 1px solid var(--rose); }

@@ -151,3 +151,37 @@
   color: var(--g-texte); background: #100d0f; border-color: var(--g-bord); border-radius: 12px;
 }
 .theme-sombre input::placeholder, .theme-sombre textarea::placeholder { color: #7d7275; }
+
+/* ---------- D2b (9 nov. 2026) : style des planches sur tous les ecrans existants de l'admin ---------- */
+/* Boutons : rose plein (principal), contour cuivre (secondaire) */
+.theme-sombre .tb-bouton, .theme-sombre .admin-bouton, .theme-sombre .admin-retour { font-family: var(--g-titre); font-weight: 800; color: #080709; background: var(--g-rose); border: 0; border-radius: 14px; }
+.theme-sombre .tb-bouton:disabled, .theme-sombre .admin-bouton:disabled { opacity: 1; color: var(--g-texte-2); background: var(--g-carte-2); border: 1px solid var(--g-bord); }
+.theme-sombre .tb-clair, .theme-sombre .tb-danger { color: var(--g-texte); background: transparent; border: 1px solid var(--g-cuivre); }
+.theme-sombre .rg-mini { color: var(--g-texte); background: var(--g-carte-2); border: 1px solid var(--g-bord); }
+/* Cartes */
+.theme-sombre .tb-carte, .theme-sombre .tb-bloc, .theme-sombre .aj-chiffre, .theme-sombre .aj-course, .theme-sombre .fc-chiffres > div { background: var(--g-carte); border-color: var(--g-bord); border-radius: 18px; }
+.theme-sombre .aj-course { border-left: 4px solid var(--g-rose); }
+.theme-sombre .rg-section { background: #100d0f; border-color: var(--g-bord); border-radius: 14px; }
+.theme-sombre .rg-statut { border-color: var(--g-bord); border-radius: 14px; }
+.theme-sombre .tdb .aj { padding: 18px 0 0; }
+/* Messages d'etat (fini le jaune et le vert clair) */
+.theme-sombre .rg-etat, .theme-sombre .fi-alerte, .theme-sombre .pm-etat { color: #f3c58a; background: rgba(224, 161, 0, 0.14); border: 1px solid rgba(224, 161, 0, 0.35); }
+.theme-sombre .rg-etat.rg-verifie, .theme-sombre .pm-etat.pm-confirmee { color: #6fd8a8; background: rgba(35, 155, 104, 0.16); border-color: rgba(35, 155, 104, 0.4); }
+.theme-sombre .pm-etat.pm-terminee, .theme-sombre .pm-etat.pm-annulee { color: var(--g-texte-2); background: rgba(185, 174, 176, 0.12); border-color: rgba(185, 174, 176, 0.3); }
+.theme-sombre .rg-ok, .theme-sombre .fm-ok, .theme-sombre .admin-ok, .theme-sombre .fc-pos { color: #6fd8a8; }
+.theme-sombre .dm-ok { color: var(--g-texte); background: rgba(35, 155, 104, 0.14); border-color: rgba(35, 155, 104, 0.45); }
+.theme-sombre .dm-alerte { color: var(--g-texte); background: rgba(241, 174, 183, 0.1); border-color: var(--g-rose); }
+.theme-sombre .fc-recharge { color: var(--g-texte); background: rgba(224, 161, 0, 0.1); border-color: rgba(224, 161, 0, 0.35); }
+.theme-sombre .fc-alerte { color: var(--g-texte); background: rgba(216, 90, 104, 0.16); border: 1px solid var(--g-alerte); }
+.theme-sombre .admin-erreur { color: #f08c97; }
+/* Interrupteurs, cases et boutons radio */
+.theme-sombre .fc-switch { background: #3a3034; }
+.theme-sombre .fc-switch span { background: var(--g-texte); }
+.theme-sombre .fc-switch.on { background: var(--g-succes); }
+.theme-sombre input[type="checkbox"], .theme-sombre input[type="radio"] { accent-color: var(--g-rose); }
+/* Champs : pas de fond bleu quand Safari remplit tout seul */
+.theme-sombre input:-webkit-autofill, .theme-sombre input:-webkit-autofill:focus, .theme-sombre textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--g-texte); caret-color: var(--g-texte);
+  -webkit-box-shadow: 0 0 0 1000px #100d0f inset; box-shadow: 0 0 0 1000px #100d0f inset; transition: background-color 9999s;
+}
+.theme-sombre input:focus, .theme-sombre select:focus, .theme-sombre textarea:focus { outline: 2px solid rgba(241, 174, 183, 0.55); outline-offset: 1px; }

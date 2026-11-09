@@ -7,7 +7,7 @@ import { etatDisponibilite } from "./pricing/disponibilite.js";
 import { useFermetures } from "./fermetures.js";
 import { compteOuvert, demarrer, useClient } from "./client.js";
 import { TARIFS } from "./pricing/config.js";
-import { NOM, SIGNATURE } from "./contact.js";
+import { INSTAGRAM, LIEN_INSTAGRAM, NOM, SIGNATURE } from "./contact.js";
 import IconeService from "./components/IconeService.jsx";
 import "./client-commun.css";
 
@@ -60,6 +60,7 @@ const BIENTOT = [
     marques: ["/brand/logo-nails-prestige.png", "/brand/logo-prestige-hair.png", "/brand/logo-prestige-slim-lift.png", "/brand/logo-regenx.png"],
   },
   { id: "epoxy", logo: "/brand/logo-epoxy.png", titre: "Boutique Epoxy", texte: "Créations personnalisées en résine" },
+  { id: "digital", logo: "/brand/logo-digital-applications.png", titre: "DIGITAL & APPLICATIONS", texte: "Création de sites et d'applications web professionnelles" },
 ];
 
 // Petit logo rond (cache s'il ne se charge pas)
@@ -323,6 +324,10 @@ export default function App() {
       </main>
       <footer>
         <small>{NOM} · Aucun service pendant Chabbat et les fêtes</small>
+        <br />
+        <a className="lien" href={LIEN_INSTAGRAM} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", textDecoration: "none" }}>
+          Instagram @{INSTAGRAM}
+        </a>
         <br />
         <button type="button" className="lien" onClick={() => aller({ nom: "legal" })}>
           Confidentialité et conditions

@@ -8,11 +8,14 @@ import { cleClient } from "./pricing/clients.js";
 import { MARGE_DEFAUT, clePaire, datesDe, messageAutreHoraire, phrase, trajetsACalculer, verifier, versHeure, voisins } from "./pricing/enchainement.js";
 import { rattraperTousLesSuivis, synchroniserSuivi } from "./suiviClient.js";
 import PaiementsCourse from "./PaiementsCourse.jsx";
+import AjoutManuel, { Remerciement } from "./AjoutManuel.jsx";
+import { LIBELLE_ORIGINE, prenomDe } from "./pricing/ajoutManuel.js";
 import "./demandes.css";
 
 // Liste et traitement des demandes (espace prive de Rebecca) - Lot B, seance B3 :
 // ouverture directe depuis « Aujourd'hui » ou une fiche client, filtre par activite, lien vers la fiche client,
 // suivi client mis a jour a chaque changement, supplement (retard, attente...), verification d'enchainement.
+// B7 : « + Ajouter une course » (course hors du site, faite ou a faire), origine du client, pourboire, remerciement.
 
 const STATUTS = {
   "en attente": { label: "En attente", classe: "attente" },
@@ -240,6 +243,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
       </div>
       <p className="tb-quand">{jour(d.date, true)} à {d.heure}</p>
+      {d.source === "manuel" && <p className="tb-note">Ajoutée à la main{d.origine ? ` · origine : ${LIBELLE_ORIGINE[d.origine] || d.origine}` : ""}</p>}
 
       <div className="tb-bloc">
         <h3>Client</h3>
@@ -276,7 +280,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
 
       <div className="tb-bloc">
         <h3>Prix</h3>
-        <p>Estimation du site : {typeof d.prixEstime === "number" ? d.prixEstime + " ₪" : d.surDevis ? "sur devis" : "aucune"}{typeof d.prixFinal === "number" && <> · <strong>Prix retenu : {d.prixFinal} ₪</strong></>}</p>
+        <p>{d.source === "manuel" ? "Prix convenu" : `Estimation du site : ${typeof d.prixEstime === "number" ? d.prixEstime + " ₪" : d.surDevis ? "sur devis" : "aucune"}`}{typeof d.prixFinal === "number" && <> · <strong>{d.source === "manuel" ? "" : "Prix retenu : "}{d.prixFinal} ₪</strong></>}</p>
+        {d.pourboire > 0 && <p className="tb-note">Pourboire{d.statut === "terminee" ? "" : " prévu"} : {d.pourboire} ₪ (à part, hors chiffre d'affaires)</p>}
         <div className="tb-prix">
           <input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder="Prix en ₪" aria-label="Prix en shekels" />
           <button className="tb-bouton" disabled={enCours} onClick={enregistrerPrix}>Enregistrer le prix</button>
@@ -312,6 +317,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
 
       <PaiementsCourse d={d} />
 
+      {d.statut === "terminee" && !d.uid && <Remerciement prenom={prenomDe(d.nom)} telephone={d.telephone} email="" />}
+
       <div className="tb-bloc">
         <h3>Itinéraires</h3>
         {adressesDe(d).length === 0 && <p className="tb-note">Aucune adresse enregistrée.</p>}
@@ -344,7 +351,10 @@ export default function Demandes({ aller, cible }) {
   const [erreur, setErreur] = useState("");
   const [filtre, setFiltre] = useState("en attente");
   const [activite, setActivite] = useState("toutes");
-  const [ouvert, setOuvert] = useState(cible || null);
+  // cible « nouvelle » ou « nouvelle:cleClient » : ouvre directement l'ajout d'une course
+  const nouvelle = typeof cible === "string" && cible.startsWith("nouvelle");
+  const [ouvert, setOuvert] = useState(nouvelle ? null : cible || null);
+  const [ajout, setAjout] = useState(nouvelle ? { cle: cible.split(":")[1] || null } : null);
   const [marge, setMarge] = useState(MARGE_DEFAUT);
   const [rattrapage, setRattrapage] = useState({ enCours: false, message: "" });
 
@@ -396,6 +406,23 @@ export default function Demandes({ aller, cible }) {
   if (erreur) return <p className="admin-erreur tb-pad" role="alert">{erreur}</p>;
   if (items === null) return <p className="admin-texte tb-pad">Chargement des demandes…</p>;
 
+  if (ajout) {
+    return (
+      <AjoutManuel
+        mode="course"
+        demandes={items}
+        marge={marge}
+        cleInitiale={ajout.cle}
+        onFermer={() => setAjout(null)}
+        onOuvrirDemande={(id) => {
+          setAjout(null);
+          setOuvert(id);
+        }}
+        onOuvrirFiche={(cle) => aller("clients", cle)}
+      />
+    );
+  }
+
   const courante = ouvert && items.find((d) => d.id === ouvert);
   if (courante) return <Detail key={courante.id} d={courante} toutes={items} marge={marge} aller={aller} onFermer={() => setOuvert(null)} />;
 
@@ -404,6 +431,7 @@ export default function Demandes({ aller, cible }) {
   return (
     <section className="tb-liste">
       {ouvert && <p className="tb-note">Cette demande est introuvable.</p>}
+      <button className="tb-bouton am-ajouter" onClick={() => setAjout({ cle: null })}>+ Ajouter une course</button>
       <div className="tb-filtres" role="tablist" aria-label="Filtrer par activité">
         {ACTIVITES.map((a) => (
           <button key={a.id} role="tab" aria-selected={activite === a.id} className={"tb-filtre dm-activite" + (activite === a.id ? " actif" : "")} onClick={() => setActivite(a.id)}>
@@ -432,7 +460,7 @@ export default function Demandes({ aller, cible }) {
               <strong>{d.serviceTitre}</strong>
               <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
             </span>
-            <span className="tb-quand">{jour(d.date)} · {d.heure}</span>
+            <span className="tb-quand">{jour(d.date)} · {d.heure}{d.source === "manuel" ? " · ajoutée à la main" : ""}</span>
             <span className="tb-ligne">
               <span>{d.nom}</span>
               <strong>{textePrix(d)}</strong>

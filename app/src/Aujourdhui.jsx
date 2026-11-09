@@ -7,6 +7,7 @@ import { situationCourse } from "./pricing/comptes.js";
 
 // Onglet « Aujourd'hui » de l'espace prive : ce que Rebecca doit faire dans la journee.
 // Lecture seule : rien n'est modifie ici. Un appui sur une ligne ouvre la demande.
+// B7 : bouton « + Ajouter une course » ; une demande en attente dont la date est passee affiche « Date passée ».
 
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
 
@@ -149,11 +150,18 @@ export default function Aujourdhui({ aller }) {
   if (lectureImpossible) return <p className="admin-erreur tb-pad" role="alert">Lecture impossible. Vérifie la connexion et les règles Firebase.</p>;
   if (!vue) return <p className="admin-texte tb-pad">Chargement de ta journée…</p>;
 
-  const urgent = (d) => String(d.date) <= ajouterJours(jour, 2);
+  // Badge d'une demande en attente : date passee, ou course dans les 2 jours
+  const badgeAttente = (d) => {
+    const date = String(d.date);
+    if (date < jour) return { label: "Date passée", classe: "annulee" };
+    if (date <= ajouterJours(jour, 2)) return { label: "Bientôt", classe: "refusee" };
+    return null;
+  };
 
   return (
     <section className="aj">
       <h2 className="aj-date">{jourLong(jour)}</h2>
+      <button className="tb-bouton am-ajouter" onClick={() => aller("demandes", "nouvelle")}>+ Ajouter une course</button>
 
       <div className="aj-resume">
         <button className="aj-chiffre" onClick={() => document.getElementById("aj-jour")?.scrollIntoView({ behavior: "smooth" })}>
@@ -207,7 +215,7 @@ export default function Aujourdhui({ aller }) {
             d={x.d}
             sous={`Pour ${jourCourt(x.d.date)} · ${x.d.heure} — reçue ${recueIlYa(x.d)}`}
             droite={textePrix(x.d)}
-            badge={urgent(x.d) ? { label: "Bientôt", classe: "refusee" } : null}
+            badge={badgeAttente(x.d)}
             onOuvrir={ouvrir}
           />
         ))}

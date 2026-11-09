@@ -8,6 +8,7 @@ await import("./tableauBord.test.mjs");
 await import("./devisRapide.test.mjs");
 await import("./espaceEquipe.test.mjs");
 await import("./quiFait.test.mjs");
+await import("./reverser.test.mjs");
 const r = bilan();
 console.log(`Tests reussis : ${r.ok} / ${r.ok + r.echecs.length}`);
 r.echecs.forEach((e) => console.log("ECHEC  " + e));

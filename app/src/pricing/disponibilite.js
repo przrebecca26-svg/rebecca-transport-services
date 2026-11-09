@@ -18,7 +18,8 @@ const jourLisible = (date) => {
 };
 
 // Les creneaux personnels (trajets deja pris) ne sont jamais annonces : seulement Chabbat, fetes et fermetures de Rebecca
-const annonces = (maintenantMs, t) => periodesFermees(utcVersLocal(maintenantMs).date, 4, t).filter((p) => p.type !== "personnel");
+// J4b : une fermeture « seulement moi » de Rebecca n'est pas annoncee quand un autre membre travaille
+const annonces = (maintenantMs, t) => periodesFermees(utcVersLocal(maintenantMs).date, 4, t).filter((p) => p.type !== "personnel" && !(p.seulementRebecca && (t.calendrier.equipe || []).length));
 
 export function etatDisponibilite(maintenantMs = Date.now(), t = TARIFS) {
   const periodes = annonces(maintenantMs, t);

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp, where } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { ADMIN_ID, lignesDe } from "./pricing/equipe.js";
+import { champOperateur } from "./pricing/reverser.js";
 import { CATEGORIES, moisDe, moisDecale, resumeMois, totalCategorie, validerDepense } from "./pricing/depenses.js";
 import "./paiements.css";
 import "./depenses.css";
@@ -22,7 +24,9 @@ const nomMois = (mois) => {
 };
 const versNombre = (x) => Math.round(Number(String(x).replace(",", ".")) * 100) / 100;
 
-export default function Depenses() {
+// J4a : chacun ses depenses (moi = id du membre ; absent sur une ligne = Rebecca) ; une depense peut etre rattachee a un vehicule.
+// vehicules : ceux que la personne peut utiliser.
+export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
   const [depenses, setDepenses] = useState(null); // null = chargement
   const [lectureImpossible, setLectureImpossible] = useState(false);
   const [mois, setMois] = useState(moisDe(aujourdhui()));
@@ -31,18 +35,20 @@ export default function Depenses() {
   const [montant, setMontant] = useState("");
   const [date, setDate] = useState(aujourdhui());
   const [motif, setMotif] = useState("");
+  const [vehicule, setVehicule] = useState("");
   const [aConfirmer, setAConfirmer] = useState(null);
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, "depenses"), orderBy("date", "desc"));
+    // Un coequipier ne lit que ses lignes (regles v9) ; Rebecca lit tout et garde les siennes
+    const q = moi === ADMIN_ID ? query(collection(db, "depenses"), orderBy("date", "desc")) : query(collection(db, "depenses"), where("operateur", "==", moi));
     return onSnapshot(
       q,
-      (snap) => setDepenses(snap.docs.map((x) => ({ id: x.id, ...x.data() }))),
+      (snap) => setDepenses(lignesDe(snap.docs.map((x) => ({ id: x.id, ...x.data() })), moi).sort((a, b) => String(b.date).localeCompare(String(a.date)))),
       () => setLectureImpossible(true)
     );
-  }, []);
+  }, [moi]);
 
   // Un message d'erreur disparait des qu'un champ est modifie
   useEffect(() => {
@@ -60,6 +66,7 @@ export default function Depenses() {
     setMontant("");
     setDate(aujourdhui());
     setMotif("");
+    setVehicule(vehicules.length === 1 ? vehicules[0].id : "");
     setAConfirmer(null);
     setErreur("");
   };
@@ -78,6 +85,7 @@ export default function Depenses() {
     const d = { date, categorie, montant: mode === "correction" ? -n : n };
     const m = motif.trim().slice(0, 200);
     if (m) d.motif = m;
+    if (vehicule) d.vehicule = vehicule;
     let err = validerDepense(d);
     if (!err && mode === "correction" && totalCategorie(depenses, categorie) + d.montant < 0) err = "Cette correction rendrait le total de cette catégorie négatif.";
     if (err) {
@@ -93,7 +101,7 @@ export default function Depenses() {
     setEnCours(true);
     setErreur("");
     try {
-      await addDoc(collection(db, "depenses"), { ...aConfirmer, creeLe: serverTimestamp() });
+      await addDoc(collection(db, "depenses"), { ...aConfirmer, ...champOperateur(moi), creeLe: serverTimestamp() });
       setMois(moisDe(aConfirmer.date));
       fermer();
     } catch {
@@ -168,6 +176,17 @@ export default function Depenses() {
               Date
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </label>
+            {vehicules.length > 0 && (
+              <label className="pm-champ">
+                Véhicule (facultatif)
+                <select value={vehicule} onChange={(e) => setVehicule(e.target.value)}>
+                  <option value="">Aucun en particulier</option>
+                  {vehicules.map((v) => (
+                    <option key={v.id} value={v.id}>{v.nom}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="pm-champ">
               {mode === "depense" ? "Détail (facultatif)" : "Motif (obligatoire)"}
               <input value={motif} maxLength={200} onChange={(e) => setMotif(e.target.value)} placeholder={mode === "depense" ? "Ex : plein à Netanya" : "Ex : saisi en double"} />
@@ -189,6 +208,7 @@ export default function Depenses() {
             <p>
               {aConfirmer.montant < 0 ? "Correction de " : "Dépense de "}
               <strong>{euros(Math.abs(aConfirmer.montant))}</strong> en <strong>{aConfirmer.categorie}</strong> le {jourCourt(aConfirmer.date)}
+              {aConfirmer.vehicule ? <> · {(vehicules.find((v) => v.id === aConfirmer.vehicule) || {}).nom}</> : null}
             </p>
             {aConfirmer.montant < 0 && <p className="tb-note">Ce montant sera retiré de tes dépenses.</p>}
             <p className="tb-note">Une fois enregistrée, elle ne peut plus être modifiée ni supprimée (une erreur se corrige par une nouvelle ligne).</p>

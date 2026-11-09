@@ -35,6 +35,7 @@ export function appliquerFermetures(liste, depuisAdmin = false) {
     debut: f.debut,
     fin: f.fin,
     motif: String(f.motif || "").slice(0, 60) || "Fermeture exceptionnelle",
+    ...(f.portee === "moi" ? { portee: "moi" } : {}), // J4b : « seulement moi » (absent = toute l'equipe)
   }));
   const cible = TARIFS.calendrier.fermeturesExceptionnelles;
   cible.splice(0, cible.length, ...propres);
@@ -88,6 +89,23 @@ export function appliquerCreneaux(liste, depuisAdmin = false) {
   notifier();
 }
 
+/* ---------- Disponibilites de l'equipe (J4b : « si l'un de nous est libre ») ----------
+ Document public disposEquipe/{uid} : { actif, services: [...], indispos: [{ debut, fin }] } - jamais de motif.
+ services et actif sont recopies par Rebecca depuis la fiche du membre ; le membre ne change que ses indispos.
+ Avant les regles v9, la lecture echoue : l'equipe reste vide et le site se comporte comme avant. */
+export function indispoValide(b) {
+  return !!b && typeof b.debut === "string" && typeof b.fin === "string" && FORMAT.test(b.debut) && FORMAT.test(b.fin) && b.fin > b.debut;
+}
+let equipeAdmin = false;
+export function appliquerEquipe(liste, depuisAdmin = false) {
+  if (depuisAdmin) equipeAdmin = true;
+  else if (equipeAdmin) return;
+  TARIFS.calendrier.equipe = (liste || [])
+    .filter((m) => m && m.id && m.id !== "rebecca" && m.actif === true)
+    .map((m) => ({ id: m.id, services: (m.services || []).filter((x) => typeof x === "string"), indispos: (m.indispos || []).filter(indispoValide) }));
+  notifier();
+}
+
 /* ---------- Lecture publique (clients) ---------- */
 
 const texte = (champ) => (champ && typeof champ.stringValue === "string" ? champ.stringValue : "");
@@ -104,7 +122,7 @@ function chargerFermetures() {
       appliquerFermetures(
         (j.documents || []).map((d) => {
           const f = d.fields || {};
-          return { debut: texte(f.debut), fin: texte(f.fin), motif: texte(f.motif) };
+          return { debut: texte(f.debut), fin: texte(f.fin), motif: texte(f.motif), portee: texte(f.portee) };
         })
       )
     )
@@ -112,6 +130,36 @@ function chargerFermetures() {
       chargementFerm = null;
     });
   return chargementFerm;
+}
+
+const valeur = (v) => {
+  if (!v) return undefined;
+  if ("stringValue" in v) return v.stringValue;
+  if ("booleanValue" in v) return v.booleanValue;
+  if ("arrayValue" in v) return (v.arrayValue.values || []).map(valeur);
+  if ("mapValue" in v) return Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, valeur(x)]));
+  return undefined;
+};
+let chargementEquipe = null;
+function chargerEquipe() {
+  if (chargementEquipe) return chargementEquipe;
+  chargementEquipe = fetch(`${BASE}/disposEquipe?pageSize=50&${CLE}`, { cache: "no-store" })
+    .then((r) => {
+      if (!r.ok) throw new Error("lecture impossible");
+      return r.json();
+    })
+    .then((j) =>
+      appliquerEquipe(
+        (j.documents || []).map((d) => {
+          const f = d.fields || {};
+          return { id: String(d.name || "").split("/").pop(), actif: valeur(f.actif) === true, services: valeur(f.services) || [], indispos: valeur(f.indispos) || [] };
+        })
+      )
+    )
+    .catch(() => {
+      chargementEquipe = null;
+    });
+  return chargementEquipe;
 }
 
 let chargementCren = null;
@@ -141,6 +189,7 @@ export function useFermetures() {
     setV(version);
     chargerFermetures();
     chargerCreneaux();
+    chargerEquipe();
     return () => abonnes.delete(setV);
   }, []);
   return v;

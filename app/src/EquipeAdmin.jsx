@@ -13,6 +13,9 @@ import "./equipe.css";
 //    telephone des clients, plafond osek patur. Aucun e-mail n'est ecrit dans le code.
 // Collections : demandesEquipe/{uid}, equipe/{uid} (regles Firestore v9, publiees en J5).
 
+// J4b : copie publique (sans motif ni coordonnees) pour « si l'un de nous est libre » sur le site client
+const dispoPublique = (fiche) => ({ actif: fiche.actif === true, services: fiche.services || [], majLe: serverTimestamp() });
+
 const titreService = (id) => (SERVICES.find((s) => s.id === id) || { titre: id }).titre;
 
 function Case({ coche, onChange, children }) {
@@ -37,7 +40,10 @@ function FicheMembre({ uid, fiche, onFermer }) {
     if (v.erreur) return setMessage({ erreur: true, texte: v.erreur });
     setEnCours(true);
     try {
-      await updateDoc(doc(db, "equipe", uid), { ...v.fiche, majLe: serverTimestamp() });
+      const lot = writeBatch(db);
+      lot.update(doc(db, "equipe", uid), { ...v.fiche, majLe: serverTimestamp() });
+      lot.set(doc(db, "disposEquipe", uid), dispoPublique(v.fiche), { merge: true });
+      await lot.commit();
       setMessage({ texte: "Fiche enregistrée." });
     } catch {
       setMessage({ erreur: true, texte: "Enregistrement impossible. Vérifie la connexion puis réessaie." });
@@ -124,6 +130,7 @@ export default function EquipeAdmin() {
     try {
       const lot = writeBatch(db);
       if (accepte) lot.set(doc(db, "equipe", d.id), { ...ficheParDefaut(d), creeLe: serverTimestamp(), majLe: serverTimestamp() });
+      if (accepte) lot.set(doc(db, "disposEquipe", d.id), dispoPublique(ficheParDefaut(d)), { merge: true });
       lot.update(doc(db, "demandesEquipe", d.id), { statut: accepte ? "acceptee" : "refusee", majLe: serverTimestamp() });
       await lot.commit();
       if (accepte) setOuvert(d.id);

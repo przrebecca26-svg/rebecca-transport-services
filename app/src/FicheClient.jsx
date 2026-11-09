@@ -1,4 +1,5 @@
-import { Pastille } from "./equipeContexte.jsx";
+import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
+import { champOperateur } from "./pricing/reverser.js";
 import { useEffect, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -45,6 +46,7 @@ function Bloc({ titre, children, className = "" }) {
 }
 
 export default function FicheClient({ fiche, admin, recharges, clients, aller, onModifier, onFermer }) {
+  const { moi } = useEquipeContexte(); // J4a : la recharge confirmee par un coequipier = argent recu par lui (a reverser a Rebecca)
   const p = fiche.profil;
   const uid = fiche.avecCompte ? fiche.cle : null;
   const [notes, setNotes] = useState((admin && admin.notes) || "");
@@ -108,7 +110,7 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
     const lignes = lignesRecharge(r, bonusRecharge(Number(r.montant)), dest, aujourdhui());
     executer(async () => {
       const lot = writeBatch(db);
-      lot.update(doc(db, "recharges", r.id), { statut: "confirmée", creditUid: dest, confirmeLe: serverTimestamp() });
+      lot.update(doc(db, "recharges", r.id), { statut: "confirmée", creditUid: dest, confirmeLe: serverTimestamp(), ...champOperateur(moi) });
       for (const l of lignes) lot.set(doc(collection(db, "creditMouvements")), { ...l, creeLe: serverTimestamp() });
       await lot.commit();
     }, "Recharge confirmée : le crédit est ajouté.");

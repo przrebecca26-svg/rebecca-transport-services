@@ -65,7 +65,9 @@ export function validerMouvement(m, t = TARIFS) {
   if (!Number.isFinite(montant) || montant === 0 || Math.abs(montant) > 100000) return "Montant invalide.";
   if (m.kind === "paiement" || m.kind === "remboursement_effectue") {
     if (montant < 0) return "Le montant doit être positif.";
-    if (!t.moyensPaiement.includes(m.moyen)) return "Moyen de paiement inconnu.";
+    // J4a : une course peut etre payee avec le credit prepaye du client (meme texte que MOYEN_CREDIT de reverser.js)
+    const credit = m.kind === "paiement" && m.moyen === "Crédit du client";
+    if (!t.moyensPaiement.includes(m.moyen) && !credit) return "Moyen de paiement inconnu.";
   } else if (m.kind === "correction") {
     if (typeof m.motif !== "string" || m.motif.trim().length < 3) return "Un motif est obligatoire pour une correction.";
   } else {

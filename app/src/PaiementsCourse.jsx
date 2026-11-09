@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { auth, db } from "./firebase.js";
 import { TARIFS } from "./pricing/config.js";
 import {
@@ -14,6 +14,10 @@ import {
   verifierRemboursementEffectue,
 } from "./pricing/comptes.js";
 import { synchroniserSuivi } from "./suiviClient.js";
+import { soldeCredit } from "./pricing/credit.js";
+import { MOYEN_CREDIT, champOperateur, faitPar, recuPar } from "./pricing/reverser.js";
+import { nomDe } from "./pricing/quiFait.js";
+import { useEquipeContexte } from "./equipeContexte.jsx";
 import "./paiements.css";
 
 // Paiements, annulations et remboursements d'une course (espace prive de Rebecca).
@@ -22,6 +26,8 @@ import "./paiements.css";
 // B8 : la correction se choisit avec « Ajouter » / « Retirer » (le clavier iPhone n'a pas de signe moins).
 // B3 : l'historique du client (suivi) suit l'acompte recu et l'annulation.
 // Aucun frais d'annulation n'est applique sans la validation de Rebecca.
+// J4a : chaque paiement note qui a recu l'argent (« Reçu par ») ; une course peut etre payee avec le credit du client
+// (la ligne « Course payée avec le crédit » est ajoutee a son carnet en meme temps). L'argent du credit reste chez Rebecca.
 
 const ETATS = {
   acompte_a_recevoir: "Acompte à recevoir",
@@ -73,6 +79,21 @@ export default function PaiementsCourse({ d }) {
   const [confirmerAnnulation, setConfirmerAnnulation] = useState(false);
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
+  const { membres, moi } = useEquipeContexte();
+  const enEquipe = (membres || []).length > 1;
+  const [qui, setQui] = useState(moi); // qui a recu (ou rendu) l'argent
+  const [credit, setCredit] = useState(null); // lignes du carnet de credit du client (null = pas de compte ou pas lu)
+
+  // Carnet de credit du client (seulement pour une demande faite avec un compte)
+  useEffect(() => {
+    if (!d.uid) return undefined;
+    return onSnapshot(
+      query(collection(db, "creditMouvements"), where("uid", "==", d.uid)),
+      (s) => setCredit(s.docs.map((x) => ({ id: x.id, ...x.data() }))),
+      () => setCredit(null)
+    );
+  }, [d.uid]);
+  const soldeClient = credit ? soldeCredit(credit) : 0;
 
   useEffect(() => {
     const q = query(collection(db, "mouvements"), where("resId", "==", d.id));
@@ -135,6 +156,7 @@ export default function PaiementsCourse({ d }) {
     setMotif("");
     setSens("retirer");
     setReference("");
+    setQui(moi);
     setMoyen(TARIFS.moyensPaiement.includes(d.moyenPaiement) ? d.moyenPaiement : TARIFS.moyensPaiement[0]);
   };
 
@@ -166,15 +188,16 @@ export default function PaiementsCourse({ d }) {
     const saisi = versNombre(montant);
     const n = mode === "correction" ? (sens === "retirer" ? -Math.abs(saisi) : Math.abs(saisi)) : saisi;
     let m;
-    if (mode === "paiement") m = { kind: "paiement", resId: d.id, date, montant: n, moyen };
-    else if (mode === "correction") m = { kind: "correction", resId: d.id, date, montant: n, motif: motif.trim().slice(0, 200) };
+    if (mode === "paiement") m = { kind: "paiement", resId: d.id, date, montant: n, moyen, ...(moyen === MOYEN_CREDIT ? {} : champOperateur(qui)) };
+    else if (mode === "correction") m = { kind: "correction", resId: d.id, date, montant: n, motif: motif.trim().slice(0, 200), ...champOperateur(qui) };
     else {
-      m = { kind: "remboursement_effectue", resId: d.id, date, montant: n, moyen, annulationId: annulation ? annulation.id : "" };
+      m = { kind: "remboursement_effectue", resId: d.id, date, montant: n, moyen, annulationId: annulation ? annulation.id : "", ...champOperateur(qui) };
       if (reference.trim()) m.ref = reference.trim().slice(0, 100);
     }
     let err = validerMouvement(m);
     if (!err && mode === "correction" && sit.encaisse + n < 0) err = "Cette correction rendrait le total encaissé négatif.";
     if (!err && mode === "remboursement") err = verifierRemboursementEffectue(n, annulation, mouvements);
+    if (!err && m.moyen === MOYEN_CREDIT && (!d.uid || n > soldeClient + 0.001)) err = `Crédit insuffisant : le client a ${euros(soldeClient)} de crédit.`;
     if (err) {
       setErreur(err);
       return;
@@ -188,7 +211,15 @@ export default function PaiementsCourse({ d }) {
     setEnCours(true);
     setErreur("");
     try {
-      await addDoc(collection(db, "mouvements"), { ...aConfirmer, creeLe: serverTimestamp() });
+      if (aConfirmer.moyen === MOYEN_CREDIT) {
+        // Paiement avec le credit : la ligne de paiement et la ligne du carnet du client, en une seule fois
+        const lot = writeBatch(db);
+        lot.set(doc(collection(db, "mouvements")), { ...aConfirmer, creeLe: serverTimestamp() });
+        lot.set(doc(collection(db, "creditMouvements")), { uid: d.uid, kind: "utilisation", montant: -aConfirmer.montant, resId: d.id, date: aConfirmer.date, creeLe: serverTimestamp() });
+        await lot.commit();
+      } else {
+        await addDoc(collection(db, "mouvements"), { ...aConfirmer, creeLe: serverTimestamp() });
+      }
       // Acompte recu : le client voit « Confirmée » dans son historique (B3)
       synchroniserSuivi(d, [...(mouvements || []), aConfirmer]);
       fermer();
@@ -320,6 +351,8 @@ export default function PaiementsCourse({ d }) {
                 {jourCourt(m.date)} · {m.kind === "paiement" ? m.moyen : m.kind === "correction" ? "Correction" : "Remboursement (" + m.moyen + ")"}
                 {m.kind === "correction" && m.motif ? <small> ({m.motif})</small> : null}
                 {m.kind === "remboursement_effectue" && m.ref ? <small> ({m.ref})</small> : null}
+                {enEquipe && m.moyen !== MOYEN_CREDIT && recuPar(m) !== faitPar(d) ? <small> · reçu par {nomDe(membres, recuPar(m))}, à reverser</small> : null}
+                {enEquipe && m.moyen === MOYEN_CREDIT && faitPar(d) !== recuPar(m) ? <small> · crédit gardé par {nomDe(membres, recuPar(m))}, à reverser</small> : null}
               </span>
               <strong>{m.kind === "remboursement_effectue" ? "-" + euros(m.montant) : (m.montant > 0 && m.kind === "correction" ? "+" : "") + euros(m.montant)}</strong>
             </li>
@@ -385,9 +418,21 @@ export default function PaiementsCourse({ d }) {
                     {m}
                   </option>
                 ))}
+                {mode === "paiement" && d.uid && soldeClient > 0 && <option value={MOYEN_CREDIT}>{MOYEN_CREDIT} (solde {euros(soldeClient)})</option>}
               </select>
             </label>
           )}
+          {enEquipe && !(mode === "paiement" && moyen === MOYEN_CREDIT) && (
+            <label className="pm-champ">
+              {mode === "remboursement" ? "Remboursé par" : mode === "correction" ? "Argent de" : "Reçu par"}
+              <select value={qui} onChange={(e) => setQui(e.target.value)}>
+                {membres.map((x) => (
+                  <option key={x.id} value={x.id}>{x.id === moi ? "Moi (" + x.nom + ")" : x.nom}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {mode === "paiement" && moyen === MOYEN_CREDIT && <p className="tb-note">Le montant est retiré du crédit du client (ligne « Course payée avec le crédit » dans sa fiche). L'argent du crédit est gardé par Rebecca.</p>}
           <label className="pm-champ">
             Date
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -423,6 +468,7 @@ export default function PaiementsCourse({ d }) {
             {aConfirmer.kind !== "correction" ? <> en <strong>{aConfirmer.moyen}</strong></> : null} le {jourCourt(aConfirmer.date)}.
           </p>
           {aConfirmer.kind === "remboursement_effectue" && <p className="tb-note">À enregistrer seulement si le remboursement a vraiment été effectué.</p>}
+          {enEquipe && recuPar(aConfirmer) !== faitPar(d) && <p className="tb-note">Course faite par {nomDe(membres, faitPar(d))} : {euros(aConfirmer.montant)} à reverser par {nomDe(membres, recuPar(aConfirmer))}.</p>}
           {depasse > 0 && <p className="tb-note">Attention : cela dépasse le prix convenu de {euros(depasse)}.</p>}
           <p className="tb-note">Une fois enregistré, il ne peut plus être modifié ni supprimé (une erreur se corrige par une nouvelle ligne).</p>
           <div className="tb-actions">

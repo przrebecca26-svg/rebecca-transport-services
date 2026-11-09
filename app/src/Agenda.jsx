@@ -1,7 +1,9 @@
 import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import { filtrerPersonne } from "./pricing/quiFait.js";
+import { ADMIN_ID } from "./pricing/equipe.js";
+import { indispoValide } from "./fermetures.js";
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauValide, lireCreneaux } from "./fermetures.js";
 import "./agenda.css";
@@ -79,7 +81,10 @@ function etatJour(creneaux) {
 // ---- fin des fonctions de calcul ----
 
 // Ajout d'une fermeture (vacances, jour de repos...)
-function AjoutFermeture({ aujourdhui }) {
+// J4b : enEquipe = Rebecca n'est plus seule ; elle choisit « toute l'equipe » (par defaut) ou « seulement moi ».
+// pourMembre = id d'un coequipier : la fermeture devient SON indisponibilite (document public disposEquipe, sans motif).
+function AjoutFermeture({ aujourdhui, enEquipe = false, pourMembre = null }) {
+  const [portee, setPortee] = useState("equipe");
   const [dateDebut, setDateDebut] = useState(aujourdhui);
   const [heureDebut, setHeureDebut] = useState("00:00");
   const [dateFin, setDateFin] = useState(aujourdhui);
@@ -104,9 +109,14 @@ function AjoutFermeture({ aujourdhui }) {
     if (fin <= debut) return setErreur("La fin doit être après le début.");
     setEnCours(true);
     try {
-      await addDoc(collection(db, "fermetures"), { debut, fin, motif: motif.trim().slice(0, 60), creeLe: serverTimestamp() });
+      if (pourMembre) {
+        await setDoc(doc(db, "disposEquipe", pourMembre), { indispos: arrayUnion({ debut, fin }), majLe: serverTimestamp() }, { merge: true });
+        setOk("Indisponibilité ajoutée. Les courses ne te seront pas proposées sur ces horaires.");
+      } else {
+        await addDoc(collection(db, "fermetures"), { debut, fin, motif: motif.trim().slice(0, 60), ...(enEquipe && portee === "moi" ? { portee: "moi" } : {}), creeLe: serverTimestamp() });
+        setOk(enEquipe && portee === "moi" ? "Fermeture ajoutée pour toi seule : l'équipe reste réservable." : "Fermeture ajoutée. Les clients ne pourront plus réserver sur ces horaires.");
+      }
       setMotif("");
-      setOk("Fermeture ajoutée. Les clients ne pourront plus réserver sur ces horaires.");
     } catch {
       setErreur("Enregistrement impossible. Vérifiez la connexion.");
     }
@@ -123,10 +133,18 @@ function AjoutFermeture({ aujourdhui }) {
         <label className="fm-champ">Fin : date<input type="date" value={dateFin} min={dateDebut} onChange={(e) => setDateFin(e.target.value)} /></label>
         <label className="fm-champ">Heure<input type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} /></label>
       </div>
-      <label className="fm-champ">
-        Motif (visible par les clients)
-        <input type="text" maxLength={60} value={motif} placeholder="Ex : Indisponible" onChange={(e) => setMotif(e.target.value)} />
-      </label>
+      {!pourMembre && (
+        <label className="fm-champ">
+          Motif (visible par les clients)
+          <input type="text" maxLength={60} value={motif} placeholder="Ex : Indisponible" onChange={(e) => setMotif(e.target.value)} />
+        </label>
+      )}
+      {!pourMembre && enEquipe && (
+        <div className="tb-filtres" role="radiogroup" aria-label="Qui est fermé">
+          <button type="button" role="radio" aria-checked={portee === "equipe"} className={"tb-filtre" + (portee === "equipe" ? " actif" : "")} onClick={() => setPortee("equipe")}>Toute l'équipe</button>
+          <button type="button" role="radio" aria-checked={portee === "moi"} className={"tb-filtre" + (portee === "moi" ? " actif" : "")} onClick={() => setPortee("moi")}>Seulement moi</button>
+        </div>
+      )}
       {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
       {ok && <p className="fm-ok">{ok}</p>}
       <button className="tb-bouton" type="submit" disabled={enCours}>{enCours ? "Enregistrement…" : "Ajouter cette fermeture"}</button>
@@ -155,7 +173,7 @@ function LigneFermeture({ f }) {
   return (
     <div className="fm-item">
       <div>
-        <p><strong>{f.motif || "Fermeture exceptionnelle"}</strong></p>
+        <p><strong>{f.motif || "Fermeture exceptionnelle"}</strong>{f.portee === "moi" ? <small> · seulement moi</small> : null}</p>
         <small>du {jourFr(d1)} {h1} au {jourFr(d2)} {h2}</small>
         {erreur && <p className="fm-erreur">{erreur}</p>}
       </div>
@@ -322,9 +340,58 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre }) {
   );
 }
 
+// Indisponibilites d'un coequipier (J4b) : ses fermetures a lui, publiques sans motif
+function MesIndispos({ moi, aujourdhui }) {
+  const [liste, setListe] = useState([]);
+  const [erreur, setErreur] = useState("");
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, "disposEquipe", moi),
+        (s) => setListe(((s.exists() && s.data().indispos) || []).filter(indispoValide)),
+        () => setErreur("Lecture impossible pour l'instant (les règles de l'équipe seront publiées à l'étape J5).")
+      ),
+    [moi]
+  );
+  const maintenant = aujourdhui + "T00:00";
+  const aVenir = liste.filter((b) => b.fin >= maintenant).sort((a, b) => a.debut.localeCompare(b.debut));
+  const retirer = async (b) => {
+    try {
+      await setDoc(doc(db, "disposEquipe", moi), { indispos: arrayRemove(b), majLe: serverTimestamp() }, { merge: true });
+    } catch {
+      setErreur("Suppression impossible. Vérifie la connexion.");
+    }
+  };
+  return (
+    <>
+      <div className="tb-bloc">
+        <h3>Mes indisponibilités</h3>
+        <p className="tb-note">Quand tu n'es pas disponible (Wolt, rendez-vous, repos). Sur le site, un horaire reste ouvert aux clients tant que l'un de nous est libre. Chabbat et fêtes sont fermés pour tous.</p>
+        {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
+        {aVenir.length === 0 && <p className="tb-note">Aucune indisponibilité à venir.</p>}
+        {aVenir.map((b) => {
+          const [d1, h1] = b.debut.split("T");
+          const [d2, h2] = b.fin.split("T");
+          return (
+            <div key={b.debut + b.fin} className="fm-item">
+              <div><small>du {jourFr(d1)} {h1} au {jourFr(d2)} {h2}</small></div>
+              <button className="fm-petit clair" onClick={() => retirer(b)}>Supprimer</button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="tb-bloc">
+        <h3>Ajouter une indisponibilité</h3>
+        <AjoutFermeture aujourdhui={aujourdhui} pourMembre={moi} />
+      </div>
+    </>
+  );
+}
+
 export default function Agenda() {
   const aujourdhui = utcVersLocal(Date.now()).date;
-  const { moi } = useEquipeContexte();
+  const { moi, membres } = useEquipeContexte();
+  const enEquipe = (membres || []).length > 1;
   const [personne, setPersonne] = useState("tous");
   const [tousItems, setItems] = useState(null);
   // J3 : filtre « Moi / Rebecca / Jeremy / Tous »
@@ -484,6 +551,10 @@ export default function Agenda() {
         ))}
       </div>
 
+      {moi !== ADMIN_ID ? (
+        <MesIndispos moi={moi} aujourdhui={aujourdhui} />
+      ) : (
+      <>
       {adecider.length > 0 && (
         <div className="tb-bloc">
           <h3>Hol Hamoed : à décider</h3>
@@ -496,7 +567,7 @@ export default function Agenda() {
 
       <div className="tb-bloc">
         <h3>Mes créneaux fixes</h3>
-        <p className="tb-note">Ces horaires reviennent chaque semaine et bloquent les clients. Touche « Me libérer » quand tu es disponible (par exemple si ta copine a une voiture).</p>
+        <p className="tb-note">Ces horaires reviennent chaque semaine et bloquent {enEquipe ? "ton planning (l'équipe reste réservable pour les services qui lui sont cochés)" : "les clients"}. Touche « Me libérer » quand tu es disponible (par exemple si ta copine a une voiture).</p>
         {creneaux.map((c, i) => (
           <LigneCreneau key={i + c.debut + c.fin + c.jours.join("") + c.actif} c={c} onChanger={(nouveau) => changerCreneau(i, nouveau)} />
         ))}
@@ -504,7 +575,7 @@ export default function Agenda() {
 
       <div className="tb-bloc">
         <h3>Mes fermetures</h3>
-        <p className="tb-note">Vacances, jour de repos, rendez-vous : les clients ne peuvent plus réserver sur ces horaires.</p>
+        <p className="tb-note">Vacances, jour de repos, rendez-vous : les clients ne peuvent plus réserver sur ces horaires.{enEquipe ? " « Seulement moi » : l'équipe reste réservable pendant ce temps." : ""}</p>
         {aVenir.length === 0 && <p className="tb-note">Aucune fermeture à venir.</p>}
         {aVenir.map((f) => (
           <LigneFermeture key={f.id} f={f} />
@@ -513,8 +584,10 @@ export default function Agenda() {
 
       <div className="tb-bloc">
         <h3>Ajouter une fermeture</h3>
-        <AjoutFermeture aujourdhui={aujourdhui} />
+        <AjoutFermeture aujourdhui={aujourdhui} enEquipe={enEquipe} />
       </div>
+      </>
+      )}
     </section>
   );
 }

@@ -4,6 +4,8 @@ import { db } from "./firebase.js";
 import { indicateurs } from "./pricing/comptes.js";
 import { TYPES, decaler, libelle, periodeDe, suivantPossible } from "./pricing/bilan.js";
 import { journalCsv, joursEntre, nomFichier, sauvegardeJson } from "./pricing/sauvegarde.js";
+import { faitPar } from "./pricing/reverser.js";
+import { lignesDe } from "./pricing/equipe.js";
 import "./paiements.css";
 import "./depenses.css";
 import "./bilan.css";
@@ -49,7 +51,9 @@ function Ligne({ nom, valeur, sous }) {
   );
 }
 
-export default function Bilan() {
+// J4a : personne = "tous" (toute l'equipe) ou l'identifiant d'un membre (ses courses, les paiements de ses courses, ses depenses).
+// La sauvegarde et le journal gardent toujours tout.
+export default function Bilan({ personne = "tous" }) {
   const [demandes, setDemandes] = useState(null);
   const [mouvements, setMouvements] = useState(null);
   const [depenses, setDepenses] = useState(null);
@@ -71,14 +75,19 @@ export default function Bilan() {
 
   const periode = periodeDe(type, ref);
   const ind = useMemo(() => {
-    const reservations = (demandes || []).map((d) => ({
+    const toutes = personne === "tous";
+    const siennes = (demandes || []).filter((d) => toutes || faitPar(d) === personne);
+    const ids = new Set(siennes.map((d) => d.id));
+    const reservations = siennes.map((d) => ({
       id: d.id,
       date: d.date,
       prixConvenu: typeof d.prixFinal === "number" ? d.prixFinal : typeof d.prixEstime === "number" ? d.prixEstime : null,
       statut: d.statut,
     }));
-    return indicateurs(reservations, mouvements || [], depenses || [], periode);
-  }, [demandes, mouvements, depenses, periode && periode.debut, periode && periode.fin]);
+    const mvts = toutes ? mouvements || [] : (mouvements || []).filter((m) => ids.has(m.resId));
+    const deps = toutes ? depenses || [] : lignesDe(depenses || [], personne);
+    return indicateurs(reservations, mvts, deps, periode);
+  }, [demandes, mouvements, depenses, personne, periode && periode.debut, periode && periode.fin]);
 
   if (lectureImpossible) return <p className="admin-erreur tb-pad" role="alert">Lecture du bilan impossible. Vérifie la connexion et les règles Firebase.</p>;
   if (demandes === null || mouvements === null || depenses === null) return <p className="admin-texte tb-pad">Chargement du bilan…</p>;

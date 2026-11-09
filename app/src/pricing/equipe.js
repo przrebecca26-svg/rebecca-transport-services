@@ -194,7 +194,7 @@ export function conseillerVehicule(membre, mission, { vehicules = [], demandes =
 /* ---------- "Si l'un de nous est libre" ---------- */
 
 // Qui peut faire cette mission, et avec quel vehicule ? (membres autorises, libres, avec un vehicule possible)
-// servicesRebeccaSeule : services suivant le seul planning de Rebecca (ramassage scolaire).
+// Ramassage scolaire : comme les autres services (case cochee dans la fiche du membre).
 export function quiPeutFaire(mission, { membres = [], vehicules = [], demandes = [], dispos = {}, marge = MARGE_DEFAUT, typesParService = TYPES_PAR_SERVICE, vehiculeParDefaut = null } = {}) {
   const res = [];
   for (const m of membres) {
@@ -249,16 +249,20 @@ export const lignesDe = (liste = [], membreId) => liste.filter((x) => (x.operate
 export const coursesDe = (demandes = [], membreId) => demandes.filter((d) => (d.realisePar || attribueA(d)) === membreId);
 
 // Synthese annuelle d'un membre, comparee a SON plafond (chacun son osek patur)
-export function syntheseMembre(membreId, { annee, demandes = [], mouvements = [], depenses = [], autresRevenus = [], avis = [], plafond = PLAFOND_DEFAUT, jourDeLAnnee = null }) {
+// J4a : l'argent garde apres annulation compte pour celui a qui la course etait attribuee (meme si l'autre l'a encaisse) ;
+// le credit prepaye (recharges, bonus) reste dans les chiffres de Rebecca, qui garde l'argent du credit.
+export function syntheseMembre(membreId, { annee, demandes = [], mouvements = [], depenses = [], autresRevenus = [], avis = [], recharges = [], creditMouvements = [], plafond = PLAFOND_DEFAUT, jourDeLAnnee = null }) {
   const courses = coursesDe(demandes, membreId);
   const ids = new Set(courses.map((d) => d.id));
   const s = syntheseAnnee({
     annee,
     demandes: courses,
-    mouvements: lignesDe(mouvements, membreId).filter((m) => !m.resId || ids.has(m.resId)),
+    mouvements: mouvements.filter((m) => (m.resId ? ids.has(m.resId) : (m.operateur || ADMIN_ID) === membreId)),
     depenses: lignesDe(depenses, membreId),
     autresRevenus: lignesDe(autresRevenus, membreId),
     avis: avis.filter((a) => ids.has(a.id)),
+    recharges: estAdminId(membreId) ? recharges : [],
+    creditMouvements: estAdminId(membreId) ? creditMouvements : [],
   });
   return { ...s, plafond: etatPlafond(s.cumulPlafond, plafond, jourDeLAnnee) };
 }

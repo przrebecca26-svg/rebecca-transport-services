@@ -189,7 +189,7 @@ export default function Admin() {
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;
     else if (onglet === "agenda") contenu = <Agenda {...props} />;
     else if (onglet === "equipe") contenu = <EquipeAdmin />;
-    else if (onglet === "mesfinances") contenu = <Bientot titre="Mes finances" texte="Tes courses, tes encaissements, ton Wolt, tes dépenses et ton plafond osek patur arrivent à l'étape J4. Les finances de Rebecca restent séparées des tiennes." aller={aller} />;
+    else if (onglet === "mesfinances") contenu = <Finances {...props} membre={membre} />; // J4a : seulement les siennes
     else if (onglet === "clients") contenu = <ClientsEtPromos key={"cp" + (cible.sous || "") + (cibleDe("clients") || "")} {...props} cible={cibleDe("clients")} sousOnglet={cible.onglet === "clients" ? cible.sous : null} />;
     else if (onglet === "finances") contenu = <Finances {...props} />;
     else if (onglet === "statistiques") contenu = <Bientot titre="Statistiques" texte={membre ? "Tes statistiques comparées (deux périodes) arrivent avec les fondations. En attendant, chaque activité a son tableau de bord avec tes chiffres." : "Les statistiques comparées (deux périodes, toutes les activités) arrivent avec les fondations. En attendant, chaque activité active a son tableau de bord avec ses graphiques."} bouton={{ label: "Ouvrir Mes activités", vers: "activites" }} aller={aller} />;

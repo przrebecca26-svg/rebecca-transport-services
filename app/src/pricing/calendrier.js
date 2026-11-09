@@ -175,7 +175,9 @@ export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
   for (const f of cal.fermeturesExceptionnelles) {
     const [d1, h1] = f.debut.split("T");
     const [d2, h2] = f.fin.split("T");
-    resultat.push({ ...periode(localVersUtc(d1, h1), localVersUtc(d2, h2), f.motif || "Fermeture exceptionnelle", "exceptionnelle") });
+    const p = { ...periode(localVersUtc(d1, h1), localVersUtc(d2, h2), f.motif || "Fermeture exceptionnelle", "exceptionnelle") };
+    if (f.portee === "moi") p.seulementRebecca = true; // J4b : « seulement moi » (le reste de l'equipe reste reservable)
+    resultat.push(p);
   }
   // Creneaux personnels recurrents (chaque semaine), leves les jours libres et pendant les vacances scolaires
   for (let i = -1; i <= nbJours + 1; i++) {
@@ -197,14 +199,43 @@ export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
   return resultat.sort((a, b) => a.debutUtc - b.debutUtc);
 }
 
-// Renvoie la periode de fermeture qui chevauche [date heure ; + dureeMinutes], sinon null
-export function verifierDisponibilite(date, heure, dureeMinutes = 0, t = TARIFS) {
+/* ---------- « Si l'un de nous est libre » (Lot J, J4b, 9 nov. 2026) ----------
+ t.calendrier.equipe : les AUTRES membres actifs (Rebecca exceptee), lus en public sans motif :
+   [{ id, services: [...], indispos: [{ debut: "AAAA-MM-JJTHH:MM", fin }] }]
+ Liste vide (ou absente) = Rebecca seule : tout se passe exactement comme avant.
+ Chabbat, fetes et fermetures « toute l'equipe » : fermes pour tous.
+ Creneaux fixes de Rebecca (ecole...) et fermetures « seulement moi » : ne bloquent que Rebecca.
+ Ramassage scolaire (Rebecca, 9 nov. 2026, 20h45) : comme les autres services ; il va sur le planning du membre
+ si Rebecca le lui a coche dans sa fiche. Liste gardee vide pour un futur service reserve a Rebecca. */
+export const SERVICES_REBECCA_SEULE = [];
+
+const bloqueRebeccaSeule = (p) => p.type === "personnel" || p.seulementRebecca === true;
+
+// Un autre membre peut-il faire ce service sur [debut ; fin] ? (service absent = n'importe lequel de ses services)
+export function autreMembreLibre(service, debut, fin, t = TARIFS) {
+  if (service && SERVICES_REBECCA_SEULE.includes(service)) return false;
+  return (t.calendrier.equipe || []).some((m) => {
+    const services = Array.isArray(m.services) ? m.services : [];
+    if (service ? !services.includes(service) : services.filter((x) => !SERVICES_REBECCA_SEULE.includes(x)).length === 0) return false;
+    return !(m.indispos || []).some((b) => {
+      if (typeof b.debut !== "string" || typeof b.fin !== "string") return false;
+      const [d1, h1] = b.debut.split("T");
+      const [d2, h2] = b.fin.split("T");
+      return localVersUtc(d1, h1) < fin && localVersUtc(d2, h2) > debut;
+    });
+  });
+}
+
+// Renvoie la periode de fermeture qui chevauche [date heure ; + dureeMinutes], sinon null.
+// service (facultatif) : avec une equipe, un moment ou seule Rebecca est prise reste ouvert si un autre membre est libre.
+export function verifierDisponibilite(date, heure, dureeMinutes = 0, t = TARIFS, service = null) {
   const debut = localVersUtc(date, heure);
-  const fin = debut + dureeMinutes * 60000;
-  for (const p of periodesFermees(date, 1, t)) {
-    if (p.debutUtc < Math.max(fin, debut + 1) && p.finUtc > debut) return p;
-  }
-  return null;
+  const fin = Math.max(debut + dureeMinutes * 60000, debut + 1);
+  const touchees = periodesFermees(date, 1, t).filter((p) => p.debutUtc < fin && p.finUtc > debut);
+  const pourTous = touchees.find((p) => !bloqueRebeccaSeule(p));
+  if (pourTous) return pourTous;
+  if (touchees.length === 0) return null;
+  return autreMembreLibre(service, debut, fin, t) ? null : touchees[0];
 }
 
 // "Prochaines periodes d'indisponibilite" a afficher au client et a Rebecca
@@ -214,6 +245,7 @@ export function prochainesFermetures(depuis, nombre = 5, t = TARIFS) {
   for (let decalage = 0; decalage < 400 && trouvees.length < nombre; decalage += 30) {
     for (const p of periodesFermees(ajouterJours(depuis, decalage), 30, t)) {
       if (p.type === "personnel") continue; // les creneaux personnels ne s'affichent pas dans les annonces
+      if (p.seulementRebecca && (t.calendrier.equipe || []).length) continue; // J4b : le reste de l'equipe travaille
       if (p.finUtc > maintenant && !trouvees.some((x) => x.debutUtc === p.debutUtc)) trouvees.push(p);
     }
   }

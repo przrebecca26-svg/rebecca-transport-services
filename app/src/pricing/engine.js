@@ -550,7 +550,7 @@ export function trouverConflits(demande, reservations = [], t = TARIFS) {
 
 function verifierFermetures(d, t) {
   for (const c of creneauxOccupes(d, t)) {
-    const p = verifierDisponibilite(c.date, c.heure, c.minutes, t);
+    const p = verifierDisponibilite(c.date, c.heure, c.minutes, t, d.service); // J4b : « si l'un de nous est libre »
     if (p) {
       return {
         ok: true,

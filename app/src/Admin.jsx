@@ -12,7 +12,9 @@ import Clients from "./Clients.jsx";
 import Finances from "./Finances.jsx";
 import CodesPromo from "./CodesPromo.jsx";
 import Reglages from "./Reglages.jsx";
-import EquipeAdmin, { MesModes, MesReglages } from "./EquipeAdmin.jsx";
+import EquipeAdmin, { MesModes, MesReglages, MesVehicules } from "./EquipeAdmin.jsx";
+import { EquipeContexte, useEquipeDonnees } from "./equipeContexte.jsx";
+import { ADMIN_ID } from "./pricing/equipe.js";
 import { demandeAcces, roleDe, rubriquesPour } from "./pricing/espaceEquipe.js";
 import "./admin.css";
 import "./theme-admin.css";
@@ -154,6 +156,7 @@ export default function Admin() {
 
   const estAdmin = !!user && user.email === ADMIN_EMAIL && user.emailVerified;
   const equipe = useEquipe(user, estAdmin);
+  const donneesEquipe = useEquipeDonnees(); // J3 : equipe et vehicules (lecture refusee avant les regles v9 = Rebecca seule)
   const role = user ? roleDe({ estAdmin, fiche: equipe.fiche, demande: equipe.demande }) : "aucun";
   const permises = rubriquesPour(role); // null = toutes (Rebecca)
   const rubriques = permises ? RUBRIQUES.filter((r) => permises.includes(r.id)) : RUBRIQUES.filter((r) => r.id !== "mesfinances");
@@ -173,12 +176,17 @@ export default function Admin() {
   // Espace de Rebecca (tout) ou d'un coequipier actif (ses activites, sans les finances de Rebecca)
   if (role === "admin" || role === "equipe") {
     const membre = role === "equipe" ? equipe.fiche : null;
+    const moi = membre ? membre.id : ADMIN_ID;
+    const membres = donneesEquipe.membres.some((m) => m.id === moi) ? donneesEquipe.membres : [...donneesEquipe.membres, membre];
+    const contexte = { membres, vehicules: donneesEquipe.vehicules, moi, membre };
+    const moiFiche = membres.find((m) => m.id === moi) || {};
+    const vehiculesBloc = <section className="tb-pad"><MesVehicules moi={moi} nomMoi={moiFiche.nom || "moi"} membres={membres} vehicules={donneesEquipe.vehicules} modes={moiFiche.modes} /></section>;
     const props = { aller };
     let contenu;
     if (onglet === "tableau") contenu = <TableauDeBord {...props} membre={membre} />;
     else if (onglet === "devis") contenu = <SimulateurDevis {...props} />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
-    else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} />;
+    else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;
     else if (onglet === "agenda") contenu = <Agenda {...props} />;
     else if (onglet === "equipe") contenu = <EquipeAdmin />;
     else if (onglet === "mesfinances") contenu = <Bientot titre="Mes finances" texte="Tes courses, tes encaissements, ton Wolt, tes dépenses et ton plafond osek patur arrivent à l'étape J4. Les finances de Rebecca restent séparées des tiennes." aller={aller} />;
@@ -186,10 +194,11 @@ export default function Admin() {
     else if (onglet === "finances") contenu = <Finances {...props} />;
     else if (onglet === "statistiques") contenu = <Bientot titre="Statistiques" texte={membre ? "Tes statistiques comparées (deux périodes) arrivent avec les fondations. En attendant, chaque activité a son tableau de bord avec tes chiffres." : "Les statistiques comparées (deux périodes, toutes les activités) arrivent avec les fondations. En attendant, chaque activité active a son tableau de bord avec ses graphiques."} bouton={{ label: "Ouvrir Mes activités", vers: "activites" }} aller={aller} />;
     else if (onglet === "rapports") contenu = membre ? <Bientot titre="Rapports et exports" texte="Tes rapports PDF et Excel (tes courses, tes encaissements, ton Wolt) arrivent avec les fondations." aller={aller} /> : <Bientot titre="Rapports et exports" texte="Les rapports PDF et Excel arrivent avec les fondations. En attendant, la sauvegarde complète et le journal CSV sont dans Finances." bouton={{ label: "Ouvrir Finances", vers: "finances" }} aller={aller} />;
-    else if (membre) contenu = <MesReglages key={membre.id} membre={membre} />;
-    else contenu = <><section className="tb-pad"><MesModes id="rebecca" /></section><Reglages {...props} /></>;
+    else if (membre) contenu = <><MesReglages key={membre.id} membre={membre} />{vehiculesBloc}</>;
+    else contenu = <><section className="tb-pad"><MesModes id="rebecca" /></section>{vehiculesBloc}<Reglages {...props} /></>;
 
     return (
+      <EquipeContexte.Provider value={contexte}>
       <div className="admin admin-tableau theme-sombre">
         <header className="ts-entete">
           <button className="ts-burger" onClick={() => setMenu(true)} aria-label="Ouvrir le menu" aria-expanded={menu}>
@@ -216,6 +225,7 @@ export default function Admin() {
         </nav>
         <main className="ts-contenu">{contenu}</main>
       </div>
+      </EquipeContexte.Provider>
     );
   }
 

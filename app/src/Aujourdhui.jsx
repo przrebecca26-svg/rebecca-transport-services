@@ -1,3 +1,4 @@
+import { Pastille } from "./equipeContexte.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -63,7 +64,7 @@ function Ligne({ d, sous, droite, badge, onOuvrir }) {
   return (
     <button className="tb-carte" onClick={() => onOuvrir(d.id)}>
       <span className="tb-ligne">
-        <strong>{d.serviceTitre}</strong>
+        <strong><Pastille d={d} /> {d.serviceTitre}</strong>
         {badge && <span className={"tb-badge tb-" + badge.classe}>{badge.label}</span>}
       </span>
       <span className="tb-quand">{sous}</span>
@@ -85,7 +86,7 @@ function CourseDuJour({ d, sit, onOuvrir }) {
       <button className="aj-course-tete" onClick={() => onOuvrir(d.id)}>
         <span className="aj-heure">{d.heure}</span>
         <span className="aj-corps">
-          <strong>{d.serviceTitre}</strong>
+          <strong><Pastille d={d} /> {d.serviceTitre}</strong>
           <small>{d.nom} · {textePrix(d)}{sit.resteAPayer > 0 && d.statut !== "annulee" ? ` · reste ${shekels(sit.resteAPayer)}` : ""}</small>
           {a && <small dir="auto">{a.label}</small>}
         </span>

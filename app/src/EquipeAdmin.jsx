@@ -3,6 +3,7 @@ import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeB
 import { db } from "./firebase.js";
 import { SERVICES } from "./services.js";
 import { ACTIVITES_ACCES, MODES, ficheParDefaut, validerFiche, validerMesReglages, validerModes } from "./pricing/espaceEquipe.js";
+import { libelleType, validerVehicule, vehiculeNeuf, vehiculesEffectifs } from "./pricing/quiFait.js";
 import "./reglages.css";
 import "./equipe.css";
 
@@ -258,5 +259,69 @@ export function MesReglages({ membre }) {
       <button className="tb-bouton" onClick={enregistrer}>Enregistrer</button>
       <p className="tb-note">Les tarifs, les textes du site et l'équipe restent réglés par Rebecca.</p>
     </section>
+  );
+}
+
+/* ---------- Mes vehicules (J3, 9 nov. 2026 : « chacun remplit les siens ») ---------- */
+
+function FicheVehicule({ v, membres, moi, onFini }) {
+  const [f, setF] = useState(() => ({ ...v, consommationL100: String(v.consommationL100 ?? ""), prixLitre: String(v.prixLitre ?? ""), usureParKm: String(v.usureParKm ?? ""), autonomieKm: v.autonomieKm == null ? "" : String(v.autonomieKm) }));
+  const [message, setMessage] = useState(null);
+  const changer = (k, val) => setF((a) => ({ ...a, [k]: val }));
+  const autres = membres.filter((m) => m.id !== moi);
+  const enregistrer = async () => {
+    const r = validerVehicule({ ...f, proprietaire: moi });
+    if (r.erreur) return setMessage({ erreur: true, texte: r.erreur });
+    try {
+      await setDoc(doc(db, "vehicules", v.id), { ...r.vehicule, proprietaire: moi, majLe: serverTimestamp() }, { merge: true });
+      setMessage({ texte: "Véhicule enregistré." });
+      onFini && onFini();
+    } catch {
+      setMessage({ erreur: true, texte: "Enregistrement impossible pour l'instant (règles de l'équipe publiées à l'étape J5)." });
+    }
+  };
+  return (
+    <div className="eq-vehicule">
+      <label className="am-label">Nom<input className="am-champ" value={f.nom} maxLength={60} onChange={(e) => changer("nom", e.target.value)} /></label>
+      <p className="tb-note">{libelleType(f.type)}</p>
+      {f.type !== "velo" && (
+        <div className="am-grille">
+          <label>Consommation (L/100 km)<input className="am-champ" inputMode="decimal" value={f.consommationL100} onChange={(e) => changer("consommationL100", e.target.value)} /></label>
+          <label>Prix du litre (₪)<input className="am-champ" inputMode="decimal" value={f.prixLitre} onChange={(e) => changer("prixLitre", e.target.value)} /></label>
+        </div>
+      )}
+      <label className="am-label">Usure et entretien (₪ par km)<input className="am-champ" inputMode="decimal" value={f.usureParKm} onChange={(e) => changer("usureParKm", e.target.value)} /></label>
+      {f.type === "velo" && (
+        <label className="am-label">Autonomie de la batterie (km, vide si inconnue)<input className="am-champ" inputMode="decimal" value={f.autonomieKm} onChange={(e) => changer("autonomieKm", e.target.value)} placeholder="Vide = prudence : 25 km par course, 8 km à l'aller au plus" /></label>
+      )}
+      {f.type === "voiture" && autres.map((m) => (
+        <Case key={m.id} coche={(f.partageAvec || []).includes(m.id)} onChange={(oui) => changer("partageAvec", basculer(f.partageAvec, m.id, oui))}>Je la prête à {m.nom} quand je ne l'utilise pas</Case>
+      ))}
+      <Case coche={f.actif !== false} onChange={(oui) => changer("actif", oui)}>En service</Case>
+      {message && <p className={message.erreur ? "admin-erreur" : "rg-ok"} role={message.erreur ? "alert" : "status"}>{message.texte}</p>}
+      <button className="tb-bouton" onClick={enregistrer}>Enregistrer</button>
+    </div>
+  );
+}
+
+export function MesVehicules({ moi, nomMoi, membres, vehicules, modes }) {
+  const [nouveau, setNouveau] = useState(null);
+  const miens = vehiculesEffectifs(vehicules).filter((v) => v.proprietaire === moi);
+  const ajouter = (type) => setNouveau({ id: `${type}-${moi}-${Date.now().toString(36)}`, ...vehiculeNeuf(type, moi, nomMoi) });
+  return (
+    <div className="tb-bloc">
+      <h3>Mes véhicules</h3>
+      <p className="tb-note">Les frais servent seulement à calculer ton bénéfice et à conseiller le véhicule le plus intéressant. Le prix du client ne change pas. Valeurs de départ à vérifier (scooter et moto : provisoires).</p>
+      {miens.length === 0 && !nouveau && <p className="tb-note">Aucun véhicule pour l'instant.</p>}
+      {miens.map((v) => <FicheVehicule key={v.id + (v.majLe ? String(v.majLe.seconds || "") : "")} v={v} membres={membres} moi={moi} />)}
+      {nouveau && <FicheVehicule key={nouveau.id} v={nouveau} membres={membres} moi={moi} onFini={() => setNouveau(null)} />}
+      {!nouveau && (
+        <div className="tb-actions">
+          {(modes && modes.length ? modes : ["voiture", "scooter", "velo"]).map((t) => (
+            <button key={t} className="tb-bouton tb-clair" onClick={() => ajouter(t)}>+ {libelleType(t)}</button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

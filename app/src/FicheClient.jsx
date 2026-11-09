@@ -1,3 +1,4 @@
+import { Pastille } from "./equipeContexte.jsx";
 import { useEffect, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -276,7 +277,7 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
           return (
             <button key={d.id} className="fc-demande" onClick={() => aller("demandes", d.id)}>
               <span className="tb-ligne">
-                <strong>{d.serviceTitre}</strong>
+                <strong><Pastille d={d} /> {d.serviceTitre}</strong>
                 <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
               </span>
               <span className="tb-ligne">

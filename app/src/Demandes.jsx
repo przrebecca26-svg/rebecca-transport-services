@@ -10,6 +10,10 @@ import { rattraperTousLesSuivis, synchroniserSuivi } from "./suiviClient.js";
 import PaiementsCourse from "./PaiementsCourse.jsx";
 import AjoutManuel, { Remerciement } from "./AjoutManuel.jsx";
 import { LIBELLE_ORIGINE, prenomDe } from "./pricing/ajoutManuel.js";
+import QuiFait from "./components/QuiFait.jsx";
+import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
+import { attribueA, coursesDeLaPersonne, filtrerPersonne } from "./pricing/quiFait.js";
+import { servicesDuMembre } from "./pricing/espaceEquipe.js";
 import "./demandes.css";
 
 // Liste et traitement des demandes (espace prive de Rebecca) - Lot B, seance B3 :
@@ -135,6 +139,7 @@ function Verification({ verif, d, enCours, onForcer, onFermer }) {
 }
 
 function Detail({ d, toutes, marge, aller, onFermer }) {
+  const { moi } = useEquipeContexte();
   const [prix, setPrix] = useState(typeof prixActuel(d) === "number" ? String(prixActuel(d)) : "");
   const [supp, setSupp] = useState({ ouvert: false, montant: "", motif: "Retard du client" });
   const [verif, setVerif] = useState(null);
@@ -162,12 +167,16 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
   };
 
   const changerStatut = (s) => executer({ statut: s });
+  // J3 : la personne qui accepte fait la course (sauf si elle est deja attribuee) ; modifiable ensuite
+  const quiAccepte = d.attribueA || moi;
+  const accepterChamps = () => executer({ statut: "acceptee", ...(d.attribueA ? {} : { attribueA: moi }) });
 
   // Accepter : on verifie d'abord l'enchainement avec les autres courses acceptees du meme jour
   const accepter = async () => {
     setVerif({ etat: "calcul" });
     try {
-      const liste = voisins(d, toutes.filter((x) => x.statut === "acceptee"), datesDe(d));
+      // enchainement verifie sur l'agenda de la personne qui fera la course
+      const liste = voisins(d, coursesDeLaPersonne(toutes, quiAccepte).filter((x) => x.statut === "acceptee"), datesDe(d));
       const trajets = {};
       await Promise.all(
         trajetsACalculer(liste).map(async (p) => {
@@ -187,7 +196,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         setVerif({ etat: "alerte", res, marge });
         return;
       }
-      if (await changerStatut("acceptee")) setVerif({ etat: "ok", res, marge });
+      if (await accepterChamps()) setVerif({ etat: "ok", res, marge });
       else setVerif(null);
     } catch {
       setVerif(null);
@@ -195,7 +204,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
     }
   };
   const forcer = async () => {
-    if (await changerStatut("acceptee")) setVerif(null);
+    if (await accepterChamps()) setVerif(null);
   };
 
   const enregistrerPrix = () => {
@@ -278,6 +287,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         {d.statut === "acceptee" && <p className="tb-note">Pour annuler (client absent, annulation tardive : l'acompte est conservé), utilisez le bloc « Paiements » plus bas.</p>}
       </div>
 
+      <QuiFait d={d} toutes={toutes} marge={marge} executer={executer} enCours={enCours} />
+
       <div className="tb-bloc">
         <h3>Prix</h3>
         <p>{d.source === "manuel" ? "Prix convenu" : `Estimation du site : ${typeof d.prixEstime === "number" ? d.prixEstime + " ₪" : d.surDevis ? "sur devis" : "aucune"}`}{typeof d.prixFinal === "number" && <> · <strong>{d.source === "manuel" ? "" : "Prix retenu : "}{d.prixFinal} ₪</strong></>}</p>
@@ -346,7 +357,9 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
   );
 }
 
-export default function Demandes({ aller, cible }) {
+export default function Demandes({ aller, cible, membre = null }) {
+  const { moi } = useEquipeContexte();
+  const [personne, setPersonne] = useState("tous");
   const [items, setItems] = useState(null); // null = chargement
   const [erreur, setErreur] = useState("");
   const [filtre, setFiltre] = useState("en attente");
@@ -381,7 +394,9 @@ export default function Demandes({ aller, cible }) {
     []
   );
 
-  const dansActivite = (d) => activite === "toutes" || ACTIVITE_DE[d.service] === activite;
+  // Un coequipier ne voit que les services de ses activites (J2/J3) ; Rebecca voit tout
+  const sesServices = membre ? servicesDuMembre(membre) : null;
+  const dansActivite = (d) => (!sesServices || sesServices.includes(d.service)) && (activite === "toutes" || ACTIVITE_DE[d.service] === activite) && filtrerPersonne([d], personne, moi).length === 1;
 
   const compte = useMemo(() => {
     const c = { tout: 0 };
@@ -391,7 +406,7 @@ export default function Demandes({ aller, cible }) {
       c[d.statut] = (c[d.statut] || 0) + 1;
     }
     return c;
-  }, [items, activite]);
+  }, [items, activite, personne]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rattraper = async () => {
     setRattrapage({ enCours: true, message: "" });
@@ -439,6 +454,7 @@ export default function Demandes({ aller, cible }) {
           </button>
         ))}
       </div>
+      <FiltrePersonne valeur={personne} changer={setPersonne} />
       <div className="tb-filtres" role="tablist" aria-label="Filtrer les demandes">
         {Object.entries(STATUTS).map(([id, s]) => (
           <button key={id} role="tab" aria-selected={filtre === id} className={"tb-filtre" + (filtre === id ? " actif" : "")} onClick={() => setFiltre(id)}>
@@ -457,7 +473,7 @@ export default function Demandes({ aller, cible }) {
         return (
           <button key={d.id} className="tb-carte" onClick={() => setOuvert(d.id)}>
             <span className="tb-ligne">
-              <strong>{d.serviceTitre}</strong>
+              <strong><Pastille d={d} /> {d.serviceTitre}</strong>
               <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
             </span>
             <span className="tb-quand">{jour(d.date)} · {d.heure}{d.source === "manuel" ? " · ajoutée à la main" : ""}</span>

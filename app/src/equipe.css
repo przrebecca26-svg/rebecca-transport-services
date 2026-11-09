@@ -17,3 +17,14 @@
 .theme-sombre .admin-texte strong { color: var(--g-texte); }
 .admin.theme-sombre .admin-retour { color: var(--g-rose); background: none; font-family: var(--g-sans); font-weight: 600; }
 .admin.theme-sombre .admin-secondaire { margin-top: 10px; color: var(--g-texte); background: transparent; border: 1px solid var(--g-cuivre); }
+/* J3 : qui fait la course, vehicules */
+.qf-pastille { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 4px; font: 800 11px var(--g-titre, sans-serif); border-radius: 50%; vertical-align: 1px; }
+.qf-rebecca { color: #080709; background: #f1aeb7; }
+.qf-autre { color: #080709; background: #b97870; }
+.qf-vehicule { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; margin: 6px 0; padding: 10px 12px; text-align: left; font: inherit; color: inherit; background: transparent; border: 1px solid rgba(185, 120, 112, 0.45); border-radius: 14px; cursor: pointer; }
+.qf-vehicule.actif { border-color: #f1aeb7; background: rgba(241, 174, 183, 0.08); }
+.qf-vehicule:disabled { opacity: 0.55; cursor: default; }
+.qf-vehicule small { display: block; margin-top: 2px; opacity: 0.8; }
+.qf-vehicule em { font-style: normal; color: #f1aeb7; font-size: 13px; }
+.eq-vehicule { padding: 10px 0; border-top: 1px solid rgba(185, 120, 112, 0.2); }
+.eq-vehicule:first-of-type { border-top: 0; }

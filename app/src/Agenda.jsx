@@ -1,3 +1,5 @@
+import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
+import { filtrerPersonne } from "./pricing/quiFait.js";
 import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -283,7 +285,7 @@ function Evenement({ d }) {
       <button className="ag-event-tete" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert}>
         <span className="ag-heure">{d.heure}</span>
         <span className="ag-corps">
-          <strong>{d.serviceTitre}</strong>
+          <strong><Pastille d={d} /> {d.serviceTitre}</strong>
           <small>{d.nom} · {textePrix(d)}</small>
         </span>
         <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
@@ -322,7 +324,11 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre }) {
 
 export default function Agenda() {
   const aujourdhui = utcVersLocal(Date.now()).date;
-  const [items, setItems] = useState(null);
+  const { moi } = useEquipeContexte();
+  const [personne, setPersonne] = useState("tous");
+  const [tousItems, setItems] = useState(null);
+  // J3 : filtre « Moi / Rebecca / Jeremy / Tous »
+  const items = tousItems && filtrerPersonne(tousItems, personne, moi);
   const [erreur, setErreur] = useState("");
   const [vue, setVue] = useState("semaine");
   const [ref, setRef] = useState(aujourdhui);
@@ -413,6 +419,7 @@ export default function Agenda() {
 
   return (
     <section className="ag">
+      <FiltrePersonne valeur={personne} changer={setPersonne} />
       <div className="tb-filtres" role="tablist" aria-label="Type de vue">
         {[["jour", "Jour"], ["semaine", "Semaine"], ["mois", "Mois"]].map(([id, nom]) => (
           <button key={id} role="tab" aria-selected={vue === id} className={"tb-filtre" + (vue === id ? " actif" : "")} onClick={() => setVue(id)}>

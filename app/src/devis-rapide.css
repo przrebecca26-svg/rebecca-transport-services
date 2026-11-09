@@ -1,0 +1,17 @@
+/* DEVIS RAPIDE (D2a, 9 nov. 2026) - styles propres a la rubrique « Devis rapide » de l'espace prive */
+.theme-sombre .dr-services { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.theme-sombre .dr-titre { display: flex; align-items: center; gap: 12px; margin: 4px 0; }
+.theme-sombre .dr-titre h1 { font-size: 22px; margin: 0; }
+.theme-sombre .dr-formulaire { margin-top: 12px; }
+.theme-sombre .dr-formulaire .bloc, .theme-sombre .dr-formulaire .devis { background: var(--g-carte); border: 1px solid var(--g-bord); border-radius: 18px; color: var(--g-texte); }
+.theme-sombre .dr-formulaire label, .theme-sombre .dr-formulaire legend { color: var(--g-texte); }
+.theme-sombre .dr-message { width: 100%; padding: 12px; font: 15px/1.45 var(--g-sans); resize: vertical; }
+.theme-sombre .dr-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.theme-sombre .dr-actions .tdb-bouton { margin-top: 0; width: 100%; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+.theme-sombre .dr-lien.inactif { opacity: 0.45; pointer-events: none; }
+.theme-sombre .dr-tel { min-height: 48px; padding: 10px 12px; font: 16px var(--g-sans); border: 1px solid var(--g-bord); }
+.theme-sombre .dr-secondaire { min-height: 48px; padding: 10px 16px; font: 700 15px var(--g-titre); color: var(--g-texte); background: transparent; border: 1px solid var(--g-cuivre); border-radius: 14px; cursor: pointer; }
+.theme-sombre .devis { color: var(--g-texte); }
+.theme-sombre .devis .total { color: var(--g-texte); }
+.theme-sombre .devis .detail li { border-top-color: rgba(185, 120, 112, 0.3); }
+.theme-sombre .devis.bloque { background: rgba(216, 90, 104, 0.12); color: var(--g-texte); border: 1px solid var(--g-alerte); }

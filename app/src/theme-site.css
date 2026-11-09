@@ -1,0 +1,164 @@
+/* NOUVEAU DESIGN DU SITE CLIENT (D3, 9 nov. 2026) - meme charte que l'espace prive (G1 validee le 9 nov.).
+   Fond #080709, cartes #191518, bordures cuivre #B97870, rose poudre #F1AEB7, texte #F8F3F1 / #B9AEB0,
+   succes #239B68, alerte #D85A68 ; titres Manrope, textes Inter ; arrondis 18 / 14 / 12 / 20 px.
+   Tout est limite a la classe .theme-site (racine du site) : l'espace prive garde son propre fichier. */
+
+html, body { background: #080709; }
+
+.theme-site {
+  --g-fond: #080709;
+  --g-carte: #191518;
+  --g-carte-2: #221c20;
+  --g-champ: #100d0f;
+  --g-cuivre: #b97870;
+  --g-bord: rgba(185, 120, 112, 0.45);
+  --g-rose: #f1aeb7;
+  --g-texte: #f8f3f1;
+  --g-texte-2: #b9aeb0;
+  --g-succes: #239b68;
+  --g-alerte: #d85a68;
+  --g-titre: "Manrope", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --g-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Les composants existants utilisent ces variables : elles pointent vers la nouvelle charte */
+  --creme: var(--g-champ);
+  --blanc: var(--g-carte);
+  --noir: var(--g-texte);
+  --noir-2: var(--g-carte-2);
+  --rose: var(--g-bord);
+  --rose-fonce: var(--g-rose);
+  --or: var(--g-rose);
+  --or-clair: var(--g-cuivre);
+  --gris: var(--g-texte-2);
+  --erreur: #f08c97;
+  --rayon: 18px;
+  --serif: var(--g-titre);
+  --sans: var(--g-sans);
+
+  color: var(--g-texte);
+  font-family: var(--g-sans);
+  background: var(--g-fond);
+}
+.theme-site h1, .theme-site h2, .theme-site h3, .theme-site h4 { font-family: var(--g-titre); font-weight: 800; color: var(--g-texte); }
+.theme-site a { color: var(--g-rose); }
+.theme-site .retour, .theme-site .lien { color: var(--g-rose); font-weight: 600; }
+.theme-site .consigne, .theme-site .aide, .theme-site .note, .theme-site .mention { color: var(--g-texte-2); }
+
+/* ---------- Accueil ---------- */
+.theme-site .hero {
+  background: radial-gradient(120% 90% at 50% 0%, #2a1d22 0%, #120e10 55%, var(--g-fond) 100%);
+  border-bottom: 1px solid rgba(185, 120, 112, 0.35);
+  color: var(--g-texte);
+}
+.theme-site .hero-logo { box-shadow: 0 0 0 1px rgba(185, 120, 112, 0.6), 0 12px 40px rgba(185, 120, 112, 0.25); }
+.theme-site .surtitre { color: var(--g-cuivre); font-weight: 600; }
+.theme-site .hero h1 { color: var(--g-texte); letter-spacing: -0.01em; }
+.theme-site .signature { font-family: var(--g-sans); font-style: italic; color: var(--g-rose); }
+.theme-site .dispo-bandeau { background: rgba(25, 21, 24, 0.85); border-color: var(--g-bord); }
+.theme-site .dispo-bandeau strong { color: var(--g-texte); }
+.theme-site .dispo-bandeau span { color: var(--g-texte-2); }
+.theme-site .espace h2 { font-size: 21px; }
+
+.theme-site .carte-service {
+  min-height: 76px; color: var(--g-texte);
+  background: linear-gradient(180deg, #1f191c, #151113); border: 1px solid rgba(185, 120, 112, 0.55); border-radius: 18px;
+}
+.theme-site .carte-service:hover { box-shadow: 0 6px 22px rgba(185, 120, 112, 0.18); }
+.theme-site .carte-service strong { font-family: var(--g-titre); font-weight: 700; }
+.theme-site .carte-service small { color: var(--g-texte-2); }
+.theme-site .carte-service .prix { color: var(--g-rose); }
+.theme-site .carte-service.bientot .prix { padding: 2px 9px; font-size: 11.5px; font-weight: 700; background: rgba(241, 174, 183, 0.14); border-radius: 999px; }
+.theme-site .carte-service .icone img { object-fit: contain !important; border-radius: 0 !important; }
+
+/* Transport prive pour un client sans acces (choix B valide le 9 nov.) */
+.theme-site .sur-demande { display: grid; gap: 12px; padding: 16px; background: var(--g-carte); border: 1px solid var(--g-bord); border-radius: 18px; }
+.theme-site .sur-demande-liste { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.theme-site .sur-demande-liste li { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; font-size: 13.5px; color: var(--g-texte); background: var(--g-carte-2); border: 1px solid rgba(185, 120, 112, 0.3); border-radius: 999px; }
+.theme-site .sur-demande-message { margin: 0; font-weight: 600; }
+.theme-site .sur-demande .bouton { justify-self: start; }
+.theme-site .espace-icone { flex: none; display: grid; place-items: center; width: 52px; height: 52px; }
+
+.theme-site .dispo { background: var(--g-carte); border: 1px solid var(--g-bord); }
+.theme-site .dispo li span { color: var(--g-texte-2); }
+.theme-site .accueil-favoris button { color: var(--g-texte); background: var(--g-carte); border-color: var(--g-bord); }
+.theme-site .accueil-favoris button:active { background: var(--g-carte-2); }
+
+/* ---------- Boutons ---------- */
+.theme-site .bouton { font-family: var(--g-titre); font-weight: 800; color: #080709; background: var(--g-rose); border-radius: 14px; }
+.theme-site .bouton:disabled { opacity: 1; color: var(--g-texte-2); background: var(--g-carte-2); border: 1px solid var(--g-bord); }
+
+/* ---------- Formulaires ---------- */
+.theme-site .bloc { background: var(--g-carte); border-color: var(--g-bord); }
+.theme-site input[type="text"], .theme-site input[type="tel"], .theme-site input[type="email"], .theme-site input[type="password"],
+.theme-site input[type="date"], .theme-site input[type="time"], .theme-site input[type="number"], .theme-site input[type="search"],
+.theme-site select, .theme-site textarea {
+  color: var(--g-texte); background-color: var(--g-champ); border: 1px solid var(--g-bord); color-scheme: dark;
+}
+.theme-site input::placeholder, .theme-site textarea::placeholder { color: #7d7275; }
+.theme-site input:focus, .theme-site select:focus, .theme-site textarea:focus, .theme-site button:focus-visible, .theme-site a:focus-visible { outline: 2px solid rgba(241, 174, 183, 0.6); }
+.theme-site input:-webkit-autofill, .theme-site input:-webkit-autofill:focus, .theme-site textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--g-texte); caret-color: var(--g-texte);
+  -webkit-box-shadow: 0 0 0 1000px var(--g-champ) inset; box-shadow: 0 0 0 1000px var(--g-champ) inset; transition: background-color 9999s;
+}
+.theme-site [aria-invalid="true"] { border-color: var(--g-alerte); }
+.theme-site .ok-adresse, .theme-site .promo-ok { color: #6fd8a8; }
+.theme-site .case input, .theme-site input[type="checkbox"], .theme-site input[type="radio"] { accent-color: var(--g-rose); }
+
+/* Choix, compteurs, horaires rapides, pourboire, raccourcis d'adresse */
+.theme-site .choix button, .theme-site .horaires-rapides button, .theme-site .pourboire-boutons button {
+  color: var(--g-texte); background: var(--g-champ); border: 1px solid var(--g-bord);
+}
+.theme-site .choix button.actif, .theme-site .horaires-rapides button.actif, .theme-site .pourboire-boutons button.actif {
+  color: #080709; background: var(--g-rose); border-color: var(--g-rose); font-weight: 700;
+}
+.theme-site .horaires-rapides button.actif small { color: #3a2a2e; }
+.theme-site .stepper button { color: var(--g-texte); background: var(--g-carte-2); border: 1px solid var(--g-bord); }
+.theme-site .adresse-raccourcis button { color: var(--g-texte); background: var(--g-carte-2); border: 1px solid rgba(185, 120, 112, 0.3); }
+.theme-site .adresse-position { color: var(--g-rose) !important; background: transparent !important; border: 1px solid var(--g-rose) !important; }
+.theme-site .suggestions { background: var(--g-carte); border-color: var(--g-bord); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6); }
+.theme-site .suggestions button { color: var(--g-texte); }
+.theme-site .suggestions button:hover, .theme-site .suggestions button:active { background: var(--g-carte-2); }
+.theme-site .promo-invite { color: var(--g-texte); background: rgba(241, 174, 183, 0.1); border: 1px solid var(--g-bord); }
+
+/* ---------- Devis ---------- */
+.theme-site .devis { color: var(--g-texte); background: linear-gradient(180deg, #221a1e, #161214); border: 1px solid var(--g-cuivre); }
+.theme-site .devis h3 { color: var(--g-cuivre); font-family: var(--g-titre); }
+.theme-site .devis .total { color: var(--g-texte); font-family: var(--g-titre); font-weight: 800; }
+.theme-site .devis .total small, .theme-site .devis .note, .theme-site .devis .detail.separe, .theme-site .devis.attente p { color: var(--g-rose); }
+.theme-site .devis .detail li { border-top-color: rgba(185, 120, 112, 0.3); }
+.theme-site .devis.bloque { color: var(--g-texte); background: rgba(216, 90, 104, 0.12); border: 1px solid var(--g-alerte); }
+.theme-site .devis.bloque h3 { color: #f08c97; }
+
+/* Barre d'envoi */
+.theme-site .barre-envoi { background: rgba(8, 7, 9, 0.94); border-top: 1px solid rgba(185, 120, 112, 0.35); }
+.theme-site .barre-prix { font-family: var(--g-titre); font-weight: 800; }
+
+/* ---------- Confirmation et fenetre de bienvenue ---------- */
+.theme-site .envoye .coche { color: #080709; background: var(--g-rose); }
+.theme-site .popup-fond { background: rgba(8, 7, 9, 0.7); }
+.theme-site .popup { color: var(--g-texte); background: var(--g-carte); border: 1px solid var(--g-cuivre); }
+.theme-site .popup h2 { color: var(--g-texte); }
+.theme-site .popup p { color: var(--g-texte-2); }
+.theme-site .popup .lien { color: var(--g-rose); }
+
+/* ---------- Mon compte ---------- */
+.theme-site .compte-onglets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 14px; }
+.theme-site .compte-onglets button { min-height: 44px; font: 600 15px var(--g-sans); color: var(--g-texte-2); background: transparent; border: 1px solid var(--g-bord); border-radius: 999px; cursor: pointer; }
+.theme-site .compte-onglets button.actif { color: #080709; background: var(--g-rose); border-color: var(--g-rose); font-weight: 700; }
+.theme-site .compte-credit-badge { color: var(--g-texte); background: var(--g-carte-2); border-color: var(--g-cuivre); }
+.theme-site .hist-statut { color: var(--g-rose); background: rgba(241, 174, 183, 0.16); }
+.theme-site .hist-statut.ok { color: #6fd8a8; background: rgba(35, 155, 104, 0.18); }
+.theme-site .hist-statut.non { color: #f08c97; background: rgba(216, 90, 104, 0.18); }
+.theme-site .hist-statut.fin { color: var(--g-texte-2); background: rgba(185, 174, 176, 0.12); }
+.theme-site .hist-etoiles button { color: #4a3d42; }
+.theme-site .hist-etoiles button.actif { color: #e6b45e; }
+.theme-site .credit-solde { color: var(--g-texte); background: linear-gradient(180deg, #221a1e, #161214); border: 1px solid var(--g-cuivre); }
+.theme-site .credit-etiquette { color: var(--g-cuivre); }
+.theme-site .credit-montant { color: var(--g-texte); font-weight: 800; }
+.theme-site .credit-solde .aide { color: var(--g-rose); }
+.theme-site .credit-liste .pos { color: #6fd8a8; }
+.theme-site .promo-code { font-weight: 800; }
+
+/* Pied de page */
+.theme-site footer { color: var(--g-texte-2); border-top: 1px solid rgba(185, 120, 112, 0.2); margin-top: 8px; padding-top: 14px; }
+.theme-site .compte-bonjour { font-family: var(--g-titre); font-weight: 800; }

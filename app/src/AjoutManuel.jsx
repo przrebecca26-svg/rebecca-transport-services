@@ -86,7 +86,8 @@ function Remerciement({ prenom, telephone, email }) {
 
 export { Remerciement };
 
-export default function AjoutManuel({ mode = "course", demandes = [], marge = MARGE_DEFAUT, cleInitiale = null, onFermer, onOuvrirDemande, onOuvrirFiche }) {
+// D2a (9 nov. 2026) : prerempli = course venant du « Devis rapide » (service, date, heure, adresses, prix)
+export default function AjoutManuel({ mode = "course", demandes = [], marge = MARGE_DEFAUT, cleInitiale = null, prerempli = null, onFermer, onOuvrirDemande, onOuvrirFiche }) {
   const [base, setBase] = useState({});
   const [lectureImpossible, setLectureImpossible] = useState(false);
   const [recherche, setRecherche] = useState("");
@@ -94,7 +95,7 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
   const [client, setClient] = useState(CLIENT_VIDE);
   const [origine, setOrigine] = useState("");
   const jour = aujourdhui();
-  const [f, setF] = useState({ service: "livraison", date: jour, heure: heureRonde(), adresses: {}, direction: "vers", magasin: "", prix: "", etat: "afaire", recu: "", moyen: "", pourboireConfirme: true, notes: "" });
+  const [f, setF] = useState(() => ({ service: "livraison", date: jour, heure: heureRonde(), adresses: {}, direction: "vers", magasin: "", prix: "", etat: "afaire", recu: "", moyen: "", pourboireConfirme: true, notes: "", ...(prerempli || {}) }));
   const [verif, setVerif] = useState(null);
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);

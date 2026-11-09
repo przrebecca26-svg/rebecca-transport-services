@@ -1,0 +1,16 @@
+/* Onglet Finances - Rebecca Services (Lot B, seance B4) */
+.fi-plafond { border-width: 2px; }
+.fi-plafond.fi-attention { border-color: #e0a100; }
+.fi-plafond.fi-depasse { border-color: var(--erreur); }
+.fi-jauge { height: 14px; margin: 10px 0 8px; overflow: hidden; background: var(--rose); border-radius: 7px; }
+.fi-jauge span { display: block; height: 100%; background: linear-gradient(90deg, var(--or-clair), var(--or)); border-radius: 7px; transition: width 0.4s; }
+.fi-attention .fi-jauge span { background: #e0a100; }
+.fi-depasse .fi-jauge span { background: var(--erreur); }
+.fi-alerte { margin: 8px 0 0 !important; padding: 8px 10px; font-weight: 600; color: #7a4e00; background: #fff1d6; border-radius: 10px; }
+.fi-depasse .fi-alerte { color: var(--blanc); background: var(--erreur); }
+.fi-mois { margin: 0; padding: 0; list-style: none; }
+.fi-mois li { padding: 10px 0; border-top: 1px solid var(--rose); }
+.fi-mois li:first-child { border-top: 0; }
+.fi-mois small { display: block; margin-top: 4px; color: var(--gris); line-height: 1.4; }
+.fi-deux { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fi .pm-form { margin-top: 0; }

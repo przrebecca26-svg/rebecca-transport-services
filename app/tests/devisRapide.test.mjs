@@ -28,3 +28,5 @@ test("aeroport depuis", () => egal(R.resume("aeroport", { direction: "depuis", a
 test("transport aller-retour", () => egal(R.resume("transport", { depart: A.netanya, arrivee: A.tel_aviv, typeTrajet: "ar" }), "votre trajet de Netanya à Tel Aviv (aller-retour)"));
 test("pre-remplissage de l'ajout manuel", () => egal(R.versAjoutManuel("livraison", v, res), { service: "livraison", date: "2026-11-10", heure: "16:00", adresses: { recuperation: RAANANA, livraison: A.netanya }, direction: "vers", magasin: "", prix: "140" }));
 test("pre-remplissage sans prix si sur devis", () => egal(R.versAjoutManuel("demenagement", {}, { ok: true, devis: true }).prix, ""));
+test("ville sans le district en hebreu (cas du 9 nov.)", () => egal(R.resume("livraison", { recuperation: { label: "Raanana, נפת פתח תקווה" }, livraison: { label: "9 דוד רזניק, Neot Shaked, Netanya" } }), "récupérer votre colis à Raanana et le livrer à Netanya"));
+test("ville sans le pays", () => egal(R.resume("transport", { depart: { label: "Herzliya, מחוז תל אביב, Israel" }, arrivee: { label: "Netanya" } }), "votre trajet de Herzliya à Netanya"));

@@ -11,6 +11,7 @@ import Agenda from "./Agenda.jsx";
 import Clients from "./Clients.jsx";
 import Finances from "./Finances.jsx";
 import ReglagesFondations from "./ReglagesFondations.jsx";
+import SyncCreneaux from "./SyncCreneaux.jsx";
 import CodesPromo from "./CodesPromo.jsx";
 import Reglages from "./Reglages.jsx";
 import EquipeAdmin, { MesModes, MesReglages, MesVehicules } from "./EquipeAdmin.jsx";
@@ -200,6 +201,7 @@ export default function Admin() {
 
     return (
       <EquipeContexte.Provider value={contexte}>
+      {role === "admin" && <SyncCreneaux />}
       <div className="admin admin-tableau theme-sombre">
         <header className="ts-entete">
           <button className="ts-burger" onClick={() => setMenu(true)} aria-label="Ouvrir le menu" aria-expanded={menu}>

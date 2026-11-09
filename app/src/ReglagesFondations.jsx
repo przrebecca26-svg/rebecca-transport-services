@@ -21,6 +21,8 @@ import {
   validerPrestation,
   validerTarifs,
 } from "./pricing/catalogue.js";
+import { creneauxDuJour } from "./pricing/rendezvous.js";
+import { useFermetures } from "./fermetures.js";
 import "./reglages.css";
 
 // REGLAGES DES FONDATIONS (Lot C, C1 et C2, 9 nov. 2026) - espace de Rebecca seulement.
@@ -366,6 +368,36 @@ function Catalogue() {
   );
 }
 
+/* ---------- Apercu des creneaux (C3) : ce que verra une cliente ---------- */
+const demain = () => {
+  const d = new Date(Date.now() + 86400000);
+  return d.toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+};
+function ApercuCreneaux({ activite }) {
+  useFermetures(); // Chabbat, fetes, fermetures et creneaux fixes a jour
+  const [date, setDate] = useState(demain());
+  const [duree, setDuree] = useState("60");
+  const [occupes, setOccupes] = useState([]);
+  useEffect(() => onSnapshot(collection(db, "creneauxOccupes"), (s) => setOccupes(s.docs.map((x) => x.data())), () => setOccupes([])), []);
+  const liste = creneauxDuJour({ activite, dureeMinutes: Number(duree) || 60, date, occupes, pas: 30, maintenantMs: Date.now() });
+  return (
+    <div className="tb-bloc">
+      <h3>Aperçu : ce que verra une cliente</h3>
+      <div className="fi-deux">
+        <label className="pm-champ">Jour<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        <label className="pm-champ">Durée (min)<input inputMode="numeric" value={duree} onChange={(e) => setDuree(e.target.value)} /></label>
+      </div>
+      {liste.length === 0 && <p className="tb-note">Jour fermé pour cette activité.</p>}
+      <div className="rg-creneaux">
+        {liste.map((c) => (
+          <span key={c.heure} className={"rg-creneau" + (c.libre ? "" : " gris")}>{c.heure}</span>
+        ))}
+      </div>
+      <p className="tb-note">Gris = indisponible (Chabbat, fêtes, fermetures, école, tes courses, temps entre deux clientes). La cliente ne voit jamais pourquoi.</p>
+    </div>
+  );
+}
+
 /* ---------- Activites ---------- */
 function FicheActivite({ a, onFermer }) {
   const [f, setF] = useState({ ...a, ajustementPourcent: String(a.ajustementPourcent || 0), margeMinutes: String(a.margeMinutes), acomptePourcent: String(a.acomptePourcent), acompteMin: String(a.acompteMin), delaiAcompteHeures: String(a.delaiAcompteHeures) });
@@ -441,7 +473,7 @@ function Activites() {
   useEffect(() => onSnapshot(collection(db, "activites"), (s) => setEnBase(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {}), []);
   const liste = activitesEffectives(enBase);
   const a = ouverte && liste.find((x) => x.id === ouverte);
-  if (a) return <section className="tb-liste"><FicheActivite key={a.id} a={a} onFermer={() => setOuverte(null)} /></section>;
+  if (a) return <section className="tb-liste"><FicheActivite key={a.id} a={a} onFermer={() => setOuverte(null)} />{a.type === "rendezvous" && <ApercuCreneaux activite={a} />}</section>;
   return (
     <section className="tb-liste">
       <p className="tb-note tb-pad">Horaires, temps entre deux clientes, acompte et accès de chaque activité. Les durées de chaque prestation se règlent dans « Catalogue ».</p>

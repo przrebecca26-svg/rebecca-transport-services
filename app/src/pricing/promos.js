@@ -30,6 +30,33 @@ function dateValide(s) {
   return d.getUTCFullYear() === a && d.getUTCMonth() === m - 1 && d.getUTCDate() === j;
 }
 
+/* ---------- Codes par activite (Rebecca, 9 nov. 2026, 21h28) ----------
+ Chaque code est cree POUR UNE activite (pas de melange). Champ absent = toutes les activites :
+ c'est le cas du code de bienvenue (BIENVENUE10) et des anciens codes. cibles = prestations ou articles
+ precis du catalogue (facultatif, ex. « -20 % sur la Hanoukia ») ; vide = toute l'activite. */
+export const ACTIVITES_PROMO = [
+  { id: "coursier", label: "Services coursier" },
+  { id: "transport", label: "Transport privé" },
+  { id: "nails", label: "Nails Prestige" },
+  { id: "hair", label: "Prestige Hair" },
+  { id: "slim", label: "Prestige Slim & Lift" },
+  { id: "regenx", label: "RegenX" },
+  { id: "epoxy", label: "Boutique Epoxy" },
+  { id: "digital", label: "Digital & Applications" },
+];
+const ACTIVITE_DU_SERVICE = { livraison: "coursier", courses: "coursier", demenagement: "coursier", transport: "transport", aeroport: "transport", hatan_kala: "transport", attente: "transport", ramassage: "transport" };
+export const activiteDuService = (service) => ACTIVITE_DU_SERVICE[service] || service || "";
+export const libelleActivitePromo = (p) => (p && p.activite ? (ACTIVITES_PROMO.find((a) => a.id === p.activite) || { label: p.activite }).label : "Toutes les activités");
+
+// Le code s'applique-t-il ? activite (ou service du coursier/transport) et, si des cibles existent, la prestation choisie.
+export function promoSapplique(p, { service = null, activite = null, prestationId = null } = {}) {
+  if (!p) return false;
+  const act = activite || activiteDuService(service);
+  if (p.activite && p.activite !== act) return false;
+  if (Array.isArray(p.cibles) && p.cibles.length) return !!prestationId && p.cibles.includes(prestationId);
+  return true;
+}
+
 // Renvoie un message d'erreur en francais, ou "" si le code est correct
 export function validerPromo(p) {
   if (!p || typeof p !== "object") return "Code invalide.";
@@ -43,6 +70,9 @@ export function validerPromo(p) {
     return "Le nombre d'utilisations par compte doit être un entier entre 1 et " + UTILISATIONS_MAX + ", ou vide pour aucune limite.";
   }
   if (p.finLe !== null && !dateValide(String(p.finLe))) return "Date de fin invalide.";
+  if (p.activite !== undefined && p.activite !== null && !ACTIVITES_PROMO.some((a) => a.id === p.activite)) return "Choisis l'activité du code.";
+  if (p.cibles !== undefined && (!Array.isArray(p.cibles) || p.cibles.length > 50 || p.cibles.some((c) => typeof c !== "string" || !c || c.length > 60))) return "Articles ou prestations invalides.";
+  if (p.cibles && p.cibles.length && !p.activite) return "Choisis d'abord l'activité des articles visés.";
   return "";
 }
 

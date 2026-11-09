@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, deleteDoc, deleteField, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { CODES_DE_DEPART, POURCENT_MAX, MONTANT_MAX, etatCode, libelleLimite, libelleRemise, normaliserCode, validerPromo } from "./pricing/promos.js";
+import { ACTIVITES_PROMO, CODES_DE_DEPART, POURCENT_MAX, MONTANT_MAX, etatCode, libelleActivitePromo, libelleLimite, libelleRemise, normaliserCode, validerPromo } from "./pricing/promos.js";
+import { CATALOGUE_DEPART } from "./pricing/catalogue.js";
 import "./paiements.css";
 import "./promos.css";
 
@@ -17,7 +18,8 @@ const ETATS = {
 
 const dateFr = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? d.split("-").reverse().join("/") : "");
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
-const VIDE = { code: "", type: "pourcentage", valeur: "", limite: "", avecFin: false, finLe: "" };
+const VIDE = { code: "", type: "pourcentage", valeur: "", limite: "", avecFin: false, finLe: "", activite: "coursier", cibles: [] };
+// Lot C (21h28) : chaque code est cree pour UNE activite ; « toutes » seulement pour le code de bienvenue.
 
 export default function CodesPromo() {
   const [codes, setCodes] = useState(null); // null = chargement
@@ -27,6 +29,10 @@ export default function CodesPromo() {
   const [confirmerSuppression, setConfirmerSuppression] = useState(false);
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
+
+  // Articles et prestations du catalogue (pour viser un article precis) ; avant les regles v10 : catalogue de depart
+  const [catalogue, setCatalogue] = useState([]);
+  useEffect(() => onSnapshot(collection(db, "catalogue"), (s) => setCatalogue(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setCatalogue([])), []);
 
   useEffect(() => {
     const q = query(collection(db, "promos"), orderBy("code"));
@@ -61,6 +67,8 @@ export default function CodesPromo() {
       limite: c.utilisationsParCompte == null ? "" : String(c.utilisationsParCompte),
       avecFin: !!c.finLe,
       finLe: c.finLe || "",
+      activite: c.activite || "toutes",
+      cibles: Array.isArray(c.cibles) ? c.cibles : [],
     });
     setConfirmerSuppression(false);
     setErreur("");
@@ -83,6 +91,8 @@ export default function CodesPromo() {
       actif: mode === "modifier" ? (codes.find((c) => c.code === f.code) || {}).actif !== false : true,
       utilisationsParCompte: limite,
       finLe: f.avecFin ? f.finLe || "" : null,
+      ...(f.activite && f.activite !== "toutes" ? { activite: f.activite } : {}),
+      ...(f.activite !== "toutes" && f.cibles.length ? { cibles: f.cibles } : {}),
     };
   };
 
@@ -106,6 +116,8 @@ export default function CodesPromo() {
           valeur: p.valeur,
           utilisationsParCompte: p.utilisationsParCompte,
           finLe: p.finLe,
+          activite: p.activite || deleteField(),
+          cibles: p.cibles || deleteField(),
           majLe: serverTimestamp(),
         });
       }
@@ -159,7 +171,7 @@ export default function CodesPromo() {
       <div className="tb-bloc">
         <h3>Codes promo</h3>
         <p className="tb-note">
-          La remise s'applique sur le tarif de base du trajet ou du service. Les suppléments (nuit, urgence, bagages, arrêts, étages, colis, péages) ne sont jamais réduits. Le prix final est arrondi au shekel supérieur. Le client doit avoir un compte pour utiliser un code.
+          Chaque code est réservé à une activité (et, si tu veux, à certains articles). La remise s'applique sur le tarif de base du trajet ou du service. Les suppléments (nuit, urgence, bagages, arrêts, étages, colis, péages) ne sont jamais réduits. Le prix final est arrondi au shekel supérieur. Le client doit avoir un compte pour utiliser un code.
         </p>
 
         {codes.length === 0 && mode === null && (
@@ -185,7 +197,7 @@ export default function CodesPromo() {
                     <span className={"pm-etat " + etat.classe}>{etat.texte}</span>
                   </div>
                   <p className="pr-meta">
-                    {libelleRemise(c)} · {libelleLimite(c)}
+                    {libelleActivitePromo(c)}{Array.isArray(c.cibles) && c.cibles.length ? ` (${c.cibles.length} article${c.cibles.length > 1 ? "s" : ""})` : ""} · {libelleRemise(c)} · {libelleLimite(c)}
                     {c.finLe ? " · jusqu'au " + dateFr(c.finLe) : ""}
                   </p>
                   {mode === null && (
@@ -222,6 +234,24 @@ export default function CodesPromo() {
               </label>
             ) : (
               <p className="tb-note">Le nom d'un code ne peut pas changer. Pour un autre nom, crée un nouveau code.</p>
+            )}
+            <label className="pm-champ">
+              Pour quelle activité ?
+              <select value={f.activite} onChange={(e) => setF((x) => ({ ...x, activite: e.target.value, cibles: [] }))}>
+                {ACTIVITES_PROMO.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                <option value="toutes">Toutes (code de bienvenue seulement)</option>
+              </select>
+            </label>
+            {f.activite !== "toutes" && (catalogue.length ? catalogue : CATALOGUE_DEPART).some((x) => x.activite === f.activite) && (
+              <details className="pm-champ">
+                <summary>Seulement certains articles ou prestations (facultatif) : {f.cibles.length || "toute l'activité"}</summary>
+                {(catalogue.length ? catalogue : CATALOGUE_DEPART).filter((x) => x.activite === f.activite).map((x) => (
+                  <label key={x.id} className="pm-radio">
+                    <input type="checkbox" checked={f.cibles.includes(x.id)} onChange={(e) => maj("cibles", e.target.checked ? [...f.cibles, x.id] : f.cibles.filter((c) => c !== x.id))} />
+                    <span>{x.nom}</span>
+                  </label>
+                ))}
+              </details>
             )}
             <label className="pm-champ">
               Type de remise

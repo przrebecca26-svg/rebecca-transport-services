@@ -24,3 +24,6 @@
 .rg-photo { display: grid; gap: 0.4rem; margin-bottom: 0.8rem; }
 .rg-photo img { width: 100%; max-width: 320px; border-radius: 14px; }
 .rg-ajout-photo { display: inline-block; cursor: pointer; }
+.rg-creneaux { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0; }
+.rg-creneau { padding: 0.35rem 0.6rem; border-radius: 999px; border: 1px solid #B97870; font-size: 0.85rem; }
+.rg-creneau.gris { opacity: 0.35; text-decoration: line-through; border-style: dashed; }

@@ -94,3 +94,22 @@ test("prestation ajustee, base intacte", () => {
 test("prix prive et sur devis jamais ajustes", () => egal([C.avecAjustement({ typePrix: "prive", prix: 1000 }, -10).prix, C.avecAjustement({ typePrix: "devis", prix: null }, -10).prix], [1000, null]));
 test("variantes Epoxy ajustees", () => egal(C.avecAjustement({ typePrix: "fixe", prix: 0, variantes: [{ nom: "Petit", prix: 150 }] }, -20).variantes[0].prix, 120));
 test("fiche activite : ajustement -90 a +100", () => egal([C.validerActivite({ ...F, ajustementPourcent: "-15" }).fiche.ajustementPourcent, !!C.validerActivite({ ...F, ajustementPourcent: "-95" }).erreur], [-15, true]));
+
+import * as Pr from "../src/pricing/promos.js";
+section("Codes promo par activite");
+const base = { code: "HANOUKA20", type: "pourcentage", valeur: 20, actif: true, utilisationsParCompte: null, finLe: null };
+test("code sans activite (bienvenue) : partout", () => vrai(Pr.promoSapplique(base, { service: "livraison" }) && Pr.promoSapplique(base, { activite: "nails" })));
+test("code Epoxy : pas sur une livraison", () => egal([Pr.promoSapplique({ ...base, activite: "epoxy" }, { service: "livraison" }), Pr.promoSapplique({ ...base, activite: "epoxy" }, { activite: "epoxy" })], [false, true]));
+test("code coursier : livraison et courses oui, transport non", () => egal(["livraison", "courses", "transport"].map((s) => Pr.promoSapplique({ ...base, activite: "coursier" }, { service: s })), [true, true, false]));
+test("code vise un article : seulement cet article", () => {
+  const p = { ...base, activite: "epoxy", cibles: ["epoxy-080"] };
+  egal([Pr.promoSapplique(p, { activite: "epoxy", prestationId: "epoxy-080" }), Pr.promoSapplique(p, { activite: "epoxy", prestationId: "epoxy-081" })], [true, false]);
+});
+test("validation : activite inconnue ou cibles sans activite refusees", () => egal([Pr.validerPromo({ ...base, activite: "x" }) !== "", Pr.validerPromo({ ...base, cibles: ["a"] }) !== "", Pr.validerPromo({ ...base, activite: "nails", cibles: ["nails-001"] })], [true, true, ""]));
+test("moteur : code Epoxy refuse sur un transport, prix inchange", () => {
+  const d = { ...S.versDemande("transport", { ...S.valeursInitiales("transport"), depart: AD.netanya2, arrivee: AD.tel_aviv, date: "2026-11-10", heure: "10:00", typeTrajet: "simple" }, TR.tel_aviv, MAINTENANT), codePromo: "HANOUKA20" };
+  const sans = calculer({ ...d, codePromo: "" }, TARIFS);
+  const t = { ...TARIFS, codesPromo: { HANOUKA20: { ...base, activite: "epoxy" } } };
+  const r = calculer(d, t);
+  egal([r.total === sans.total, r.details.promo && r.details.promo.statut], [true, "autre_activite"]);
+});

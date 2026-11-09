@@ -4,7 +4,7 @@
 
 import { TARIFS, coutParKm, partRetourAVide } from "./config.js";
 import { verifierDisponibilite, localVersUtc, ajouterJours as ajouterJoursLocal } from "./calendrier.js";
-import { aujourdhui, calculerRemise, etatCode, libelleRemise, normaliserCode } from "./promos.js";
+import { aujourdhui, calculerRemise, etatCode, libelleActivitePromo, libelleRemise, normaliserCode, promoSapplique } from "./promos.js";
 
 /* ---------- Outils ---------- */
 
@@ -584,6 +584,8 @@ function appliquerPromo(r, d, t) {
   const etat = etatCode(promo, aujourdhui());
   if (etat === "expire") return refuse("expire", `Code promo « ${code} » expiré : aucune réduction appliquée.`);
   if (etat !== "actif") return refuse("inactif", `Code promo « ${code} » non valable : aucune réduction appliquée.`);
+  // Lot C : un code cree pour une autre activite (ou pour des articles precis) ne s'applique pas ici
+  if (!promoSapplique(promo, { service: d.service })) return refuse("autre_activite", `Code promo « ${code} » réservé à : ${libelleActivitePromo(promo)}. Aucune réduction appliquée.`);
   const eligible = r.lignes.filter((l) => l.base).reduce((s, l) => s + (l.montant || 0), 0);
   const reduction = calculerRemise(eligible, promo);
   if (reduction <= 0) return r;

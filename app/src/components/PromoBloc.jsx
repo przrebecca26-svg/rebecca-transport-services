@@ -26,7 +26,7 @@ async function verifierCode(code, uid) {
   if (etat !== "actif") return { erreur: "Ce code n'est pas valable en ce moment." };
   const deja = u.exists() ? Number(u.data().nombre) || 0 : 0;
   if (!utilisationPossible(promo, deja)) return { erreur: "Vous avez déjà utilisé ce code le nombre de fois autorisé." };
-  return { promo: { code, type: promo.type, valeur: promo.valeur, actif: promo.actif, utilisationsParCompte: promo.utilisationsParCompte ?? null, finLe: promo.finLe ?? null } };
+  return { promo: { code, type: promo.type, valeur: promo.valeur, actif: promo.actif, utilisationsParCompte: promo.utilisationsParCompte ?? null, finLe: promo.finLe ?? null, ...(promo.activite ? { activite: promo.activite } : {}), ...(Array.isArray(promo.cibles) && promo.cibles.length ? { cibles: promo.cibles } : {}) } };
 }
 
 // Codes encore utilisables par ce compte : code de bienvenue + codes offerts par Rebecca (collection codesClient)

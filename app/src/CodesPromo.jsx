@@ -25,6 +25,7 @@ export default function CodesPromo() {
   const [codes, setCodes] = useState(null); // null = chargement
   const [lectureImpossible, setLectureImpossible] = useState(false);
   const [mode, setMode] = useState(null); // null | "nouveau" | "modifier"
+  const [activiteVue, setActiviteVue] = useState(null); // 21h38 : on choisit d'abord l'activite, puis on voit et cree SES codes
   const [f, setF] = useState(VIDE);
   const [confirmerSuppression, setConfirmerSuppression] = useState(false);
   const [erreur, setErreur] = useState("");
@@ -54,7 +55,7 @@ export default function CodesPromo() {
   const maj = (champ, valeur) => setF((x) => ({ ...x, [champ]: valeur }));
 
   const ouvrirNouveau = () => {
-    setF(VIDE);
+    setF({ ...VIDE, activite: activiteVue || "coursier" });
     setConfirmerSuppression(false);
     setErreur("");
     setMode("nouveau");
@@ -165,16 +166,56 @@ export default function CodesPromo() {
   };
 
   const jour = aujourdhui();
+  const activiteDe = (c) => c.activite || "toutes";
+  const RUBRIQUES = [{ id: "toutes", label: "Code de bienvenue (toutes les activités)" }, ...ACTIVITES_PROMO];
+  const visibles = activiteVue ? codes.filter((c) => activiteDe(c) === activiteVue) : [];
+
+  // Ecran 1 : les activites, chacune avec ses codes
+  if (activiteVue === null && mode === null) {
+    return (
+      <section className="tb-liste">
+        <div className="tb-bloc">
+          <h3>Codes promo</h3>
+          <p className="tb-note">Choisis l'activité : chaque activité a ses propres codes, sans mélange. Le code de bienvenue reste valable partout, avec sa règle habituelle.</p>
+        </div>
+        {codes.length === 0 && (
+          <div className="tb-bloc">
+            <p className="tb-note">Aucun code pour l'instant.</p>
+            <button className="tb-bouton" disabled={enCours} onClick={ajouterCodesDeDepart}>Ajouter mes 3 codes de départ</button>
+            <p className="tb-note">BIENVENUE10 (-10 ₪, 1 fois par compte), AMI10 (-10 %, sans limite), FIDELE5 (-5 %, 10 fois par compte).</p>
+          </div>
+        )}
+        {RUBRIQUES.map((r) => {
+          const n = codes.filter((c) => activiteDe(c) === r.id);
+          const actifs = n.filter((c) => etatCode(c, jour) === "actif").length;
+          return (
+            <button key={r.id} className="tb-carte" onClick={() => setActiviteVue(r.id)}>
+              <span className="tb-ligne">
+                <strong>{r.label}</strong>
+                <span>{n.length ? `${actifs} actif${actifs > 1 ? "s" : ""} / ${n.length}` : "aucun code"}</span>
+              </span>
+            </button>
+          );
+        })}
+        {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}
+      </section>
+    );
+  }
+  const titreVue = (RUBRIQUES.find((r) => r.id === activiteVue) || { label: "" }).label;
 
   return (
     <section className="tb-liste">
+      {mode === null && <button className="tb-retour" onClick={() => setActiviteVue(null)}>← Toutes les activités</button>}
       <div className="tb-bloc">
-        <h3>Codes promo</h3>
+        <h3>Codes promo · {titreVue}</h3>
         <p className="tb-note">
           Chaque code est réservé à une activité (et, si tu veux, à certains articles). La remise s'applique sur le tarif de base du trajet ou du service. Les suppléments (nuit, urgence, bagages, arrêts, étages, colis, péages) ne sont jamais réduits. Le prix final est arrondi au shekel supérieur. Le client doit avoir un compte pour utiliser un code.
         </p>
 
-        {codes.length === 0 && mode === null && (
+        {visibles.length === 0 && mode === null && (
+          <p className="tb-note">Aucun code pour cette activité. Touche « Nouveau code ».</p>
+        )}
+        {false && (
           <>
             <p className="tb-note">Aucun code pour l'instant.</p>
             <div className="tb-actions">
@@ -186,9 +227,9 @@ export default function CodesPromo() {
           </>
         )}
 
-        {codes.length > 0 && (
+        {visibles.length > 0 && (
           <ul className="pr-liste">
-            {codes.map((c) => {
+            {visibles.map((c) => {
               const etat = ETATS[etatCode(c, jour)];
               return (
                 <li key={c.id} className="pr-ligne">
@@ -235,13 +276,16 @@ export default function CodesPromo() {
             ) : (
               <p className="tb-note">Le nom d'un code ne peut pas changer. Pour un autre nom, crée un nouveau code.</p>
             )}
-            <label className="pm-champ">
-              Pour quelle activité ?
-              <select value={f.activite} onChange={(e) => setF((x) => ({ ...x, activite: e.target.value, cibles: [] }))}>
-                {ACTIVITES_PROMO.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-                <option value="toutes">Toutes (code de bienvenue seulement)</option>
-              </select>
-            </label>
+            {mode === "modifier" ? (
+              <label className="pm-champ">
+                Activité du code (pour le déplacer)
+                <select value={f.activite} onChange={(e) => setF((x) => ({ ...x, activite: e.target.value, cibles: [] }))}>
+                  {RUBRIQUES.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                </select>
+              </label>
+            ) : (
+              <p className="tb-note">Activité : <strong>{(RUBRIQUES.find((r) => r.id === f.activite) || { label: f.activite }).label}</strong></p>
+            )}
             {f.activite !== "toutes" && (catalogue.length ? catalogue : CATALOGUE_DEPART).some((x) => x.activite === f.activite) && (
               <details className="pm-champ">
                 <summary>Seulement certains articles ou prestations (facultatif) : {f.cibles.length || "toute l'activité"}</summary>

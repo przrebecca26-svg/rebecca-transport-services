@@ -13,11 +13,13 @@ import {
   validerMouvement,
   verifierRemboursementEffectue,
 } from "./pricing/comptes.js";
+import { synchroniserSuivi } from "./suiviClient.js";
 import "./paiements.css";
 
 // Paiements, annulations et remboursements d'une course (espace prive de Rebecca).
 // Chaque mouvement d'argent est une nouvelle ligne : jamais modifiee, jamais supprimee.
 // Une erreur se corrige avec « Corriger une erreur » (nouvelle ligne avec un motif).
+// B3 : l'historique du client (suivi) suit l'acompte recu et l'annulation.
 // Aucun frais d'annulation n'est applique sans la validation de Rebecca.
 
 const ETATS = {
@@ -183,6 +185,8 @@ export default function PaiementsCourse({ d }) {
     setErreur("");
     try {
       await addDoc(collection(db, "mouvements"), { ...aConfirmer, creeLe: serverTimestamp() });
+      // Acompte recu : le client voit « Confirmée » dans son historique (B3)
+      synchroniserSuivi(d, [...(mouvements || []), aConfirmer]);
       fermer();
     } catch {
       setErreur("Enregistrement impossible. Vérifie la connexion puis réessaie.");
@@ -205,6 +209,7 @@ export default function PaiementsCourse({ d }) {
       await addDoc(collection(db, "mouvements"), { ...ligne, creeLe: serverTimestamp() });
       ecrite = true;
       if (d.statut !== "annulee") await updateDoc(doc(db, "demandes", d.id), { statut: "annulee", majLe: serverTimestamp() });
+      synchroniserSuivi({ ...d, statut: "annulee" }, []);
       fermer();
     } catch {
       setErreur(
@@ -221,6 +226,7 @@ export default function PaiementsCourse({ d }) {
     setErreur("");
     try {
       await updateDoc(doc(db, "demandes", d.id), { statut: "annulee", majLe: serverTimestamp() });
+      synchroniserSuivi({ ...d, statut: "annulee" }, []);
     } catch {
       setErreur("Le statut n'a pas pu changer. Vérifie la connexion puis réessaie.");
     }

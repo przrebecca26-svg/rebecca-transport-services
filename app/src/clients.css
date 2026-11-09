@@ -1,0 +1,56 @@
+/* Onglet Clients et fiche client - Rebecca Services (Lot B, seance B2) */
+.cl-recherche { display: block; width: 100%; min-height: 48px; margin: 0 0 10px; padding: 10px 14px; font: inherit; font-size: 16px; color: var(--noir); background: var(--blanc); border: 1px solid var(--or-clair); border-radius: 14px; }
+.cl-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.cl-badges .tb-badge { font-size: 12px; padding: 2px 8px; }
+.cl-reste { color: var(--erreur); }
+.fc-alerte { margin: 6px 0 0; padding: 10px 12px; font-weight: 600; color: var(--blanc); background: var(--noir); border-radius: 12px; }
+.fc-mail { word-break: break-all; color: var(--gris); }
+.fc-chiffres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+.fc-chiffres > div { padding: 10px 6px; text-align: center; background: var(--blanc); border: 1px solid var(--rose); border-radius: var(--rayon); }
+.fc-chiffres strong { display: block; font-size: 17px; }
+.fc-chiffres small { display: block; margin-top: 2px; font-size: 12px; color: var(--gris); }
+.fc-chiffres .alerte { border-color: var(--or); box-shadow: 0 0 0 2px var(--rose-fonce); }
+.fc-interrupteur { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fc-switch { position: relative; flex: none; width: 60px; height: 34px; padding: 0; background: #d9d2d4; border: 0; border-radius: 17px; cursor: pointer; transition: background 0.2s; }
+.fc-switch span { position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; background: var(--blanc); border-radius: 50%; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 0.2s; }
+.fc-switch.on { background: var(--or); }
+.fc-switch.on span { transform: translateX(26px); }
+.fc-switch:disabled { opacity: 0.6; }
+.fc-notes, .fc-correction input, .fc-motif { display: block; width: 100%; padding: 10px 12px; font: inherit; font-size: 16px; color: var(--noir); background: var(--creme); border: 1px solid var(--or-clair); border-radius: 12px; }
+.fc-correction input, .fc-motif { min-height: 48px; margin-top: 8px; }
+.fc-notes { resize: vertical; }
+.fc-recharge { margin: 0 0 10px; padding: 10px 12px; background: #fff8ea; border: 1px solid #f0d9a6; border-radius: 12px; }
+.fc-liste { margin: 6px 0 0; padding: 0; list-style: none; }
+.fc-liste li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--rose); font-size: 15px; }
+.fc-liste li:first-child { border-top: 0; }
+.fc-liste small { color: var(--gris); }
+.fc-pos { color: #1f6a2b; }
+.fc-neg { color: var(--erreur); }
+.fc-demande { display: block; width: 100%; padding: 10px 0; font: inherit; text-align: left; color: var(--noir); background: none; border: 0; border-top: 1px solid var(--rose); cursor: pointer; }
+.fc-demande:first-of-type { border-top: 0; }
+.fc-demande small { color: var(--gris); }
+.fc-enfant, .fc-avis { padding: 8px 0; border-top: 1px solid var(--rose); }
+.fc-enfant:first-of-type, .fc-avis:first-of-type { border-top: 0; }
+.fc .tb-bloc p small { color: var(--gris); }
+.fc-blocage { border-color: var(--rose-fonce); }
+.fc-message {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 20;
+  width: calc(100% - 32px);
+  max-width: 520px;
+  transform: translateX(-50%);
+  padding: 14px 16px;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  color: var(--blanc);
+  background: #1f6a2b;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.fc-message.erreur { background: var(--erreur); }
+.fc-message span { float: right; margin-left: 8px; opacity: 0.8; }

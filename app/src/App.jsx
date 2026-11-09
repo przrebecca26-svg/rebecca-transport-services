@@ -1,15 +1,17 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import ServiceForm from "./components/ServiceForm.jsx";
 import FavoriBouton from "./components/FavoriBouton.jsx";
-import { SERVICES, activitesVisibles, servicesDe } from "./services.js";
+import { ACTIVITES, SERVICES, activitesVisibles, servicesDe } from "./services.js";
 import { prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 import { etatDisponibilite } from "./pricing/disponibilite.js";
 import { useFermetures } from "./fermetures.js";
 import { compteOuvert, demarrer, useClient } from "./client.js";
 import { TARIFS } from "./pricing/config.js";
-import { INSTAGRAM, LIEN_INSTAGRAM, NOM, SIGNATURE } from "./contact.js";
+import { INSTAGRAM, LIEN_INSTAGRAM, NOM, SIGNATURE, WHATSAPP } from "./contact.js";
+import { lienWhatsApp } from "./pricing/navigation.js";
 import IconeService from "./components/IconeService.jsx";
 import "./client-commun.css";
+import "./theme-site.css";
 
 // Espace prive et espace client : charges seulement quand on les ouvre (un visiteur ne telecharge rien de plus)
 const Admin = lazy(() => import("./Admin.jsx"));
@@ -69,7 +71,7 @@ const Logo = ({ src, taille = 44 }) => (
 );
 
 // Acces au Transport prive : accorde client par client par Rebecca (document autorisations/{uid}__transport).
-// Tant que les regles v7 ne sont pas publiees, la lecture est refusee : le Transport reste invisible.
+// D3 (choix B valide le 9 nov. 2026) : l'espace est visible par tous ; sans acces, ni tarif ni reservation.
 function useAcces(client) {
   const [acces, setAcces] = useState({});
   const ouvert = compteOuvert(client);
@@ -101,6 +103,28 @@ function Carte({ s, onClick }) {
       </span>
       <span className="prix">{s.prix}</span>
     </button>
+  );
+}
+
+// Espace reserve (Transport prive sans acces) : visible, mais sans tarif ni reservation (choix B du 9 nov. 2026)
+const MESSAGE_ACCES = "Bonjour Rebecca, je souhaite réserver un service de Transport privé.";
+function SurDemande({ a }) {
+  return (
+    <section className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
+      <div style={ENTETE}>
+        <span className="espace-icone" aria-hidden="true"><IconeService id={servicesDe(a.id)[0].id} /></span>
+        <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
+      </div>
+      <div className="sur-demande">
+        <ul className="sur-demande-liste">
+          {servicesDe(a.id).map((s) => (
+            <li key={s.id}><IconeService id={s.id} taille={26} />{s.titre}</li>
+          ))}
+        </ul>
+        <p className="sur-demande-message">Service disponible sur demande. Contactez-moi sur WhatsApp.</p>
+        <a className="bouton" href={lienWhatsApp(WHATSAPP, MESSAGE_ACCES)} target="_blank" rel="noopener noreferrer">Me contacter sur WhatsApp</a>
+      </div>
+    </section>
   );
 }
 
@@ -146,15 +170,16 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori }) {
         </section>
       )}
 
-      {activitesVisibles(acces).map((a) => {
+      {Object.values(ACTIVITES).sort((x, y) => x.ordre - y.ordre).map((a) => {
         const t = TEXTES_ACCUEIL[a.id] || a;
+        if (!activitesVisibles(acces).some((v) => v.id === a.id)) return <SurDemande key={a.id} a={a} />;
         return (
         <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
           <div style={ENTETE}>
-            {t.logo && <Logo src={t.logo} taille={52} />}
+            {t.logo ? <Logo src={t.logo} taille={52} /> : <span className="espace-icone" aria-hidden="true"><IconeService id={servicesDe(a.id)[0].id} /></span>}
             <h2 id={"titre-" + a.id} style={TITRE}>{t.titre}</h2>
           </div>
-          <p className="consigne">{t.texte}. Le devis s'affiche en direct.</p>
+          <p className="consigne">{t.texte.replace(/\.$/, "")}. Le devis s'affiche en direct.</p>
           <div className="services">
             {servicesDe(a.id).map((s) => (
               <Carte key={s.id} s={s} onClick={() => onChoix(s.id)} />
@@ -289,7 +314,7 @@ export default function App() {
   }
 
   return (
-    <div className="appli">
+    <div className="appli theme-site">
       <main>
         {ecran.nom === "accueil" && (
           <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} />

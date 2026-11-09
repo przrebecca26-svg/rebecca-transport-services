@@ -4,9 +4,11 @@ import { db } from "./firebase.js";
 import { ACTIVITES_TB, indicateurs, repartitionServices, serieCA, tuiles } from "./pricing/tableauBord.js";
 import PeriodeTB, { periodeTB } from "./PeriodeTB.jsx";
 import TuileActivite from "./components/TuileActivite.jsx";
+import { chiffresDuMembre, tuileVisible } from "./pricing/espaceEquipe.js";
 
 // Rubrique « Activités » (D2a, 9 nov. 2026) : les 8 activites, puis le tableau de bord d'une activite active.
 // Indicateurs G3 valides ; aucun chiffre pour les activites « Bientôt » ; km seulement « estimés ».
+// J2 (9 nov. 2026) : un coequipier voit seulement ses activites et SES chiffres (ses courses, ses encaissements).
 
 const shekels = (n) => Math.round(n).toLocaleString("fr-FR") + " ₪";
 const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
@@ -85,7 +87,7 @@ function TableauActivite({ activite, demandes, mouvements, retour }) {
   );
 }
 
-export default function Activites({ cible }) {
+export default function Activites({ cible, membre = null }) {
   const [demandes, setDemandes] = useState(null);
   const [mouvements, setMouvements] = useState([]);
   const [ouverte, setOuverte] = useState(cible || null);
@@ -101,10 +103,16 @@ export default function Activites({ cible }) {
   }, []);
 
   const periode = periodeTB(type);
-  const liste = useMemo(() => tuiles({ demandes: demandes || [], mouvements, periode }), [demandes, mouvements, type]); // eslint-disable-line react-hooks/exhaustive-deps
+  const vue = useMemo(() => (membre ? chiffresDuMembre({ uid: membre.id, fiche: membre, demandes: demandes || [], mouvements }) : null), [membre, demandes, mouvements]);
+  const sesDemandes = vue ? vue.siennes : demandes;
+  const sesMouvements = vue ? vue.mouvements : mouvements;
+  const liste = useMemo(() => {
+    const t = tuiles({ demandes: sesDemandes || [], mouvements: sesMouvements, periode });
+    return membre ? t.filter((x) => tuileVisible(membre, x.id)) : t;
+  }, [sesDemandes, sesMouvements, type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const act = ACTIVITES_TB.find((a) => a.id === ouverte && a.etat === "active");
-  if (act && demandes) return <TableauActivite activite={act} demandes={demandes} mouvements={mouvements} retour={() => setOuverte(null)} />;
+  const act = ACTIVITES_TB.find((a) => a.id === ouverte && a.etat === "active" && (!membre || tuileVisible(membre, a.id)));
+  if (act && demandes) return <TableauActivite activite={act} demandes={sesDemandes} mouvements={sesMouvements} retour={() => setOuverte(null)} />;
 
   return (
     <div className="tdb">

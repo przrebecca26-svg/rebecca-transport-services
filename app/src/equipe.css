@@ -1,0 +1,19 @@
+/* Rubrique Equipe et espace d'un coequipier (Lot J, seance J2, 9 nov. 2026) */
+.eq-activite { padding: 6px 0; border-top: 1px solid rgba(185, 120, 112, 0.2); }
+.eq-activite:first-of-type { border-top: 0; }
+.eq-services { padding: 0 0 4px 32px; }
+.eq-demande { padding: 10px 0; border-top: 1px solid rgba(185, 120, 112, 0.2); }
+.eq-demande:first-of-type { border-top: 0; }
+.eq-demande p { margin: 0 0 8px; }
+.eq-lien { display: inline-flex; align-items: center; text-decoration: none; }
+.eq-attente { max-width: 460px; margin: 0 auto; text-align: center; }
+.theme-sombre .am-champ { color: var(--g-texte); background: #100d0f; border-color: var(--g-bord); }
+/* Page de connexion de l'espace prive (Rebecca et coequipiers) au nouveau style */
+.admin.theme-sombre { background: radial-gradient(120% 90% at 50% 0%, #2a1d22 0%, #120e10 55%, #080709 100%) !important; }
+.theme-sombre .admin-carte { color: var(--g-texte); background: var(--g-carte); border: 1px solid var(--g-cuivre); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5); }
+.theme-sombre .admin-surtitre { color: var(--g-cuivre); }
+.theme-sombre .admin-carte h1 { color: var(--g-texte); }
+.theme-sombre .admin-texte { color: var(--g-texte-2); }
+.theme-sombre .admin-texte strong { color: var(--g-texte); }
+.admin.theme-sombre .admin-retour { color: var(--g-rose); background: none; font-family: var(--g-sans); font-weight: 600; }
+.admin.theme-sombre .admin-secondaire { margin-top: 10px; color: var(--g-texte); background: transparent; border: 1px solid var(--g-cuivre); }

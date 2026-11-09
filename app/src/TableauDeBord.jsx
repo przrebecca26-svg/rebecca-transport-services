@@ -6,13 +6,15 @@ import { PERIODES_TB, periodeTB } from "./PeriodeTB.jsx";
 import PeriodeTB from "./PeriodeTB.jsx";
 import TuileActivite from "./components/TuileActivite.jsx";
 import Aujourdhui from "./Aujourdhui.jsx";
+import { chiffresDuMembre, tuileVisible } from "./pricing/espaceEquipe.js";
 
 // Tableau de bord general (D2a, 9 nov. 2026) : 4 indicateurs G3 sur la periode choisie, les 8 activites,
 // puis l'ecran « Aujourd'hui » (missions du jour, a venir, alertes). Lecture seule.
+// J2 (9 nov. 2026) : un coequipier (membre) voit SES chiffres et seulement ses activites, jamais ceux de Rebecca.
 
 const shekels = (n) => Math.round(n).toLocaleString("fr-FR") + " ₪";
 
-export default function TableauDeBord({ aller }) {
+export default function TableauDeBord({ aller, membre = null }) {
   const [demandes, setDemandes] = useState(null);
   const [mouvements, setMouvements] = useState([]);
   const [erreur, setErreur] = useState("");
@@ -29,16 +31,24 @@ export default function TableauDeBord({ aller }) {
   }, []);
 
   const periode = periodeTB(type);
-  const chiffres = useMemo(() => (demandes ? indicateurs({ demandes, mouvements, periode }) : null), [demandes, mouvements, type]); // eslint-disable-line react-hooks/exhaustive-deps
-  const listeTuiles = useMemo(() => tuiles({ demandes: demandes || [], mouvements, periode }), [demandes, mouvements, type]); // eslint-disable-line react-hooks/exhaustive-deps
+  const vue = useMemo(() => (membre ? chiffresDuMembre({ uid: membre.id, fiche: membre, demandes: demandes || [], mouvements }) : null), [membre, demandes, mouvements]);
+  const chiffres = useMemo(() => {
+    if (!demandes) return null;
+    if (!vue) return indicateurs({ demandes, mouvements, periode });
+    return { ...indicateurs({ demandes: vue.siennes, mouvements: vue.mouvements, periode }), demandesRecues: indicateurs({ demandes: vue.visibles, periode }).demandesRecues };
+  }, [demandes, mouvements, type, vue]); // eslint-disable-line react-hooks/exhaustive-deps
+  const listeTuiles = useMemo(() => {
+    const t = tuiles({ demandes: vue ? vue.siennes : demandes || [], mouvements: vue ? vue.mouvements : mouvements, periode });
+    return membre ? t.filter((x) => tuileVisible(membre, x.id)) : t;
+  }, [demandes, mouvements, type, vue]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const val = (x, argent) => (chiffres ? (argent ? shekels(x) : String(x)) : "…");
 
   return (
     <div className="tdb">
       <div className="tdb-tete">
-        <h1>Bonjour Rebecca</h1>
-        <p className="tdb-sous">Vue générale de Rebecca Services</p>
+        <h1>Bonjour {membre ? String(membre.nom || "").split(" ")[0] : "Rebecca"}</h1>
+        <p className="tdb-sous">{membre ? "Tes courses et tes encaissements" : "Vue générale de Rebecca Services"}</p>
       </div>
       <PeriodeTB type={type} changer={setType} />
       {erreur && <p className="tdb-erreur" role="alert">{erreur}</p>}
@@ -48,7 +58,7 @@ export default function TableauDeBord({ aller }) {
         <div className="tdb-chiffre"><span>Encaissé</span><b>{val(chiffres && chiffres.encaisse, true)}</b></div>
         <div className="tdb-chiffre"><span>Demandes reçues</span><b>{val(chiffres && chiffres.demandesRecues)}</b></div>
       </div>
-      <p className="tdb-note">{PERIODES_TB.find((p) => p.id === type).titre} · hors pourboires · Services coursier et Transport privé</p>
+      <p className="tdb-note">{PERIODES_TB.find((p) => p.id === type).titre} · hors pourboires · {membre ? "tes courses (demandes reçues : tes services)" : "Services coursier et Transport privé"}</p>
 
       <div className="tdb-titre-ligne">
         <h2>Mes activités</h2>

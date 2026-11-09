@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { TARIFS } from "./pricing/config.js";
+import { appliquerTarifs, lireTarifs } from "./pricing/catalogue.js";
 
 // Reglages modifiables par Rebecca depuis l'agenda :
 //  - fermetures (vacances, jours de repos, Hol Hamoed ferme...) : collection "fermetures"
@@ -162,6 +163,32 @@ function chargerEquipe() {
   return chargementEquipe;
 }
 
+/* ---------- Tarifs modifiables (Lot C, C2) : document public reglages/tarifs ---------- */
+let tarifsAdmin = false;
+export function appliquerTarifsBase(valeurs, depuisAdmin = false) {
+  if (depuisAdmin) tarifsAdmin = true;
+  else if (tarifsAdmin) return;
+  appliquerTarifs(valeurs || {});
+  notifier();
+}
+let chargementTarifs = null;
+function chargerTarifs() {
+  if (chargementTarifs) return chargementTarifs;
+  chargementTarifs = fetch(`${BASE}/reglages/tarifs?${CLE}`, { cache: "no-store" })
+    .then((r) => {
+      if (r.status === 404) return null; // jamais modifie : prix du code
+      if (!r.ok) throw new Error("lecture impossible");
+      return r.json();
+    })
+    .then((j) => {
+      if (j && j.fields) appliquerTarifsBase(lireTarifs(texte(j.fields.json)));
+    })
+    .catch(() => {
+      chargementTarifs = null;
+    });
+  return chargementTarifs;
+}
+
 let chargementCren = null;
 function chargerCreneaux() {
   if (chargementCren) return chargementCren;
@@ -190,6 +217,7 @@ export function useFermetures() {
     chargerFermetures();
     chargerCreneaux();
     chargerEquipe();
+    chargerTarifs();
     return () => abonnes.delete(setV);
   }, []);
   return v;

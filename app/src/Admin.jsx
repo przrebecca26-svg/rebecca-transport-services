@@ -10,6 +10,7 @@ import Demandes from "./Demandes.jsx";
 import Agenda from "./Agenda.jsx";
 import Clients from "./Clients.jsx";
 import Finances from "./Finances.jsx";
+import ReglagesFondations from "./ReglagesFondations.jsx";
 import CodesPromo from "./CodesPromo.jsx";
 import Reglages from "./Reglages.jsx";
 import EquipeAdmin, { MesModes, MesReglages, MesVehicules } from "./EquipeAdmin.jsx";
@@ -195,7 +196,7 @@ export default function Admin() {
     else if (onglet === "statistiques") contenu = <Bientot titre="Statistiques" texte={membre ? "Tes statistiques comparées (deux périodes) arrivent avec les fondations. En attendant, chaque activité a son tableau de bord avec tes chiffres." : "Les statistiques comparées (deux périodes, toutes les activités) arrivent avec les fondations. En attendant, chaque activité active a son tableau de bord avec ses graphiques."} bouton={{ label: "Ouvrir Mes activités", vers: "activites" }} aller={aller} />;
     else if (onglet === "rapports") contenu = membre ? <Bientot titre="Rapports et exports" texte="Tes rapports PDF et Excel (tes courses, tes encaissements, ton Wolt) arrivent avec les fondations." aller={aller} /> : <Bientot titre="Rapports et exports" texte="Les rapports PDF et Excel arrivent avec les fondations. En attendant, la sauvegarde complète et le journal CSV sont dans Finances." bouton={{ label: "Ouvrir Finances", vers: "finances" }} aller={aller} />;
     else if (membre) contenu = <><MesReglages key={membre.id} membre={membre} />{vehiculesBloc}</>;
-    else contenu = <><section className="tb-pad"><MesModes id="rebecca" /></section>{vehiculesBloc}<Reglages {...props} /></>;
+    else contenu = <ReglagesFondations general={<><section className="tb-pad"><MesModes id="rebecca" /></section>{vehiculesBloc}<Reglages {...props} /></>} />; // Lot C : Tarifs, Catalogue, Activites
 
     return (
       <EquipeContexte.Provider value={contexte}>

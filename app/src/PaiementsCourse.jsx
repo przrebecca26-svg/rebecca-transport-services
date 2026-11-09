@@ -19,6 +19,7 @@ import "./paiements.css";
 // Paiements, annulations et remboursements d'une course (espace prive de Rebecca).
 // Chaque mouvement d'argent est une nouvelle ligne : jamais modifiee, jamais supprimee.
 // Une erreur se corrige avec « Corriger une erreur » (nouvelle ligne avec un motif).
+// B8 : la correction se choisit avec « Ajouter » / « Retirer » (le clavier iPhone n'a pas de signe moins).
 // B3 : l'historique du client (suivi) suit l'acompte recu et l'annulation.
 // Aucun frais d'annulation n'est applique sans la validation de Rebecca.
 
@@ -65,6 +66,7 @@ export default function PaiementsCourse({ d }) {
   const [moyen, setMoyen] = useState(TARIFS.moyensPaiement[0]);
   const [date, setDate] = useState(aujourdhui());
   const [motif, setMotif] = useState("");
+  const [sens, setSens] = useState("retirer"); // correction : "retirer" ou "ajouter"
   const [reference, setReference] = useState("");
   const [cas, setCas] = useState("client");
   const [aConfirmer, setAConfirmer] = useState(null);
@@ -131,6 +133,7 @@ export default function PaiementsCourse({ d }) {
     setConfirmerAnnulation(false);
     setDate(aujourdhui());
     setMotif("");
+    setSens("retirer");
     setReference("");
     setMoyen(TARIFS.moyensPaiement.includes(d.moyenPaiement) ? d.moyenPaiement : TARIFS.moyensPaiement[0]);
   };
@@ -160,7 +163,8 @@ export default function PaiementsCourse({ d }) {
 
   // Construit le mouvement et le verifie (meme verification que les regles Firebase)
   const preparer = () => {
-    const n = versNombre(montant);
+    const saisi = versNombre(montant);
+    const n = mode === "correction" ? (sens === "retirer" ? -Math.abs(saisi) : Math.abs(saisi)) : saisi;
     let m;
     if (mode === "paiement") m = { kind: "paiement", resId: d.id, date, montant: n, moyen };
     else if (mode === "correction") m = { kind: "correction", resId: d.id, date, montant: n, motif: motif.trim().slice(0, 200) };
@@ -362,8 +366,14 @@ export default function PaiementsCourse({ d }) {
       {formulaireMouvement && (
         <div className="pm-form">
           <h4>{mode === "paiement" ? "Nouveau paiement" : mode === "correction" ? "Corriger une erreur" : "Remboursement effectué"}</h4>
+          {mode === "correction" && (
+            <div className="tb-filtres" role="radiogroup" aria-label="Retirer ou ajouter">
+              <button type="button" role="radio" aria-checked={sens === "retirer"} className={"tb-filtre" + (sens === "retirer" ? " actif" : "")} onClick={() => setSens("retirer")}>− Retirer</button>
+              <button type="button" role="radio" aria-checked={sens === "ajouter"} className={"tb-filtre" + (sens === "ajouter" ? " actif" : "")} onClick={() => setSens("ajouter")}>+ Ajouter</button>
+            </div>
+          )}
           <label className="pm-champ">
-            {mode === "paiement" ? "Montant reçu (₪)" : mode === "correction" ? "Montant à ajouter ou retirer (₪, par exemple -50)" : "Montant remboursé au client (₪)"}
+            {mode === "paiement" ? "Montant reçu (₪)" : mode === "correction" ? (sens === "retirer" ? "Montant à retirer de l'encaissé (₪)" : "Montant à ajouter à l'encaissé (₪)") : "Montant remboursé au client (₪)"}
             <input inputMode="decimal" value={montant} onChange={(e) => setMontant(e.target.value)} />
           </label>
           {mode !== "correction" && (

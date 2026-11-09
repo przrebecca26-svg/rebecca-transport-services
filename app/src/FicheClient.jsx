@@ -4,11 +4,14 @@ import { db } from "./firebase.js";
 import { lienAppel, lienWhatsApp } from "./pricing/navigation.js";
 import { bonusRecharge, soldeCredit } from "./pricing/credit.js";
 import { lignesRecharge, validerCorrectionCredit } from "./pricing/clients.js";
+import { LIBELLE_ORIGINE } from "./pricing/ajoutManuel.js";
+import { Remerciement } from "./AjoutManuel.jsx";
 
 // Fiche client complete (espace prive de Rebecca, Lot B seance B2).
 // Notes privees et blocage : clientsAdmin/{cle} (jamais visibles du client).
 // Acces Transport prive : autorisations/{uid}__transport (remplace la console Firebase).
 // Credit : Rebecca confirme les recharges declarees ; le carnet (creditMouvements) n'est jamais modifie, on ajoute des lignes.
+// B7 : origine du client, pre-fiche (client ajoute a la main) et sa fusion avec le compte, message de remerciement.
 
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
 
@@ -39,7 +42,7 @@ function Bloc({ titre, children, className = "" }) {
   );
 }
 
-export default function FicheClient({ fiche, admin, recharges, clients, aller, onFermer }) {
+export default function FicheClient({ fiche, admin, recharges, clients, aller, onModifier, onFermer }) {
   const p = fiche.profil;
   const uid = fiche.avecCompte ? fiche.cle : null;
   const [notes, setNotes] = useState((admin && admin.notes) || "");
@@ -133,6 +136,8 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
   const adresses = (p && Array.isArray(p.adresses) && p.adresses) || [];
   const enfants = (p && Array.isArray(p.enfants) && p.enfants) || [];
   const favoris = (p && Array.isArray(p.favoris) && p.favoris) || [];
+  const pf = fiche.preFiche || null;
+  const fusionnee = !!(pf && fiche.avecCompte && pf.cle !== fiche.cle);
 
   return (
     <section className="tb-detail fc">
@@ -150,9 +155,18 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
           {whatsapp && <a className="tb-bouton" href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
           {appel && <a className="tb-bouton tb-clair" href={appel}>Appeler</a>}
         </div>
+        {!p && pf && pf.adresse && <p dir="auto">{pf.adresse}</p>}
+        {fiche.origine && <p>Origine : <strong>{LIBELLE_ORIGINE[fiche.origine] || fiche.origine}</strong></p>}
         {p && p.creeLe && <p className="tb-note">Compte créé le {dateDe(p.creeLe)}</p>}
-        {!fiche.avecCompte && <p className="tb-note">Client sans compte : reconnu par son numéro de téléphone dans les demandes.</p>}
+        {!fiche.avecCompte && <p className="tb-note">Client sans compte : reconnu par son numéro de téléphone. S'il crée un compte avec ce numéro, sa fiche s'y rattache.</p>}
+        {fusionnee && <p className="tb-note">Pré-fiche fusionnée avec son compte ✓ (même numéro de téléphone).</p>}
+        <div className="tb-actions">
+          <button className="tb-bouton tb-clair" onClick={() => aller("demandes", "nouvelle:" + fiche.cle)}>+ Ajouter une course</button>
+          {onModifier && <button className="tb-bouton tb-clair" onClick={onModifier}>{fiche.avecCompte ? "Modifier l'origine" : "Modifier les infos"}</button>}
+        </div>
       </Bloc>
+
+      {!fiche.avecCompte && <Remerciement prenom={(pf && pf.prenom) || prenom} telephone={fiche.telephone} email={fiche.email} />}
 
       <div className="fc-chiffres">
         <div><strong>{s.nbTerminees}</strong><small>course{s.nbTerminees > 1 ? "s" : ""} faite{s.nbTerminees > 1 ? "s" : ""}</small></div>
@@ -184,6 +198,7 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
           <button className="tb-bouton" disabled={enCours || notes === ((admin && admin.notes) || "")} onClick={enregistrerNotes}>Enregistrer les notes</button>
         </div>
         <p className="tb-note">Jamais visibles par le client.</p>
+        {fusionnee && pf.notes && <p className="tb-note fc-avant">Notes d'avant son compte : {pf.notes}</p>}
       </Bloc>
 
       <Bloc titre="Préférences et paiements">

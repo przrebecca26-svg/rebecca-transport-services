@@ -157,12 +157,77 @@ export const CATALOGUE_DEPART = [
   p("regenx", "Cheveux", "Cheveux, 1 zone", null, 60, { typePrix: "prive" }),
   p("regenx", "Cheveux", "Cheveux, plusieurs zones", null, 120, { typePrix: "prive" }),
   p("regenx", "Cheveux", "Cheveux, tête entière", null, 240, { typePrix: "prive" }),
+  // Boutique Epoxy (liste de Rebecca, 9 nov. 2026, 21h24). Variantes a deux prix : Rebecca les renomme dans l'admin.
+  ...EPOXY_DEPART(),
 ];
+
+function EPOXY_DEPART() {
+  // Logos ou formes de marques : caches jusqu'a l'avis d'un juriste (decision du 4 nov.)
+  const MARQUE = "Modèle à logo ou forme de marque : à garder non publié jusqu'à l'avis d'un juriste.";
+  const e = (categorie, nom, prix, extra = {}) => p("epoxy", categorie, nom, prix, null, { delaiFabrication: "2 à 5 jours", ...extra });
+  const v = (...paires) => ({ prix: null, variantes: paires.map(([nom, prix]) => ({ nom, prix })) });
+  return [
+    e("Décoration", "Cendrier", null, v(["Petit", 65], ["Moyen", 125], ["Grand", 195])),
+    e("Décoration", "Support de téléphone", 65),
+    e("Décoration", "Carrousel", null, v(["Avec lumière", 150], ["Sans lumière", 125])),
+    e("Décoration", "Vase petit", 125),
+    e("Décoration", "Miroir coquillages", 45),
+    e("Décoration", "Vase sac", 550, { description: MARQUE }),
+    e("Rangement", "Petite boîte à bijoux", 55),
+    e("Rangement", "Boîte de rangement", null, v(["Petite", 75], ["Moyenne", 95], ["Grande", 120])),
+    e("Rangement", "Grande boîte rectangulaire", 195),
+    e("Rangement", "Verre à pinceaux", 120),
+    e("Rangement", "Boîte de rangement à maquillage", 155),
+    e("Rangement", "Bol de rangement", 125),
+    e("Salle de bain", "Porte-savon", 85),
+    e("Salle de bain", "Bouteille distributeur à savon", 125),
+    e("Plateaux", "Plateau", null, v(["Petit", 185], ["Grand", 195], ["Grand rond", 450])),
+    e("Plateaux", "Plateau tortue", 185),
+    e("Cuisine et table", "Porte-cuillère", 125),
+    e("Bijoux et accessoires", "Bracelet", 45),
+    e("Bijoux et accessoires", "Collier", 45),
+    e("Bijoux et accessoires", "Porte-clés", 60),
+    e("Bijoux et accessoires", "Bague", 35),
+    e("Bijoux et accessoires", "Boucles d'oreilles", 55),
+    e("Mobilier", "Table ronde", 2000, { delaiFabrication: "sur commande" }),
+    e("Mobilier", "Table rectangle", 3500, { delaiFabrication: "sur commande" }),
+    e("Chabbat et fêtes", "Plateau de Chabbat sans poignée", 200),
+    e("Chabbat et fêtes", "Plateau de Chabbat avec poignée", 250),
+    e("Chabbat et fêtes", "Plateau de Chabbat grand rond", 450),
+    e("Chabbat et fêtes", "Verre de Kiddouch", 250),
+    e("Chabbat et fêtes", "Salière", 150),
+    e("Chabbat et fêtes", "Kit Havdala (2 boîtes, 1 bougie et clous de girofle)", 100),
+    e("Chabbat et fêtes", "Keli (Netilat Yadayim)", 200),
+    e("Chabbat et fêtes", "Porte-serviettes (lot de 6)", 150),
+    e("Chabbat et fêtes", "Hanoukia", null, v(["Variante 1", 450], ["Variante 2", 550])),
+    e("Lampes", "Lampe", 450),
+    e("Lampes", "Lampe logo", null, { ...v(["Variante 1", 450], ["Variante 2", 550]), description: MARQUE }),
+    e("Lampes", "Lampe sac", null, { ...v(["Variante 1", 450], ["Variante 2", 550]), description: MARQUE }),
+    e("Bougies", "Bougie logo", null, { ...v(["Variante 1", 350], ["Variante 2", 450]), description: MARQUE }),
+    e("Bougies", "Bougie sac", null, { ...v(["Variante 1", 350], ["Variante 2", 450]), description: MARQUE }),
+    e("Bougies", "Bougie bouteille de champagne", 350),
+    e("Bougies", "Bougie carrousel", 150),
+    e("Bougies", "Bougie tortue", 75),
+    e("Bougies", "Bougie parfumée dans sa boîte Epoxy", 250),
+  ];
+}
 
 export const ACTIVITES_CATALOGUE = ["nails", "hair", "slim", "regenx", "epoxy"];
 
 // Categories proposees pour la boutique Epoxy (releve Instagram) ; Rebecca ajoute ses articles
-export const CATEGORIES_EPOXY = ["Décoration", "Chabbat et fêtes", "Bougies", "Cendriers", "Plateaux et sous-verres", "Boîtes et pots", "Salle de bain", "Cuisine et table", "Porte-clés et bijoux", "Créations souvenir", "Collection Haesh Sheli"];
+export const CATEGORIES_EPOXY = ["Décoration", "Rangement", "Salle de bain", "Plateaux", "Cuisine et table", "Bijoux et accessoires", "Mobilier", "Chabbat et fêtes", "Lampes", "Bougies", "Créations souvenir", "Collection Haesh Sheli"];
+
+/* ---------- Photos d'un article ou d'une prestation (Rebecca, 21h26) ----------
+ Firebase Storage demande le plan payant : les photos sont reduites dans le navigateur (1000 px, JPEG)
+ et rangees chacune dans un document « photosCatalogue » (gratuit, limite 1 Mo par document). */
+export const PHOTO = { cote: 1000, qualite: 0.72, maxOctets: 700000, maxParArticle: 8, legendeMax: 200 };
+export function validerPhoto({ donnees, legende = "" } = {}) {
+  if (typeof donnees !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(donnees)) return { erreur: "Photo illisible." };
+  if (donnees.length > PHOTO.maxOctets) return { erreur: "Photo trop lourde même après réduction : essaie une autre photo." };
+  const l = String(legende || "").trim();
+  if (l.length > PHOTO.legendeMax) return { erreur: "Description trop longue (200 caractères maximum)." };
+  return { erreur: "", photo: { donnees, legende: l } };
+}
 
 // Verifie une prestation ou un article avant enregistrement (textes du formulaire)
 export function validerPrestation(f) {
@@ -177,8 +242,9 @@ export function validerPrestation(f) {
   const prix = nombre(f.prix);
   const prixMax = nombre(f.prixMax);
   const duree = nombre(f.dureeMinutes);
-  const sansPrix = f.typePrix === "devis" || f.typePrix === "prive";
-  if (!sansPrix && !(prix >= 0 && prix <= 100000)) return { erreur: "Indique le prix (en ₪)." };
+  const aVariantes = (f.variantes || []).some((v) => String(v.nom || "").trim() || String(v.prix ?? "").trim());
+  const sansPrix = f.typePrix === "devis" || f.typePrix === "prive" || aVariantes;
+  if (!sansPrix && !(prix >= 0 && prix <= 100000)) return { erreur: "Indique le prix (en ₪), ou des variantes avec leur prix." };
   if (sansPrix && prix !== null && !(prix >= 0 && prix <= 100000)) return { erreur: "Prix invalide." };
   if (prixMax !== null && !(prixMax >= (prix || 0) && prixMax <= 100000)) return { erreur: "Prix maximum invalide." };
   const commande = f.activite === "epoxy";

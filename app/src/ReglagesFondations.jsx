@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, doc, onSnapshot, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { appliquerTarifsBase } from "./fermetures.js";
 import {
@@ -7,6 +7,7 @@ import {
   CATALOGUE_DEPART,
   CATEGORIES_EPOXY,
   JOURS,
+  PHOTO,
   TARIFS_DEPART,
   TARIFS_EDITABLES,
   TYPES_PRIX,
@@ -16,6 +17,7 @@ import {
   libellePrix,
   lireTarifs,
   validerActivite,
+  validerPhoto,
   validerPrestation,
   validerTarifs,
 } from "./pricing/catalogue.js";
@@ -113,6 +115,102 @@ function Tarifs() {
   );
 }
 
+/* ---------- Photos d'un article (21h26) : reduites dans le telephone, rangees dans « photosCatalogue » ---------- */
+function reduirePhoto(fichier) {
+  return new Promise((ok, ko) => {
+    const lecteur = new FileReader();
+    lecteur.onerror = () => ko(new Error("lecture"));
+    lecteur.onload = () => {
+      const img = new Image();
+      img.onerror = () => ko(new Error("image"));
+      img.onload = () => {
+        const r = Math.min(1, PHOTO.cote / Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * r);
+        c.height = Math.round(img.height * r);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        let q = PHOTO.qualite;
+        let d = c.toDataURL("image/jpeg", q);
+        while (d.length > PHOTO.maxOctets && q > 0.35) {
+          q -= 0.1;
+          d = c.toDataURL("image/jpeg", q);
+        }
+        ok(d);
+      };
+      img.src = lecteur.result;
+    };
+    lecteur.readAsDataURL(fichier);
+  });
+}
+
+function PhotosArticle({ prestationId }) {
+  const [photos, setPhotos] = useState([]);
+  const [message, setMessage] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  useEffect(
+    () =>
+      onSnapshot(
+        query(collection(db, "photosCatalogue"), where("prestationId", "==", prestationId)),
+        (s) => setPhotos(s.docs.map((x) => ({ id: x.id, ...x.data() })).sort((a, b) => (a.ordre || 0) - (b.ordre || 0))),
+        () => setMessage({ texte: "Les photos seront disponibles après la mise à jour des règles Firebase (fin du Lot C)." })
+      ),
+    [prestationId]
+  );
+  const ajouter = async (e) => {
+    const fichiers = [...(e.target.files || [])].slice(0, PHOTO.maxParArticle - photos.length);
+    e.target.value = "";
+    if (!fichiers.length) return;
+    setEnCours(true);
+    setMessage(null);
+    try {
+      let ordre = photos.length;
+      for (const f of fichiers) {
+        const v = validerPhoto({ donnees: await reduirePhoto(f) });
+        if (v.erreur) throw new Error(v.erreur);
+        await addDoc(collection(db, "photosCatalogue"), { prestationId, ...v.photo, ordre: ordre++, creeLe: serverTimestamp() });
+      }
+    } catch (err) {
+      setMessage({ erreur: true, texte: err && err.message && err.message.length > 12 ? err.message : "Ajout impossible pour l'instant (connexion ou règles Firebase)." });
+    }
+    setEnCours(false);
+  };
+  const legende = async (p, texte) => {
+    const v = validerPhoto({ donnees: p.donnees, legende: texte });
+    if (v.erreur) return setMessage({ erreur: true, texte: v.erreur });
+    try {
+      await updateDoc(doc(db, "photosCatalogue", p.id), { legende: v.photo.legende });
+    } catch {
+      setMessage({ erreur: true, texte: "Enregistrement impossible." });
+    }
+  };
+  const supprimer = async (p) => {
+    try {
+      await deleteDoc(doc(db, "photosCatalogue", p.id));
+    } catch {
+      setMessage({ erreur: true, texte: "Suppression impossible." });
+    }
+  };
+  return (
+    <div className="rg-photos">
+      <p className="tb-note">Photos ({photos.length}/{PHOTO.maxParArticle}) : réduites automatiquement. Description facultative (dimensions, couleurs…).</p>
+      {photos.map((p) => (
+        <div key={p.id} className="rg-photo">
+          <img src={p.donnees} alt={p.legende || "Photo de l'article"} />
+          <input className="am-champ" defaultValue={p.legende || ""} maxLength={PHOTO.legendeMax} placeholder="Ex : 30 x 20 cm, noir et or" onBlur={(e) => e.target.value !== (p.legende || "") && legende(p, e.target.value)} />
+          <button type="button" className="tb-retour aj-lien" onClick={() => supprimer(p)}>Retirer la photo</button>
+        </div>
+      ))}
+      {photos.length < PHOTO.maxParArticle && (
+        <label className="tb-bouton tb-clair rg-ajout-photo">
+          {enCours ? "Ajout en cours…" : "+ Ajouter des photos"}
+          <input type="file" accept="image/*" multiple hidden disabled={enCours} onChange={ajouter} />
+        </label>
+      )}
+      <Message m={message} />
+    </div>
+  );
+}
+
 /* ---------- Catalogue ---------- */
 const vide = (activite) => ({ activite, categorie: activite === "epoxy" ? CATEGORIES_EPOXY[0] : "", nom: "", description: "", typePrix: "fixe", prix: "", prixMax: "", dureeMinutes: activite === "epoxy" ? "" : "60", option: false, variantes: [], publiee: false, delaiFabrication: activite === "epoxy" ? "2 à 5 jours" : "" });
 const enFormulaire = (x) => ({ ...x, prix: x.prix == null ? "" : String(x.prix), prixMax: x.prixMax == null ? "" : String(x.prixMax), dureeMinutes: x.dureeMinutes == null ? "" : String(x.dureeMinutes), variantes: (x.variantes || []).map((v) => ({ nom: v.nom, prix: String(v.prix) })), delaiFabrication: x.delaiFabrication || "" });
@@ -169,6 +267,7 @@ function FichePrestation({ f: depart, existe, onFermer }) {
           {f.variantes.length < 6 && <button type="button" className="tb-retour aj-lien" onClick={() => ch("variantes", [...f.variantes, { nom: "", prix: "" }])}>+ Ajouter une variante</button>}
         </>
       )}
+      {existe && f.id ? <PhotosArticle prestationId={f.id} /> : <p className="tb-note">Les photos s'ajoutent après le premier enregistrement.</p>}
       <label className="rg-case"><input type="checkbox" checked={f.option} onChange={(e) => ch("option", e.target.checked)} /> Option (s'ajoute à une prestation)</label>
       <label className="rg-case"><input type="checkbox" checked={f.publiee} onChange={(e) => ch("publiee", e.target.checked)} /> Publiée (visible des clientes quand l'activité est ouverte)</label>
       <Message m={message} />

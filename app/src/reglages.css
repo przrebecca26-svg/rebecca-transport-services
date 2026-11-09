@@ -20,3 +20,7 @@
 .rg-groupe { width: 100%; background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; }
 .rg-case { display: flex; gap: 0.5rem; align-items: center; margin: 0.4rem 0; }
 .rg-pastille { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.3rem; vertical-align: middle; }
+.rg-photos { margin: 0.8rem 0; }
+.rg-photo { display: grid; gap: 0.4rem; margin-bottom: 0.8rem; }
+.rg-photo img { width: 100%; max-width: 320px; border-radius: 14px; }
+.rg-ajout-photo { display: inline-block; cursor: pointer; }

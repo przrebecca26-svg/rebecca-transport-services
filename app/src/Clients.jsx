@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { FILTRES, construireFiches, estSansCompte, filtrer, telNormalise } from "./pricing/clients.js";
+import { FILTRES, compterOrigines, construireFiches, estSansCompte, filtrer, telNormalise } from "./pricing/clients.js";
+import { LIBELLE_ORIGINE } from "./pricing/ajoutManuel.js";
 import FicheClient from "./FicheClient.jsx";
+import AjoutManuel from "./AjoutManuel.jsx";
 import "./clients.css";
 
 // Onglet « Clients » de l'espace prive (Lot B, seance B2) : liste, recherche et fiche complete.
 // Clients avec compte (collection clients) + clients sans compte reconnus par leur telephone (demandes).
+// B7 : « + Nouveau client » (pre-fiche), modification d'une fiche, et d'ou viennent mes clients.
 
 const COLLECTIONS = ["clients", "demandes", "clientsAdmin", "autorisations", "recharges", "mouvements"];
 
@@ -22,6 +25,7 @@ export default function Clients({ aller, cible }) {
   const [filtre, setFiltre] = useState("tous");
   const [texte, setTexte] = useState("");
   const [ouverte, setOuverte] = useState(cible || null);
+  const [edition, setEdition] = useState(null); // { cle } : nouveau client (cle null) ou modification
 
   useEffect(() => {
     const arrets = COLLECTIONS.map((nom) =>
@@ -46,6 +50,22 @@ export default function Clients({ aller, cible }) {
   if (lectureImpossible) return <p className="admin-erreur tb-pad" role="alert">Lecture des clients impossible. Vérifie la connexion et les règles Firebase.</p>;
   if (!pret) return <p className="admin-texte tb-pad">Chargement des clients…</p>;
 
+  if (edition) {
+    return (
+      <AjoutManuel
+        key={edition.cle || "nouveau"}
+        mode="client"
+        demandes={donnees.demandes}
+        cleInitiale={edition.cle}
+        onFermer={() => setEdition(null)}
+        onOuvrirFiche={(cle) => {
+          setEdition(null);
+          setOuverte(cle);
+        }}
+      />
+    );
+  }
+
   // Fiche demandee ; une cle « tel_… » peut appartenir a un compte (meme numero de telephone)
   const courante =
     ouverte && (fiches.find((f) => f.cle === ouverte) || (estSansCompte(ouverte) && fiches.find((f) => telNormalise(f.telephone) === ouverte.slice(4))));
@@ -58,6 +78,7 @@ export default function Clients({ aller, cible }) {
         recharges={donnees.recharges.filter((r) => r.uid === courante.cle)}
         clients={donnees.clients}
         aller={aller}
+        onModifier={() => setEdition({ cle: courante.cle })}
         onFermer={() => setOuverte(null)}
       />
     );
@@ -65,10 +86,12 @@ export default function Clients({ aller, cible }) {
 
   const visibles = filtrer(fiches, filtre, texte);
   const compte = (id) => filtrer(fiches, id, "").length;
+  const origines = compterOrigines(fiches);
 
   return (
     <section className="tb-liste cl">
       {ouverte && !courante && <p className="tb-note">Cette fiche client est introuvable.</p>}
+      <button className="tb-bouton am-ajouter" onClick={() => setEdition({ cle: null })}>+ Nouveau client</button>
       <input
         className="cl-recherche"
         type="search"
@@ -85,6 +108,10 @@ export default function Clients({ aller, cible }) {
           </button>
         ))}
       </div>
+
+      {origines.length > 0 && (
+        <p className="tb-note cl-origines">D'où viennent mes clients : {origines.map(([o, n]) => `${LIBELLE_ORIGINE[o] || o} ${n}`).join(" · ")}</p>
+      )}
 
       {visibles.length === 0 && <p className="admin-texte tb-pad">Aucun client trouvé.</p>}
 

@@ -59,4 +59,38 @@ export const SERVICES = [
   { id: "attente", activite: "transport", titre: "Mise à disposition", icone: "⏱️", texte: "Attente, accompagnement, événements : à l'heure.", prix: "100 ₪ / heure" },
 ];
 
-// ... reste du fichier inchangé (les fonctions et FORMULAIRES restent les mêmes)
+// Espace d'un service ("coursier" ou "transport")
+export const activiteDe = (service) => {
+  const s = SERVICES.find((x) => x.id === service);
+  return s ? s.activite : null;
+};
+
+// Services d'un espace, dans l'ordre d'affichage
+export const servicesDe = (activite) => SERVICES.filter((s) => s.activite === activite);
+
+// Espaces a montrer a ce visiteur. acces = { transport: true } quand Rebecca a autorise ce client.
+// (Affichage seulement : les regles Firebase v7 refuseront aussi une demande non autorisee.)
+export function activitesVisibles(acces = {}) {
+  return Object.values(ACTIVITES)
+    .filter((a) => a.visibleParDefaut || acces[a.id] === true)
+    .sort((a, b) => a.ordre - b.ordre);
+}
+
+// Les boutons "Choix rapide" (Dans 1 h, Ce soir, Demain) n'ont pas de sens pour le ramassage scolaire
+export const horaireRapidePossible = (service) => service !== "ramassage";
+
+/* ---------- Champs communs ---------- */
+
+const quand = (suffixe = "") => [
+  { name: "date", label: "Date" + suffixe, type: "date", required: true },
+  { name: "heure", label: "Heure" + suffixe, type: "time", required: true },
+];
+
+const retour = [
+  { name: "typeTrajet", label: "Type de trajet", type: "choix", required: true, options: [{ v: "simple", l: "Aller simple" }, { v: "ar", l: "Aller-retour" }], defaut: "simple" },
+  { name: "dateRetour", label: "Date du retour", type: "date", required: true, si: (v) => v.typeTrajet === "ar" },
+  { name: "heureRetour", label: "Heure du retour", type: "time", required: true, si: (v) => v.typeTrajet === "ar" },
+  { name: "attenteMinutes", label: "Attente sur place pendant le trajet", type: "select", si: (v) => v.typeTrajet === "ar", defaut: "0", options: [{ v: "0", l: "Aucune" }, { v: "30", l: "30 minutes" }, { v: "60", l: "1 heure" }, { v: "90", l: "1 h 30" }, { v: "120", l: "2 heures" }], indice: "10 minutes offertes, puis 100 ₪ / heure." },
+];
+
+// ... (le reste du fichier original est conservé)

@@ -12,20 +12,22 @@ import { WHATSAPP } from "../contact.js";
 
 // Mapping temporaire des photos générées (remplaçables dans l'admin)
 const PHOTOS = {
-  "Semi-permanent (VSP)": "/nails/semi-permanent.png",
-  "Beauté des mains": "/nails/beaute-mains.png",
-  "Extensions gel + VSP": "/nails/extensions-gel.png",
-  "Remplissage gel": "/nails/remplissage-gel.png",
-  "Pose acrylique + VSP": "/nails/acrylique.png",
-  "Flash Gel-X": "/nails/gel-x.png",
-  "Mivne anatomie (gainage)": "/nails/ambiance.png",
-  "Renforcement": "/nails/ambiance.png",
-  "Nail art (par ongle)": "/nails/ambiance.png",
-  "Réparation ou rajout (par ongle)": "/nails/ambiance.png",
-  "Dépose Gel-X / gel": "/nails/gel-x.png",
-  "Dépose acrylique / gel de construction": "/nails/acrylique.png",
-  "Gel de construction": "/nails/extensions-gel.png",
-  "Remplissage gel de construction": "/nails/remplissage-gel.png",
+  "Semi-permanent (VSP)": "/nails/01_Semi-permanent.jpg",
+  "Beauté des mains": "/nails/02_Beaute-des-mains.jpg",
+  "Mivne anatomie (gainage)": "/nails/03_Gainage.jpg",
+  "Renforcement": "/nails/04_Renforcement.jpg",
+  "Extensions gel + VSP": "/nails/05_Extensions-gel.jpg",
+  "Remplissage gel": "/nails/06_Remplissage-gel.jpg",
+  "Flash Gel-X": "/nails/07_Flash-Gel-X.jpg",
+  "Gel de construction": "/nails/08_Gel-de-construction.jpg",
+  "Remplissage gel de construction": "/nails/09_Remplissage-gel-de-construction.jpg",
+  "Pose acrylique + VSP": "/nails/10_Pose-acrylique.jpg",
+  "Remplissage acrylique": "/nails/11_Remplissage-acrylique.jpg",
+  "Dépose Gel-X / gel": "/nails/12_Depose-Gel-X-gel.jpg",
+  "Dépose acrylique / gel de construction": "/nails/13_Depose-acrylique.jpg",
+  "Nail art (par ongle)": "/nails/14_Nail-art.jpg",
+  "Réparation ou rajout (par ongle)": "/nails/15_Reparation-ongle.jpg",
+  "Semi-permanent enfant (12 ans minimum)": "/nails/16_Semi-permanent-enfant.jpg",
 };
 
 // Catalogue et réservation pour Nails Prestige

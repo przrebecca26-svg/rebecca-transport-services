@@ -131,7 +131,7 @@ function SurDemande({ a }) {
   );
 }
 
-function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails }) {
+function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX, onEpoxy, onSlim, onHair, onDigital }) {
   const aujourdhui = utcVersLocal(Date.now()).date;
   const fermetures = prochainesFermetures(aujourdhui, 3);
   const dispo = etatDisponibilite();

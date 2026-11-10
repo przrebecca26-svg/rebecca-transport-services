@@ -304,9 +304,13 @@ function Catalogue() {
     []
   );
   const enBase = (liste || []).length > 0;
-  const source = enBase 
-    ? [...liste, ...CATALOGUE_DEPART.filter((d) => d.activite === "digital" && !liste.some((l) => l.nom === d.nom && l.activite === "digital"))]
-    : CATALOGUE_DEPART;
+  const source = (() => {
+    if (!enBase) return CATALOGUE_DEPART;
+    // Merge: Firestore items + CATALOGUE_DEPART items not yet in Firestore (same nom + activite)
+    const noms = new Set(liste.map((l) => l.activite + "|" + l.nom));
+    const manquants = CATALOGUE_DEPART.filter((d) => !noms.has(d.activite + "|" + d.nom));
+    return [...liste, ...manquants];
+  })();
   const items = useMemo(() => source.filter((x) => x.activite === activite).sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999) || String(a.nom).localeCompare(String(b.nom))), [source, activite]);
   const categories = [...new Set(items.map((x) => x.categorie))];
 

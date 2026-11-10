@@ -348,16 +348,27 @@ function Catalogue() {
         <div key={c} className="tb-bloc">
           <h3>{c}</h3>
           {items.filter((x) => x.categorie === c).map((x) => (
-            <button key={x.id} className="tb-carte" disabled={!enBase} onClick={() => setEdition({ f: enFormulaire(x), existe: true })}>
-              <span className="tb-ligne">
-                <strong>{x.nom}</strong>
-                <strong>{ajust && x.typePrix !== "prive" && x.typePrix !== "devis" ? <><s>{libellePrix(x)}</s> {libellePrix(avecAjustement(x, ajust))}</> : libellePrix(x)}</strong>
-              </span>
-              <span className="tb-quand">
-                {x.dureeMinutes ? libelleDuree(x.dureeMinutes) : x.delaiFabrication || ""}
-                {x.option ? " · option" : ""} · {x.publiee ? "publiée" : "non publiée"}
-              </span>
-            </button>
+            <div key={x.id} className="tb-carte" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+              <div style={{ flex: 1 }}>
+                <span className="tb-ligne">
+                  <strong>{x.nom}</strong>
+                  <strong>{ajust && x.typePrix !== "prive" && x.typePrix !== "devis" ? <><s>{libellePrix(x)}</s> {libellePrix(avecAjustement(x, ajust))}</> : libellePrix(x)}</strong>
+                </span>
+                <span className="tb-quand">
+                  {x.dureeMinutes ? libelleDuree(x.dureeMinutes) : x.delaiFabrication || ""}
+                  {x.option ? " · option" : ""} · {x.publiee ? "publiée" : "non publiée"}
+                </span>
+              </div>
+              <button type="button" className="tb-bouton" style={{ fontSize: 13, padding: "4px 8px" }} onClick={() => setEdition({ f: enFormulaire(x), existe: true })}>Modifier</button>
+              <button type="button" className="tb-bouton" style={{ fontSize: 13, padding: "4px 8px", background: "#c44" }} onClick={async () => {
+                if (!confirm("Supprimer « " + x.nom + " » ?")) return;
+                try {
+                  await deleteDoc(doc(db, "catalogue", x.id));
+                } catch {
+                  setMessage({ erreur: true, texte: "Suppression impossible." });
+                }
+              }}>Supprimer</button>
+            </div>
           ))}
         </div>
       ))}

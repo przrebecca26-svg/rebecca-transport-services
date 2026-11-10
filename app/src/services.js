@@ -22,6 +22,14 @@ const ouiNon = [
 // visibleParDefaut : false = espace invisible pour tous, sauf les clients que Rebecca autorise un par un.
 
 export const ACTIVITES = {
+  epoxy: {
+    id: "epoxy",
+    titre: "Boutique Epoxy",
+    texte: "Créations personnalisées en résine : décoration, rangement, Chabbat et fêtes, lampes, bougies…",
+    visibleParDefaut: true,
+    ordre: 5,
+    logo: "/brand/logo-epoxy.png",
+  },
   regenx: {
     id: "regenx",
     titre: "RegenX",

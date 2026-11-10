@@ -1,0 +1,50 @@
+// ============================================================
+// RÈGLES FIRESTORE v11 — Proposition pour publication
+// Basée sur v10 de Claude + ajouts commandes Epoxy
+// Date : 10 novembre 2026
+// À copier-coller dans la console Firebase après validation
+// ============================================================
+
+// ... (toutes les fonctions et match de la v10 restent identiques) ...
+
+// Remplacer la fonction activiteDe() par :
+function activiteDe(nom) {
+  return nom in ["livraison", "courses", "demenagement"] ? "coursier"
+    : (nom in ["transport", "aeroport", "hatan_kala", "ramassage", "attente"] ? "transport"
+    : (nom in ["nails", "hair", "slim", "regenx", "epoxy", "digital"] ? nom : ""));
+}
+
+// Ajouter cette fonction :
+function commandeEpoxyValide() {
+  let d = request.resource.data;
+  return d.keys().hasOnly(["type","activite","service","serviceTitre","nom","telephone","produitId","produit","varianteId","varianteNom","quantite","prixUnitaire","surDevis","messageClient","statut","source","creeLe"])
+    && d.keys().hasAll(["type","activite","service","nom","telephone","produitId","produit","quantite","prixUnitaire","surDevis","messageClient","statut","source","creeLe"])
+    && d.type == "commande"
+    && d.activite == "epoxy"
+    && d.service == "epoxy"
+    && d.statut == "en attente"
+    && d.source == "site"
+    && d.creeLe == request.time
+    && compteVerifie()
+    && (activitePublique("epoxy") || compteAutorise("epoxy"))
+    && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
+    && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+    && d.produitId is string && d.produitId.size() > 0 && d.produitId.size() <= 100
+    && d.produit is string && d.produit.size() > 0 && d.produit.size() <= 120
+    && d.quantite is int && d.quantite >= 1 && d.quantite <= 50
+    && (d.prixUnitaire is number || d.prixUnitaire == null)
+    && d.surDevis is bool
+    && d.messageClient is string && d.messageClient.size() <= 1000
+    && exists(/databases/$(database)/documents/catalogue/$(d.produitId))
+    && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("activite", "") == "epoxy"
+    && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("publiee", false) == true
+    && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("nom", "") == d.produit;
+}
+
+// Ajouter ce match :
+match /commandes/{id} {
+  allow create: if commandeEpoxyValide();
+  allow read, update, delete: if estAdmin();
+}
+
+// Toutes les autres règles v10 restent inchangées.

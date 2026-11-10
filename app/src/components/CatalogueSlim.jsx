@@ -54,7 +54,7 @@ export default function CatalogueSlim({ onRetour }) {
     const unsubCat = onSnapshot(
       query(collection(db, "catalogue"), where("activite", "==", "slim")),
       (s) => {
-        const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.publiee);
+        const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => true) // affiche toutes les prestations du catalogue de départ;
         setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "slim")); // force affichage des prestations par défaut
       },
       () => setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "slim"))

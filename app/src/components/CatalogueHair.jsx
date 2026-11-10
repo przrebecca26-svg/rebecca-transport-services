@@ -50,7 +50,7 @@ export default function CatalogueHair({ onRetour }) {
     const unsubCat = onSnapshot(
       query(collection(db, "catalogue"), where("activite", "==", "hair")),
       (s) => {
-        const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.publiee);
+        const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => true) // affiche toutes les prestations du catalogue de départ;
         setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "hair")); // force affichage des prestations par défaut
       },
       () => setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "hair"))

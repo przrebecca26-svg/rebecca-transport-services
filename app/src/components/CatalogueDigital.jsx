@@ -8,6 +8,7 @@ export default function CatalogueDigital({ onRetour }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <img src="/brand/logo-digital-applications.png" alt="" width={48} height={48} style={{ borderRadius: "50%" }} />
         <h2>Digital & Applications</h2>
+      <img src="/digital/site.jpg" alt="Digital & Applications" style={{ width: "100%", maxWidth: 480, borderRadius: 12, margin: "12px 0" }} />
       </div>
       <p>Création de sites web et d'applications professionnelles.</p>
 

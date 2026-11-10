@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase.js";
-import { libellePrix } from "../pricing/catalogue.js";
+import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
@@ -13,13 +13,18 @@ export default function CatalogueEpoxy({ onRetour }) {
   const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
 
   useEffect(() => {
+    // Source de vérité : CATALOGUE_DEPART (validé). Firestore peut surcharger.
+    const depart = CATALOGUE_DEPART.filter((p) => p.activite === "epoxy").map((p) => ({ ...p, publiee: true }));
     const unsub = onSnapshot(
       query(collection(db, "catalogue"), where("activite", "==", "epoxy")),
       (s) => {
-        const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.publiee);
-        setArticles(items);
+        const fromDb = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.publiee);
+        // Fusion : les documents Firestore remplacent ceux du départ (même id)
+        const map = new Map(depart.map((p) => [p.id, p]));
+        fromDb.forEach((p) => map.set(p.id, p));
+        setArticles([...map.values()]);
       },
-      () => setArticles([])
+      () => setArticles(depart)
     );
     return unsub;
   }, []);

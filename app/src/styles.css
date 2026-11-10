@@ -157,3 +157,25 @@ footer { text-align: center; color: var(--gris); padding-top: 8px; }
   .barre-envoi { margin: 0; border-radius: 16px 16px 0 0; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+
+@media (max-width: 600px) {
+  .carte-service {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 12px;
+  }
+  .carte-service .corps {
+    width: 100%;
+  }
+  .carte-service .prix {
+    align-self: flex-end;
+    margin-top: 4px;
+  }
+  .carte-service small {
+    display: block;
+    white-space: normal;
+  }
+}

@@ -4,6 +4,9 @@ import { db } from "../firebase.js";
 import { CATALOGUE_DEPART, ACTIVITES_DEPART, avecAjustement, libellePrix, libelleDuree } from "../pricing/catalogue.js";
 import { creneauxDuJour } from "../pricing/rendezvous.js";
 import { TARIFS } from "../pricing/config.js";
+import { enregistrerDemande } from "../demandes.js";
+import { lienWhatsApp } from "../pricing/navigation.js";
+import { WHATSAPP } from "../contact.js";
 
 // Catalogue et réservation pour Nails Prestige
 export default function CatalogueNails({ onRetour, onReserver }) {
@@ -14,6 +17,8 @@ export default function CatalogueNails({ onRetour, onReserver }) {
   const [heure, setHeure] = useState("");
   const [creneaux, setCreneaux] = useState([]);
   const [occupes, setOccupes] = useState([]);
+  const [client, setClient] = useState({ nom: "", telephone: "", moyenPaiement: "Espèces" });
+  const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
 
   useEffect(() => {
     const unsubCat = onSnapshot(
@@ -55,6 +60,74 @@ export default function CatalogueNails({ onRetour, onReserver }) {
 
   const categories = [...new Set(prestations.map((p) => p.categorie))];
 
+  const envoyer = async () => {
+    if (!client.nom.trim() || !client.telephone.trim()) {
+      setEnvoi({ enCours: false, ok: false, erreur: "Nom et téléphone obligatoires." });
+      return;
+    }
+    setEnvoi({ enCours: true, ok: false, erreur: "" });
+    const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
+    const message = `Bonjour Rebecca,\n\nNouvelle demande Nails Prestige :\n- Prestation : ${p.nom}\n- Date : ${date}\n- Heure : ${heure}\n- Prix : ${libellePrix(p)}\n- Durée : ${libelleDuree(p)}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nPaiement : ${client.moyenPaiement}\n\nMerci de me confirmer.`;
+    const demande = {
+      service: "nails",
+      serviceTitre: "Nails Prestige – " + p.nom,
+      date,
+      heure,
+      nom: client.nom.trim(),
+      telephone: client.telephone.trim(),
+      moyenPaiement: client.moyenPaiement,
+      prixEstime: p.prixFixe || null,
+      surDevis: false,
+      details: { prestation: p.nom, duree: p.dureeMinutes },
+      message,
+      statut: "en attente",
+      source: "site",
+    };
+    try {
+      await enregistrerDemande(demande);
+      const url = lienWhatsApp(WHATSAPP, message);
+      window.open(url, "_blank", "noopener");
+      setEnvoi({ enCours: false, ok: true, erreur: "" });
+    } catch (e) {
+      setEnvoi({ enCours: false, ok: false, erreur: "Impossible d'enregistrer pour le moment. Contactez Rebecca sur WhatsApp." });
+    }
+  };
+
+  if (envoi.ok) {
+    return (
+      <section className="catalogue-nails">
+        <h2>Demande envoyée</h2>
+        <p>Votre demande pour <strong>{selection?.nom}</strong> le {date} à {heure} a été enregistrée.</p>
+        <p>WhatsApp s'est ouvert pour prévenir Rebecca. Elle vous confirmera selon ses disponibilités.</p>
+        <button className="bouton" onClick={onRetour}>Retour à l'accueil</button>
+      </section>
+    );
+  }
+
+  if (selection && heure) {
+    const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
+    return (
+      <section className="catalogue-nails">
+        <button className="lien" onClick={() => setHeure("")}>← Changer le créneau</button>
+        <h2>Finaliser la réservation</h2>
+        <p><strong>{p.nom}</strong> · {date} à {heure}</p>
+        <p>{libellePrix(p)} · {libelleDuree(p)}</p>
+        <label>Votre nom<br /><input value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
+        <label>Votre téléphone<br /><input type="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} required /></label>
+        <label>Moyen de paiement<br />
+          <select value={client.moyenPaiement} onChange={(e) => setClient({ ...client, moyenPaiement: e.target.value })}>
+            {TARIFS.moyensPaiement.map((m) => <option key={m}>{m}</option>)}
+          </select>
+        </label>
+        {envoi.erreur && <p className="erreur">{envoi.erreur}</p>}
+        <button className="bouton" onClick={envoyer} disabled={envoi.enCours}>
+          {envoi.enCours ? "Envoi…" : "Envoyer ma demande"}
+        </button>
+        <p className="mention">Rien n'est réservé tant que Rebecca n'a pas confirmé.</p>
+      </section>
+    );
+  }
+
   if (selection) {
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
     return (
@@ -85,14 +158,6 @@ export default function CatalogueNails({ onRetour, onReserver }) {
               ))}
             </div>
           </div>
-        )}
-        {heure && (
-          <button
-            className="bouton"
-            onClick={() => onReserver({ service: "nails", prestation: p, date, heure })}
-          >
-            Continuer la réservation
-          </button>
         )}
       </section>
     );

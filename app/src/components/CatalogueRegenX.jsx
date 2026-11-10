@@ -190,14 +190,26 @@ export default function CatalogueRegenx({ onRetour }) {
             const aff = avecAjustement(p, activite?.ajustementPourcent || 0);
             const photo = photoDe(aff.nom);
             return (
-              <button key={p.id} className="carte-service" onClick={() => setSelection(p)} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {photo && <img src={photo} alt="" width={64} height={64} style={{ borderRadius: 8, objectFit: "cover" }} />}
-                <span className="corps">
-                  <strong>{aff.nom}</strong>
-                  <small>{aff.description || libelleDuree(aff)}</small>
-                </span>
+              <div key={p.id} className="carte-service" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button onClick={() => setSelection(p)} style={{ flex: 1, textAlign: "left", background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+                  {photo && <img src={photo} alt="" width={64} height={64} style={{ borderRadius: 8, objectFit: "cover" }} />}
+                  <span className="corps">
+                    <strong>{aff.nom}</strong>
+                    <small>{aff.description || libelleDuree(aff)}</small>
+                  </span>
+                </button>
                 <span className="prix">{libellePrix(aff)}</span>
-              </button>
+                <a
+                  href={lienWhatsApp(WHATSAPP, `Bonjour Rebecca, je souhaite des informations sur : ${aff.nom} (${libellePrix(aff)})`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="lien"
+                  style={{ fontSize: 20 }}
+                  title="Partager sur WhatsApp"
+                >
+                  💬
+                </a>
+              </div>
             );
           })}
         </div>

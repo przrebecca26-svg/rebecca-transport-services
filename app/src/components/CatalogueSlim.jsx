@@ -12,13 +12,13 @@ import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
 const PHOTOS = {
-  "Radiofréquence visage ou cou": "/slim/radio.jpg",
-  "Radiofréquence corps (1 zone)": "/slim/radio.jpg",
-  "Cavitation ultrasonique (1 zone)": "/slim/radio.jpg",
-  "Cavitation + radiofréquence (1 zone)": "/slim/radio.jpg",
-  "Forfait radiofréquence ventre & taille": "/slim/radio.jpg",
-  "Forfait radiofréquence fesses & cuisses": "/slim/radio.jpg",
-  "Anti-cellulite cuisses & fesses, séance unique": "/slim/radio.jpg",
+  "Radiofréquence visage ou cou": "/slim/rf-visage.png",
+  "Radiofréquence corps (1 zone)": "/slim/rf-corps.png",
+  "Cavitation ultrasonique (1 zone)": "/slim/cavitation.png",
+  "Cavitation + radiofréquence (1 zone)": "/slim/cavitation.png",
+  "Forfait radiofréquence ventre & taille": "/slim/remodelage.png",
+  "Forfait radiofréquence fesses & cuisses": "/slim/rf-corps.png",
+  "Anti-cellulite cuisses & fesses, séance unique": "/slim/rf-corps.png",
 };
 
 // Catalogue et réservation pour Prestige Slim & Lift

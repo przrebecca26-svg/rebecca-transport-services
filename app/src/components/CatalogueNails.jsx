@@ -19,11 +19,14 @@ const PHOTOS = {
   "Pose acrylique + VSP": "/nails/pose_acrylique_vsp.jpg",
   "Remplissage acrylique": "/nails/remplissage_acrylique.jpg",
   "Flash Gel-X": "/nails/flash_gel_x.jpg",
-  "Gainage ongles naturels": "/nails/gainage_ongles_naturels.jpg",
-  "Renforcement ongles naturels": "/nails/renforcement_ongles_naturels.jpg",
-  "Nail art": "/nails/nail_art_detail.jpg",
-  "Manucure": "/nails/manucure_nude.jpg",
-  "Réparation ongle": "/nails/reparation_ongle_detail.jpg",
+  "Mivne anatomie (gainage)": "/nails/gainage_ongles_naturels.jpg",
+  "Renforcement": "/nails/renforcement_ongles_naturels.jpg",
+  "Nail art (par ongle)": "/nails/nail_art_detail.jpg",
+  "Réparation ou rajout (par ongle)": "/nails/reparation_ongle_detail.jpg",
+  "Dépose Gel-X / gel": "/nails/flash_gel_x.jpg",
+  "Dépose acrylique / gel de construction": "/nails/remplissage_acrylique.jpg",
+  "Gel de construction": "/nails/extensions_gel_vsp.jpg",
+  "Remplissage gel de construction": "/nails/remplissage_gel.jpg",
 };
 
 // Catalogue et réservation pour Nails Prestige

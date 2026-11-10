@@ -1,0 +1,47 @@
+DOSSIER CHRONOLOGIQUE — REBECCA SERVICES
+Préparé pour Claude (reprise mercredi)
+10 novembre 2026
+
+1. ÉTAT INITIAL
+- Archive ZIP fournie par Rebecca (rebecca-transport-services-main.zip à 11:07)
+- Règles Firestore v10 (9 novembre) de Claude
+
+2. VERSIONS SUCCESSIVES
+- V1 : Patch initial activiteDe + commandes (corrigé)
+- V2 : produitId + contrôle catalogue
+- V3 : syntaxe Map.get, typePrix == "devis", fallback local retiré
+- V3+ : variantes Epoxy + raccordement admin
+
+3. MODIFICATIONS POUSSÉES
+- Commit b8cff70 sur main
+- Fichiers : CatalogueEpoxy, CommandesEpoxy, Admin.jsx, 4 catalogues beauté, docs/
+
+4. RÈGLES FIRESTORE
+- v10 originale : non modifiée en production
+- Patch v11 proposé : docs/firestore-rules-patch-epoxy-et-activites-v3.txt
+- À publier manuellement par Rebecca ou Claude après validation
+
+5. FONCTIONNALITÉS
+- Terminées : catalogues visibles, formulaires beauté corrigés, commandes Epoxy (code), admin raccordé
+- Restantes : publication des règles v11, verrouillage créneaux, parcours connexion forcé, photos réelles
+
+6. DÉPLOIEMENT
+- Push sur main effectué
+- Netlify devrait déclencher un déploiement automatique
+- À vérifier sur le tableau Netlify
+
+7. POINTS À CONTRÔLER PAR CLAUDE
+- Publication du patch v11
+- Tests d'écriture Firebase réels
+- Verrouillage atomique des créneaux
+- Adaptation fine des variantes dans les règles
+- Régressions éventuelles
+
+Fin du dossier.
+
+MISE À JOUR — 10 novembre 2026 (après-midi)
+- Catalogue Epoxy : restauration de l'affichage complet depuis CATALOGUE_DEPART
+- Digital & Applications : offre commerciale complète restaurée (formules + maintenance)
+- CSS mobile : correction des cartes
+- Commit poussé sur main
+

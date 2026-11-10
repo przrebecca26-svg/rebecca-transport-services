@@ -178,7 +178,11 @@ export default function CatalogueRegenx({ onRetour }) {
         <img src="/brand/logo-regenx.png" alt="" width={48} height={48} style={{ borderRadius: "50%" }} />
         <h2>RegenX</h2>
       </div>
-      <p>Prestations d'onglerie. Choisissez une prestation pour réserver.</p>
+      <p>Choisissez une prestation pour réserver.</p>
+      <div style={{ background: "#191518", padding: 12, borderRadius: 8, margin: "12px 0", fontSize: 14 }}>
+        <strong>Important :</strong> Un diagnostic est obligatoire avant toute prestation. 
+        Certaines contre-indications peuvent s'appliquer. Rebecca vous informera des précautions à respecter.
+      </div>
       {categories.map((cat) => (
         <div key={cat}>
           <h3>{cat}</h3>

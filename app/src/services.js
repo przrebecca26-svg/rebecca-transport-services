@@ -22,6 +22,14 @@ const ouiNon = [
 // visibleParDefaut : false = espace invisible pour tous, sauf les clients que Rebecca autorise un par un.
 
 export const ACTIVITES = {
+  slim: {
+    id: "slim",
+    titre: "Prestige Slim & Lift",
+    texte: "Soins minceur et raffermissement : radiofréquence, cavitation, anti-cellulite.",
+    visibleParDefaut: true,
+    ordre: 6,
+    logo: "/brand/logo-prestige-slim-lift.png",
+  },
   epoxy: {
     id: "epoxy",
     titre: "Boutique Epoxy",

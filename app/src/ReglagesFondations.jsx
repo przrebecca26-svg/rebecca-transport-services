@@ -31,7 +31,7 @@ import "./reglages.css";
 //  - Activites : horaires, temps entre deux clientes, acompte, acces (collection activites).
 // Rebecca (21h14) : les prix valides sont la base de depart, TOUT est modifiable ici, sans code.
 
-const NOMS_ACTIVITE = { nails: "Nails Prestige", hair: "Prestige Hair", slim: "Prestige Slim & Lift", regenx: "RegenX", epoxy: "Boutique Epoxy" };
+const NOMS_ACTIVITE = { nails: "Nails Prestige", hair: "Prestige Hair", slim: "Prestige Slim & Lift", regenx: "RegenX", epoxy: "Boutique Epoxy", digital: "Digital & Applications" };
 const enTexte = (c, v) => (c.pourcent ? String(Math.round(v * 10000) / 100) : String(v));
 
 function Message({ m }) {

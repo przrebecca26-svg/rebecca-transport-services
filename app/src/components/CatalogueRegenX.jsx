@@ -14,12 +14,12 @@ import { WHATSAPP } from "../contact.js";
 const PHOTOS = {
   "Diagnostic (obligatoire)": "/regenx/diagnostic.jpg",
   "Sourcils": "/regenx/sourcils.jpg",
-  "Barbe, 1 zone": "/regenx/stylo.jpg",
-  "Barbe, plusieurs zones": "/regenx/stylo.jpg",
-  "Barbe entière": "/regenx/stylo.jpg",
-  "Cheveux, 1 zone": "/regenx/appareil.jpg",
-  "Cheveux, plusieurs zones": "/regenx/appareil.jpg",
-  "Cheveux, tête entière": "/regenx/appareil.jpg",
+  "Barbe, 1 zone": "/regenx/appareil.jpg",
+  "Barbe, plusieurs zones": "/regenx/appareil.jpg",
+  "Barbe entière": "/regenx/appareil.jpg",
+  "Cheveux, 1 zone": "/regenx/stylo.jpg",
+  "Cheveux, plusieurs zones": "/regenx/stylo.jpg",
+  "Cheveux, tête entière": "/regenx/stylo.jpg",
 };
 
 // Catalogue et réservation pour RegenX
@@ -229,6 +229,15 @@ export default function CatalogueRegenx({ onRetour }) {
       <div style={{ background: "#191518", padding: 12, borderRadius: 8, margin: "12px 0", fontSize: 14 }}>
         <strong>Important :</strong> Un diagnostic est obligatoire avant toute prestation. 
         Certaines contre-indications peuvent s'appliquer. Rebecca vous informera des précautions à respecter.
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <h3>Galerie</h3>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+          <img src="/regenx/produits.jpg" alt="Sérums" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8 }} />
+          <img src="/regenx/stylo.jpg" alt="Protocole" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8 }} />
+          <img src="/regenx/materiel.jpg" alt="Aiguille" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8 }} />
+          <img src="/regenx/resultats.jpg" alt="Résultats" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8 }} />
+        </div>
       </div>
       {categories.map((cat) => (
         <div key={cat}>

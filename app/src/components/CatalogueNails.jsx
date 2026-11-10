@@ -8,8 +8,19 @@ import { enregistrerDemande } from "../demandes.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
+// Mapping temporaire des photos générées (remplaçables dans l'admin)
+const PHOTOS = {
+  "Semi-permanent (VSP)": "/nails/semi-permanent.jpg",
+  "Beauté des mains": "/nails/beaute-mains.jpg",
+  "Extensions gel + VSP": "/nails/extensions-gel.jpg",
+  "Remplissage gel": "/nails/remplissage-gel.jpg",
+  "Pose acrylique + VSP": "/nails/acrylique.jpg",
+  "Flash Gel-X": "/nails/gel-x.jpg",
+  "Semi-permanent enfant (12 ans minimum)": "/nails/enfant.jpg",
+};
+
 // Catalogue et réservation pour Nails Prestige
-export default function CatalogueNails({ onRetour, onReserver }) {
+export default function CatalogueNails({ onRetour }) {
   const [prestations, setPrestations] = useState([]);
   const [activite, setActivite] = useState(null);
   const [selection, setSelection] = useState(null);
@@ -25,7 +36,7 @@ export default function CatalogueNails({ onRetour, onReserver }) {
       query(collection(db, "catalogue"), where("activite", "==", "nails")),
       (s) => {
         const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.publiee);
-        setPrestations(items.length ? items : CATALOGUE_DEPART.filter((p) => p.activite === "nails" && p.publiee));
+        setPrestations(items.length ? items : CATALOGUE_DEPART.filter((p) => p.activite === "nails"));
       },
       () => setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "nails"))
     );
@@ -59,6 +70,7 @@ export default function CatalogueNails({ onRetour, onReserver }) {
   }, [selection, date, activite, occupes]);
 
   const categories = [...new Set(prestations.map((p) => p.categorie))];
+  const photoDe = (nom) => PHOTOS[nom] || null;
 
   const envoyer = async () => {
     if (!client.nom.trim() || !client.telephone.trim()) {
@@ -76,7 +88,7 @@ export default function CatalogueNails({ onRetour, onReserver }) {
       nom: client.nom.trim(),
       telephone: client.telephone.trim(),
       moyenPaiement: client.moyenPaiement,
-      prixEstime: p.prixFixe || null,
+      prixEstime: p.prix || null,
       surDevis: false,
       details: { prestation: p.nom, duree: p.dureeMinutes },
       message,
@@ -106,17 +118,19 @@ export default function CatalogueNails({ onRetour, onReserver }) {
 
   if (selection && heure) {
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
+    const photo = photoDe(p.nom);
     return (
       <section className="catalogue-nails">
         <button className="lien" onClick={() => setHeure("")}>← Changer le créneau</button>
         <h2>Finaliser la réservation</h2>
+        {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
         <p><strong>{p.nom}</strong> · {date} à {heure}</p>
         <p>{libellePrix(p)} · {libelleDuree(p)}</p>
         <label>Votre nom<br /><input value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
         <label>Votre téléphone<br /><input type="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} required /></label>
         <label>Moyen de paiement<br />
           <select value={client.moyenPaiement} onChange={(e) => setClient({ ...client, moyenPaiement: e.target.value })}>
-            {TARIFS.moyensPaiement.map((m) => <option key={m}>{m}</option>)}
+            {(TARIFS.moyensPaiement || ["Espèces", "Carte", "Bit"]).map((m) => <option key={m}>{m}</option>)}
           </select>
         </label>
         {envoi.erreur && <p className="erreur">{envoi.erreur}</p>}
@@ -130,10 +144,12 @@ export default function CatalogueNails({ onRetour, onReserver }) {
 
   if (selection) {
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
+    const photo = photoDe(p.nom);
     return (
       <section className="catalogue-nails">
         <button className="lien" onClick={() => setSelection(null)}>← Retour au catalogue</button>
         <h2>{p.nom}</h2>
+        {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 360, borderRadius: 12, margin: "8px 0" }} />}
         <p>{p.description}</p>
         <p><strong>{libellePrix(p)}</strong> · {libelleDuree(p)}</p>
         <label>
@@ -176,8 +192,10 @@ export default function CatalogueNails({ onRetour, onReserver }) {
           <h3>{cat}</h3>
           {prestations.filter((p) => p.categorie === cat).map((p) => {
             const aff = avecAjustement(p, activite?.ajustementPourcent || 0);
+            const photo = photoDe(aff.nom);
             return (
-              <button key={p.id} className="carte-service" onClick={() => setSelection(p)}>
+              <button key={p.id} className="carte-service" onClick={() => setSelection(p)} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {photo && <img src={photo} alt="" width={64} height={64} style={{ borderRadius: 8, objectFit: "cover" }} />}
                 <span className="corps">
                   <strong>{aff.nom}</strong>
                   <small>{aff.description || libelleDuree(aff)}</small>

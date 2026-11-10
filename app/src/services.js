@@ -22,6 +22,14 @@ const ouiNon = [
 // visibleParDefaut : false = espace invisible pour tous, sauf les clients que Rebecca autorise un par un.
 
 export const ACTIVITES = {
+  hair: {
+    id: "hair",
+    titre: "Prestige Hair",
+    texte: "Coiffure, coupe, couleur, brushing et coiffures de soirée ou mariée.",
+    visibleParDefaut: true,
+    ordre: 7,
+    logo: "/brand/logo-prestige-hair.png",
+  },
   slim: {
     id: "slim",
     titre: "Prestige Slim & Lift",

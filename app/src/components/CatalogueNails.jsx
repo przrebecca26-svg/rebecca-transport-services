@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../firebase.js";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../firebase.js";
 import { CATALOGUE_DEPART, ACTIVITES_DEPART, avecAjustement, libellePrix, libelleDuree } from "../pricing/catalogue.js";
 import { creneauxDuJour } from "../pricing/rendezvous.js";
 import { TARIFS } from "../pricing/config.js";

@@ -394,13 +394,7 @@ export const valeurTarif = (chemin, t = TARIFS) => lireChemin(t, chemin);
 export function appliquerTarifs(valeurs = {}, t = TARIFS) {
   let n = 0;
   for (const c of TARIFS_EDITABLES) {
-    const v = Object.prototype.hasOwnProperty.call(valeurs, c.chemin) ? Number(valeurs[c.chemin]) : TARIFS_DEPART[c.chemin
-  // Digital & Applications
-  { id: "digital-essentielle", activite: "digital", categorie: "Formules", nom: "Formule Essentielle", description: "Site web responsive, présentation des services, espace client, demandes et réservations, base de données, notifications.", typePrix: "fixe", prix: 6900, publiee: true, ordre: 1 },
-  { id: "digital-business", activite: "digital", categorie: "Formules", nom: "Formule Business", description: "Espace client et administration, gestion des clients, commandes et réservations, tableau de bord, gestion des tarifs, historique, automatisations et tests.", typePrix: "fixe", prix: 14900, publiee: true, ordre: 2 },
-  { id: "digital-surmesure", activite: "digital", categorie: "Formules", nom: "Formule Sur mesure", description: "Architecture personnalisée, gestion avancée des droits, réservations complexes, paiements et API, automatisations, statistiques et fonctionnalités spécifiques.", typePrix: "devis", prix: null, publiee: true, ordre: 3 },
-  { id: "digital-maintenance", activite: "digital", categorie: "Maintenance", nom: "Maintenance mensuelle", description: "Mises à jour, sauvegardes, support et petites évolutions.", typePrix: "fixe", prix: 350, publiee: true, ordre: 4 },
-];
+    const v = Object.prototype.hasOwnProperty.call(valeurs, c.chemin) ? Number(valeurs[c.chemin]) : TARIFS_DEPART[c.chemin];
     const ok = Number.isFinite(v) && v >= 0 && v <= (c.pourcent ? 1 : 100000);
     if (ok && ecrireChemin(t, c.chemin, v)) n++;
   }

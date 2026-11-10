@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase.js";
-import { db } from "../firebase.js";
+import { auth, db } from "../firebase.js";
 import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";

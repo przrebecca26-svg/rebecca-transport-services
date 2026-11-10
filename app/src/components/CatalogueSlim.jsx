@@ -92,7 +92,17 @@ export default function CatalogueSlim({ onRetour }) {
     return PHOTOS[p.nom] || null;
   };
 
+  const creneauDejaPris = () => {
+    if (!selection || !client.date || !client.heure) return false;
+    const debut = client.date + "T" + client.heure;
+    return occupes.some((o) => o.debut === debut);
+  };
+
   const envoyer = async () => {
+    if (creneauDejaPris()) {
+      setEnvoi({ enCours: false, ok: false, erreur: "Ce créneau vient d'être pris. Choisis-en un autre." });
+      return;
+    }
     if (!user || !user.emailVerified) {
       setEnvoi({ enCours: false, ok: false, erreur: "Connecte-toi avec un compte vérifié pour réserver." });
       return;

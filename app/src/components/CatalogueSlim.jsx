@@ -178,7 +178,11 @@ export default function CatalogueSlim({ onRetour }) {
         <img src="/brand/logo-prestige-slim-lift.png" alt="" width={48} height={48} style={{ borderRadius: "50%" }} />
         <h2>Prestige Slim & Lift</h2>
       </div>
-      <p>Prestations d'onglerie. Choisissez une prestation pour réserver.</p>
+      <p>Choisissez une prestation pour réserver.</p>
+      <div style={{ background: "#191518", padding: 12, borderRadius: 8, margin: "12px 0", fontSize: 14 }}>
+        <strong>Important :</strong> Ces soins ne remplacent pas un avis médical. 
+        Des précautions s'appliquent (grossesse, problèmes de santé, etc.). Merci de les signaler avant le rendez-vous.
+      </div>
       {categories.map((cat) => (
         <div key={cat}>
           <h3>{cat}</h3>

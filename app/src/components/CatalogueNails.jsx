@@ -36,7 +36,7 @@ export default function CatalogueNails({ onRetour }) {
       query(collection(db, "catalogue"), where("activite", "==", "nails")),
       (s) => {
         const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.publiee);
-        setPrestations(items.length ? items : CATALOGUE_DEPART.filter((p) => p.activite === "nails"));
+        setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "nails")); // force affichage des prestations par défaut
       },
       () => setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "nails"))
     );

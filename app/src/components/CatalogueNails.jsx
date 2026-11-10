@@ -121,7 +121,7 @@ export default function CatalogueNails({ onRetour }) {
       window.open(url, "_blank", "noopener");
       setEnvoi({ enCours: false, ok: true, erreur: "" });
     } catch (e) {
-      setEnvoi({ enCours: false, ok: false, erreur: "Impossible d'enregistrer pour le moment. Contactez Rebecca sur WhatsApp." });
+      setEnvoi({ enCours: false, ok: false, erreur: e.code === "permission-denied" ? "Demande refusée (vérifie ton compte)." : "Impossible d'enregistrer pour le moment. Contactez Rebecca sur WhatsApp." });
     }
   };
 

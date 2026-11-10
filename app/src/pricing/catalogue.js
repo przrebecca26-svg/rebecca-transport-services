@@ -209,6 +209,8 @@ function EPOXY_DEPART() {
     e("Bougies", "Bougie carrousel", 150),
     e("Bougies", "Bougie tortue", 75),
     e("Bougies", "Bougie parfumée dans sa boîte Epoxy", 250),
+    e("Créations souvenir", "Création personnalisée", null, { typePrix: "devis", description: "Sur demande" }),
+    e("Collection Haesh Sheli", "Article Haesh Sheli", null, { typePrix: "devis", description: "Sur demande" }),
   ];
 }
 

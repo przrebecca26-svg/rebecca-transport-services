@@ -12,21 +12,20 @@ import { WHATSAPP } from "../contact.js";
 
 // Mapping temporaire des photos générées (remplaçables dans l'admin)
 const PHOTOS = {
-  "Semi-permanent (VSP)": "/nails/semi_permanent_vsp_rouge.jpg",
-  "Beauté des mains": "/nails/beaute_des_mains.jpg",
-  "Extensions gel + VSP": "/nails/extensions_gel_vsp.jpg",
-  "Remplissage gel": "/nails/remplissage_gel.jpg",
-  "Pose acrylique + VSP": "/nails/pose_acrylique_vsp.jpg",
-  "Remplissage acrylique": "/nails/remplissage_acrylique.jpg",
-  "Flash Gel-X": "/nails/flash_gel_x.jpg",
-  "Mivne anatomie (gainage)": "/nails/gainage_ongles_naturels.jpg",
-  "Renforcement": "/nails/renforcement_ongles_naturels.jpg",
-  "Nail art (par ongle)": "/nails/nail_art_detail.jpg",
-  "Réparation ou rajout (par ongle)": "/nails/reparation_ongle_detail.jpg",
-  "Dépose Gel-X / gel": "/nails/flash_gel_x.jpg",
-  "Dépose acrylique / gel de construction": "/nails/remplissage_acrylique.jpg",
-  "Gel de construction": "/nails/extensions_gel_vsp.jpg",
-  "Remplissage gel de construction": "/nails/remplissage_gel.jpg",
+  "Semi-permanent (VSP)": "/nails/semi-permanent.png",
+  "Beauté des mains": "/nails/beaute-mains.png",
+  "Extensions gel + VSP": "/nails/extensions-gel.png",
+  "Remplissage gel": "/nails/remplissage-gel.png",
+  "Pose acrylique + VSP": "/nails/acrylique.png",
+  "Flash Gel-X": "/nails/gel-x.png",
+  "Mivne anatomie (gainage)": "/nails/ambiance.png",
+  "Renforcement": "/nails/ambiance.png",
+  "Nail art (par ongle)": "/nails/ambiance.png",
+  "Réparation ou rajout (par ongle)": "/nails/ambiance.png",
+  "Dépose Gel-X / gel": "/nails/gel-x.png",
+  "Dépose acrylique / gel de construction": "/nails/acrylique.png",
+  "Gel de construction": "/nails/extensions-gel.png",
+  "Remplissage gel de construction": "/nails/remplissage-gel.png",
 };
 
 // Catalogue et réservation pour Nails Prestige

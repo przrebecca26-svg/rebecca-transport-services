@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/services.test.mjs && node ../rebecca-pricing/tests/pricing.test.mjs"
+    "test": "node tests/lancer.mjs"
   },
   "dependencies": {
     "firebase": "^11.0.2",

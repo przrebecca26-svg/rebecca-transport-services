@@ -12,13 +12,18 @@ import { WHATSAPP } from "../contact.js";
 
 // Mapping temporaire des photos générées (remplaçables dans l'admin)
 const PHOTOS = {
-  "Semi-permanent (VSP)": "/nails/semi-permanent.jpg",
-  "Beauté des mains": "/nails/beaute-mains.jpg",
-  "Extensions gel + VSP": "/nails/extensions-gel.jpg",
-  "Remplissage gel": "/nails/remplissage-gel.jpg",
-  "Pose acrylique + VSP": "/nails/acrylique.jpg",
-  "Flash Gel-X": "/nails/gel-x.jpg",
-  "Semi-permanent enfant (12 ans minimum)": "/nails/enfant.jpg",
+  "Semi-permanent (VSP)": "/nails/semi_permanent_vsp_rouge.jpg",
+  "Beauté des mains": "/nails/beaute_des_mains.jpg",
+  "Extensions gel + VSP": "/nails/extensions_gel_vsp.jpg",
+  "Remplissage gel": "/nails/remplissage_gel.jpg",
+  "Pose acrylique + VSP": "/nails/pose_acrylique_vsp.jpg",
+  "Remplissage acrylique": "/nails/remplissage_acrylique.jpg",
+  "Flash Gel-X": "/nails/flash_gel_x.jpg",
+  "Gainage ongles naturels": "/nails/gainage_ongles_naturels.jpg",
+  "Renforcement ongles naturels": "/nails/renforcement_ongles_naturels.jpg",
+  "Nail art": "/nails/nail_art_detail.jpg",
+  "Manucure": "/nails/manucure_nude.jpg",
+  "Réparation ongle": "/nails/reparation_ongle_detail.jpg",
 };
 
 // Catalogue et réservation pour Nails Prestige

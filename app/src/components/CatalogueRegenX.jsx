@@ -9,7 +9,11 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
-const PHOTOS = {};
+const PHOTOS = {
+  "Sourcils": "/regenx/sourcils.jpg",
+  "Barbe, 1 zone": "/regenx/sourcils.jpg",
+  "Cheveux, 1 zone": "/regenx/sourcils.jpg",
+};
 
 // Catalogue et réservation pour RegenX
 export default function CatalogueRegenx({ onRetour }) {

@@ -9,7 +9,11 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
-const PHOTOS = {};
+const PHOTOS = {
+  "Radiofréquence visage ou cou": "/slim/radio.jpg",
+  "Radiofréquence corps (1 zone)": "/slim/radio.jpg",
+  "Cavitation ultrasonique (1 zone)": "/slim/radio.jpg",
+};
 
 // Catalogue et réservation pour Prestige Slim & Lift
 export default function CatalogueSlim({ onRetour }) {

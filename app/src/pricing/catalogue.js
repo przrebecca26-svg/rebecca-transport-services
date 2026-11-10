@@ -159,6 +159,11 @@ export const CATALOGUE_DEPART = [
   p("regenx", "Cheveux", "Cheveux, tête entière", null, 240, { typePrix: "prive" }),
   // Boutique Epoxy (liste de Rebecca, 9 nov. 2026, 21h24). Variantes a deux prix : Rebecca les renomme dans l'admin.
   ...EPOXY_DEPART(),
+  // Digital & Applications
+  p("digital", "Formules", "Formule Essentielle", 6900, null, { description: "Site web responsive, présentation des services, espace client, demandes et réservations, base de données, notifications.", publiee: true }),
+  p("digital", "Formules", "Formule Business", 14900, null, { description: "Espace client et administration, gestion des clients, commandes et réservations, tableau de bord, gestion des tarifs, historique, automatisations et tests.", publiee: true }),
+  p("digital", "Formules", "Formule Sur mesure", null, null, { typePrix: "devis", description: "Architecture personnalisée, gestion avancée des droits, réservations complexes, paiements et API, automatisations, statistiques et fonctionnalités spécifiques.", publiee: true }),
+  p("digital", "Maintenance", "Maintenance mensuelle", 350, null, { description: "Mises à jour, sauvegardes, support et petites évolutions.", publiee: true }),
 ];
 
 function EPOXY_DEPART() {

@@ -199,7 +199,7 @@ function PhotosArticle({ prestationId }) {
         <div key={p.id} className="rg-photo">
           <img src={p.donnees} alt={p.legende || "Photo de l'article"} />
           <input className="am-champ" defaultValue={p.legende || ""} maxLength={PHOTO.legendeMax} placeholder="Ex : 30 x 20 cm, noir et or" onBlur={(e) => e.target.value !== (p.legende || "") && legende(p, e.target.value)} />
-          <button type="button" className="tb-retour aj-lien" onClick={() => supprimer(p)}>Retirer la photo</button>
+          <button type="button" className="tb-bouton tb-danger" onClick={() => { if (confirm("Supprimer cette photo ?")) supprimer(p); }}>Supprimer</button>
         </div>
       ))}
       {photos.length < PHOTO.maxParArticle && (

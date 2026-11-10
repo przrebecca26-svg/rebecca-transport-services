@@ -26,6 +26,21 @@ export default function CatalogueRegenx({ onRetour }) {
   const [occupes, setOccupes] = useState([]);
   const [client, setClient] = useState({ nom: "", telephone: "", moyenPaiement: "Espèces" });
   const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
+  const [photos, setPhotos] = useState({});
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "photosCatalogue"), (s) => {
+      const map = {};
+      s.docs.forEach((d) => {
+        const data = d.data();
+        if (data.prestationId && data.donnees) {
+          if (!map[data.prestationId]) map[data.prestationId] = [];
+          map[data.prestationId].push(data.donnees);
+        }
+      });
+      setPhotos(map);
+    }, () => {});
+    return unsub;
+  }, []);
 
   useEffect(() => {
     const unsubCat = onSnapshot(
@@ -66,7 +81,10 @@ export default function CatalogueRegenx({ onRetour }) {
   }, [selection, date, activite, occupes]);
 
   const categories = [...new Set(prestations.map((p) => p.categorie))];
-  const photoDe = (nom) => PHOTOS[nom] || null;
+  const photoDe = (p) => {
+    if (p && p.id && photos[p.id] && photos[p.id][0]) return photos[p.id][0];
+    return PHOTOS[p.nom] || null;
+  };
 
   const envoyer = async () => {
     if (!client.nom.trim() || !client.telephone.trim()) {
@@ -116,7 +134,7 @@ export default function CatalogueRegenx({ onRetour }) {
 
   if (selection && heure) {
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
-    const photo = photoDe(p.nom);
+    const photo = photoDe(p);
     return (
       <section className="catalogue-nails">
         <button className="lien" onClick={() => setHeure("")}>← Changer le créneau</button>
@@ -142,7 +160,7 @@ export default function CatalogueRegenx({ onRetour }) {
 
   if (selection) {
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
-    const photo = photoDe(p.nom);
+    const photo = photoDe(p);
     return (
       <section className="catalogue-nails">
         <button className="lien" onClick={() => setSelection(null)}>← Retour au catalogue</button>
@@ -194,7 +212,7 @@ export default function CatalogueRegenx({ onRetour }) {
           <h3>{cat}</h3>
           {prestations.filter((p) => p.categorie === cat).map((p) => {
             const aff = avecAjustement(p, activite?.ajustementPourcent || 0);
-            const photo = photoDe(aff.nom);
+            const photo = photoDe(aff);
             return (
               <div key={p.id} className="carte-service" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button onClick={() => setSelection(p)} style={{ flex: 1, textAlign: "left", background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>

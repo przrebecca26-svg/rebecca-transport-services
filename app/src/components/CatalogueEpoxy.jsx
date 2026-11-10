@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase.js";
 import { db } from "../firebase.js";
@@ -18,6 +19,21 @@ export default function CatalogueEpoxy({ onRetour }) {
   const [variante, setVariante] = useState(null);
   const [client, setClient] = useState({ nom: "", telephone: "", quantite: 1, message: "" });
   const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
+  const [photos, setPhotos] = useState({});
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "photosCatalogue"), (s) => {
+      const map = {};
+      s.docs.forEach((d) => {
+        const data = d.data();
+        if (data.prestationId && data.donnees) {
+          if (!map[data.prestationId]) map[data.prestationId] = [];
+          map[data.prestationId].push(data.donnees);
+        }
+      });
+      setPhotos(map);
+    }, () => {});
+    return unsub;
+  }, []);
   const [user, setUser] = useState(null);
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
 

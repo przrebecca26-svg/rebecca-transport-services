@@ -241,7 +241,13 @@ export default function CatalogueRegenx({ onRetour }) {
       </div>
       {categories.map((cat) => (
         <div key={cat}>
-          <h3>{cat}</h3>
+          <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {cat === "Sourcils" && <img src="/regenx/sourcils.jpg" alt="" width={40} height={40} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Barbe" && <img src="/regenx/appareil.jpg" alt="" width={40} height={40} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Cheveux" && <img src="/regenx/stylo.jpg" alt="" width={40} height={40} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Diagnostic" && <img src="/regenx/diagnostic.jpg" alt="" width={40} height={40} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat}
+          </h3>
           {prestations.filter((p) => p.categorie === cat).map((p) => {
             const aff = avecAjustement(p, activite?.ajustementPourcent || 0);
             const photo = photoDe(aff);

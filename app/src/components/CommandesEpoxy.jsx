@@ -35,7 +35,7 @@ export default function CommandesEpoxy({ onRetour }) {
       <button className="lien" onClick={onRetour}>← Retour</button>
       <h2>Commandes Epoxy</h2>
       {commandes.length === 0 && <p>Aucune commande.</p>}
-      {commandes.map((c) => (
+      {commandes.filter((c) => filtreStatut === "tous" || c.statut === filtreStatut).map((c) => (
         <div key={c.id} className="carte-service" style={{ marginBottom: 12 }}>
           <strong>{c.produit}</strong> × {c.quantite}
           <div>{c.surDevis ? "Sur devis" : (c.prixUnitaire + " ₪")}</div>

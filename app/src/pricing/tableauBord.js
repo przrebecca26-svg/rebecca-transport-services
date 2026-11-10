@@ -12,12 +12,12 @@ import { SERVICES } from "../services.js";
 export const ACTIVITES_TB = [
   { id: "coursier", titre: "Services coursier", etat: "active", icone: "coursier" },
   { id: "transport", titre: "Transport privé", etat: "active", icone: "transport" },
-  { id: "nails", titre: "Nails Prestige", etat: "bientot", logo: "/brand/logo-nails-prestige.png" },
-  { id: "regenx", titre: "RegenX", etat: "bientot", logo: "/brand/logo-regenx.png" },
-  { id: "epoxy", titre: "Boutique Epoxy", etat: "bientot", logo: "/brand/logo-epoxy.png" },
-  { id: "digital", titre: "Digital & Applications", etat: "bientot", logo: "/brand/logo-digital-applications.png" },
-  { id: "slim", titre: "Prestige Slim & Lift", etat: "bientot", logo: "/brand/logo-prestige-slim-lift.png" },
-  { id: "hair", titre: "Prestige Hair", etat: "bientot", logo: "/brand/logo-prestige-hair.png" },
+  { id: "nails", titre: "Nails Prestige", etat: "active", logo: "/brand/logo-nails-prestige.png" },
+  { id: "regenx", titre: "RegenX", etat: "active", logo: "/brand/logo-regenx.png" },
+  { id: "epoxy", titre: "Boutique Epoxy", etat: "active", logo: "/brand/logo-epoxy.png" },
+  { id: "digital", titre: "Digital & Applications", etat: "active", logo: "/brand/logo-digital-applications.png" },
+  { id: "slim", titre: "Prestige Slim & Lift", etat: "active", logo: "/brand/logo-prestige-slim-lift.png" },
+  { id: "hair", titre: "Prestige Hair", etat: "active", logo: "/brand/logo-prestige-hair.png" },
 ];
 
 const ACTIVITE_DE = Object.fromEntries(SERVICES.map((s) => [s.id, s.activite]));

@@ -26,6 +26,8 @@ export default function CatalogueRegenx({ onRetour }) {
   const [occupes, setOccupes] = useState([]);
   const [client, setClient] = useState({ nom: "", telephone: "", moyenPaiement: "Espèces" });
   const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
+  const [user, setUser] = useState(null);
+  useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
   const [photos, setPhotos] = useState({});
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "photosCatalogue"), (s) => {
@@ -87,6 +89,10 @@ export default function CatalogueRegenx({ onRetour }) {
   };
 
   const envoyer = async () => {
+    if (!user || !user.emailVerified) {
+      setEnvoi({ enCours: false, ok: false, erreur: "Connecte-toi avec un compte vérifié pour réserver." });
+      return;
+    }
     if (!client.nom.trim() || !client.telephone.trim()) {
       setEnvoi({ enCours: false, ok: false, erreur: "Nom et téléphone obligatoires." });
       return;

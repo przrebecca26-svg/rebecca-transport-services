@@ -214,7 +214,7 @@ function EPOXY_DEPART() {
   ];
 }
 
-export const ACTIVITES_CATALOGUE = ["nails", "hair", "slim", "regenx", "epoxy"];
+export const ACTIVITES_CATALOGUE = ["nails", "hair", "slim", "regenx", "epoxy", "digital"];
 
 // Categories proposees pour la boutique Epoxy (releve Instagram) ; Rebecca ajoute ses articles
 export const CATEGORIES_EPOXY = ["Décoration", "Rangement", "Salle de bain", "Plateaux", "Cuisine et table", "Bijoux et accessoires", "Mobilier", "Chabbat et fêtes", "Lampes", "Bougies", "Créations souvenir", "Collection Haesh Sheli"];

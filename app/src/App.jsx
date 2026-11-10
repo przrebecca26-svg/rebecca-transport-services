@@ -13,6 +13,7 @@ import IconeService from "./components/IconeService.jsx";
 import CatalogueNails from "./components/CatalogueNails.jsx";
 import CatalogueRegenX from "./components/CatalogueRegenX.jsx";
 import CatalogueEpoxy from "./components/CatalogueEpoxy.jsx";
+import CatalogueSlim from "./components/CatalogueSlim.jsx";
 import BoutonsFlottants from "./components/BoutonsFlottants.jsx";
 import "./client-commun.css";
 import "./theme-site.css";
@@ -209,6 +210,18 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails }) {
             </section>
           );
         }
+        if (a.id === "slim") {
+          return (
+            <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
+              <div style={ENTETE}>
+                <Logo src={a.logo || "/brand/logo-prestige-slim-lift.png"} taille={52} />
+                <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
+              </div>
+              <p className="consigne">{a.texte}</p>
+              <button className="bouton" onClick={() => onSlim && onSlim()}>Voir les soins</button>
+            </section>
+          );
+        }
         return (
           <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
             <div style={ENTETE}>
@@ -350,7 +363,7 @@ export default function App() {
     <div className="appli theme-site">
       <main>
         {ecran.nom === "accueil" && (
-          <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} />
+          <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} />
         )}
         {ecran.nom === "catalogue-nails" && (
           <CatalogueNails onRetour={() => aller({ nom: "accueil" })} />
@@ -360,6 +373,9 @@ export default function App() {
         )}
         {ecran.nom === "catalogue-epoxy" && (
           <CatalogueEpoxy onRetour={() => aller({ nom: "accueil" })} />
+        )}
+        {ecran.nom === "catalogue-slim" && (
+          <CatalogueSlim onRetour={() => aller({ nom: "accueil" })} />
         )}
         {ecran.nom === "form" && (
           <ServiceForm

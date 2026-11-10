@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../firebase.js";
 import { db } from "../firebase.js";
 import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
@@ -16,6 +18,8 @@ export default function CatalogueEpoxy({ onRetour }) {
   const [variante, setVariante] = useState(null);
   const [client, setClient] = useState({ nom: "", telephone: "", quantite: 1, message: "" });
   const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
+  const [user, setUser] = useState(null);
+  useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
 
   useEffect(() => {
     // Source de vérité : CATALOGUE_DEPART (validé). Firestore peut surcharger.
@@ -45,6 +49,10 @@ export default function CatalogueEpoxy({ onRetour }) {
   const surDevis = () => prixEffectif() === null;
 
   const envoyer = async () => {
+    if (!user || !user.emailVerified) {
+      setEnvoi({ enCours: false, ok: false, erreur: "Connecte-toi avec un compte vérifié pour commander." });
+      return;
+    }
     if (!client.nom.trim() || !client.telephone.trim()) {
       setEnvoi({ enCours: false, ok: false, erreur: "Nom et téléphone obligatoires." });
       return;
@@ -83,7 +91,7 @@ export default function CatalogueEpoxy({ onRetour }) {
       window.open(lienWhatsApp(WHATSAPP, msg), "_blank", "noopener");
       setEnvoi({ enCours: false, ok: true, erreur: "" });
     } catch (e) {
-      setEnvoi({ enCours: false, ok: false, erreur: "Impossible d'enregistrer la commande. Contactez Rebecca sur WhatsApp." });
+      setEnvoi({ enCours: false, ok: false, erreur: e.code === "permission-denied" ? "Commande refusée (compte non vérifié ou produit non disponible)." : "Impossible d'enregistrer la commande. Contactez Rebecca sur WhatsApp." });
     }
   };
 

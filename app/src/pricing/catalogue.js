@@ -125,7 +125,7 @@ export const CATALOGUE_DEPART = [
   p("hair", "Brushing", "Brushing cheveux courts", 100, 45),
   p("hair", "Brushing", "Brushing cheveux mi-longs", 120, 60),
   p("hair", "Brushing", "Brushing cheveux longs", 140, 90),
-  p("hair", "Coupe", "Coupe enfant (-12 ans)", 100, 30),
+  p("hair", "Coupe", "Coupe enfant (-12 ans)", 60, 30),
   p("hair", "Coupe", "Coupe homme", 90, 45),
   p("hair", "Coupe", "Shampoing + coupe + brushing", 180, 105),
   p("hair", "Coupe", "Coupe cheveux longs + shampoing + brushing", 250, 120),

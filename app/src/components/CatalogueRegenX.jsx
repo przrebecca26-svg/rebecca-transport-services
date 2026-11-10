@@ -83,7 +83,7 @@ export default function CatalogueRegenx({ onRetour }) {
   const categories = [...new Set(prestations.map((p) => p.categorie))];
   const photoDe = (p) => {
     if (p && p.id && photos[p.id] && photos[p.id][0]) return photos[p.id][0];
-    return PHOTOS[p.nom] || null;
+    return PHOTOS[p.nom] || "/regenx/placeholder.jpg";
   };
 
   const envoyer = async () => {

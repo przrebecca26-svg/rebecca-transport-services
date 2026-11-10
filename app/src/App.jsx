@@ -173,119 +173,104 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails }) {
         </section>
       )}
 
-      {Object.values(ACTIVITES).sort((x, y) => x.ordre - y.ordre).map((a) => {
-        const t = TEXTES_ACCUEIL[a.id] || a;
-        if (!activitesVisibles(acces).some((v) => v.id === a.id)) return <SurDemande key={a.id} a={a} />;
-        if (a.id === "nails") {
-          return (
-            <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
-              <div style={ENTETE}>
-                <Logo src={a.logo || "/brand/logo-nails-prestige.png"} taille={52} />
-                <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
-              </div>
-              <p className="consigne">{a.texte}. Choisissez une prestation pour réserver.</p>
-              <button className="bouton" onClick={onNails}>Voir les prestations et réserver</button>
-            </section>
-          );
-        }
-        if (a.id === "regenx") {
-          return (
-            <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
-              <div style={ENTETE}>
-                <Logo src={a.logo || "/brand/logo-regenx.png"} taille={52} />
-                <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
-              </div>
-              <p className="consigne">{a.texte}</p>
-              <button className="bouton" onClick={() => onRegenX && onRegenX()}>Voir les prestations</button>
-            </section>
-          );
-        }
-        if (a.id === "epoxy") {
-          return (
-            <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
-              <div style={ENTETE}>
-                <Logo src={a.logo || "/brand/logo-epoxy.png"} taille={52} />
-                <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
-              </div>
-              <p className="consigne">{a.texte}</p>
-              <button className="bouton" onClick={() => onEpoxy && onEpoxy()}>Voir la boutique</button>
-            </section>
-          );
-        }
-        if (a.id === "slim") {
-          return (
-            <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
-              <div style={ENTETE}>
-                <Logo src={a.logo || "/brand/logo-prestige-slim-lift.png"} taille={52} />
-                <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
-              </div>
-              <p className="consigne">{a.texte}</p>
-              <button className="bouton" onClick={() => onSlim && onSlim()}>Voir les soins</button>
-            </section>
-          );
-        }
-        if (a.id === "hair") {
-          return (
-            <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
-              <div style={ENTETE}>
-                <Logo src={a.logo || "/brand/logo-prestige-hair.png"} taille={52} />
-                <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
-              </div>
-              <p className="consigne">{a.texte}</p>
-              <button className="bouton" onClick={() => onHair && onHair()}>Voir les prestations</button>
-            </section>
-          );
-        }
-        if (a.id === "digital") {
-          return (
-            <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
-              <div style={ENTETE}>
-                <Logo src={a.logo || "/brand/logo-digital-applications.png"} taille={52} />
-                <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
-              </div>
-              <p className="consigne">{a.texte}</p>
-              <button className="bouton" onClick={() => onDigital && onDigital()}>Découvrir</button>
-            </section>
-          );
-        }
-        return (
-          <section key={a.id} className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
-            <div style={ENTETE}>
-              {t.logo ? <Logo src={t.logo} taille={52} /> : <span className="espace-icone" aria-hidden="true"><IconeService id={servicesDe(a.id)[0]?.id} /></span>}
-              <h2 id={"titre-" + a.id} style={TITRE}>{t.titre}</h2>
-            </div>
-            <p className="consigne">{t.texte.replace(/\.$/, "")}. Le devis s'affiche en direct.</p>
-            <div className="services">
-              {servicesDe(a.id).map((s) => (
-                <Carte key={s.id} s={s} onClick={() => onChoix(s.id)} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {/* Services coursier */}
+      {activitesVisibles(acces).some((v) => v.id === "coursier") && (
+        <section className="espace" style={ESPACE}>
+          <div style={ENTETE}>
+            <Logo src={MEDAILLON} taille={52} />
+            <h2 style={TITRE}>Services coursier</h2>
+          </div>
+          <p className="consigne">Livraisons, courses et petits déménagements. Le devis s'affiche en direct.</p>
+          <div className="services">
+            {servicesDe("coursier").map((s) => (
+              <Carte key={s.id} s={s} onClick={() => onChoix(s.id)} />
+            ))}
+          </div>
+        </section>
+      )}
 
-      <section className="espace" style={ESPACE} aria-labelledby="titre-bientot">
-        <h2 id="titre-bientot" style={TITRE}>Bientôt sur {NOM}</h2>
+      {/* Transport privé */}
+      {activitesVisibles(acces).some((v) => v.id === "transport") ? (
+        <section className="espace" style={ESPACE}>
+          <div style={ENTETE}>
+            <span className="espace-icone" aria-hidden="true"><IconeService id="transport" /></span>
+            <h2 style={TITRE}>Transport privé</h2>
+          </div>
+          <p className="consigne">Trajets, aéroport, Hatan & Kala, ramassage scolaire et mise à disposition. Le devis s'affiche en direct.</p>
+          <div className="services">
+            {servicesDe("transport").map((s) => (
+              <Carte key={s.id} s={s} onClick={() => onChoix(s.id)} />
+            ))}
+          </div>
+        </section>
+      ) : (
+        <SurDemande a={{ id: "transport", titre: "Transport privé", texte: "Trajets, aéroport, Hatan & Kala, ramassage scolaire et mise à disposition." }} />
+      )}
+
+      {/* Beauté & bien-être */}
+      <section className="espace" style={ESPACE}>
+        <div style={ENTETE}>
+          <Logo src="/brand/logo-prestige-beautys.png" taille={52} />
+          <h2 style={TITRE}>Beauté & bien-être</h2>
+        </div>
+        <p className="consigne">Ongles, coiffure, reconstruction du cheveu et du poil, soins et beauté de la silhouette.</p>
         <div className="services">
-          {BIENTOT.map((b) => (
-            <div key={b.id} className="carte-service bientot" style={BIENTOT_STYLE} aria-disabled="true">
-              <span className="icone" aria-hidden="true"><Logo src={b.logo} /></span>
-              <span className="corps">
-                <strong>{b.titre}</strong>
-                <small>{b.texte}</small>
-                {b.marques && (
-                  <span style={MARQUES}>
-                    {b.marques.map((m) => (
-                      <Logo key={m} src={m} taille={30} />
-                    ))}
-                  </span>
-                )}
-              </span>
-              <span className="prix">Bientôt</span>
-            </div>
-          ))}
+          {activitesVisibles(acces).some((v) => v.id === "nails") && (
+            <button className="carte-service" onClick={onNails}>
+              <span className="icone"><Logo src="/brand/logo-nails-prestige.png" /></span>
+              <span className="corps"><strong>Nails Prestige</strong><small>Onglerie : semi-permanent, extensions, nail art…</small></span>
+              <span className="prix">Réserver</span>
+            </button>
+          )}
+          {activitesVisibles(acces).some((v) => v.id === "regenx") && (
+            <button className="carte-service" onClick={onRegenX}>
+              <span className="icone"><Logo src="/brand/logo-regenx.png" /></span>
+              <span className="corps"><strong>RegenX</strong><small>Reconstruction du cheveu et du poil</small></span>
+              <span className="prix">Voir</span>
+            </button>
+          )}
+          {activitesVisibles(acces).some((v) => v.id === "hair") && (
+            <button className="carte-service" onClick={onHair}>
+              <span className="icone"><Logo src="/brand/logo-prestige-hair.png" /></span>
+              <span className="corps"><strong>Prestige Hair</strong><small>Coupe, couleur, brushing, soirée…</small></span>
+              <span className="prix">Voir</span>
+            </button>
+          )}
+          {activitesVisibles(acces).some((v) => v.id === "slim") && (
+            <button className="carte-service" onClick={onSlim}>
+              <span className="icone"><Logo src="/brand/logo-prestige-slim-lift.png" /></span>
+              <span className="corps"><strong>Prestige Slim & Lift</strong><small>Soins minceur et raffermissement</small></span>
+              <span className="prix">Voir</span>
+            </button>
+          )}
         </div>
       </section>
+
+      {/* Boutique Epoxy */}
+      {activitesVisibles(acces).some((v) => v.id === "epoxy") && (
+        <section className="espace" style={ESPACE}>
+          <div style={ENTETE}>
+            <Logo src="/brand/logo-epoxy.png" taille={52} />
+            <h2 style={TITRE}>Boutique Epoxy</h2>
+          </div>
+          <p className="consigne">Créations personnalisées en résine : décoration, rangement, Chabbat et fêtes, lampes, bougies…</p>
+          <button className="bouton" onClick={onEpoxy}>Voir la boutique</button>
+        </section>
+      )}
+
+      {/* Digital & Applications */}
+      {activitesVisibles(acces).some((v) => v.id === "digital") && (
+        <section className="espace" style={ESPACE}>
+          <div style={ENTETE}>
+            <Logo src="/brand/logo-digital-applications.png" taille={52} />
+            <h2 style={TITRE}>Digital & Applications</h2>
+          </div>
+          <p className="consigne">Création de sites web et d'applications professionnelles.</p>
+          <button className="bouton" onClick={onDigital}>Découvrir</button>
+        </section>
+      )}
+
+
 
       <section className="dispo">
         <h3>Jours sans service</h3>

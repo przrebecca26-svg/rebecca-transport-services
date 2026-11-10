@@ -232,7 +232,6 @@ export default function CatalogueSlim({ onRetour }) {
         <strong>Important :</strong> Ces soins ne remplacent pas un avis médical. 
         Des précautions s'appliquent (grossesse, problèmes de santé, etc.). Merci de les signaler avant le rendez-vous.
       </div>
-      </div>
       {categories.map((cat) => (
         <div key={cat}>
           <h3>{cat}</h3>

@@ -233,7 +233,6 @@ export default function CatalogueHair({ onRetour }) {
         <h2>Prestige Hair</h2>
       </div>
       <p>Prestations d'onglerie. Choisissez une prestation pour réserver.</p>
-      </div>
       {categories.map((cat) => (
         <div key={cat}>
           <h3>{cat}</h3>

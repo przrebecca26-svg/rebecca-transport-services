@@ -16,7 +16,7 @@ const PHOTOS = {
   "Brushing cheveux mi-longs": "/hair/brushing_cheveux_mi_longs.jpg",
   "Brushing cheveux longs": "/hair/brushing_cheveux_longs.jpg",
   "Coupe cheveux longs + shampoing + brushing": "/hair/coupe_cheveux_longs_shampoing_brushing.jpg",
-  "Coupe enfant (moins de 12 ans)": "/hair/coupe_enfant_moins_12_ans.jpg",
+  "Coupe enfant (-12 ans)": "/hair/coupe_enfant_moins_12_ans.jpg",
   "Coupe homme": "/hair/coupe_homme.jpg",
   "Shampoing + coupe + brushing": "/hair/shampoing_coupe_brushing.jpg",
   "Couleur racines + shampoing + brushing": "/hair/couleur_racines_shampoing_brushing.jpg",
@@ -25,7 +25,7 @@ const PHOTOS = {
   "Patine / gloss + shampoing + brushing": "/hair/patine_gloss_shampoing_brushing.jpg",
   "Chignon soirée élaboré": "/hair/chignon_soiree_elabore.jpg",
   "Coiffure soirée": "/hair/coiffure_soiree.jpg",
-  "Coiffure mariée jour J": "/hair/coiffure_mariee_jour_j.jpg",
+  "Coiffure mariée, jour J": "/hair/coiffure_mariee_jour_j.jpg",
   "Essai coiffure mariée (facultatif)": "/hair/essai_coiffure_mariee_facultatif.jpg",
 };
 

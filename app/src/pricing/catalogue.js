@@ -227,7 +227,7 @@ export const CATEGORIES_EPOXY = ["Décoration", "Rangement", "Salle de bain", "P
 /* ---------- Photos d'un article ou d'une prestation (Rebecca, 21h26) ----------
  Firebase Storage demande le plan payant : les photos sont reduites dans le navigateur (1000 px, JPEG)
  et rangees chacune dans un document « photosCatalogue » (gratuit, limite 1 Mo par document). */
-export const PHOTO = { cote: 1000, qualite: 0.72, maxOctets: 700000, maxParArticle: 8, legendeMax: 200 };
+export const PHOTO = { cote: 1000, qualite: 0.72, maxOctets: 700000, maxParArticle: 12, legendeMax: 200 };
 export function validerPhoto({ donnees, legende = "" } = {}) {
   if (typeof donnees !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(donnees)) return { erreur: "Photo illisible." };
   if (donnees.length > PHOTO.maxOctets) return { erreur: "Photo trop lourde même après réduction : essaie une autre photo." };

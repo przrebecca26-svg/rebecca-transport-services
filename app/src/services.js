@@ -22,6 +22,14 @@ const ouiNon = [
 // visibleParDefaut : false = espace invisible pour tous, sauf les clients que Rebecca autorise un par un.
 
 export const ACTIVITES = {
+  regenx: {
+    id: "regenx",
+    titre: "RegenX",
+    texte: "Reconstruction du cheveu et du poil (sourcils, barbe, cheveux). Diagnostic obligatoire.",
+    visibleParDefaut: true,
+    ordre: 3,
+    logo: "/brand/logo-regenx.png",
+  },
   nails: {
     id: "nails",
     titre: "Nails Prestige",

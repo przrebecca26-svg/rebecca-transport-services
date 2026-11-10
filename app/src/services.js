@@ -22,6 +22,14 @@ const ouiNon = [
 // visibleParDefaut : false = espace invisible pour tous, sauf les clients que Rebecca autorise un par un.
 
 export const ACTIVITES = {
+  digital: {
+    id: "digital",
+    titre: "Digital & Applications",
+    texte: "Création de sites web et d'applications professionnelles.",
+    visibleParDefaut: true,
+    ordre: 8,
+    logo: "/brand/logo-digital-applications.png",
+  },
   hair: {
     id: "hair",
     titre: "Prestige Hair",

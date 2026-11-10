@@ -360,8 +360,8 @@ function Catalogue() {
                 </span>
               </div>
               <button type="button" className="tb-bouton" style={{ fontSize: 13, padding: "4px 8px" }} onClick={() => setEdition({ f: enFormulaire(x), existe: true })}>Modifier</button>
-              <button type="button" className="tb-bouton" style={{ fontSize: 13, padding: "4px 8px", background: "#c44" }} onClick={async () => {
-                if (!confirm("Supprimer « " + x.nom + " » ?")) return;
+              <button type="button" className="tb-bouton tb-danger" style={{ fontSize: 13, padding: "6px 10px" }} onClick={async () => {
+                if (!confirm("Supprimer « " + x.nom + " » ? Cette action est irréversible.")) return;
                 try {
                   await deleteDoc(doc(db, "catalogue", x.id));
                 } catch {

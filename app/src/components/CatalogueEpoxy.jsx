@@ -6,6 +6,12 @@ import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
+const VARIANT_PHOTOS = {
+  "Lampe logo": { "Petit": "/epoxy/42_Lampe_Logo_Petite.jpg", "Grand": "/epoxy/43_Lampe_Logo_Grande.jpg" },
+  "Lampe sac": { "Petit": "/epoxy/44_Lampe_Sac_Petite.jpg", "Grand": "/epoxy/45_Lampe_Sac_Grande.jpg" },
+  "Bougie logo": { "Petit": "/epoxy/47_Bougie_Logo_Petite.jpg", "Grand": "/epoxy/48_Bougie_Logo_Grande.jpg" },
+  "Bougie sac": { "Petit": "/epoxy/49_Bougie_Sac_Petite.jpg", "Grand": "/epoxy/50_Bougie_Sac_Grande.jpg" },
+};
 const PHOTOS = {
   "Cendrier": "/epoxy/01_Cendrier_Petit.jpg",
   "Support de téléphone": "/epoxy/04_Support_Telephone.jpg",

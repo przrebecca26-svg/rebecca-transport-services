@@ -13,6 +13,10 @@ const PHOTOS = {
   "Radiofréquence visage ou cou": "/slim/radio.jpg",
   "Radiofréquence corps (1 zone)": "/slim/radio.jpg",
   "Cavitation ultrasonique (1 zone)": "/slim/radio.jpg",
+  "Cavitation + radiofréquence (1 zone)": "/slim/radio.jpg",
+  "Forfait radiofréquence ventre & taille": "/slim/radio.jpg",
+  "Forfait radiofréquence fesses & cuisses": "/slim/radio.jpg",
+  "Anti-cellulite cuisses & fesses, séance unique": "/slim/radio.jpg",
 };
 
 // Catalogue et réservation pour Prestige Slim & Lift

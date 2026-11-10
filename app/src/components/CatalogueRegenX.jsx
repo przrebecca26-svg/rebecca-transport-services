@@ -254,7 +254,7 @@ export default function CatalogueRegenx({ onRetour }) {
             return (
               <div key={p.id} className="carte-service" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button onClick={() => setSelection(p)} style={{ flex: 1, textAlign: "left", background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
-                  {photo && <img src={photo} alt="" width={64} height={64} style={{ borderRadius: 8, objectFit: "cover" }} />}
+                  
                   <span className="corps">
                     <strong>{aff.nom}</strong>
                     <small>{aff.description || libelleDuree(aff)}</small>

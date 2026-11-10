@@ -15,8 +15,8 @@ const VARIANT_PHOTOS = {
 const PHOTOS = {
   "Cendrier": "/epoxy/01_Cendrier_Petit.jpg",
   "Support de téléphone": "/epoxy/04_Support_Telephone.jpg",
-  "Carrousel": "/epoxy/22_Carrousel_Avec_Lumiere.jpg",
-  "Vase petit": "/epoxy/27_Vase_Petit.jpg",
+  "Carrousel": "/epoxy/52_Carrousel_Decoratif.jpg",
+  "Vase petit": "/epoxy/46_Vase_Sac.jpg",
   "Miroir coquillages": "/epoxy/28_Miroir_Coquillages.jpg",
   "Petite boîte à bijoux": "/epoxy/05_Petite_Boite_Bijoux.jpg",
   "Boîte de rangement": "/epoxy/08_Boite_Rangement_Petite.jpg",

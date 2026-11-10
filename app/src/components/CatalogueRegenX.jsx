@@ -10,9 +10,14 @@ import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
 const PHOTOS = {
+  "Diagnostic (obligatoire)": "/regenx/diagnostic.jpg",
   "Sourcils": "/regenx/sourcils.jpg",
   "Barbe, 1 zone": "/regenx/sourcils.jpg",
-  "Cheveux, 1 zone": "/regenx/sourcils.jpg",
+  "Barbe, plusieurs zones": "/regenx/sourcils.jpg",
+  "Barbe entière": "/regenx/sourcils.jpg",
+  "Cheveux, 1 zone": "/regenx/appareil.jpg",
+  "Cheveux, plusieurs zones": "/regenx/appareil.jpg",
+  "Cheveux, tête entière": "/regenx/appareil.jpg",
 };
 
 // Catalogue et réservation pour RegenX

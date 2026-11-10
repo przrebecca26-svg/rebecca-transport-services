@@ -232,16 +232,30 @@ export default function CatalogueSlim({ onRetour }) {
         <strong>Important :</strong> Ces soins ne remplacent pas un avis médical. 
         Des précautions s'appliquent (grossesse, problèmes de santé, etc.). Merci de les signaler avant le rendez-vous.
       </div>
+      <div style={{ marginBottom: 16 }}>
+        <h3>Galerie</h3>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+          <img src="/slim/radiofrequence_visage_ou_cou.jpg" alt="RF" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8 }} />
+          <img src="/slim/cavitation_ultrasonique_1_zone.jpg" alt="Cavitation" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8 }} />
+          <img src="/slim/bilan_personnalise.jpg" alt="Bilan" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8 }} />
+        </div>
+      </div>
       {categories.map((cat) => (
         <div key={cat}>
-          <h3>{cat}</h3>
+          <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {cat === "Radiofréquence" && <img src="/slim/radiofrequence_visage_ou_cou.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Cavitation" && <img src="/slim/cavitation_ultrasonique_1_zone.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Forfaits" && <img src="/slim/forfait_radiofrequence_ventre_taille.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Anti-cellulite" && <img src="/slim/anti_cellulite_cuisses_fesses_seance_unique.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat}
+          </h3>
           {prestations.filter((p) => p.categorie === cat).map((p) => {
             const aff = avecAjustement(p, activite?.ajustementPourcent || 0);
             const photo = photoDe(aff);
             return (
               <div key={p.id} className="carte-service" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button onClick={() => setSelection(p)} style={{ flex: 1, textAlign: "left", background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
-                  {photo && <img src={photo} alt="" width={64} height={64} style={{ borderRadius: 8, objectFit: "cover" }} />}
+                  
                   <span className="corps">
                     <strong>{aff.nom}</strong>
                     <small>{aff.description || libelleDuree(aff)}</small>

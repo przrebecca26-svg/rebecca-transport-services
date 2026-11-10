@@ -233,16 +233,31 @@ export default function CatalogueHair({ onRetour }) {
         <h2>Prestige Hair</h2>
       </div>
       <p>Prestations d'onglerie. Choisissez une prestation pour réserver.</p>
+      <div style={{ marginBottom: 16 }}>
+        <h3>Galerie</h3>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+          <img src="/hair/brushing_cheveux_longs.jpg" alt="Brushing" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8 }} />
+          <img src="/hair/coiffure_soiree.jpg" alt="Soirée" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8 }} />
+          <img src="/hair/coiffure_mariee_jour_j.jpg" alt="Mariée" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8 }} />
+        </div>
+      </div>
       {categories.map((cat) => (
         <div key={cat}>
-          <h3>{cat}</h3>
+          <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {cat === "Brushing" && <img src="/hair/brushing_cheveux_longs.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Coupe" && <img src="/hair/coupe_homme.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Couleur" && <img src="/hair/couleur_tete_entiere_shampoing_brushing.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Soirée" && <img src="/hair/coiffure_soiree.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat === "Mariée" && <img src="/hair/coiffure_mariee_jour_j.jpg" alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: "cover" }} />}
+            {cat}
+          </h3>
           {prestations.filter((p) => p.categorie === cat).map((p) => {
             const aff = avecAjustement(p, activite?.ajustementPourcent || 0);
             const photo = photoDe(aff);
             return (
               <div key={p.id} className="carte-service" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button onClick={() => setSelection(p)} style={{ flex: 1, textAlign: "left", background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
-                  {photo && <img src={photo} alt="" width={64} height={64} style={{ borderRadius: 8, objectFit: "cover" }} />}
+                  
                   <span className="corps">
                     <strong>{aff.nom}</strong>
                     <small>{aff.description || libelleDuree(aff)}</small>

@@ -83,7 +83,7 @@ export default function CatalogueHair({ onRetour }) {
   const categories = [...new Set(prestations.map((p) => p.categorie))];
   const photoDe = (p) => {
     if (p && p.id && photos[p.id] && photos[p.id][0]) return photos[p.id][0];
-    return PHOTOS[p.nom] || "/hair/placeholder.jpg";
+    return PHOTOS[p.nom] || null;
   };
 
   const envoyer = async () => {

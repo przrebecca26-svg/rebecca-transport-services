@@ -97,7 +97,7 @@ const p = (activite, categorie, nom, prix, duree, extra = {}) => ({
   dureeMinutes: duree,
   option: false,
   variantes: [],
-  publiee: false,
+  publiee: true, // publié pour les tests client
   ordre,
   ...extra,
 });

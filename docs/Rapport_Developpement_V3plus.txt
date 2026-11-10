@@ -1,0 +1,40 @@
+RAPPORT DE DÉVELOPPEMENT — Suite V3
+10 novembre 2026
+
+MODIFICATIONS EFFECTUÉES
+
+1. Variantes Epoxy
+   - CatalogueEpoxy.jsx : sélection de variante, prix correspondant, envoi de varianteNom.
+   - Règles : support des champs varianteId / varianteNom dans hasOnly.
+   - Contrôle du prix : fixe, devis, ou variante (validation fine des variantes à renforcer par Claude).
+
+2. Parcours de connexion
+   - Les règles exigent compteVerifie() (compte connecté + e-mail vérifié).
+   - Le formulaire n'impose pas encore la connexion côté interface.
+   - À finaliser : rediriger vers la connexion avant de permettre la commande.
+
+3. Administration
+   - CommandesEpoxy.jsx raccordé dans Admin.jsx (onglet "Commandes Epoxy").
+   - Visible uniquement pour Rebecca (estAdmin).
+   - Gestion des statuts (en attente / acceptée / refusée / terminée / annulée).
+
+4. Protection des données
+   - Seule Rebecca peut lire, modifier ou supprimer les commandes (estAdmin).
+   - Jérémy n'a aucun accès (pas de gestion()).
+
+5. Autres activités
+   - Nails, RegenX, Slim, Hair : inchangés (kmEstime/minutesEstimees ajoutés).
+   - Digital : inchangé.
+
+6. Tests
+   - Compilation et tests fonctionnels à lancer localement (node tests/lancer.mjs).
+   - Non exécutés dans cette session (environnement limité).
+
+FICHIERS MODIFIÉS
+- app/src/components/CatalogueEpoxy.jsx
+- app/src/components/CommandesEpoxy.jsx
+- app/src/Admin.jsx
+- docs/firestore-rules-patch-epoxy-et-activites-v3.txt
+
+RIEN N'A ÉTÉ PUBLIÉ NI DÉPLOYÉ.
+Les règles v10 originales ne sont pas modifiées.

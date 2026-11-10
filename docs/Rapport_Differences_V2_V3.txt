@@ -1,0 +1,44 @@
+RAPPORT DES DIFFÉRENCES — V2 → V3
+10 novembre 2026
+
+CORRECTIONS APPORTÉES DANS LA V3
+
+1. Syntaxe Map.get
+   - V2 : cat.get("prix") (sans valeur par défaut)
+   - V3 : get(...).data.get("prix", null) avec valeur par défaut
+
+2. Produits sur devis
+   - V2 : acceptait tout ce qui n'était pas "fixe" (prixUnitaire == null && surDevis)
+   - V3 : exige explicitement typePrix == "devis"
+
+3. Disponibilité
+   - V3 : conserve publiee == true (seul champ de disponibilité présent dans le code existant)
+   - Aucun champ "disponible" ou "stock" n'a été trouvé dans catalogue.js
+
+4. Authentification
+   - V3 : compteVerifie() obligatoire (request.auth + email vérifié)
+   - L'absence d'un champ uid dans le document n'est pas bloquante
+
+5. Catalogue de secours
+   - V2 : le formulaire Epoxy pouvait retomber sur CATALOGUE_DEPART local
+   - V3 : le fallback local a été supprimé. Seuls les produits réels de Firestore sont commandables.
+
+6. Administration
+   - Ajout d'un composant proposition : app/src/components/CommandesEpoxy.jsx
+   - Non raccordé. Accessible uniquement à Rebecca (estAdmin côté règles).
+
+7. Tests de sécurité (à exécuter par Claude)
+   - Visiteur anonyme → refus (pas de compteVerifie)
+   - Compte non vérifié → refus
+   - Prix falsifié → refus (contrôle contre catalogue)
+   - Produit non publié → refus
+   - Produit inexistant → refus
+
+FICHIERS MODIFIÉS / AJOUTÉS DANS LA V3
+- docs/firestore-rules-patch-epoxy-et-activites-v3.txt (nouveau)
+- app/src/components/CatalogueEpoxy.jsx (fallback local retiré)
+- app/src/components/CommandesEpoxy.jsx (proposition, non raccordée)
+- docs/Admin_Commandes_Epoxy_Proposition.txt
+- docs/Rapport_Differences_V2_V3.txt
+
+RIEN N'A ÉTÉ PUBLIÉ NI DÉPLOYÉ.

@@ -1,0 +1,18 @@
+PROPOSITION D'INTÉGRATION ADMINISTRATION — Collection "commandes"
+(à intégrer par Claude, non appliquée dans le code actuel)
+
+Objectif : permettre à Rebecca seule de consulter et traiter les commandes Epoxy.
+
+Approche minimale recommandée :
+1. Créer un composant CommandesEpoxy.jsx (ou une section dans Demandes.jsx)
+   qui fait un onSnapshot sur collection(db, "commandes") orderBy("creeLe", "desc").
+2. Afficher : produit, quantité, prixUnitaire (ou "Sur devis"), nom, téléphone,
+   messageClient, statut, date.
+3. Actions possibles (updateDoc) : changer le statut (en attente → acceptée / refusée / terminée).
+4. Accès : protégé par estAdmin() côté règles. Côté interface, n'afficher le lien
+   que si l'utilisateur est Rebecca (déjà le cas dans l'admin existante).
+
+Ne pas utiliser gestion() pour cette collection.
+
+Fichier proposé (non intégré) : voir app/src/components/CommandesEpoxy.jsx
+dans la copie de travail si généré, ou à créer par Claude.

@@ -1,0 +1,82 @@
+// ============================================================
+// PATCH PROPOSÉ — Règles Firestore (à coller manuellement)
+// Date : 10 novembre 2026
+// Auteur : Grok (préparation pour Claude)
+// IMPORTANT : Ne pas publier sans validation de Rebecca + revue de Claude
+// Aucune règle existante n'est supprimée ou affaiblie.
+// ============================================================
+
+// -------------------------------------------------------------
+// 1. Remplacer UNIQUEMENT la fonction activiteDe() existante.
+//    Correspondances coursier et transport strictement identiques.
+// -------------------------------------------------------------
+
+function activiteDe(nom) {
+  return nom in ["livraison", "courses", "demenagement"] ? "coursier"
+    : (nom in ["transport", "aeroport", "hatan_kala", "ramassage", "attente"] ? "transport"
+    : (nom in ["nails", "hair", "slim", "regenx", "epoxy", "digital"] ? nom : ""));
+}
+
+// -------------------------------------------------------------
+// 2. Nouvelle fonction commandeEpoxyValide()
+//    - Compte vérifié obligatoire (compteVerifie)
+//    - Autorisation : activité publique OU autorisation client (v10)
+//    - Produit existant, publié, activité epoxy
+//    - Prix cohérent avec le catalogue (ou null si sur devis)
+//    - hasOnly / hasAll cohérents
+// -------------------------------------------------------------
+
+function commandeEpoxyValide() {
+  let d = request.resource.data;
+  let cat = get(/databases/$(database)/documents/catalogue/$(d.produitId)).data;
+  return d.keys().hasOnly(["type","activite","service","serviceTitre","nom","telephone","produitId","produit","quantite","prixUnitaire","surDevis","messageClient","statut","source","creeLe"])
+    && d.keys().hasAll(["type","activite","service","nom","telephone","produitId","produit","quantite","prixUnitaire","surDevis","messageClient","statut","source","creeLe"])
+    && d.type == "commande"
+    && d.activite == "epoxy"
+    && d.service == "epoxy"
+    && d.statut == "en attente"
+    && d.source == "site"
+    && d.creeLe == request.time
+    && compteVerifie()
+    && (activitePublique("epoxy") || compteAutorise("epoxy"))
+    && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
+    && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+    && d.produitId is string && d.produitId.size() > 0 && d.produitId.size() <= 100
+    && d.produit is string && d.produit.size() > 0 && d.produit.size() <= 120
+    && d.quantite is int && d.quantite >= 1 && d.quantite <= 50
+    && (d.prixUnitaire is number || d.prixUnitaire == null)
+    && d.surDevis is bool
+    && d.messageClient is string && d.messageClient.size() <= 1000
+    // Produit réel dans le catalogue
+    && exists(/databases/$(database)/documents/catalogue/$(d.produitId))
+    && cat.get("activite", "") == "epoxy"
+    && cat.get("publiee", false) == true
+    && cat.get("nom", "") == d.produit
+    // Cohérence du prix
+    && (
+         (cat.get("typePrix", "") == "fixe" && cat.get("prix", null) is number && d.prixUnitaire == cat.get("prix") && d.surDevis == false)
+      || (d.prixUnitaire == null && d.surDevis == true)
+    );
+}
+
+// -------------------------------------------------------------
+// 3. Match /commandes/{id}
+//    Création : uniquement si commandeEpoxyValide (compte vérifié + droits)
+//    Lecture / modification / suppression : uniquement Rebecca (estAdmin)
+//    Pas de gestion() → Jérémy n'a pas accès.
+// -------------------------------------------------------------
+
+match /commandes/{id} {
+  allow create: if commandeEpoxyValide();
+  allow read, update, delete: if estAdmin();
+}
+
+// ============================================================
+// Notes pour Claude :
+// - Compte vérifié (compteVerifie) obligatoire pour créer une commande.
+// - Accès respecté via activitePublique ou compteAutorise (mécanismes v10).
+// - Prix contrôlé contre le document catalogue (ou null + surDevis).
+// - Seule Rebecca peut lire, valider ou supprimer.
+// - Aucune règle existante modifiée.
+// - Syntaxe get() / data.get() conforme aux règles v10 existantes.
+// ============================================================

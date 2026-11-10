@@ -94,6 +94,8 @@ export default function CatalogueNails({ onRetour }) {
       message,
       statut: "en attente",
       source: "site",
+      kmEstime: null,
+      minutesEstimees: null,
     };
     try {
       await enregistrerDemande(demande);

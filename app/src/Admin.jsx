@@ -7,6 +7,7 @@ import TableauDeBord from "./TableauDeBord.jsx";
 import Activites from "./Activites.jsx";
 import SimulateurDevis from "./SimulateurDevis.jsx";
 import Demandes from "./Demandes.jsx";
+import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
 import Agenda from "./Agenda.jsx";
 import Clients from "./Clients.jsx";
 import Finances from "./Finances.jsx";
@@ -40,6 +41,7 @@ const RUBRIQUES = [
   { id: "devis", label: "Devis rapide" },
   { id: "activites", label: "Activités" },
   { id: "demandes", label: "Demandes et missions" },
+  { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true },
   { id: "agenda", label: "Calendrier" },
   { id: "equipe", label: "Équipe" },
   { id: "clients", label: "Clients et codes promo" },

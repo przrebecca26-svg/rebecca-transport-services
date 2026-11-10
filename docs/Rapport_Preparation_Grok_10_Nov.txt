@@ -1,0 +1,74 @@
+RAPPORT DE PRÉPARATION — 10 novembre 2026 (version corrigée)
+Préparé par Grok pour Claude (reprise mercredi)
+
+OBJECTIF
+Rendre les formulaires Nails/RegenX/Slim/Hair et les commandes Epoxy compatibles
+avec les règles Firestore v10 de Claude, sans modifier les règles publiées
+et sans donner d'accès indu.
+
+FICHIERS MODIFIÉS (copie de travail uniquement)
+- app/src/components/CatalogueNails.jsx
+- app/src/components/CatalogueRegenX.jsx
+- app/src/components/CatalogueSlim.jsx
+- app/src/components/CatalogueHair.jsx
+- app/src/components/CatalogueEpoxy.jsx
+
+MODIFICATIONS
+1. Nails / RegenX / Slim / Hair
+   - Ajout de kmEstime: null et minutesEstimees: null.
+   - creeLe géré par serverTimestamp() dans enregistrerDemande.
+   - Succès + WhatsApp uniquement après écriture réussie.
+
+2. Epoxy (collection dédiée "commandes")
+   - Payload exact : type, activite, service, serviceTitre, nom, telephone,
+     produitId, produit, quantite, prixUnitaire, surDevis, messageClient,
+     statut, source, creeLe (serverTimestamp).
+   - Aucune date / heure / moyenPaiement fictif.
+   - produitId = id du document dans /catalogue.
+   - Quantité contrôlée (1–50), prix non négatif.
+
+3. Patch Firestore (NON PUBLIÉ)
+   Fichier : docs/firestore-rules-patch-epoxy-et-activites.txt
+   Contient uniquement :
+   a) Remplacement de activiteDe() (anciennes correspondances conservées + 6 activités)
+   b) Nouvelle fonction commandeEpoxyValide() avec :
+      - hasOnly / hasAll cohérents
+      - Vérification existence + publiee du produit dans /catalogue/{produitId}
+      - Autorisation via activitePublique("epoxy") || compteAutorise("epoxy")
+      - Contrôles de types et de bornes
+   c) Match /commandes/{id} :
+      - create : commandeEpoxyValide()
+      - read, update, delete : estAdmin() uniquement
+      (pas de gestion() → Jérémy n'a pas accès)
+
+ADMINISTRATION
+- Demandes Nails/Hair/Slim/RegenX → collection "demandes" (déjà lue par Demandes.jsx).
+- Commandes Epoxy → collection "commandes" (nouvelle).
+- Adaptation nécessaire de l'administration pour lister et traiter les documents de "commandes".
+  (Signalée, non effectuée.)
+
+POINTS NON TOUCHÉS
+- Moteur tarifaire
+- Comptes, crédits, promotions
+- Finances
+- Transport privé (choix B)
+- Droits de Jérémy
+- Toutes les règles Firestore existantes (seuls ajouts)
+
+PROCHAINES ÉTAPES POUR CLAUDE
+1. Relire et publier le patch de règles (après validation).
+2. Adapter l'admin pour la collection "commandes".
+3. Tester les écritures réelles.
+4. Traiter le verrouillage des créneaux (toujours ouvert).
+
+Fin du rapport.
+
+MISE À JOUR (corrections demandées)
+- Création de commande Epoxy : compteVerifie() obligatoire + (activitePublique("epoxy") || compteAutorise("epoxy")).
+- Prix : contrôlé contre le document catalogue (fixe → égalité, sinon null + surDevis).
+- hasOnly / hasAll harmonisés (prixUnitaire, surDevis, messageClient dans hasAll).
+- Produit : existence + activite epoxy + publiee + nom correspondant.
+- Accès admin : estAdmin() uniquement.
+- activiteDe() : anciennes correspondances intactes.
+- Limitation actuelle : le formulaire Epoxy n'envoie pas encore d'uid. Les règles exigent un compte vérifié.
+  À traiter par Claude (ou ajouter le passage d'uid si on veut coller au modèle demandes).

@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase.js";
-import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
-import { enregistrerDemande } from "../demandes.js";
+import { libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
 export default function CatalogueEpoxy({ onRetour }) {
   const [articles, setArticles] = useState([]);
   const [selection, setSelection] = useState(null);
+  const [variante, setVariante] = useState(null);
   const [client, setClient] = useState({ nom: "", telephone: "", quantite: 1, message: "" });
   const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
 
@@ -17,41 +17,63 @@ export default function CatalogueEpoxy({ onRetour }) {
       query(collection(db, "catalogue"), where("activite", "==", "epoxy")),
       (s) => {
         const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.publiee);
-        setArticles(items.length ? items : CATALOGUE_DEPART.filter((p) => p.activite === "epoxy"));
+        setArticles(items);
       },
-      () => setArticles(CATALOGUE_DEPART.filter((p) => p.activite === "epoxy"))
+      () => setArticles([])
     );
     return unsub;
   }, []);
 
   const categories = [...new Set(articles.map((p) => p.categorie))];
 
+  const prixEffectif = () => {
+    if (variante && typeof variante.prix === "number") return variante.prix;
+    if (typeof selection?.prix === "number" && selection.prix >= 0) return selection.prix;
+    return null;
+  };
+
+  const surDevis = () => prixEffectif() === null;
+
   const envoyer = async () => {
     if (!client.nom.trim() || !client.telephone.trim()) {
       setEnvoi({ enCours: false, ok: false, erreur: "Nom et téléphone obligatoires." });
       return;
     }
+    const qte = Number(client.quantite);
+    if (!Number.isInteger(qte) || qte < 1 || qte > 50) {
+      setEnvoi({ enCours: false, ok: false, erreur: "Quantité invalide (1 à 50)." });
+      return;
+    }
     setEnvoi({ enCours: true, ok: false, erreur: "" });
-    const message = `Bonjour Rebecca,\n\nNouvelle commande Boutique Epoxy :\n- Article : ${selection.nom}\n- Quantité : ${client.quantite}\n- Prix unitaire : ${libellePrix(selection) || "Sur demande"}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nMessage : ${client.message || "-"}\n\nMerci de me confirmer la disponibilité et le délai.`;
-    const demande = {
+
+    const prix = prixEffectif();
+    const commande = {
+      type: "commande",
+      activite: "epoxy",
       service: "epoxy",
-      serviceTitre: "Boutique Epoxy – " + selection.nom,
+      serviceTitre: "Boutique Epoxy – " + (selection.nom || ""),
       nom: client.nom.trim(),
       telephone: client.telephone.trim(),
-      prixEstime: selection.prix || null,
-      surDevis: !selection.prix,
-      details: { article: selection.nom, quantite: client.quantite, message: client.message },
-      message,
+      produitId: selection.id || "",
+      produit: selection.nom || "",
+      varianteId: variante ? (variante.nom || "") : "",
+      varianteNom: variante ? (variante.nom || "") : "",
+      quantite: qte,
+      prixUnitaire: prix,
+      surDevis: prix === null,
+      messageClient: (client.message || "").slice(0, 1000),
       statut: "en attente",
       source: "site",
+      creeLe: serverTimestamp(),
     };
+
     try {
-      await enregistrerDemande(demande);
-      const url = lienWhatsApp(WHATSAPP, message);
-      window.open(url, "_blank", "noopener");
+      await addDoc(collection(db, "commandes"), commande);
+      const msg = `Bonjour Rebecca,\n\nNouvelle commande Boutique Epoxy :\n- Article : ${selection.nom}${variante ? " (" + variante.nom + ")" : ""}\n- Quantité : ${qte}\n- Prix unitaire : ${prix !== null ? prix + " ₪" : "Sur demande"}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nMessage : ${client.message || "-"}\n\nMerci de confirmer disponibilité et délai.`;
+      window.open(lienWhatsApp(WHATSAPP, msg), "_blank", "noopener");
       setEnvoi({ enCours: false, ok: true, erreur: "" });
     } catch (e) {
-      setEnvoi({ enCours: false, ok: false, erreur: "Impossible d'enregistrer. Contactez Rebecca sur WhatsApp." });
+      setEnvoi({ enCours: false, ok: false, erreur: "Impossible d'enregistrer la commande. Contactez Rebecca sur WhatsApp." });
     }
   };
 
@@ -59,7 +81,7 @@ export default function CatalogueEpoxy({ onRetour }) {
     return (
       <section className="catalogue-nails">
         <h2>Commande enregistrée</h2>
-        <p>Votre demande pour <strong>{selection?.nom}</strong> a été enregistrée.</p>
+        <p>Votre commande pour <strong>{selection?.nom}</strong> a été enregistrée.</p>
         <p>WhatsApp s'est ouvert. Rebecca vous confirmera la disponibilité et le délai.</p>
         <button className="bouton" onClick={onRetour}>Retour à l'accueil</button>
       </section>
@@ -67,17 +89,34 @@ export default function CatalogueEpoxy({ onRetour }) {
   }
 
   if (selection) {
+    const variantes = Array.isArray(selection.variantes) ? selection.variantes : [];
     return (
       <section className="catalogue-nails">
-        <button className="lien" onClick={() => setSelection(null)}>← Changer d'article</button>
+        <button className="lien" onClick={() => { setSelection(null); setVariante(null); }}>← Changer d'article</button>
         <h2>Commander : {selection.nom}</h2>
         <p>{libellePrix(selection) || "Prix sur demande"}</p>
+        {variantes.length > 0 && (
+          <label>
+            Variante<br />
+            <select value={variante?.nom || ""} onChange={(e) => {
+              const v = variantes.find((x) => x.nom === e.target.value) || null;
+              setVariante(v);
+            }}>
+              <option value="">— Choisir —</option>
+              {variantes.map((v) => (
+                <option key={v.nom} value={v.nom}>{v.nom} — {v.prix} ₪</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>Votre nom<br /><input value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
         <label>Votre téléphone<br /><input type="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} required /></label>
-        <label>Quantité<br /><input type="number" min="1" value={client.quantite} onChange={(e) => setClient({ ...client, quantite: Number(e.target.value) })} /></label>
+        <label>Quantité<br /><input type="number" min="1" max="50" value={client.quantite} onChange={(e) => setClient({ ...client, quantite: e.target.value })} /></label>
         <label>Message (optionnel)<br /><textarea value={client.message} onChange={(e) => setClient({ ...client, message: e.target.value })} rows={3} /></label>
         {envoi.erreur && <p style={{ color: "#c00" }}>{envoi.erreur}</p>}
-        <button className="bouton" onClick={envoyer} disabled={envoi.enCours}>{envoi.enCours ? "Envoi…" : "Envoyer la commande"}</button>
+        <button className="bouton" onClick={envoyer} disabled={envoi.enCours || (variantes.length > 0 && !variante)}>
+          {envoi.enCours ? "Envoi…" : "Envoyer la commande"}
+        </button>
       </section>
     );
   }
@@ -107,7 +146,7 @@ export default function CatalogueEpoxy({ onRetour }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="lien"
-                style={{ marginLeft: 8, fontSize: 20 }}
+                style={{ fontSize: 20 }}
                 title="Partager sur WhatsApp"
               >
                 💬

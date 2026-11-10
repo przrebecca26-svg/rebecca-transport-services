@@ -9,7 +9,11 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
-const PHOTOS = {};
+const PHOTOS = {
+  "Brushing cheveux courts": "/hair/brushing.jpg",
+  "Brushing cheveux mi-longs": "/hair/brushing.jpg",
+  "Brushing cheveux longs": "/hair/brushing.jpg",
+};
 
 // Catalogue et réservation pour Prestige Hair
 export default function CatalogueHair({ onRetour }) {

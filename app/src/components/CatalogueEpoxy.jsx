@@ -5,6 +5,11 @@ import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
+const PHOTOS = {
+  "Plateau": "/epoxy/plateau.jpg",
+  "Plateau tortue": "/epoxy/plateau.jpg",
+};
+
 export default function CatalogueEpoxy({ onRetour }) {
   const [articles, setArticles] = useState([]);
   const [selection, setSelection] = useState(null);
@@ -140,7 +145,7 @@ export default function CatalogueEpoxy({ onRetour }) {
           {articles.filter((p) => p.categorie === cat).map((p) => (
             <div key={p.id} className="carte-service" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button onClick={() => setSelection(p)} style={{ flex: 1, textAlign: "left", background: "transparent", border: "none", color: "inherit", cursor: "pointer" }}>
-                <span className="corps">
+                {/* photo */}{PHOTOS[p.nom] && <img src={PHOTOS[p.nom]} alt="" width={48} height={48} style={{ borderRadius: 8, objectFit: "cover" }} />}<span className="corps">
                   <strong>{p.nom}</strong>
                   <small>{p.description || (p.delaiFabrication ? `Délai : ${p.delaiFabrication}` : "")}</small>
                 </span>

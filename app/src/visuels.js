@@ -92,6 +92,14 @@ export const VISUELS = {
     "Lampe sac": E("39_Hanouka_Petit"),
     "Bougie parfumée dans sa boîte Epoxy": E("48_Bougie_Logo_Grande"),
   },
+  digital: {
+    "Formule Essentielle": "/digital/essentielle.jpg",
+    "Formule Business": "/digital/business.jpg",
+    "Formule Sur mesure": "/digital/surmesure.jpg",
+    "Sérénité": "/digital/serenite.png",
+    "Confort": "/digital/confort.png",
+    "Premium": "/digital/premium.png",
+  },
 };
 
 // Visuel du site pour une prestation (null s'il n'y en a pas)

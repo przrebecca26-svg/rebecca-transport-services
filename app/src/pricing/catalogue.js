@@ -165,7 +165,10 @@ export const CATALOGUE_DEPART = [
   p("digital", "Formules", "Formule Essentielle", 6900, null, { description: "Site web responsive, présentation des services, espace client, demandes et réservations, base de données, notifications.", publiee: true }),
   p("digital", "Formules", "Formule Business", 14900, null, { description: "Espace client et administration, gestion des clients, commandes et réservations, tableau de bord, gestion des tarifs, historique, automatisations et tests.", publiee: true }),
   p("digital", "Formules", "Formule Sur mesure", null, null, { typePrix: "devis", description: "Architecture personnalisée, gestion avancée des droits, réservations complexes, paiements et API, automatisations, statistiques et fonctionnalités spécifiques.", publiee: true }),
-  p("digital", "Maintenance", "Maintenance mensuelle", 350, null, { description: "Mises à jour, sauvegardes, support et petites évolutions.", publiee: true }),
+  // Forfaits de maintenance valides le 5 nov. (document projet digital-d3-garantie-etudes-maintenance), prix par mois
+  p("digital", "Maintenance", "Sérénité", 250, null, { description: "Par mois. 30 minutes incluses, réponse sous 3 jours ouvrés. Petites corrections." }),
+  p("digital", "Maintenance", "Confort", 450, null, { description: "Par mois. 1 h 30 incluse, réponse sous 48 heures ouvrées. Corrections et petites modifications." }),
+  p("digital", "Maintenance", "Premium", 750, null, { description: "Par mois. 3 heures incluses, réponse sous 24 heures ouvrées. Corrections, modifications et évolutions mineures." }),
 ];
 
 function EPOXY_DEPART() {

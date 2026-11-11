@@ -118,3 +118,5 @@ test("moteur : code Epoxy refuse sur un transport, prix inchange", () => {
   const r = calculer(d, t);
   egal([r.total === sans.total, r.details.promo && r.details.promo.statut], [true, "autre_activite"]);
 });
+
+test("Digital : 3 formules et 3 forfaits de maintenance valides (250, 450, 750)", () => egal(C.CATALOGUE_DEPART.filter((x) => x.activite === "digital" && x.categorie === "Maintenance").map((x) => [x.nom, x.prix]), [["Sérénité", 250], ["Confort", 450], ["Premium", 750]]));

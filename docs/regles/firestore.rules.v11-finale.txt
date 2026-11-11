@@ -1,0 +1,572 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function estAdmin() {
+      return request.auth != null
+        && request.auth.token.email == "przrebecca26@gmail.com"
+        && request.auth.token.email_verified == true;
+    }
+
+    function compteVerifie() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function estMembre() {
+      return compteVerifie()
+        && exists(/databases/$(database)/documents/equipe/$(request.auth.uid))
+        && get(/databases/$(database)/documents/equipe/$(request.auth.uid)).data.get("actif", false) == true;
+    }
+
+    function gestion() {
+      return estAdmin() || estMembre();
+    }
+
+    function moiEquipe() {
+      return estAdmin() ? "rebecca" : request.auth.uid;
+    }
+
+    function operateurValide(d) {
+      return !("operateur" in d) || (d.operateur is string && d.operateur.size() > 0 && d.operateur.size() <= 128 && d.operateur != "rebecca");
+    }
+
+    function nonBloque(uid) {
+      return !exists(/databases/$(database)/documents/clientsAdmin/$(uid))
+        || get(/databases/$(database)/documents/clientsAdmin/$(uid)).data.get("bloque", false) != true;
+    }
+
+    function activiteDe(nom) {
+      return nom in ["livraison", "courses", "demenagement"] ? "coursier"
+        : (nom in ["transport", "aeroport", "hatan_kala", "ramassage", "attente"] ? "transport"
+        : (nom in ["nails", "hair", "slim", "regenx", "epoxy", "digital"] ? nom : ""));
+    }
+
+    function activitePublique(act) {
+      return act == "coursier"
+        || (act != "" && exists(/databases/$(database)/documents/activites/$(act))
+            && get(/databases/$(database)/documents/activites/$(act)).data.get("public", false) == true);
+    }
+
+    function compteAutorise(act) {
+      return act != "" && compteVerifie()
+        && exists(/databases/$(database)/documents/autorisations/$(request.auth.uid + "__" + act))
+        && get(/databases/$(database)/documents/autorisations/$(request.auth.uid + "__" + act)).data.actif == true;
+    }
+
+    function serviceAutorise(nom) {
+      let act = activiteDe(nom);
+      return nom is string && act != ""
+        && (activitePublique(act) || compteAutorise(act));
+    }
+
+    function demandeValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["service","serviceTitre","date","heure","nom","telephone","moyenPaiement","prixEstime","surDevis","kmEstime","minutesEstimees","details","message","statut","source","creeLe","pourboire","passager","uid","remplace","codePromo","remise"])
+        && d.keys().hasAll(["service","serviceTitre","date","heure","nom","telephone","moyenPaiement","prixEstime","surDevis","kmEstime","minutesEstimees","details","message","statut","source","creeLe"])
+        && d.statut == "en attente"
+        && d.source == "site"
+        && serviceAutorise(d["service"])
+        && d.creeLe == request.time
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
+        && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+        && d.message is string && d.message.size() <= 5000
+        && d.details is map
+        && (d.prixEstime == null || d.prixEstime is number)
+        && (!("pourboire" in d) || (d.pourboire is number && d.pourboire > 0 && d.pourboire <= 200))
+        && (!("passager" in d) || (d.passager is map && d.passager.keys().hasOnly(["nom", "telephone"])
+              && d.passager.nom is string && d.passager.nom.size() <= 80
+              && d.passager.telephone is string && d.passager.telephone.size() <= 30))
+        && (!("uid" in d) || (compteVerifie() && d.uid == request.auth.uid && nonBloque(request.auth.uid)))
+        && (!("remplace" in d) || ("uid" in d && d.remplace is string && d.remplace.size() <= 40))
+        && (("codePromo" in d) == ("remise" in d))
+        && (!("codePromo" in d) || ("uid" in d
+              && d.codePromo is string && d.codePromo.matches("^[A-Z0-9_-]{3,20}$")
+              && d.remise is number && d.remise >= 0 && d.remise <= 100000
+              && existsAfter(/databases/$(database)/documents/utilisationsPromo/$(d.codePromo + "__" + request.auth.uid))
+              && getAfter(/databases/$(database)/documents/utilisationsPromo/$(d.codePromo + "__" + request.auth.uid)).data.nombre >= 1));
+    }
+
+    function demandeManuelleValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["service","serviceTitre","date","heure","nom","telephone","moyenPaiement","prixEstime","prixFinal","surDevis","kmEstime","minutesEstimees","details","message","statut","source","origine","pourboire","creeLe","majLe","attribueA","realisePar","vehicule"])
+        && d.keys().hasAll(["service","date","heure","nom","telephone","prixFinal","statut","source","creeLe"])
+        && d.source == "manuel"
+        && d.statut in ["acceptee", "terminee"]
+        && d["service"] is string && d["service"].size() <= 40
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
+        && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+        && d.prixFinal is number && d.prixFinal > 0 && d.prixFinal <= 20000
+        && (!("pourboire" in d) || (d.pourboire is number && d.pourboire > 0 && d.pourboire <= 20000))
+        && (!("attribueA" in d) || (d.attribueA is string && d.attribueA.size() <= 128))
+        && (!("realisePar" in d) || (d.realisePar is string && d.realisePar.size() <= 128))
+        && d.creeLe == request.time;
+    }
+
+    function moyenValide(m) {
+      return m in ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement"];
+    }
+
+    function paiementValide(d) {
+      return d.kind == "paiement"
+        && d.keys().hasAll(["montant", "moyen"])
+        && d.montant is number && d.montant > 0 && d.montant <= 100000
+        && (moyenValide(d.moyen) || (d.moyen == "Crédit du client" && !("operateur" in d)));
+    }
+
+    function correctionValide(d) {
+      return d.kind == "correction"
+        && d.keys().hasAll(["montant", "motif"])
+        && d.montant is number && d.montant != 0 && d.montant >= -100000 && d.montant <= 100000
+        && d.motif is string && d.motif.size() >= 3 && d.motif.size() <= 200;
+    }
+
+    function annulationValide(d) {
+      return d.kind == "annulation"
+        && d.keys().hasAll(["cas", "frais", "fraisRetenus", "remboursementValide", "validePar"])
+        && d.cas in ["client", "tardive", "absence", "rebecca"]
+        && d.frais is number && d.frais >= 0 && d.frais <= 100000
+        && d.fraisRetenus is number && d.fraisRetenus >= 0 && d.fraisRetenus <= 100000
+        && d.remboursementValide is number && d.remboursementValide >= 0 && d.remboursementValide <= 100000
+        && d.validePar == request.auth.token.email
+        && (!("motif" in d) || (d.motif is string && d.motif.size() <= 200));
+    }
+
+    function remboursementEffectueValide(d) {
+      return d.kind == "remboursement_effectue"
+        && d.keys().hasAll(["montant", "moyen", "annulationId"])
+        && d.montant is number && d.montant > 0 && d.montant <= 100000
+        && moyenValide(d.moyen)
+        && d.annulationId is string && d.annulationId.size() > 0 && d.annulationId.size() <= 100
+        && (!("ref" in d) || (d.ref is string && d.ref.size() <= 100));
+    }
+
+    function mouvementValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["kind","id","resId","date","montant","moyen","motif","cas","frais","fraisRetenus","remboursementValide","validePar","annulationId","ref","creeLe","operateur"])
+        && d.keys().hasAll(["kind", "resId", "date", "creeLe"])
+        && d.creeLe == request.time
+        && operateurValide(d)
+        && d.resId is string && d.resId.size() > 0 && d.resId.size() <= 100
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && (paiementValide(d) || correctionValide(d) || annulationValide(d) || remboursementEffectueValide(d));
+    }
+
+    function depenseValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["id","date","categorie","montant","motif","resId","creeLe","operateur","vehicule"])
+        && d.keys().hasAll(["date", "categorie", "montant", "creeLe"])
+        && d.creeLe == request.time
+        && operateurValide(d)
+        && (estAdmin() ? !("operateur" in d) : d.get("operateur", "") == request.auth.uid)
+        && (!("vehicule" in d) || (d.vehicule is string && d.vehicule.size() <= 100))
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.categorie is string && d.categorie.size() > 0 && d.categorie.size() <= 60
+        && d.montant is number && d.montant != 0 && d.montant >= -100000 && d.montant <= 100000
+        && (d.montant > 0 || ("motif" in d && d.motif is string && d.motif.size() >= 3 && d.motif.size() <= 200))
+        && (!("resId" in d) || (d.resId is string && d.resId.size() <= 100));
+    }
+
+    function autreRevenuForme() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["id","source","periode","debut","fin","livraisons","revenu","pourboire","detail","creeLe","majLe","operateur"])
+        && d.keys().hasAll(["source", "periode", "debut", "fin", "livraisons", "revenu", "pourboire", "creeLe"])
+        && (estAdmin() ? !("operateur" in d) : d.get("operateur", "") == request.auth.uid)
+        && d.source is string && d.source.size() > 0 && d.source.size() <= 40
+        && d.periode in ["jour", "semaine", "mois"]
+        && d.debut is string && d.debut.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.fin is string && d.fin.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.fin >= d.debut
+        && d.livraisons is int && d.livraisons >= 0 && d.livraisons <= 5000
+        && d.revenu is number && d.revenu >= -100000 && d.revenu <= 100000
+        && d.pourboire is number && d.pourboire >= -100000 && d.pourboire <= 100000
+        && d.revenu + d.pourboire != 0
+        && ((d.revenu >= 0 && d.pourboire >= 0) || ("detail" in d && d.detail is string && d.detail.size() >= 3 && d.detail.size() <= 200))
+        && (!("detail" in d) || (d.detail is string && d.detail.size() <= 200));
+    }
+
+    function autreRevenuAMoi(d) {
+      return estAdmin() ? !("operateur" in d) : (estMembre() && d.get("operateur", "") == request.auth.uid);
+    }
+
+    function reversementValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["de","vers","montant","date","note","declarePar","creeLe"])
+        && d.keys().hasAll(["de","vers","montant","date","declarePar","creeLe"])
+        && d.de is string && d.vers is string && d.de != d.vers
+        && d.de.size() <= 128 && d.vers.size() <= 128
+        && (estAdmin() || d.de == request.auth.uid || d.vers == request.auth.uid)
+        && d.declarePar == moiEquipe()
+        && d.montant is number && d.montant > 0 && d.montant <= 100000
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && (!("note" in d) || (d.note is string && d.note.size() <= 200))
+        && d.creeLe == request.time;
+    }
+
+    function promoValide(codeId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["code","type","valeur","actif","utilisationsParCompte","finLe","creeLe","majLe","activite","cibles"])
+        && d.keys().hasAll(["code","type","valeur","actif","utilisationsParCompte","finLe","creeLe","majLe"])
+        && (!("activite" in d) || d.activite in ["coursier","transport","nails","hair","slim","regenx","epoxy","digital"])
+        && (!("cibles" in d) || (d.cibles is list && d.cibles.size() <= 50 && "activite" in d))
+        && d.code == codeId
+        && d.code is string && d.code.matches("^[A-Z0-9_-]{3,20}$")
+        && d["type"] in ["pourcentage", "montant"]
+        && d.valeur is int && d.valeur >= 1
+        && ((d["type"] == "pourcentage" && d.valeur <= 50) || (d["type"] == "montant" && d.valeur <= 500))
+        && d.actif is bool
+        && (d.utilisationsParCompte == null || (d.utilisationsParCompte is int && d.utilisationsParCompte >= 1 && d.utilisationsParCompte <= 1000))
+        && (d.finLe == null || (d.finLe is string && d.finLe.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")))
+        && d.majLe == request.time;
+    }
+
+    function ficheValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["prenom","nom","telephone","email","adresse","naissance","moyensPreferes","accepteLe","creeLe","majLe","adresses","enfants","favoris"])
+        && d.keys().hasAll(["prenom","nom","telephone","email","adresse","naissance","moyensPreferes","accepteLe","creeLe","majLe"])
+        && d.prenom is string && d.prenom.size() > 0 && d.prenom.size() <= 60
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 60
+        && d.telephone is string && d.telephone.size() >= 6 && d.telephone.size() <= 20
+        && d.email is string && d.email == request.auth.token.email
+        && d.adresse is string && d.adresse.size() >= 5 && d.adresse.size() <= 300
+        && d.naissance is string && d.naissance.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && int(d.naissance.split("-")[0]) >= 1900
+        && int(d.naissance.split("-")[0]) <= request.time.year() - 18
+        && d.moyensPreferes is list && d.moyensPreferes.size() >= 1 && d.moyensPreferes.size() <= 5
+        && d.moyensPreferes.hasOnly(["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement"])
+        && (!("adresses" in d) || (d.adresses is list && d.adresses.size() <= 5))
+        && (!("enfants" in d) || (d.enfants is list && d.enfants.size() <= 6))
+        && (!("favoris" in d) || (d.favoris is list && d.favoris.size() <= 10))
+        && d.majLe == request.time;
+    }
+
+    function suiviValide(id) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["uid","service","serviceTitre","date","heure","prixEstime","surDevis","statut","details","creeLe","majLe","pourboire","passager","codePromo","remise","remplace"])
+        && d.keys().hasAll(["uid","service","serviceTitre","date","heure","prixEstime","surDevis","statut","details","creeLe","majLe"])
+        && d.uid == request.auth.uid
+        && d.statut == "en attente"
+        && d.creeLe == request.time && d.majLe == request.time
+        && d["service"] is string && d["service"].size() <= 40
+        && serviceAutorise(d["service"])
+        && d.serviceTitre is string && d.serviceTitre.size() <= 100
+        && d.date is string && d.date.size() <= 10
+        && d.heure is string && d.heure.size() <= 5
+        && (d.prixEstime == null || d.prixEstime is number)
+        && d.surDevis is bool
+        && d.details is map
+        && nonBloque(request.auth.uid)
+        && existsAfter(/databases/$(database)/documents/demandes/$(id))
+        && getAfter(/databases/$(database)/documents/demandes/$(id)).data.get("uid", "") == request.auth.uid;
+    }
+
+    function rechargeValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["uid","montant","moyen","date","statut","creeLe","cadeau"])
+        && d.keys().hasAll(["uid","montant","moyen","date","statut","creeLe"])
+        && d.uid == request.auth.uid
+        && d.montant is number && d.montant >= 50 && d.montant <= 5000
+        && moyenValide(d.moyen)
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.statut == "en attente"
+        && d.creeLe == request.time
+        && (!("cadeau" in d) || (d.cadeau is map && d.cadeau.keys().hasOnly(["nom", "email", "message"])
+              && d.cadeau.nom is string && d.cadeau.nom.size() <= 60
+              && d.cadeau.email is string && d.cadeau.email.size() <= 120
+              && d.cadeau.message is string && d.cadeau.message.size() <= 300))
+        && nonBloque(request.auth.uid);
+    }
+
+    function avisValide(avisId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["uid","etoiles","commentaire","pourboire","creeLe"])
+        && d.keys().hasAll(["uid","etoiles","commentaire","pourboire","creeLe"])
+        && d.uid == request.auth.uid
+        && d.etoiles is int && d.etoiles >= 1 && d.etoiles <= 5
+        && d.commentaire is string && d.commentaire.size() <= 600
+        && d.pourboire is number && d.pourboire >= 0 && d.pourboire <= 200
+        && d.creeLe == request.time
+        && exists(/databases/$(database)/documents/suivi/$(avisId))
+        && get(/databases/$(database)/documents/suivi/$(avisId)).data.uid == request.auth.uid
+        && get(/databases/$(database)/documents/suivi/$(avisId)).data.statut == "terminée"
+        && nonBloque(request.auth.uid);
+    }
+
+    function usageValide(usageId) {
+      let d = request.resource.data;
+      return compteVerifie() && nonBloque(request.auth.uid)
+        && d.keys().hasOnly(["code","uid","nombre","majLe"])
+        && d.keys().hasAll(["code","uid","nombre","majLe"])
+        && d.uid == request.auth.uid
+        && d.code is string && d.code.matches("^[A-Z0-9_-]{3,20}$")
+        && usageId == d.code + "__" + request.auth.uid
+        && d.nombre is int && d.nombre >= 1
+        && d.majLe == request.time
+        && exists(/databases/$(database)/documents/promos/$(d.code))
+        && get(/databases/$(database)/documents/promos/$(d.code)).data.actif == true
+        && (get(/databases/$(database)/documents/promos/$(d.code)).data.utilisationsParCompte == null
+            || d.nombre <= get(/databases/$(database)/documents/promos/$(d.code)).data.utilisationsParCompte);
+    }
+
+    match /demandes/{id} {
+      allow create: if demandeValide() || (gestion() && demandeManuelleValide());
+      allow read, update: if gestion();
+      allow delete: if estAdmin();
+    }
+
+    match /fermetures/{id} {
+      allow read: if true;
+      allow write: if estAdmin();
+    }
+
+    match /reglages/{id} {
+      allow read: if true;
+      allow write: if estAdmin();
+    }
+
+    match /mouvements/{id} {
+      allow read: if gestion();
+      allow create: if gestion() && mouvementValide();
+      allow update, delete: if false;
+    }
+
+    match /depenses/{id} {
+      allow read: if estAdmin() || (estMembre() && resource.data.get("operateur", "") == request.auth.uid);
+      allow create: if gestion() && depenseValide();
+      allow update, delete: if false;
+    }
+
+    match /autresRevenus/{id} {
+      allow read: if estAdmin() || (estMembre() && resource.data.get("operateur", "") == request.auth.uid);
+      allow create: if gestion() && autreRevenuForme() && request.resource.data.creeLe == request.time;
+      allow update: if gestion() && autreRevenuAMoi(resource.data) && autreRevenuForme() && request.resource.data.creeLe == resource.data.creeLe;
+      allow delete: if estAdmin() || autreRevenuAMoi(resource.data);
+    }
+
+    match /reversements/{id} {
+      allow read: if gestion();
+      allow create: if gestion() && reversementValide();
+      allow update, delete: if false;
+    }
+
+    match /promos/{codeId} {
+      allow get: if gestion() || compteVerifie();
+      allow list: if gestion();
+      allow create: if gestion() && promoValide(codeId) && request.resource.data.creeLe == request.time;
+      allow update: if gestion() && promoValide(codeId) && request.resource.data.creeLe == resource.data.creeLe;
+      allow delete: if gestion();
+    }
+
+    match /clients/{uid} {
+      allow read: if gestion() || (compteVerifie() && request.auth.uid == uid);
+      allow create: if request.auth != null && request.auth.uid == uid && ficheValide()
+        && request.resource.data.creeLe == request.time && request.resource.data.accepteLe == request.time;
+      allow update: if compteVerifie() && request.auth.uid == uid && ficheValide()
+        && request.resource.data.creeLe == resource.data.creeLe && request.resource.data.accepteLe == resource.data.accepteLe
+        && request.resource.data.prenom == resource.data.prenom
+        && request.resource.data.nom == resource.data.nom
+        && request.resource.data.naissance == resource.data.naissance;
+      allow delete: if estAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
+
+    match /suivi/{id} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow create: if compteVerifie() && suiviValide(id);
+      allow update: if gestion()
+        || (compteVerifie() && resource.data.uid == request.auth.uid && resource.data.statut == "en attente"
+            && request.resource.data.statut in ["annulée par le client", "remplacée"]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "majLe"])
+            && request.resource.data.majLe == request.time);
+      allow delete: if estAdmin();
+    }
+
+    match /codesClient/{id} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow write: if gestion();
+    }
+
+    match /utilisationsPromo/{usageId} {
+      allow get: if gestion() || (compteVerifie() && usageId.matches(".*__" + request.auth.uid));
+      allow list: if gestion();
+      allow create: if usageValide(usageId) && request.resource.data.nombre == 1;
+      allow update: if usageValide(usageId) && request.resource.data.nombre == resource.data.nombre + 1;
+      allow delete: if gestion();
+    }
+
+    match /recharges/{id} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow create: if compteVerifie() && rechargeValide();
+      allow update: if estAdmin()
+        || (estMembre() && (request.resource.data.statut == "refusée" || request.resource.data.get("operateur", "") == request.auth.uid));
+      allow delete: if estAdmin();
+    }
+
+    match /creditMouvements/{id} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow create: if gestion() && request.resource.data.keys().hasAll(["uid", "montant", "creeLe"])
+        && request.resource.data.uid is string && request.resource.data.montant is number
+        && (!("resId" in request.resource.data) || (request.resource.data.resId is string && request.resource.data.resId.size() <= 100))
+        && request.resource.data.creeLe == request.time;
+      allow update, delete: if false;
+    }
+
+    match /avis/{avisId} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow create: if compteVerifie() && avisValide(avisId);
+      allow update: if false;
+      allow delete: if estAdmin();
+    }
+
+    match /activites/{id} {
+      allow read: if true;
+      allow write: if estAdmin();
+    }
+
+    match /autorisations/{id} {
+      allow get: if gestion() || (request.auth != null && id.matches("^" + request.auth.uid + "__[a-z_]+$"));
+      allow list: if gestion();
+      allow write: if gestion();
+    }
+
+    match /clientsAdmin/{uid} {
+      allow read, write: if gestion();
+    }
+
+    match /admin/{id} {
+      allow read, write: if estAdmin();
+    }
+
+    match /equipe/{uid} {
+      allow read: if estAdmin() || estMembre() || (request.auth != null && request.auth.uid == uid);
+      allow create, delete: if estAdmin();
+      allow update: if estAdmin()
+        || (estMembre() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["telephone", "plafond", "modes", "majLe"]));
+    }
+
+    match /demandesEquipe/{uid} {
+      allow read: if estAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create: if compteVerifie() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(["email", "nom", "statut", "creeLe"])
+        && request.resource.data.statut == "en_attente"
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.nom is string && request.resource.data.nom.size() <= 80
+        && request.resource.data.creeLe == request.time;
+      allow update, delete: if estAdmin();
+    }
+
+    match /vehicules/{id} {
+      allow read: if gestion();
+      allow create: if estAdmin() || (estMembre() && request.resource.data.proprietaire == request.auth.uid);
+      allow update: if estAdmin()
+        || (estMembre() && resource.data.proprietaire == request.auth.uid && request.resource.data.proprietaire == request.auth.uid);
+      allow delete: if estAdmin() || (estMembre() && resource.data.proprietaire == request.auth.uid);
+    }
+
+    match /disposEquipe/{uid} {
+      allow read: if true;
+      allow write: if estAdmin();
+      allow create: if estMembre() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(["indispos", "majLe"]) && request.resource.data.indispos is list
+        && request.resource.data.indispos.size() <= 200;
+      allow update: if estMembre() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["indispos", "majLe"])
+        && request.resource.data.indispos is list && request.resource.data.indispos.size() <= 200;
+    }
+
+    match /catalogue/{id} {
+      allow read: if gestion() || (resource.data.get("publiee", false) == true && resource.data.get("typePrix", "") != "prive");
+      allow write: if estAdmin()
+        && request.resource.data.nom is string && request.resource.data.nom.size() > 0 && request.resource.data.nom.size() <= 100
+        && request.resource.data.activite in ["nails","hair","slim","regenx","epoxy"];
+      allow delete: if estAdmin();
+    }
+
+    match /photosCatalogue/{id} {
+      allow read: if true;
+      allow create: if estAdmin()
+        && request.resource.data.keys().hasOnly(["prestationId","donnees","legende","ordre","creeLe"])
+        && request.resource.data.prestationId is string && request.resource.data.prestationId.size() <= 100
+        && request.resource.data.donnees is string && request.resource.data.donnees.size() < 750000
+        && request.resource.data.donnees.matches("^data:image/(jpeg|png|webp);base64,.*")
+        && request.resource.data.legende is string && request.resource.data.legende.size() <= 200;
+      allow update: if estAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["legende","ordre"])
+        && request.resource.data.legende is string && request.resource.data.legende.size() <= 200;
+      allow delete: if estAdmin();
+    }
+
+    match /creneauxOccupes/{id} {
+      allow read: if true;
+      allow create, update: if gestion()
+        && request.resource.data.keys().hasOnly(["debut","fin","personne","source","majLe"])
+        && request.resource.data.debut is string && request.resource.data.debut.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$")
+        && request.resource.data.fin is string && request.resource.data.fin.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$")
+        && request.resource.data.fin > request.resource.data.debut
+        && request.resource.data.personne is string && request.resource.data.personne.size() <= 128;
+      allow delete: if gestion();
+    }
+
+    // V11 : commandes Epoxy
+    // Les variantes du catalogue doivent etre des maps contenant exactement "nom" et "prix".
+    function commandeEpoxyValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          "type","activite","service","serviceTitre","nom","telephone",
+          "produitId","produit","varianteId","varianteNom","quantite",
+          "prixUnitaire","surDevis","messageClient","statut","source","creeLe"
+        ])
+        && d.keys().hasAll([
+          "type","activite","service","nom","telephone","produitId",
+          "produit","quantite","prixUnitaire","surDevis","messageClient",
+          "statut","source","creeLe"
+        ])
+        && d.get("type", "") == "commande"
+        && d.get("activite", "") == "epoxy"
+        && d.get("service", "") == "epoxy"
+        && d.get("statut", "") == "en attente"
+        && d.get("source", "") == "site"
+        && d.get("creeLe", null) == request.time
+        && compteVerifie()
+        && nonBloque(request.auth.uid)
+        && (activitePublique("epoxy") || compteAutorise("epoxy"))
+        && d.get("nom", null) is string
+        && d.get("nom", "").size() > 0
+        && d.get("nom", "").size() <= 100
+        && d.get("telephone", null) is string
+        && d.get("telephone", "").size() >= 3
+        && d.get("telephone", "").size() <= 30
+        && d.get("produitId", null) is string
+        && d.get("produitId", "").size() > 0
+        && d.get("produitId", "").size() <= 100
+        && d.get("produit", null) is string
+        && d.get("produit", "").size() > 0
+        && d.get("produit", "").size() <= 120
+        && d.get("quantite", null) is int
+        && d.get("quantite", 0) >= 1
+        && d.get("quantite", 0) <= 50
+        && (d.get("prixUnitaire", null) is number || d.get("prixUnitaire", null) == null)
+        && d.get("surDevis", null) is bool
+        && d.get("messageClient", null) is string
+        && d.get("messageClient", "").size() <= 1000
+        && exists(/databases/$(database)/documents/catalogue/$(d.produitId))
+        && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("activite", "") == "epoxy"
+        && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("publiee", false) == true
+        && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("nom", "") == d.get("produit", "")
+        && (
+             (d.get("varianteNom", "") == "" && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("typePrix", "") == "fixe" && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("prix", null) is number && d.get("prixUnitaire", null) == get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("prix", null) && d.get("surDevis", false) == false)
+          || (d.get("varianteNom", "") == "" && get(/databases/$(database)/documents/catalogue/$(d.produitId)).data.get("typePrix", "") == "devis" && d.get("prixUnitaire", null) == null && d.get("surDevis", false) == true)
+          || (d.get("varianteNom", "") != "" && d.get("prixUnitaire", null) is number && d.get("prixUnitaire", null) >= 0 && d.get("surDevis", false) == false)
+        );
+    }
+
+        match /commandes/{id} {
+      allow create: if commandeEpoxyValide();
+      allow read, update, delete: if estAdmin();
+    }
+
+    match /{document=**} {
+      allow read: if estAdmin();
+    }
+  }
+}

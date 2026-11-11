@@ -206,7 +206,18 @@ export default function CatalogueRegenx({ onRetour }) {
         <img src="/brand/logo-regenx.png" alt="" width={48} height={48} style={{ borderRadius: "50%" }} />
         <h2>RegenX</h2>
       </div>
-      <p>Le diagnostic est le premier rendez-vous. Les séances vous sont proposées ensuite, après le diagnostic.</p>
+      {/* Textes rédigés par ChatGPT, validés par Rebecca le 11 novembre 2026 */}
+      <p>RegenX est un protocole esthétique personnalisé consacré à l’apparence des cheveux, des sourcils et de la barbe. Après un échange et une observation de la zone concernée, Rebecca présente les possibilités du protocole et ses limites, en tenant compte de la demande et des caractéristiques de chaque personne.</p>
+      <p>Un diagnostic préalable d’une heure est obligatoire avant toute séance. Il permet de comprendre votre demande, d’observer la zone, de répondre à vos questions et de vérifier si le protocole envisagé est adapté. Aucun résultat précis ou chiffré n’est garanti.</p>
+      <p>À l’issue du diagnostic, une proposition personnalisée peut être présentée : zones concernées, organisation du parcours, rythme indicatif des rendez-vous et devis privé. Les séances et forfaits sont communiqués après le diagnostic et la signature du contrat, puis activation par Rebecca.</p>
+      <h3>Le diagnostic en 5 étapes</h3>
+      <ol style={{ fontSize: 14, lineHeight: 1.5, paddingLeft: 20, margin: "8px 0 12px" }}>
+        <li><strong>Échange sur votre demande :</strong> vous expliquez ce que vous souhaitez améliorer et les zones qui vous préoccupent.</li>
+        <li><strong>Observation de la zone :</strong> Rebecca examine les caractéristiques visibles et les proportions utiles à l’analyse esthétique.</li>
+        <li><strong>Présentation de RegenX :</strong> la méthode, son déroulement général, ses limites et les réactions possibles vous sont expliqués.</li>
+        <li><strong>Recommandation personnalisée :</strong> les zones envisageables, le rythme indicatif et les étapes possibles sont présentés, sans garantie de résultat.</li>
+        <li><strong>Questions et suite :</strong> vous pouvez poser vos questions ; si le protocole est retenu, les documents sont expliqués et le contrat est signé sur papier avant toute séance.</li>
+      </ol>
       <div style={{ background: "#191518", padding: 12, borderRadius: 8, margin: "12px 0", fontSize: 14 }}>
         <strong>Important :</strong> Un diagnostic est obligatoire avant toute prestation. 
         Certaines contre-indications peuvent s'appliquer. Rebecca vous informera des précautions à respecter.

@@ -118,8 +118,8 @@ export const CATALOGUE_DEPART = [
   p("nails", "Gel", "Remplissage gel de construction", 220, 120),
   p("nails", "Mains", "Mivne anatomie (gainage)", 160, 120),
   p("nails", "Mains", "Renforcement", 160, 120),
-  p("nails", "Déposes", "Dépose Gel-X / gel", 60, 40),
-  p("nails", "Déposes", "Dépose acrylique / gel de construction", 80, 40),
+  p("nails", "Déposes", "Dépose Gel-X / gel", 60, 40, { description: "Offerte si la pose a été réalisée par Rebecca." }),
+  p("nails", "Déposes", "Dépose acrylique / gel de construction", 80, 40, { description: "Offerte si la pose a été réalisée par Rebecca." }),
   p("nails", "Options", "Nail art (par ongle)", 20, 15, { typePrix: "parongle", prixMax: 120, option: true }),
   p("nails", "Options", "Réparation ou rajout (par ongle)", 20, 45, { typePrix: "parongle", option: true }),
   p("nails", "Enfants", "Semi-permanent enfant (12 ans minimum)", 60, 60),
@@ -158,7 +158,7 @@ export const CATALOGUE_DEPART = [
   p("regenx", "Barbe", "Barbe entière", null, 120, { typePrix: "prive" }),
   p("regenx", "Cheveux", "Cheveux, 1 zone", null, 60, { typePrix: "prive" }),
   p("regenx", "Cheveux", "Cheveux, plusieurs zones", null, 120, { typePrix: "prive" }),
-  p("regenx", "Cheveux", "Cheveux, tête entière", null, 240, { typePrix: "prive" }),
+  p("regenx", "Cheveux", "Cheveux, tête entière", null, 120, { typePrix: "prive" }), // 2 h (decision du 11 nov.) ; Rebecca ajuste par client apres le diagnostic
   // Boutique Epoxy (liste de Rebecca, 9 nov. 2026, 21h24). Variantes a deux prix : Rebecca les renomme dans l'admin.
   ...EPOXY_DEPART(),
   // Digital & Applications

@@ -1,6 +1,11 @@
 rules_version = '2';
-// Regles Rebecca Services v10 (9 novembre 2026) : fondations (Lot C) - catalogue, photos, agenda commun, codes promo par activite
+// Regles Rebecca Services v12 (11 novembre 2026) : reservations beaute et commandes Epoxy raccordees au site
 // v7 : espaces et acces au Transport prive. v8 : courses ajoutees a la main. v9 : Lot J (equipe). v10 : Lot C.
+// v11 (Grok, 10 nov.) : commandes Epoxy, en morceaux. v12 : texte complet qui remplace la v10 et la v11.
+//   - activites beaute, Epoxy et Digital ouvertes par defaut (plus besoin d'une fiche « publique » dans la base) ;
+//   - reservation beaute : compte verifie obligatoire, rattachee au compte (visible dans « Mon historique ») ;
+//   - commandes Epoxy : article publie dans le catalogue, prix controle ; lues et gerees par Rebecca seule ;
+//   - catalogue : formules Digital acceptees ; un prix prive (seances RegenX) ne peut jamais etre publie.
 // A coller dans la console Firebase : rebecca-transport > Firestore > Regles > tout effacer > coller > Publier.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -48,11 +53,26 @@ service cloud.firestore {
     // ---------- Espaces (activites) : v7 ----------
     function activiteDe(nom) {
       return nom in ["livraison", "courses", "demenagement"] ? "coursier"
-        : (nom in ["transport", "aeroport", "hatan_kala", "ramassage", "attente"] ? "transport" : "");
+        : (nom in ["transport", "aeroport", "hatan_kala", "ramassage", "attente"] ? "transport"
+        : (nom in ["nails", "hair", "slim", "regenx", "epoxy", "digital"] ? nom : ""));
+    }
+
+    // v12 : activites ouvertes a tous par defaut (meme sans fiche dans la base).
+    // Rebecca peut en fermer une dans Reglages > Activites (acces « sur autorisation »).
+    function ouverteParDefaut(act) {
+      return act in ["nails", "hair", "slim", "regenx", "epoxy", "digital"];
+    }
+
+    // v12 : rendez-vous beaute (compte verifie obligatoire)
+    function estBeaute(act) {
+      return act in ["nails", "hair", "slim", "regenx"];
     }
 
     function activitePublique(act) {
       return act == "coursier"
+        || (ouverteParDefaut(act)
+            && (!exists(/databases/$(database)/documents/activites/$(act))
+                || get(/databases/$(database)/documents/activites/$(act)).data.get("acces", "public") != "autorisation"))
         || (act != "" && exists(/databases/$(database)/documents/activites/$(act))
             && get(/databases/$(database)/documents/activites/$(act)).data.get("public", false) == true);
     }
@@ -69,6 +89,7 @@ service cloud.firestore {
     }
 
     // Une demande envoyee par un client. Sans compte : forme de base. Avec un compte verifie : uid, remplacement, code promo.
+    // v12 : un rendez-vous beaute exige un compte verifie (champ uid).
     function demandeValide() {
       let d = request.resource.data;
       return d.keys().hasOnly(["service","serviceTitre","date","heure","nom","telephone","moyenPaiement","prixEstime","surDevis","kmEstime","minutesEstimees","details","message","statut","source","creeLe","pourboire","passager","uid","remplace","codePromo","remise"])
@@ -76,6 +97,7 @@ service cloud.firestore {
         && d.statut == "en attente"
         && d.source == "site"
         && serviceAutorise(d["service"])
+        && (!estBeaute(activiteDe(d["service"])) || "uid" in d)
         && d.creeLe == request.time
         && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
         && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
@@ -112,6 +134,47 @@ service cloud.firestore {
         && (!("attribueA" in d) || (d.attribueA is string && d.attribueA.size() <= 128))
         && (!("realisePar" in d) || (d.realisePar is string && d.realisePar.size() <= 128))
         && d.creeLe == request.time;
+    }
+
+    // v12 : commande de la Boutique Epoxy (compte verifie). L'article doit exister dans le catalogue, etre publie,
+    // porter le meme nom, et le prix envoye doit etre celui du catalogue (prix fixe), nul (sur devis),
+    // ou celui d'une variante (article a variantes).
+    function commandeEpoxyValide() {
+      let d = request.resource.data;
+      let cat = get(/databases/$(database)/documents/catalogue/$(d.produitId)).data;
+      return d.keys().hasOnly(["uid","type","activite","service","serviceTitre","nom","telephone","produitId","produit","varianteId","varianteNom","quantite","prixUnitaire","surDevis","messageClient","statut","source","creeLe"])
+        && d.keys().hasAll(["type","activite","service","nom","telephone","produitId","produit","quantite","prixUnitaire","surDevis","messageClient","statut","source","creeLe"])
+        && compteVerifie() && nonBloque(request.auth.uid)
+        && (!("uid" in d) || d.uid == request.auth.uid)
+        && d["type"] == "commande"
+        && d.activite == "epoxy"
+        && d["service"] == "epoxy"
+        && d.statut == "en attente"
+        && d.source == "site"
+        && d.creeLe == request.time
+        && (activitePublique("epoxy") || compteAutorise("epoxy"))
+        && (!("serviceTitre" in d) || (d.serviceTitre is string && d.serviceTitre.size() <= 160))
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
+        && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+        && d.produitId is string && d.produitId.size() > 0 && d.produitId.size() <= 100
+        && d.produit is string && d.produit.size() > 0 && d.produit.size() <= 120
+        && d.quantite is int && d.quantite >= 1 && d.quantite <= 50
+        && d.surDevis is bool
+        && d.messageClient is string && d.messageClient.size() <= 1000
+        && (!("varianteNom" in d) || (d.varianteNom is string && d.varianteNom.size() <= 40))
+        && (!("varianteId" in d) || (d.varianteId is string && d.varianteId.size() <= 40))
+        && exists(/databases/$(database)/documents/catalogue/$(d.produitId))
+        && cat.get("activite", "") == "epoxy"
+        && cat.get("publiee", false) == true
+        && cat.get("nom", "") == d.produit
+        && (
+             (d.get("varianteNom", "") == "" && cat.get("typePrix", "") in ["fixe", "apartir"]
+                && d.prixUnitaire is number && d.prixUnitaire == cat.get("prix", null) && d.surDevis == false)
+          || (d.get("varianteNom", "") == "" && cat.get("typePrix", "") == "devis"
+                && d.prixUnitaire == null && d.surDevis == true)
+          || (d.get("varianteNom", "") != "" && cat.get("typePrix", "") != "devis" && cat.get("variantes", []).size() > 0
+                && d.prixUnitaire is number && d.prixUnitaire >= 0 && d.prixUnitaire <= 100000 && d.surDevis == false)
+        );
     }
 
     // ---------- Mouvements financiers : JAMAIS modifies ni supprimes ----------
@@ -340,6 +403,13 @@ service cloud.firestore {
       allow delete: if estAdmin();
     }
 
+    // v12 : commandes de la Boutique Epoxy. Le client peut en CREER une ; seule Rebecca les lit et les gere
+    // (jamais un coequipier).
+    match /commandes/{id} {
+      allow create: if commandeEpoxyValide();
+      allow read, update, delete: if estAdmin();
+    }
+
     // Fermetures de Rebecca : lecture publique (le site bloque ces dates), ecriture par Rebecca seule
     // v9 : champ "portee" ("moi" = seulement Rebecca ; absent = toute l'equipe)
     match /fermetures/{id} {
@@ -531,12 +601,14 @@ service cloud.firestore {
 
     // ---------- v10 : fondations (Lot C) ----------
 
-    // Catalogue (beaute, Epoxy) : Rebecca gere ; le public lit seulement ce qui est publie, jamais un prix prive
+    // Catalogue (beaute, Epoxy, Digital) : Rebecca gere ; le public lit seulement ce qui est publie.
+    // v12 : un prix prive (seances RegenX) ne peut jamais etre publie : il n'est donc jamais lisible du public.
     match /catalogue/{id} {
-      allow read: if gestion() || (resource.data.get("publiee", false) == true && resource.data.get("typePrix", "") != "prive");
-      allow write: if estAdmin()
+      allow read: if gestion() || resource.data.publiee == true;
+      allow create, update: if estAdmin()
         && request.resource.data.nom is string && request.resource.data.nom.size() > 0 && request.resource.data.nom.size() <= 100
-        && request.resource.data.activite in ["nails","hair","slim","regenx","epoxy"];
+        && request.resource.data.activite in ["nails","hair","slim","regenx","epoxy","digital"]
+        && !(request.resource.data.get("typePrix", "") == "prive" && request.resource.data.get("publiee", false) == true);
       allow delete: if estAdmin();
     }
 

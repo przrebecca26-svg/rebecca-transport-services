@@ -314,17 +314,39 @@ function Catalogue() {
   const items = useMemo(() => source.filter((x) => x.activite === activite).sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999) || String(a.nom).localeCompare(String(b.nom))), [source, activite]);
   const categories = [...new Set(items.map((x) => x.categorie))];
 
+  // Prestations de la liste de depart absentes de la base (ni meme identifiant, ni meme nom dans l'activite)
+  const manquantsBase = useMemo(() => {
+    const ids = new Set((liste || []).map((l) => l.id));
+    const noms = new Set((liste || []).map((l) => l.activite + "|" + l.nom));
+    return CATALOGUE_DEPART.filter((d) => !ids.has(d.id) && !noms.has(d.activite + "|" + d.nom));
+  }, [liste]);
+  const nonPubliees = items.filter((x) => (liste || []).some((l) => l.id === x.id) && !x.publiee && x.typePrix !== "prive");
+
+  // Enregistre dans la base UNIQUEMENT ce qui y manque : rien de ce que Rebecca a deja modifie n'est ecrase.
   const importer = async () => {
     try {
       const lot = writeBatch(db);
-      for (const x of CATALOGUE_DEPART) {
+      for (const x of manquantsBase) {
         const { id, ...reste } = x;
         lot.set(doc(db, "catalogue", id), { ...reste, majLe: serverTimestamp() });
       }
       await lot.commit();
-      setMessage({ texte: "Catalogue de départ enregistré : tu peux maintenant tout modifier." });
+      setMessage({ texte: "Catalogue enregistré dans la base : tu peux maintenant tout modifier." });
     } catch {
-      setMessage({ erreur: true, texte: "Enregistrement impossible pour l'instant (règles Firebase pas encore à jour)." });
+      setMessage({ erreur: true, texte: "Enregistrement impossible pour l'instant (connexion ou règles Firebase pas encore à jour)." });
+    }
+  };
+
+  // Publie d'un coup tout ce qui est encore « non publiée » dans l'activite affichee (jamais un prix prive)
+  const publierTout = async () => {
+    if (!confirm("Publier les " + nonPubliees.length + " « non publiées » de " + NOMS_ACTIVITE[activite] + " ?")) return;
+    try {
+      const lot = writeBatch(db);
+      for (const x of nonPubliees) lot.update(doc(db, "catalogue", x.id), { publiee: true, majLe: serverTimestamp() });
+      await lot.commit();
+      setMessage({ texte: "C'est publié." });
+    } catch {
+      setMessage({ erreur: true, texte: "Publication impossible pour l'instant (connexion ou règles Firebase)." });
     }
   };
 
@@ -339,9 +361,21 @@ function Catalogue() {
         ))}
       </div>
       {erreur && <p className="tb-note tb-pad">{erreur}</p>}
+      {enBase && !erreur && manquantsBase.length > 0 && (
+        <div className="tb-bloc">
+          <p className="tb-note">{manquantsBase.length} prestation(s) ou article(s) de la liste de départ ne sont pas encore dans la base : les clientes ne peuvent pas les commander. Ce que tu as déjà modifié n'est pas touché.</p>
+          <button className="tb-bouton" onClick={importer}>Enregistrer ce qui manque dans la base</button>
+        </div>
+      )}
+      {enBase && !erreur && nonPubliees.length > 0 && (
+        <div className="tb-bloc">
+          <p className="tb-note">{nonPubliees.length} « non publiée(s) » dans {NOMS_ACTIVITE[activite]} : invisibles pour les clientes.</p>
+          <button className="tb-bouton tb-clair" onClick={publierTout}>Tout publier dans {NOMS_ACTIVITE[activite]}</button>
+        </div>
+      )}
       {!enBase && !erreur && (
         <div className="tb-bloc">
-          <p className="tb-note">Le catalogue n'est pas encore dans la base. Touche le bouton pour y enregistrer les prestations validées le 4 novembre (Nails, Hair, Slim & Lift, durées RegenX). Elles restent non publiées.</p>
+          <p className="tb-note">Le catalogue n'est pas encore dans la base. Touche le bouton pour y enregistrer les prestations validées le 4 novembre (Nails, Hair, Slim & Lift, RegenX, Epoxy, Digital). Tu pourras ensuite tout modifier.</p>
           <button className="tb-bouton" onClick={importer}>Enregistrer le catalogue de départ</button>
         </div>
       )}

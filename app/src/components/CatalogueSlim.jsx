@@ -7,6 +7,7 @@ import { CATALOGUE_DEPART, ACTIVITES_DEPART, avecAjustement, libellePrix, libell
 import { creneauxDuJour } from "../pricing/rendezvous.js";
 import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande } from "../demandes.js";
+import { ecouterCatalogue } from "../catalogueClient.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
@@ -54,14 +55,7 @@ export default function CatalogueSlim({ onRetour }) {
   }, []);
 
   useEffect(() => {
-    const unsubCat = onSnapshot(
-      query(collection(db, "catalogue"), where("activite", "==", "slim")),
-      (s) => {
-        const items = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => true) // affiche toutes les prestations du catalogue de départ;
-        setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "slim")); // force affichage des prestations par défaut
-      },
-      () => setPrestations(CATALOGUE_DEPART.filter((p) => p.activite === "slim"))
-    );
+    const unsubCat = ecouterCatalogue("slim", (liste) => setPrestations(liste));
     const unsubAct = onSnapshot(
       collection(db, "activites"),
       (s) => {
@@ -98,8 +92,8 @@ export default function CatalogueSlim({ onRetour }) {
   };
 
   const creneauDejaPris = () => {
-    if (!selection || !client.date || !client.heure) return false;
-    const debut = client.date + "T" + client.heure;
+    if (!selection || !date || !heure) return false;
+    const debut = date + "T" + heure;
     return occupes.some((o) => o.debut === debut);
   };
 
@@ -135,6 +129,7 @@ export default function CatalogueSlim({ onRetour }) {
       source: "site",
       kmEstime: null,
       minutesEstimees: null,
+      uid: user.uid,
     };
     try {
       await enregistrerDemande(demande);
@@ -142,7 +137,7 @@ export default function CatalogueSlim({ onRetour }) {
       window.open(url, "_blank", "noopener");
       setEnvoi({ enCours: false, ok: true, erreur: "" });
     } catch (e) {
-      setEnvoi({ enCours: false, ok: false, erreur: "Impossible d'enregistrer pour le moment. Contactez Rebecca sur WhatsApp." });
+      setEnvoi({ enCours: false, ok: false, erreur: e && e.code === "permission-denied" ? "Votre demande n'a pas pu être enregistrée. Contactez Rebecca sur WhatsApp." : "Enregistrement impossible pour le moment. Vérifiez la connexion puis réessayez." });
     }
   };
 
@@ -167,7 +162,7 @@ export default function CatalogueSlim({ onRetour }) {
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
         <p><strong>{p.nom}</strong> · {date} à {heure}</p>
         <p>{libellePrix(p)} · {libelleDuree(p)}</p>
-        <label>Votre nom<br /><input value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
+        <label>Votre nom<br /><input type="text" value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
         <label>Votre téléphone<br /><input type="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} required /></label>
         <label>Moyen de paiement<br />
           <select value={client.moyenPaiement} onChange={(e) => setClient({ ...client, moyenPaiement: e.target.value })}>
@@ -195,7 +190,7 @@ export default function CatalogueSlim({ onRetour }) {
         <p><strong>{libellePrix(p)}</strong> · {libelleDuree(p)}</p>
         <label>
           Date
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
+          <br /><input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
         </label>
         {date && (
           <div className="creneaux">

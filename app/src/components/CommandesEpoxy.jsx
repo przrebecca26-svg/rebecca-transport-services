@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { collection, onSnapshot, orderBy, query, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase.js";
 
-// Proposition pour Claude — à intégrer dans l'admin (accessible uniquement à Rebecca)
-// Non raccordé pour l'instant.
+// Commandes de la Boutique Epoxy : visibles et modifiables par Rebecca seulement (règles v12).
 
 const STATUTS = ["en attente", "acceptée", "refusée", "terminée", "annulée"];
 
 export default function CommandesEpoxy({ onRetour }) {
   const [commandes, setCommandes] = useState(null);
   const [erreur, setErreur] = useState("");
+  const [filtreStatut, setFiltreStatut] = useState("tous");
 
   useEffect(() => {
     const q = query(collection(db, "commandes"), orderBy("creeLe", "desc"));
@@ -34,10 +34,17 @@ export default function CommandesEpoxy({ onRetour }) {
     <section>
       <button className="lien" onClick={onRetour}>← Retour</button>
       <h2>Commandes Epoxy</h2>
+      <label>
+        Afficher<br />
+        <select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)}>
+          <option value="tous">Toutes les commandes</option>
+          {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </label>
       {commandes.length === 0 && <p>Aucune commande.</p>}
       {commandes.filter((c) => filtreStatut === "tous" || c.statut === filtreStatut).map((c) => (
         <div key={c.id} className="carte-service" style={{ marginBottom: 12 }}>
-          <strong>{c.produit}</strong> × {c.quantite}
+          <strong>{c.produit}{c.varianteNom ? " (" + c.varianteNom + ")" : ""}</strong> × {c.quantite}
           <div>{c.surDevis ? "Sur devis" : (c.prixUnitaire + " ₪")}</div>
           <div>{c.nom} — {c.telephone}</div>
           {c.messageClient && <div><em>{c.messageClient}</em></div>}

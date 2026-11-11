@@ -48,7 +48,10 @@ test("prix valides du 4 nov. (VSP 100 / 1h30, mariee 1200 / 2h30)", () => {
   egal([vsp.prix, vsp.dureeMinutes, mar.prix, mar.dureeMinutes, mar.acomptePourcent], [100, 90, 1200, 150, 40]);
 });
 test("aucun prix RegenX dans le code (sauf diagnostic)", () => vrai(C.CATALOGUE_DEPART.filter((x) => x.activite === "regenx" && x.typePrix === "prive").every((x) => x.prix === null)));
-test("Epoxy : 42 articles de la liste du 9 nov.", () => egal(C.CATALOGUE_DEPART.filter((x) => x.activite === "epoxy").length, 42));
+test("Epoxy : 42 articles du 9 nov. + 2 sur devis du 10 nov.", () => egal(C.CATALOGUE_DEPART.filter((x) => x.activite === "epoxy").length, 44));
+test("Epoxy : les 2 ajouts sont sur devis, sans prix", () => egal(C.CATALOGUE_DEPART.filter((x) => x.activite === "epoxy" && x.typePrix === "devis").map((x) => x.prix), [null, null]));
+test("identifiants du catalogue uniques", () => egal(new Set(C.CATALOGUE_DEPART.map((x) => x.id)).size, C.CATALOGUE_DEPART.length));
+test("Epoxy : premier article = epoxy-050 (identifiants stables depuis le 9 nov.)", () => egal(C.CATALOGUE_DEPART.find((x) => x.activite === "epoxy").id, "epoxy-050"));
 test("Epoxy : cendrier a 3 tailles, Hanoukia 450/550, table ronde 2000", () => {
   const n = (nom) => C.CATALOGUE_DEPART.find((x) => x.nom === nom);
   egal([n("Cendrier").variantes.map((v) => v.prix), n("Hanoukia").variantes.map((v) => v.prix), n("Table ronde").prix], [[65, 125, 195], [450, 550], 2000]);
@@ -58,9 +61,11 @@ test("Epoxy : chaque article passe la verification de l'admin", () => {
   egal(ko, []);
 });
 test("photo : format et poids verifies", () => egal([C.validerPhoto({ donnees: "data:image/jpeg;base64,AAAA", legende: " 20 x 30 cm " }).photo.legende, !!C.validerPhoto({ donnees: "http://x" }).erreur], ["20 x 30 cm", true]));
-test("rien n'est publie au depart", () => vrai(C.CATALOGUE_DEPART.every((x) => x.publiee === false)));
+test("publie au depart (10 nov.), sauf les prix prives", () => vrai(C.CATALOGUE_DEPART.every((x) => x.publiee === (x.typePrix !== "prive"))));
 test("identifiants uniques", () => egal(new Set(C.CATALOGUE_DEPART.map((x) => x.id)).size, C.CATALOGUE_DEPART.length));
 const P = { activite: "nails", categorie: "Mains", nom: "Nouvelle pose", typePrix: "fixe", prix: "180", dureeMinutes: "120", publiee: true };
+test("un prix prive ne peut pas etre publie", () => egal(C.validerPrestation({ ...P, activite: "regenx", typePrix: "prive", prix: "", publiee: true }).prestation.publiee, false));
+test("une prestation a prix fixe peut etre publiee", () => egal(C.validerPrestation({ ...P, publiee: true }).prestation.publiee, true));
 test("nouvelle prestation beaute", () => egal(C.validerPrestation(P).prestation, { activite: "nails", categorie: "Mains", nom: "Nouvelle pose", description: "", typePrix: "fixe", prix: 180, prixMax: null, dureeMinutes: 120, option: false, variantes: [], publiee: true, ordre: 999 }));
 test("duree obligatoire pour un rendez-vous", () => vrai(!!C.validerPrestation({ ...P, dureeMinutes: "" }).erreur));
 test("article Epoxy sans duree, avec variantes et delai", () => {

@@ -22,7 +22,7 @@ const MOUV = [
 ];
 
 section("Tableau de bord");
-test("8 activites, 2 actives", () => egal([T.ACTIVITES_TB.length, T.ACTIVITES_TB.filter((a) => a.etat === "active").map((a) => a.id)], [8, ["coursier", "transport"]]));
+test("8 activites, toutes actives (10 nov.)", () => egal([T.ACTIVITES_TB.length, T.ACTIVITES_TB.filter((a) => a.etat === "active").length], [8, 8]));
 test("date de creation texte", () => egal(T.dateCreation({ creeLe: "2026-11-07" }), "2026-11-07"));
 test("date de creation Timestamp : heure d'Israel (31 oct. 23h30 UTC = 1er nov.)", () => egal(T.dateCreation(DEM[2]), "2026-11-01"));
 test("sans date de creation", () => egal(T.dateCreation({}), null));

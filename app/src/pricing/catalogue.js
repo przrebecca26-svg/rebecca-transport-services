@@ -27,7 +27,8 @@ export const ACTIVITES_DEPART = [
   { id: "nails", nom: "Nails Prestige", type: "rendezvous", couleur: "#F1AEB7", acces: "public", ...BEAUTE },
   { id: "hair", nom: "Prestige Hair", type: "rendezvous", couleur: "#D9A27E", acces: "public", ...BEAUTE },
   { id: "slim", nom: "Prestige Slim & Lift", type: "rendezvous", couleur: "#9FB8A8", acces: "public", ...BEAUTE },
-  { id: "regenx", nom: "RegenX", type: "rendezvous", couleur: "#7E9CC0", acces: "autorisation", ...BEAUTE },
+  // RegenX (decision du 11 nov.) : diagnostic ouvert a tous ; les seances (prix prives) ne sont jamais publiees.
+  { id: "regenx", nom: "RegenX", type: "rendezvous", couleur: "#7E9CC0", acces: "public", ...BEAUTE },
   { id: "epoxy", nom: "Boutique Epoxy", type: "commande", couleur: "#C9A86A", acces: "public", jours: [0, 1, 2, 3, 4], debut: "09:00", fin: "18:00", margeMinutes: 0, acomptePourcent: 20, acompteMin: 10, delaiAcompteHeures: 48, fabricationJours: "2 à 5", ajustementPourcent: 0 },
   { id: "digital", nom: "Digital & Applications", type: "projet", couleur: "#B9AEB0", acces: "public", jours: [0, 1, 2, 3, 4], debut: "09:00", fin: "18:00", margeMinutes: 0, acomptePourcent: 40, acompteMin: 0, delaiAcompteHeures: 48 },
 ];
@@ -97,7 +98,8 @@ const p = (activite, categorie, nom, prix, duree, extra = {}) => ({
   dureeMinutes: duree,
   option: false,
   variantes: [],
-  publiee: true, // publié pour les tests client
+  // Publie par defaut (decision du 10 nov.) ; un prix prive (seances RegenX) n'est JAMAIS publie.
+  publiee: extra.typePrix !== "prive",
   ordre,
   ...extra,
 });
@@ -273,7 +275,7 @@ export function validerPrestation(f) {
     dureeMinutes: commande ? null : duree,
     option: f.option === true,
     variantes,
-    publiee: f.publiee === true,
+    publiee: f.publiee === true && f.typePrix !== "prive", // un prix prive n'est jamais publie (regles v12)
     ordre: Number.isFinite(Number(f.ordre)) ? Number(f.ordre) : 999,
   };
   if (commande) r.delaiFabrication = delai;

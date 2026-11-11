@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase.js";
+import { ecouterCatalogue } from "../catalogueClient.js";
 import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
@@ -76,26 +77,13 @@ export default function CatalogueEpoxy({ onRetour }) {
   const [user, setUser] = useState(null);
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
 
-  useEffect(() => {
-    // Source de vérité : CATALOGUE_DEPART (validé). Firestore peut surcharger.
-    const depart = CATALOGUE_DEPART.filter((p) => p.activite === "epoxy").map((p) => ({ ...p, publiee: true }));
-    const unsub = onSnapshot(
-      query(collection(db, "catalogue"), where("activite", "==", "epoxy")),
-      (s) => {
-        const fromDb = s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.publiee);
-        // Fusion : les documents Firestore remplacent ceux du départ (même id)
-        const map = new Map(depart.map((p) => [p.id, p]));
-        fromDb.forEach((p) => map.set(p.id, p));
-        setArticles([...map.values()]);
-      },
-      () => setArticles(depart)
-    );
-    return unsub;
-  }, []);
+  // La base fait foi (articles publiés, prix modifiés dans l'admin) ; liste de départ tant que la base est vide.
+  useEffect(() => ecouterCatalogue("epoxy", (liste) => setArticles(liste)), []);
 
   const categories = [...new Set(articles.map((p) => p.categorie))];
 
   const prixEffectif = () => {
+    if (selection?.typePrix === "devis") return null;
     if (variante && typeof variante.prix === "number") return variante.prix;
     if (typeof selection?.prix === "number" && selection.prix >= 0) return selection.prix;
     return null;
@@ -121,6 +109,7 @@ export default function CatalogueEpoxy({ onRetour }) {
 
     const prix = prixEffectif();
     const commande = {
+      uid: user.uid,
       type: "commande",
       activite: "epoxy",
       service: "epoxy",
@@ -129,7 +118,6 @@ export default function CatalogueEpoxy({ onRetour }) {
       telephone: client.telephone.trim(),
       produitId: selection.id || "",
       produit: selection.nom || "",
-      varianteId: variante ? (variante.nom || "") : "",
       varianteNom: variante ? (variante.nom || "") : "",
       quantite: qte,
       prixUnitaire: prix,
@@ -146,7 +134,7 @@ export default function CatalogueEpoxy({ onRetour }) {
       window.open(lienWhatsApp(WHATSAPP, msg), "_blank", "noopener");
       setEnvoi({ enCours: false, ok: true, erreur: "" });
     } catch (e) {
-      setEnvoi({ enCours: false, ok: false, erreur: e.code === "permission-denied" ? "Commande refusée (compte non vérifié ou produit non disponible)." : "Impossible d'enregistrer la commande. Contactez Rebecca sur WhatsApp." });
+      setEnvoi({ enCours: false, ok: false, erreur: e && e.code === "permission-denied" ? "Votre commande n'a pas pu être enregistrée. Contactez Rebecca sur WhatsApp." : "Enregistrement impossible pour le moment. Vérifiez la connexion puis réessayez." });
     }
   };
 
@@ -182,7 +170,7 @@ export default function CatalogueEpoxy({ onRetour }) {
             </select>
           </label>
         )}
-        <label>Votre nom<br /><input value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
+        <label>Votre nom<br /><input type="text" value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
         <label>Votre téléphone<br /><input type="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} required /></label>
         <label>Quantité<br /><input type="number" min="1" max="50" value={client.quantite} onChange={(e) => setClient({ ...client, quantite: e.target.value })} /></label>
         <label>Message (optionnel)<br /><textarea value={client.message} onChange={(e) => setClient({ ...client, message: e.target.value })} rows={3} /></label>

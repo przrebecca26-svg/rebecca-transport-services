@@ -126,3 +126,45 @@
 .catalogue-nails div[style*="overflowX"] {
   -webkit-overflow-scrolling: touch;
 }
+
+/* ---- Compléments de Claude après relecture (11 nov. 2026) ---- */
+
+/* Prix et bouton WhatsApp centrés sur la ligne (ils restaient collés en bas) */
+.catalogue-nails .carte-service .prix {
+  align-self: center !important;
+  margin-top: 0 !important;
+}
+.catalogue-nails .carte-service a.lien {
+  align-self: center;
+  text-decoration: none;
+}
+
+/* Prix à variantes (« Petit 65 ₪ · Moyen 125 ₪ · Grand 195 ₪ ») : sur plusieurs lignes, sans écraser le nom */
+.catalogue-nails .carte-service .prix {
+  white-space: normal;
+  max-width: 38%;
+  text-align: right;
+}
+
+/* Boutique Epoxy : photo à gauche du nom (elle passait au-dessus) */
+.catalogue-nails .carte-service > button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+}
+
+/* Boutons flottants un peu plus petits sur téléphone : ils cachent moins les cartes */
+@media (max-width: 600px) {
+  .theme-site a[aria-label="Contacter sur WhatsApp"],
+  .theme-site a[aria-label^="Instagram"] {
+    width: 46px !important;
+    height: 46px !important;
+    font-size: 22px !important;
+    right: 12px !important;
+  }
+  .theme-site a[aria-label="Contacter sur WhatsApp"] { bottom: 84px !important; }
+  .theme-site a[aria-label^="Instagram"] { bottom: 140px !important; }
+}

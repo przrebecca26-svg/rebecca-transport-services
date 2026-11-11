@@ -137,7 +137,9 @@ export async function envoyerEmail(d) {
 }
 
 // Envoie la demande. Le code Firebase n'est charge qu'a ce moment-la. Renvoie l'identifiant de la demande.
-export async function enregistrerDemande(demande) {
+// options.verrou = { date, cellules } pour un rendez-vous : le creneau est verrouille DANS la meme operation
+// (agendaJours/rebecca__date). S'il vient d'etre pris, rien n'est enregistre et l'erreur porte le code « creneau-pris ».
+export async function enregistrerDemande(demande, options = {}) {
   const [{ db }, fs] = await Promise.all([import("./firebase.js"), import("firebase/firestore")]);
   const { addDoc, collection, doc, runTransaction, serverTimestamp } = fs;
 
@@ -153,12 +155,20 @@ export async function enregistrerDemande(demande) {
   const suiviRef = doc(db, "suivi", ref.id);
   const usageRef = demande.codePromo ? doc(db, "utilisationsPromo", demande.codePromo + "__" + demande.uid) : null;
   const ancienRef = demande.remplace ? doc(db, "suivi", demande.remplace) : null;
+  const verrou = options.verrou && options.verrou.date && Array.isArray(options.verrou.cellules) && options.verrou.cellules.length ? options.verrou : null;
+  const agendaRef = verrou ? doc(db, "agendaJours", "rebecca__" + verrou.date) : null;
 
   await runTransaction(db, async (tx) => {
     // 1. Lectures d'abord (regle des transactions)
     const usage = usageRef ? await tx.get(usageRef) : null;
     const ancien = ancienRef ? await tx.get(ancienRef) : null;
+    const agenda = agendaRef ? await tx.get(agendaRef) : null;
+    if (agenda) {
+      const prises = agenda.exists() ? agenda.data().cells || {} : {};
+      if (verrou.cellules.some((c) => prises[c] === true)) throw Object.assign(new Error("Créneau déjà pris"), { code: "creneau-pris" });
+    }
     // 2. Ecritures
+    if (agendaRef) tx.set(agendaRef, { cells: Object.fromEntries(verrou.cellules.map((c) => [c, true])), majLe: serverTimestamp() }, { merge: true });
     tx.set(ref, { ...demande, creeLe: serverTimestamp() });
     tx.set(suiviRef, { ...construireSuivi(demande), creeLe: serverTimestamp(), majLe: serverTimestamp() });
     if (usageRef) {
@@ -178,6 +188,7 @@ export async function enregistrerDemande(demande) {
 // Message clair quand l'enregistrement est refuse (code promo epuise, compte bloque, connexion...)
 export function messageEchec(e, demande) {
   const code = (e && e.code) || "";
+  if (code === "creneau-pris") return "Ce créneau vient d'être pris. Choisissez-en un autre.";
   if (code === "permission-denied" && demande && demande.codePromo) {
     return "Ce code promo n'est plus utilisable sur votre compte. Retirez-le puis renvoyez la demande.";
   }

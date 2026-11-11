@@ -1,6 +1,17 @@
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
+// Lien WhatsApp propre a chaque formule ou forfait : le message dit lequel interesse le client
+const demander = (quoi) => lienWhatsApp(WHATSAPP, `Bonjour Rebecca, je souhaite des informations sur : ${quoi} (Digital & Applications).`);
+
+function Demander({ quoi }) {
+  return (
+    <a className="lien" href={demander(quoi)} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 8 }}>
+      Demander sur WhatsApp
+    </a>
+  );
+}
+
 export default function CatalogueDigital({ onRetour }) {
   return (
     <section className="catalogue-nails">
@@ -19,6 +30,7 @@ export default function CatalogueDigital({ onRetour }) {
           <strong>Formule Essentielle</strong>
           <small>dès 6 900 ₪ — Environ 6 semaines</small>
           <small>Site web responsive, présentation des services, espace client, demandes et réservations, base de données, notifications.</small>
+          <Demander quoi="Formule Essentielle" />
         </span>
         <span className="prix">dès 6 900 ₪</span>
       </div>
@@ -28,6 +40,7 @@ export default function CatalogueDigital({ onRetour }) {
           <strong>Formule Business</strong>
           <small>dès 14 900 ₪ — Environ 6 à 10 semaines</small>
           <small>Espace client et administration, gestion des clients, commandes et réservations, tableau de bord, gestion des tarifs, historique, automatisations et tests.</small>
+          <Demander quoi="Formule Business" />
         </span>
         <span className="prix">dès 14 900 ₪</span>
       </div>
@@ -37,6 +50,7 @@ export default function CatalogueDigital({ onRetour }) {
           <strong>Formule Sur mesure</strong>
           <small>dès 22 000 à 35 000 ₪ et plus — Environ 2 à 3 mois ou davantage</small>
           <small>Architecture personnalisée, gestion avancée des droits, réservations complexes, paiements et API, automatisations, statistiques et fonctionnalités spécifiques.</small>
+          <Demander quoi="Formule Sur mesure" />
         </span>
         <span className="prix">Sur devis</span>
       </div>
@@ -49,6 +63,7 @@ export default function CatalogueDigital({ onRetour }) {
         <span className="corps">
           <strong>Sérénité</strong>
           <small>250 ₪/mois — 30 minutes incluses, réponse sous 3 jours ouvrés.</small>
+          <Demander quoi="Forfait de maintenance Sérénité" />
         </span>
         <span className="prix">250 ₪/mois</span>
       </div>
@@ -58,6 +73,7 @@ export default function CatalogueDigital({ onRetour }) {
         <span className="corps">
           <strong>Confort</strong>
           <small>450 ₪/mois — 1 h 30 incluse, réponse sous 48 heures ouvrées.</small>
+          <Demander quoi="Forfait de maintenance Confort" />
         </span>
         <span className="prix">450 ₪/mois</span>
       </div>
@@ -67,6 +83,7 @@ export default function CatalogueDigital({ onRetour }) {
         <span className="corps">
           <strong>Premium</strong>
           <small>750 ₪/mois — 3 heures incluses, réponse sous 24 heures ouvrées.</small>
+          <Demander quoi="Forfait de maintenance Premium" />
         </span>
         <span className="prix">750 ₪/mois</span>
       </div>

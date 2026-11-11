@@ -91,7 +91,7 @@ export default function CatalogueNails({ onRetour }) {
     }
     setEnvoi({ enCours: true, ok: false, erreur: "" });
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
-    const message = `Bonjour Rebecca,\n\nNouvelle demande Nails Prestige :\n- Prestation : ${p.nom}\n- Date : ${date}\n- Heure : ${heure}\n- Prix : ${libellePrix(p)}\n- Durée : ${libelleDuree(p)}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nPaiement : ${client.moyenPaiement}\n\nMerci de me confirmer.`;
+    const message = `Bonjour Rebecca,\n\nNouvelle demande Nails Prestige :\n- Prestation : ${p.nom}\n- Date : ${date}\n- Heure : ${heure}\n- Prix : ${libellePrix(p)}${libelleDuree(p) ? "\n- Durée : " + libelleDuree(p) : ""}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nPaiement : ${client.moyenPaiement}\n\nMerci de me confirmer.`;
     const demande = {
       service: "nails",
       serviceTitre: "Nails Prestige – " + p.nom,
@@ -140,7 +140,7 @@ export default function CatalogueNails({ onRetour }) {
         <h2>Finaliser la réservation</h2>
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
         <p><strong>{p.nom}</strong> · {date} à {heure}</p>
-        <p>{libellePrix(p)} · {libelleDuree(p)}</p>
+        <p>{libellePrix(p)}{libelleDuree(p) ? " · " + libelleDuree(p) : ""}</p>
         <label>Votre nom<br /><input type="text" value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
         <label>Votre téléphone<br /><input type="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} required /></label>
         <label>Moyen de paiement<br />
@@ -171,7 +171,7 @@ export default function CatalogueNails({ onRetour }) {
           </div>
         )}
         <p>{p.description}</p>
-        <p><strong>{libellePrix(p)}</strong> · {libelleDuree(p)}</p>
+        <p><strong>{libellePrix(p)}</strong>{libelleDuree(p) ? " · " + libelleDuree(p) : ""}</p>
         <label>
           Date
           <br /><input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />

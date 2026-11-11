@@ -319,8 +319,10 @@ export function libellePrix(x, devise = "₪") {
   return base;
 }
 
-export function libelleDuree(min) {
-  if (!Number.isFinite(min)) return "";
+// Accepte une duree en minutes OU une prestation entiere (on lit alors sa duree)
+export function libelleDuree(x) {
+  const min = x && typeof x === "object" ? x.dureeMinutes : x;
+  if (!Number.isFinite(min) || min <= 0) return "";
   const h = Math.floor(min / 60);
   const m = min % 60;
   return h ? `${h} h${m ? " " + String(m).padStart(2, "0") : ""}` : `${m} min`;

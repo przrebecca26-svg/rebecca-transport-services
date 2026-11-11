@@ -20,9 +20,9 @@ const PHOTOS = {
   "Forfait radiofréquence ventre & taille": "/slim/forfait_radiofrequence_ventre_taille.jpg",
   "Forfait radiofréquence fesses & cuisses": "/slim/forfait_radiofrequence_fesses_cuisses.jpg",
   "Anti-cellulite cuisses & fesses, séance unique": "/slim/anti_cellulite_cuisses_fesses_seance_unique.jpg",
-  "Anti-cellulite cure 8 séances": "/slim/anti_cellulite_cure_8_seances.jpg",
-  "Anti-cellulite cure 10 séances": "/slim/anti_cellulite_cure_10_seances.jpg",
-  "Bilan personnalisé": "/slim/bilan_personnalise.jpg",
+  "Anti-cellulite, cure 8 séances": "/slim/anti_cellulite_cure_8_seances.jpg",
+  "Anti-cellulite, cure 10 séances": "/slim/anti_cellulite_cure_10_seances.jpg",
+  "Bilan personnalisé (facultatif)": "/slim/bilan_personnalise.jpg",
 };
 
 // Catalogue et réservation pour Prestige Slim & Lift

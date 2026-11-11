@@ -7,50 +7,45 @@ import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
-const VARIANT_PHOTOS = {
-  "Lampe logo": { "Petit": "/epoxy/42_Lampe_Logo_Petite.jpg", "Grand": "/epoxy/43_Lampe_Logo_Grande.jpg" },
-  "Lampe sac": { "Petit": "/epoxy/44_Lampe_Sac_Petite.jpg", "Grand": "/epoxy/45_Lampe_Sac_Grande.jpg" },
-  "Bougie logo": { "Petit": "/epoxy/47_Bougie_Logo_Petite.jpg", "Grand": "/epoxy/48_Bougie_Logo_Grande.jpg" },
-  "Bougie sac": { "Petit": "/epoxy/49_Bougie_Sac_Petite.jpg", "Grand": "/epoxy/50_Bougie_Sac_Grande.jpg" },
-};
+// Visuels d'illustration (retries le 11 nov. 2026 : chaque image a ete controlee une par une).
+// Un article sans visuel fiable n'a PAS d'image ici. Les vraies photos ajoutees par Rebecca dans
+// Reglages > Catalogue > Modifier passent toujours avant ces visuels.
+const E = (n) => "/epoxy/" + n + ".jpg";
 const PHOTOS = {
-  "Cendrier": "/epoxy/01_Cendrier_Petit.jpg",
-  "Support de téléphone": "/epoxy/04_Support_Telephone.jpg",
-  "Carrousel": "/epoxy/52_Carrousel_Decoratif.jpg",
-  "Vase petit": "/epoxy/46_Vase_Sac.jpg",
-  "Miroir coquillages": "/epoxy/28_Miroir_Coquillages.jpg",
-  "Petite boîte à bijoux": "/epoxy/05_Petite_Boite_Bijoux.jpg",
-  "Boîte de rangement": "/epoxy/08_Boite_Rangement_Petite.jpg",
-  "Grande boîte rectangulaire": "/epoxy/11_Boite_Rangement_Rectangulaire.jpg",
-  "Verre à pinceaux": "/epoxy/12_Verre_Pinceaux.jpg",
-  "Boîte de rangement à maquillage": "/epoxy/13_Boite_Rangement_Maquillage.jpg",
-  "Bol de rangement": "/epoxy/24_Bol_Rangement.jpg",
-  "Porte-savon": "/epoxy/06_Porte_Savon.jpg",
-  "Bouteille distributeur à savon": "/epoxy/07_Distributeur_Savon.jpg",
-  "Plateau": "/epoxy/14_Plateau_Petit.jpg",
-  "Plateau tortue": "/epoxy/25_Plateau_Tortue.jpg",
-  "Porte-cuillère": "/epoxy/26_Porte_Cuillere.jpg",
-  "Bracelet": "/epoxy/17_Bracelet.jpg",
-  "Collier": "/epoxy/18_Collier.jpg",
-  "Porte-clés": "/epoxy/19_Porte_Cles.jpg",
-  "Bague": "/epoxy/20_Bague.jpg",
-  "Boucles d'oreilles": "/epoxy/21_Boucles_Oreilles.jpg",
-  "Table ronde": "/epoxy/29_Table_Ronde.jpg",
-  "Table rectangle": "/epoxy/30_Table_Rectangulaire.jpg",
-  "Plateau de Chabbat sans poignée": "/epoxy/31_Plateau_Chabbat_Sans_Poignee.jpg",
-  "Plateau de Chabbat avec poignée": "/epoxy/32_Plateau_Chabbat_Avec_Poignee.jpg",
-  "Plateau de Chabbat grand rond": "/epoxy/33_Plateau_Chabbat_Grand_Rond.jpg",
-  "Verre de Kiddouch": "/epoxy/34_Verre_Kidouch.jpg",
-  "Salière": "/epoxy/35_Saliere.jpg",
-  "Kit Havdala (2 boîtes, 1 bougie et clous de girofle)": "/epoxy/36_Kit_Havdala.jpg",
-  "Keli (Netilat Yadayim)": "/epoxy/37_Keli.jpg",
-  "Porte-serviettes (lot de 6)": "/epoxy/38_Porte_Serviettes_Lot_6.jpg",
-  "Lampe": "/epoxy/41_Lampe.jpg",
-  "Vase sac": "/epoxy/46_Vase_Sac.jpg",
-  "Bougie bouteille de champagne": "/epoxy/51_Bouteille_Champagne.jpg",
-  "Bougie carrousel": "/epoxy/52_Carrousel_Decoratif.jpg",
-  "Bougie tortue": "/epoxy/53_Tortue_Decorative.jpg",
-  "Bougie parfumée dans sa boîte Epoxy": "/epoxy/54_Bougie_Parfumee_Boite_Epoxy.jpg",
+  "Cendrier": E("01_Cendrier_Petit"),
+  "Support de téléphone": E("04_Support_Telephone"),
+  "Carrousel": E("21_Boucles_Oreilles"),
+  "Vase petit": E("32_Plateau_Chabbat_Avec_Poignee"),
+  "Miroir coquillages": E("31_Plateau_Chabbat_Sans_Poignee"),
+  "Vase sac": E("43_Lampe_Logo_Grande"),
+  "Petite boîte à bijoux": E("05_Petite_Boite_Bijoux"),
+  "Boîte de rangement": E("08_Boite_Rangement_Petite"),
+  "Grande boîte rectangulaire": E("11_Boite_Rangement_Rectangulaire"),
+  "Boîte de rangement à maquillage": E("12_Verre_Pinceaux"),
+  "Bol de rangement": E("28_Miroir_Coquillages"),
+  "Porte-savon": E("06_Porte_Savon"),
+  "Bouteille distributeur à savon": E("07_Distributeur_Savon"),
+  "Plateau": E("14_Plateau_Petit"),
+  "Porte-cuillère": E("30_Table_Rectangulaire"),
+  "Bracelet": E("17_Bracelet"),
+  "Collier": E("18_Collier"),
+  "Porte-clés": E("19_Porte_Cles"),
+  "Bague": E("20_Bague"),
+  "Table ronde": E("34_Verre_Kidouch"),
+  "Table rectangle": E("35_Saliere"),
+  "Plateau de Chabbat sans poignée": E("27_Vase_Petit"),
+  "Plateau de Chabbat avec poignée": E("24_Bol_Rangement"),
+  "Plateau de Chabbat grand rond": E("25_Plateau_Tortue"),
+  "Hanoukia": E("36_Kit_Havdala"),
+  "Lampe": E("37_Keli"),
+  "Lampe sac": E("39_Hanouka_Petit"),
+  "Bougie parfumée dans sa boîte Epoxy": E("48_Bougie_Logo_Grande"),
+};
+// Visuel propre a une variante (le nom de la variante doit etre exactement celui du catalogue)
+const VARIANT_PHOTOS = {
+  "Cendrier": { "Petit": E("01_Cendrier_Petit"), "Moyen": E("02_Cendrier_Moyen"), "Grand": E("03_Cendrier_Grand") },
+  "Boîte de rangement": { "Petite": E("09_Boite_Rangement_Moyenne"), "Moyenne": E("08_Boite_Rangement_Petite"), "Grande": E("10_Boite_Rangement_Grande") },
+  "Plateau": { "Petit": E("14_Plateau_Petit"), "Grand": E("13_Boite_Rangement_Maquillage"), "Grand rond": E("15_Plateau_Grand") },
 };
 
 export default function CatalogueEpoxy({ onRetour }) {
@@ -81,6 +76,14 @@ export default function CatalogueEpoxy({ onRetour }) {
   useEffect(() => ecouterCatalogue("epoxy", (liste) => setArticles(liste)), []);
 
   const categories = [...new Set(articles.map((p) => p.categorie))];
+
+  // Photo d'un article : la vraie photo de l'admin d'abord, puis le visuel de la variante, puis le visuel de l'article
+  const photoDe = (p, v) => {
+    if (!p) return null;
+    if (p.id && photos[p.id] && photos[p.id][0]) return photos[p.id][0];
+    if (v && VARIANT_PHOTOS[p.nom] && VARIANT_PHOTOS[p.nom][v.nom]) return VARIANT_PHOTOS[p.nom][v.nom];
+    return PHOTOS[p.nom] || null;
+  };
 
   const prixEffectif = () => {
     if (selection?.typePrix === "devis") return null;
@@ -155,6 +158,7 @@ export default function CatalogueEpoxy({ onRetour }) {
       <section className="catalogue-nails">
         <button className="lien" onClick={() => { setSelection(null); setVariante(null); }}>← Changer d'article</button>
         <h2>Commander : {selection.nom}</h2>
+        {photoDe(selection, variante) && <img src={photoDe(selection, variante)} alt={selection.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
         <p>{libellePrix(selection) || "Prix sur demande"}</p>
         {variantes.length > 0 && (
           <label>
@@ -196,7 +200,7 @@ export default function CatalogueEpoxy({ onRetour }) {
           {articles.filter((p) => p.categorie === cat).map((p) => (
             <div key={p.id} className="carte-service" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button onClick={() => setSelection(p)} style={{ flex: 1, textAlign: "left", background: "transparent", border: "none", color: "inherit", cursor: "pointer" }}>
-                {/* photo */}{PHOTOS[p.nom] && <img src={PHOTOS[p.nom]} alt="" width={48} height={48} style={{ borderRadius: 8, objectFit: "cover" }} />}<span className="corps">
+                {photoDe(p) && <img src={photoDe(p)} alt="" width={48} height={48} style={{ borderRadius: 8, objectFit: "cover" }} />}<span className="corps">
                   <strong>{p.nom}</strong>
                   <small>{p.description || (p.delaiFabrication ? `Délai : ${p.delaiFabrication}` : "")}</small>
                 </span>

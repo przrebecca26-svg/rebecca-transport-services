@@ -1,0 +1,128 @@
+/* Catalogue pages - mise en page iPhone (390px) - Rebecca Services
+   Couleurs : noir profond, anthracite, or rose, rose poudré, blanc cassé. Aucun orange. */
+
+.catalogue-nails {
+  padding-bottom: 160px; /* évite que les boutons flottants recouvrent le contenu, le bouton d'envoi ou le pied */
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Formulaires : libellé au-dessus, champs pleine largeur, hauteurs et marges homogènes */
+.catalogue-nails label {
+  display: block;
+  margin: 0 0 16px;
+  font-weight: 600;
+  font-size: 15px;
+}
+.catalogue-nails label input,
+.catalogue-nails label select,
+.catalogue-nails label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+.catalogue-nails label textarea {
+  min-height: 80px;
+}
+
+/* Cartes de prestation : alignement photo / nom / prix / WhatsApp, espaces réduits, pas de déformation */
+.catalogue-nails .carte-service {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: auto !important;
+  padding: 10px 12px !important;
+  margin-bottom: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.catalogue-nails .carte-service img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex: none;
+}
+.catalogue-nails .carte-service .corps {
+  flex: 1;
+  min-width: 0;
+}
+.catalogue-nails .carte-service .corps strong {
+  display: block;
+  white-space: normal;
+}
+.catalogue-nails .carte-service .corps small {
+  display: block;
+  white-space: normal;
+  font-size: 13px;
+}
+.catalogue-nails .carte-service .prix {
+  flex: none;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.catalogue-nails .carte-service a.lien,
+.catalogue-nails .carte-service button {
+  flex: none;
+}
+
+/* Boutons de créneaux : taille confortable, sélection visible */
+.catalogue-nails .creneaux > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.catalogue-nails .creneaux button {
+  min-width: 76px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--g-bord, rgba(185, 120, 112, 0.45));
+  background: var(--g-champ, #100d0f);
+  color: var(--g-texte, #f8f3f1);
+  font: inherit;
+  cursor: pointer;
+}
+.catalogue-nails .creneaux button.actif {
+  background: var(--g-rose, #f1aeb7);
+  color: #080709;
+  border-color: var(--g-rose, #f1aeb7);
+  font-weight: 700;
+}
+.catalogue-nails .creneaux button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Photos et logos : pas de déformation */
+.catalogue-nails img {
+  object-fit: cover;
+  max-width: 100%;
+  height: auto;
+}
+.catalogue-nails .header-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+
+/* Boutons flottants : position ajustée pour ne pas recouvrir le bouton d'envoi ni le pied */
+.theme-site a[aria-label="Contacter sur WhatsApp"] {
+  bottom: 90px !important;
+  right: 16px !important;
+}
+.theme-site a[aria-label^="Instagram"] {
+  bottom: 158px !important;
+  right: 16px !important;
+}
+
+/* Galerie : défilement horizontal propre */
+.catalogue-nails .galerie-scroll,
+.catalogue-nails div[style*="overflowX"] {
+  -webkit-overflow-scrolling: touch;
+}

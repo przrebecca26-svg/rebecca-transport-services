@@ -9,27 +9,11 @@ import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande } from "../demandes.js";
 import { ecouterCatalogue } from "../catalogueClient.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
+import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
 
 // Mapping temporaire des photos générées (remplaçables dans l'admin)
-const PHOTOS = {
-  "Semi-permanent (VSP)": "/nails/01_Semi-permanent.jpg",
-  "Beauté des mains": "/nails/02_Beaute-des-mains.jpg",
-  "Mivne anatomie (gainage)": "/nails/03_Gainage.jpg",
-  "Renforcement": "/nails/04_Renforcement.jpg",
-  "Extensions gel + VSP": "/nails/05_Extensions-gel.jpg",
-  "Remplissage gel": "/nails/06_Remplissage-gel.jpg",
-  "Flash Gel-X": "/nails/07_Flash-Gel-X.jpg",
-  "Gel de construction": "/nails/08_Gel-de-construction.jpg",
-  "Remplissage gel de construction": "/nails/09_Remplissage-gel-de-construction.jpg",
-  "Pose acrylique + VSP": "/nails/10_Pose-acrylique.jpg",
-  "Remplissage acrylique": "/nails/11_Remplissage-acrylique.jpg",
-  "Dépose Gel-X / gel": "/nails/12_Depose-Gel-X-gel.jpg",
-  "Dépose acrylique / gel de construction": "/nails/13_Depose-acrylique.jpg",
-  "Nail art (par ongle)": "/nails/14_Nail-art.jpg",
-  "Réparation ou rajout (par ongle)": "/nails/15_Reparation-ongle.jpg",
-  "Semi-permanent enfant (12 ans minimum)": "/nails/16_Semi-permanent-enfant.jpg",
-};
+const PHOTOS = VISUELS.nails;
 
 // Catalogue et réservation pour Nails Prestige
 export default function CatalogueNails({ onRetour }) {
@@ -192,6 +176,11 @@ export default function CatalogueNails({ onRetour }) {
         <button className="lien" onClick={() => setSelection(null)}>← Retour au catalogue</button>
         <h2>{p.nom}</h2>
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 360, borderRadius: 12, margin: "8px 0" }} />}
+        {p.id && photos[p.id] && photos[p.id].length > 1 && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+            {photos[p.id].slice(1).map((src, i) => <img key={i} src={src} alt="" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flex: "none" }} />)}
+          </div>
+        )}
         <p>{p.description}</p>
         <p><strong>{libellePrix(p)}</strong> · {libelleDuree(p)}</p>
         <label>

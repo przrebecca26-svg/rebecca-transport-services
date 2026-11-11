@@ -9,21 +9,11 @@ import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande } from "../demandes.js";
 import { ecouterCatalogue } from "../catalogueClient.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
+import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
-const PHOTOS = {
-  "Radiofréquence visage ou cou": "/slim/radiofrequence_visage_ou_cou.jpg",
-  "Radiofréquence corps (1 zone)": "/slim/radiofrequence_corps_1_zone.jpg",
-  "Cavitation ultrasonique (1 zone)": "/slim/cavitation_ultrasonique_1_zone.jpg",
-  "Cavitation + radiofréquence (1 zone)": "/slim/cavitation_plus_radiofrequence_1_zone.jpg",
-  "Forfait radiofréquence ventre & taille": "/slim/forfait_radiofrequence_ventre_taille.jpg",
-  "Forfait radiofréquence fesses & cuisses": "/slim/forfait_radiofrequence_fesses_cuisses.jpg",
-  "Anti-cellulite cuisses & fesses, séance unique": "/slim/anti_cellulite_cuisses_fesses_seance_unique.jpg",
-  "Anti-cellulite, cure 8 séances": "/slim/anti_cellulite_cure_8_seances.jpg",
-  "Anti-cellulite, cure 10 séances": "/slim/anti_cellulite_cure_10_seances.jpg",
-  "Bilan personnalisé (facultatif)": "/slim/bilan_personnalise.jpg",
-};
+const PHOTOS = VISUELS.slim;
 
 // Catalogue et réservation pour Prestige Slim & Lift
 export default function CatalogueSlim({ onRetour }) {
@@ -186,6 +176,11 @@ export default function CatalogueSlim({ onRetour }) {
         <button className="lien" onClick={() => setSelection(null)}>← Retour au catalogue</button>
         <h2>{p.nom}</h2>
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 360, borderRadius: 12, margin: "8px 0" }} />}
+        {p.id && photos[p.id] && photos[p.id].length > 1 && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+            {photos[p.id].slice(1).map((src, i) => <img key={i} src={src} alt="" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flex: "none" }} />)}
+          </div>
+        )}
         <p>{p.description}</p>
         <p><strong>{libellePrix(p)}</strong> · {libelleDuree(p)}</p>
         <label>

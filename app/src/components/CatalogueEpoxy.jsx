@@ -5,42 +5,14 @@ import { auth, db } from "../firebase.js";
 import { ecouterCatalogue } from "../catalogueClient.js";
 import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
+import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
 
 // Visuels d'illustration (retries le 11 nov. 2026 : chaque image a ete controlee une par une).
 // Un article sans visuel fiable n'a PAS d'image ici. Les vraies photos ajoutees par Rebecca dans
 // Reglages > Catalogue > Modifier passent toujours avant ces visuels.
 const E = (n) => "/epoxy/" + n + ".jpg";
-const PHOTOS = {
-  "Cendrier": E("01_Cendrier_Petit"),
-  "Support de téléphone": E("04_Support_Telephone"),
-  "Carrousel": E("21_Boucles_Oreilles"),
-  "Vase petit": E("32_Plateau_Chabbat_Avec_Poignee"),
-  "Miroir coquillages": E("31_Plateau_Chabbat_Sans_Poignee"),
-  "Vase sac": E("43_Lampe_Logo_Grande"),
-  "Petite boîte à bijoux": E("05_Petite_Boite_Bijoux"),
-  "Boîte de rangement": E("08_Boite_Rangement_Petite"),
-  "Grande boîte rectangulaire": E("11_Boite_Rangement_Rectangulaire"),
-  "Boîte de rangement à maquillage": E("12_Verre_Pinceaux"),
-  "Bol de rangement": E("28_Miroir_Coquillages"),
-  "Porte-savon": E("06_Porte_Savon"),
-  "Bouteille distributeur à savon": E("07_Distributeur_Savon"),
-  "Plateau": E("14_Plateau_Petit"),
-  "Porte-cuillère": E("30_Table_Rectangulaire"),
-  "Bracelet": E("17_Bracelet"),
-  "Collier": E("18_Collier"),
-  "Porte-clés": E("19_Porte_Cles"),
-  "Bague": E("20_Bague"),
-  "Table ronde": E("34_Verre_Kidouch"),
-  "Table rectangle": E("35_Saliere"),
-  "Plateau de Chabbat sans poignée": E("27_Vase_Petit"),
-  "Plateau de Chabbat avec poignée": E("24_Bol_Rangement"),
-  "Plateau de Chabbat grand rond": E("25_Plateau_Tortue"),
-  "Hanoukia": E("36_Kit_Havdala"),
-  "Lampe": E("37_Keli"),
-  "Lampe sac": E("39_Hanouka_Petit"),
-  "Bougie parfumée dans sa boîte Epoxy": E("48_Bougie_Logo_Grande"),
-};
+const PHOTOS = VISUELS.epoxy;
 // Visuel propre a une variante (le nom de la variante doit etre exactement celui du catalogue)
 const VARIANT_PHOTOS = {
   "Cendrier": { "Petit": E("01_Cendrier_Petit"), "Moyen": E("02_Cendrier_Moyen"), "Grand": E("03_Cendrier_Grand") },
@@ -159,6 +131,11 @@ export default function CatalogueEpoxy({ onRetour }) {
         <button className="lien" onClick={() => { setSelection(null); setVariante(null); }}>← Changer d'article</button>
         <h2>Commander : {selection.nom}</h2>
         {photoDe(selection, variante) && <img src={photoDe(selection, variante)} alt={selection.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
+        {selection.id && photos[selection.id] && photos[selection.id].length > 1 && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+            {photos[selection.id].slice(1).map((src, i) => <img key={i} src={src} alt="" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flex: "none" }} />)}
+          </div>
+        )}
         <p>{libellePrix(selection) || "Prix sur demande"}</p>
         {variantes.length > 0 && (
           <label>

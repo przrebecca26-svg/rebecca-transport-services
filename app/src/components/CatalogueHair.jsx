@@ -9,26 +9,11 @@ import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande } from "../demandes.js";
 import { ecouterCatalogue } from "../catalogueClient.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
+import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
-const PHOTOS = {
-  "Brushing cheveux courts": "/hair/brushing_cheveux_courts.jpg",
-  "Brushing cheveux mi-longs": "/hair/brushing_cheveux_mi_longs.jpg",
-  "Brushing cheveux longs": "/hair/brushing_cheveux_longs.jpg",
-  "Coupe cheveux longs + shampoing + brushing": "/hair/coupe_cheveux_longs_shampoing_brushing.jpg",
-  "Coupe enfant (-12 ans)": "/hair/coupe_enfant_moins_12_ans.jpg",
-  "Coupe homme": "/hair/coupe_homme.jpg",
-  "Shampoing + coupe + brushing": "/hair/shampoing_coupe_brushing.jpg",
-  "Couleur racines + shampoing + brushing": "/hair/couleur_racines_shampoing_brushing.jpg",
-  "Couleur tête entière + shampoing + brushing": "/hair/couleur_tete_entiere_shampoing_brushing.jpg",
-  "Mèches papier aluminium": "/hair/meches_papier_aluminium.jpg",
-  "Patine / gloss + shampoing + brushing": "/hair/patine_gloss_shampoing_brushing.jpg",
-  "Chignon soirée élaboré": "/hair/chignon_soiree_elabore.jpg",
-  "Coiffure soirée": "/hair/coiffure_soiree.jpg",
-  "Coiffure mariée, jour J": "/hair/coiffure_mariee_jour_j.jpg",
-  "Essai coiffure mariée (facultatif)": "/hair/essai_coiffure_mariee_facultatif.jpg",
-};
+const PHOTOS = VISUELS.hair;
 
 // Catalogue et réservation pour Prestige Hair
 export default function CatalogueHair({ onRetour }) {
@@ -191,6 +176,11 @@ export default function CatalogueHair({ onRetour }) {
         <button className="lien" onClick={() => setSelection(null)}>← Retour au catalogue</button>
         <h2>{p.nom}</h2>
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 360, borderRadius: 12, margin: "8px 0" }} />}
+        {p.id && photos[p.id] && photos[p.id].length > 1 && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+            {photos[p.id].slice(1).map((src, i) => <img key={i} src={src} alt="" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flex: "none" }} />)}
+          </div>
+        )}
         <p>{p.description}</p>
         <p><strong>{libellePrix(p)}</strong> · {libelleDuree(p)}</p>
         <label>

@@ -23,6 +23,7 @@ import {
 } from "./pricing/catalogue.js";
 import { creneauxDuJour } from "./pricing/rendezvous.js";
 import { useFermetures } from "./fermetures.js";
+import { visuelDe } from "./visuels.js";
 import "./reglages.css";
 
 // REGLAGES DES FONDATIONS (Lot C, C1 et C2, 9 nov. 2026) - espace de Rebecca seulement.
@@ -145,7 +146,7 @@ function reduirePhoto(fichier) {
   });
 }
 
-function PhotosArticle({ prestationId }) {
+function PhotosArticle({ prestationId, visuel }) {
   const [photos, setPhotos] = useState([]);
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -195,6 +196,13 @@ function PhotosArticle({ prestationId }) {
   return (
     <div className="rg-photos">
       <p className="tb-note">Photos ({photos.length}/{PHOTO.maxParArticle}) : réduites automatiquement. Description facultative (dimensions, couleurs…).</p>
+      {photos.length === 0 && visuel && (
+        <div className="rg-photo">
+          <img src={visuel} alt="Image affichée actuellement sur le site" />
+          <p className="tb-note">Image affichée actuellement sur le site. Elle sera remplacée dès que tu ajoutes ta photo.</p>
+        </div>
+      )}
+      {photos.length === 0 && !visuel && <p className="tb-note">Aucune image pour l'instant : les clientes voient la prestation sans photo.</p>}
       {photos.map((p) => (
         <div key={p.id} className="rg-photo">
           <img src={p.donnees} alt={p.legende || "Photo de l'article"} />
@@ -236,6 +244,7 @@ function FichePrestation({ f: depart, existe, onFermer }) {
   const variante = (i, k, val) => ch("variantes", f.variantes.map((v, j) => (j === i ? { ...v, [k]: val } : v)));
   return (
     <div className="tb-bloc pm-form">
+      <button type="button" className="tb-retour aj-lien" onClick={onFermer}>← Retour au catalogue</button>
       <h4>{existe ? "Modifier" : commande ? "Nouvel article" : "Nouvelle prestation"} · {NOMS_ACTIVITE[f.activite]}</h4>
       <label className="pm-champ">Nom<input value={f.nom} maxLength={100} onChange={(e) => ch("nom", e.target.value)} /></label>
       <label className="pm-champ">
@@ -269,7 +278,7 @@ function FichePrestation({ f: depart, existe, onFermer }) {
           {f.variantes.length < 6 && <button type="button" className="tb-retour aj-lien" onClick={() => ch("variantes", [...f.variantes, { nom: "", prix: "" }])}>+ Ajouter une variante</button>}
         </>
       )}
-      {existe && f.id ? <PhotosArticle prestationId={f.id} /> : <p className="tb-note">Les photos s'ajoutent après le premier enregistrement.</p>}
+      {existe && f.id ? <PhotosArticle prestationId={f.id} visuel={visuelDe(f.activite, depart.nom)} /> : <p className="tb-note">Les photos s'ajoutent après le premier enregistrement.</p>}
       <label className="rg-case"><input type="checkbox" checked={f.option} onChange={(e) => ch("option", e.target.checked)} /> Option (s'ajoute à une prestation)</label>
       <label className="rg-case"><input type="checkbox" checked={f.publiee} onChange={(e) => ch("publiee", e.target.checked)} /> Publiée (visible des clientes quand l'activité est ouverte)</label>
       <Message m={message} />
@@ -289,6 +298,28 @@ function Catalogue() {
   const [message, setMessage] = useState(null);
   const [fichesActivites, setFichesActivites] = useState([]);
   useEffect(() => onSnapshot(collection(db, "activites"), (s) => setFichesActivites(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {}), []);
+  // Vraies photos deja ajoutees, par prestation (premiere photo + nombre), pour les voir dans la liste
+  const [photosPar, setPhotosPar] = useState({});
+  useEffect(
+    () =>
+      onSnapshot(
+        collection(db, "photosCatalogue"),
+        (s) => {
+          const par = {};
+          s.docs
+            .map((x) => x.data())
+            .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+            .forEach((x) => {
+              if (!x.prestationId || !x.donnees) return;
+              if (!par[x.prestationId]) par[x.prestationId] = { premiere: x.donnees, nombre: 0 };
+              par[x.prestationId].nombre += 1;
+            });
+          setPhotosPar(par);
+        },
+        () => {}
+      ),
+    []
+  );
   const ajust = (activitesEffectives(fichesActivites).find((a) => a.id === activite) || {}).ajustementPourcent || 0;
 
   useEffect(
@@ -389,6 +420,13 @@ function Catalogue() {
           <h3>{c}</h3>
           {items.filter((x) => x.categorie === c).map((x) => (
             <div key={x.id} className="tb-carte" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+              {(() => {
+                const vraies = photosPar[x.id];
+                const image = (vraies && vraies.premiere) || visuelDe(x.activite, x.nom);
+                return image
+                  ? <img src={image} alt="" width={48} height={48} style={{ borderRadius: 8, objectFit: "cover", flex: "none" }} />
+                  : <span aria-hidden="true" style={{ width: 48, height: 48, borderRadius: 8, border: "1px dashed #6b5a5e", flex: "none" }} />;
+              })()}
               <div style={{ flex: 1 }}>
                 <span className="tb-ligne">
                   <strong>{x.nom}</strong>
@@ -397,6 +435,7 @@ function Catalogue() {
                 <span className="tb-quand">
                   {x.dureeMinutes ? libelleDuree(x.dureeMinutes) : x.delaiFabrication || ""}
                   {x.option ? " · option" : ""} · {x.publiee ? "publiée" : "non publiée"}
+                  {" · "}{photosPar[x.id] ? photosPar[x.id].nombre + (photosPar[x.id].nombre > 1 ? " photos" : " photo") : visuelDe(x.activite, x.nom) ? "image du site" : "pas de photo"}
                 </span>
               </div>
               <button type="button" className="tb-bouton" style={{ fontSize: 13, padding: "4px 8px" }} onClick={() => setEdition({ f: enFormulaire(x), existe: true })}>Modifier</button>

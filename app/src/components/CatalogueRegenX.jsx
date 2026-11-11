@@ -9,19 +9,11 @@ import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande } from "../demandes.js";
 import { ecouterCatalogue } from "../catalogueClient.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
+import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
-const PHOTOS = {
-  "Diagnostic (obligatoire)": "/regenx/diagnostic.jpg",
-  "Sourcils": "/regenx/sourcils.jpg",
-  "Barbe, 1 zone": "/regenx/appareil.jpg",
-  "Barbe, plusieurs zones": "/regenx/appareil.jpg",
-  "Barbe entière": "/regenx/appareil.jpg",
-  "Cheveux, 1 zone": "/regenx/stylo.jpg",
-  "Cheveux, plusieurs zones": "/regenx/stylo.jpg",
-  "Cheveux, tête entière": "/regenx/stylo.jpg",
-};
+const PHOTOS = VISUELS.regenx;
 
 // Catalogue et réservation pour RegenX
 export default function CatalogueRegenx({ onRetour }) {
@@ -184,6 +176,11 @@ export default function CatalogueRegenx({ onRetour }) {
         <button className="lien" onClick={() => setSelection(null)}>← Retour au catalogue</button>
         <h2>{p.nom}</h2>
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 360, borderRadius: 12, margin: "8px 0" }} />}
+        {p.id && photos[p.id] && photos[p.id].length > 1 && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+            {photos[p.id].slice(1).map((src, i) => <img key={i} src={src} alt="" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flex: "none" }} />)}
+          </div>
+        )}
         <p>{p.description}</p>
         <p><strong>{libellePrix(p)}</strong> · {libelleDuree(p)}</p>
         <label>

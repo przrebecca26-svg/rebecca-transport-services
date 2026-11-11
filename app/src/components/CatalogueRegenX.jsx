@@ -7,7 +7,8 @@ import { CATALOGUE_DEPART, ACTIVITES_DEPART, avecAjustement, libellePrix, libell
 import { creneauxDuJour } from "../pricing/rendezvous.js";
 import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande } from "../demandes.js";
-import { ecouterCatalogue } from "../catalogueClient.js";
+import { ecouterCatalogue, ecouterPhotos } from "../catalogueClient.js";
+import Galerie from "./Galerie.jsx";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
@@ -29,20 +30,8 @@ export default function CatalogueRegenx({ onRetour }) {
   const [user, setUser] = useState(null);
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
   const [photos, setPhotos] = useState({});
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "photosCatalogue"), (s) => {
-      const map = {};
-      s.docs.forEach((d) => {
-        const data = d.data();
-        if (data.prestationId && data.donnees) {
-          if (!map[data.prestationId]) map[data.prestationId] = [];
-          map[data.prestationId].push(data.donnees);
-        }
-      });
-      setPhotos(map);
-    }, () => {});
-    return unsub;
-  }, []);
+  const [galerie, setGalerie] = useState([]);
+  useEffect(() => ecouterPhotos("regenx", (par, g) => { setPhotos(par); setGalerie(g); }), []);
 
   useEffect(() => {
     const unsubCat = ecouterCatalogue("regenx", (liste) => setPrestations(liste));
@@ -231,6 +220,7 @@ export default function CatalogueRegenx({ onRetour }) {
           <img src="/regenx/resultats.jpg" alt="Résultats" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8 }} />
         </div>
       </div>
+      <Galerie photos={galerie} titre={""} />
       {categories.map((cat) => (
         <div key={cat}>
           <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>

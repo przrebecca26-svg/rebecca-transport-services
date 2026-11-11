@@ -25,3 +25,29 @@ export function ecouterCatalogue(activite, surListe) {
     () => surListe(catalogueDepart(activite), false)
   );
 }
+
+// Identifiant de la galerie d'une activite dans la collection photosCatalogue (ex. « nails-galerie »)
+export const idGalerie = (activite) => activite + "-galerie";
+
+// Photos d'UNE activite seulement (ses prestations + sa galerie) : les identifiants commencent tous par « activite- ».
+// surPhotos(parPrestation, galerie) : parPrestation = { idPrestation: [image, ...] } ; galerie = [{ donnees, legende }].
+export function ecouterPhotos(activite, surPhotos) {
+  return onSnapshot(
+    query(collection(db, "photosCatalogue"), where("prestationId", ">=", activite + "-"), where("prestationId", "<=", activite + "-")),
+    (s) => {
+      const par = {};
+      const galerie = [];
+      s.docs
+        .map((d) => d.data())
+        .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+        .forEach((x) => {
+          if (!x.prestationId || !x.donnees) return;
+          if (x.prestationId === idGalerie(activite)) return galerie.push({ donnees: x.donnees, legende: x.legende || "" });
+          if (!par[x.prestationId]) par[x.prestationId] = [];
+          par[x.prestationId].push(x.donnees);
+        });
+      surPhotos(par, galerie);
+    },
+    () => surPhotos({}, [])
+  );
+}

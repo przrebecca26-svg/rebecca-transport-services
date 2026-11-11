@@ -146,7 +146,7 @@ function reduirePhoto(fichier) {
   });
 }
 
-function PhotosArticle({ prestationId, visuel }) {
+function PhotosArticle({ prestationId, visuel, max = PHOTO.maxParArticle, galerie = false }) {
   const [photos, setPhotos] = useState([]);
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -160,7 +160,7 @@ function PhotosArticle({ prestationId, visuel }) {
     [prestationId]
   );
   const ajouter = async (e) => {
-    const fichiers = [...(e.target.files || [])].slice(0, PHOTO.maxParArticle - photos.length);
+    const fichiers = [...(e.target.files || [])].slice(0, max - photos.length);
     e.target.value = "";
     if (!fichiers.length) return;
     setEnCours(true);
@@ -195,22 +195,22 @@ function PhotosArticle({ prestationId, visuel }) {
   };
   return (
     <div className="rg-photos">
-      <p className="tb-note">Photos ({photos.length}/{PHOTO.maxParArticle}) : réduites automatiquement. Description facultative (dimensions, couleurs…).</p>
+      <p className="tb-note">Photos ({photos.length}/{max}) : réduites automatiquement. {galerie ? "Tu peux en choisir plusieurs d'un coup. Description facultative (ex. Avant / après, sourcils)." : "Description facultative (dimensions, couleurs…)."}</p>
       {photos.length === 0 && visuel && (
         <div className="rg-photo">
           <img src={visuel} alt="Image affichée actuellement sur le site" />
           <p className="tb-note">Image affichée actuellement sur le site. Elle sera remplacée dès que tu ajoutes ta photo.</p>
         </div>
       )}
-      {photos.length === 0 && !visuel && <p className="tb-note">Aucune image pour l'instant : les clientes voient la prestation sans photo.</p>}
+      {photos.length === 0 && !visuel && !galerie && <p className="tb-note">Aucune image pour l'instant : les clientes voient la prestation sans photo.</p>}
       {photos.map((p) => (
         <div key={p.id} className="rg-photo">
           <img src={p.donnees} alt={p.legende || "Photo de l'article"} />
-          <input className="am-champ" defaultValue={p.legende || ""} maxLength={PHOTO.legendeMax} placeholder="Ex : 30 x 20 cm, noir et or" onBlur={(e) => e.target.value !== (p.legende || "") && legende(p, e.target.value)} />
+          <input className="am-champ" defaultValue={p.legende || ""} maxLength={PHOTO.legendeMax} placeholder={galerie ? "Ex : Avant / après, sourcils" : "Ex : 30 x 20 cm, noir et or"} onBlur={(e) => e.target.value !== (p.legende || "") && legende(p, e.target.value)} />
           <button type="button" className="tb-bouton tb-danger" onClick={() => { if (confirm("Supprimer cette photo ?")) supprimer(p); }}>Supprimer</button>
         </div>
       ))}
-      {photos.length < PHOTO.maxParArticle && (
+      {photos.length < max && (
         <label className="tb-bouton tb-clair rg-ajout-photo">
           {enCours ? "Ajout en cours…" : "+ Ajouter des photos"}
           <input type="file" accept="image/*" multiple hidden disabled={enCours} onChange={ajouter} />
@@ -415,11 +415,18 @@ function Catalogue() {
       {activite === "epoxy" && items.length === 0 && <p className="tb-note tb-pad">Aucun article pour l'instant. Ajoute tes créations une par une (nom, descriptif, prix ou variantes, délai).</p>}
       {ajust !== 0 && <p className="fi-alerte tb-pad">Ajustement en cours : {ajust > 0 ? "+" : ""}{ajust} % sur tous les prix de {NOMS_ACTIVITE[activite]} (prix de base conservés). Pour revenir aux prix de base : Activités → {NOMS_ACTIVITE[activite]} → 0.</p>}
       {activite === "regenx" && <p className="tb-note tb-pad">Les prix RegenX ne sont jamais affichés aux clientes : saisis-les ici, ils restent privés.</p>}
+      {enBase && (
+        <div className="tb-bloc">
+          <h3>Galerie · {NOMS_ACTIVITE[activite]}</h3>
+          <p className="tb-note">Avant / après, protocoles, réalisations : ces photos s'affichent en galerie en haut de la page {NOMS_ACTIVITE[activite]} du site. Publie uniquement les photos pour lesquelles tu as l'accord de la personne.</p>
+          <PhotosArticle key={"galerie-" + activite} prestationId={activite + "-galerie"} max={PHOTO.maxGalerie} galerie />
+        </div>
+      )}
       {categories.map((c) => (
         <div key={c} className="tb-bloc">
           <h3>{c}</h3>
           {items.filter((x) => x.categorie === c).map((x) => (
-            <div key={x.id} className="tb-carte" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+            <div key={x.id} className="tb-carte" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "8px 10px" }}>
               {(() => {
                 const vraies = photosPar[x.id];
                 const image = (vraies && vraies.premiere) || visuelDe(x.activite, x.nom);
@@ -427,7 +434,7 @@ function Catalogue() {
                   ? <img src={image} alt="" width={48} height={48} style={{ borderRadius: 8, objectFit: "cover", flex: "none" }} />
                   : <span aria-hidden="true" style={{ width: 48, height: 48, borderRadius: 8, border: "1px dashed #6b5a5e", flex: "none" }} />;
               })()}
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <span className="tb-ligne">
                   <strong>{x.nom}</strong>
                   <strong>{ajust && x.typePrix !== "prive" && x.typePrix !== "devis" ? <><s>{libellePrix(x)}</s> {libellePrix(avecAjustement(x, ajust))}</> : libellePrix(x)}</strong>
@@ -438,6 +445,7 @@ function Catalogue() {
                   {" · "}{photosPar[x.id] ? photosPar[x.id].nombre + (photosPar[x.id].nombre > 1 ? " photos" : " photo") : visuelDe(x.activite, x.nom) ? "image du site" : "pas de photo"}
                 </span>
               </div>
+              <div style={{ display: "flex", gap: 8, width: "100%", justifyContent: "flex-end" }}>
               <button type="button" className="tb-bouton" style={{ fontSize: 13, padding: "4px 8px" }} onClick={() => setEdition({ f: enFormulaire(x), existe: true })}>Modifier</button>
               <button type="button" className="tb-bouton tb-danger" style={{ fontSize: 13, padding: "6px 10px" }} onClick={async () => {
                 if (!confirm("Supprimer « " + x.nom + " » ? Cette action est irréversible.")) return;
@@ -447,6 +455,7 @@ function Catalogue() {
                   setMessage({ erreur: true, texte: "Suppression impossible." });
                 }
               }}>Supprimer</button>
+              </div>
             </div>
           ))}
         </div>

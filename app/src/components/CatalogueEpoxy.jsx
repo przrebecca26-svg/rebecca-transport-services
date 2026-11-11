@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase.js";
-import { ecouterCatalogue } from "../catalogueClient.js";
+import { ecouterCatalogue, ecouterPhotos } from "../catalogueClient.js";
+import Galerie from "./Galerie.jsx";
 import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { VISUELS } from "../visuels.js";
@@ -27,20 +28,8 @@ export default function CatalogueEpoxy({ onRetour }) {
   const [client, setClient] = useState({ nom: "", telephone: "", quantite: 1, message: "" });
   const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
   const [photos, setPhotos] = useState({});
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "photosCatalogue"), (s) => {
-      const map = {};
-      s.docs.forEach((d) => {
-        const data = d.data();
-        if (data.prestationId && data.donnees) {
-          if (!map[data.prestationId]) map[data.prestationId] = [];
-          map[data.prestationId].push(data.donnees);
-        }
-      });
-      setPhotos(map);
-    }, () => {});
-    return unsub;
-  }, []);
+  const [galerie, setGalerie] = useState([]);
+  useEffect(() => ecouterPhotos("epoxy", (par, g) => { setPhotos(par); setGalerie(g); }), []);
   const [user, setUser] = useState(null);
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
 
@@ -171,6 +160,7 @@ export default function CatalogueEpoxy({ onRetour }) {
         <h2>Boutique Epoxy</h2>
       </div>
       <p>Créations personnalisées en résine. Choisissez un article pour commander.</p>
+      <Galerie photos={galerie} titre={"Galerie"} />
       {categories.map((cat) => (
         <div key={cat}>
           <h3>{cat}</h3>

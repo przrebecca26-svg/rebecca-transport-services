@@ -7,7 +7,8 @@ import { CATALOGUE_DEPART, ACTIVITES_DEPART, avecAjustement, libellePrix, libell
 import { creneauxDuJour } from "../pricing/rendezvous.js";
 import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande } from "../demandes.js";
-import { ecouterCatalogue } from "../catalogueClient.js";
+import { ecouterCatalogue, ecouterPhotos } from "../catalogueClient.js";
+import Galerie from "./Galerie.jsx";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
@@ -29,20 +30,8 @@ export default function CatalogueSlim({ onRetour }) {
   const [user, setUser] = useState(null);
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
   const [photos, setPhotos] = useState({});
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "photosCatalogue"), (s) => {
-      const map = {};
-      s.docs.forEach((d) => {
-        const data = d.data();
-        if (data.prestationId && data.donnees) {
-          if (!map[data.prestationId]) map[data.prestationId] = [];
-          map[data.prestationId].push(data.donnees);
-        }
-      });
-      setPhotos(map);
-    }, () => {});
-    return unsub;
-  }, []);
+  const [galerie, setGalerie] = useState([]);
+  useEffect(() => ecouterPhotos("slim", (par, g) => { setPhotos(par); setGalerie(g); }), []);
 
   useEffect(() => {
     const unsubCat = ecouterCatalogue("slim", (liste) => setPrestations(liste));
@@ -222,6 +211,7 @@ export default function CatalogueSlim({ onRetour }) {
         <strong>Important :</strong> Ces soins ne remplacent pas un avis médical. 
         Des précautions s'appliquent (grossesse, problèmes de santé, etc.). Merci de les signaler avant le rendez-vous.
       </div>
+      <Galerie photos={galerie} titre={"Avant / après et réalisations"} />
       {categories.map((cat) => (
         <div key={cat}>
           <h3>{cat}</h3>

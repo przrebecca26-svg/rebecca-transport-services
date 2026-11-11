@@ -96,9 +96,9 @@ export const VISUELS = {
     "Formule Essentielle": "/digital/essentielle.jpg",
     "Formule Business": "/digital/business.jpg",
     "Formule Sur mesure": "/digital/surmesure.jpg",
-    "Sérénité": "/digital/serenite.png",
-    "Confort": "/digital/confort.png",
-    "Premium": "/digital/premium.png",
+    "Sérénité": "/digital/maintenance-serenite.svg",
+    "Confort": "/digital/maintenance-confort.svg",
+    "Premium": "/digital/maintenance-premium.svg",
   },
 };
 

@@ -45,7 +45,7 @@ export default function CatalogueDigital({ onRetour }) {
       <p style={{ fontSize: 14, color: "var(--gris)" }}>Facultatifs et distincts de la garantie corrective.</p>
 
       <div className="carte-service" style={{ cursor: "default" }}>
-        <img src="/digital/serenite.png" alt="Sérénité" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
+        <img src="/digital/maintenance-serenite.svg" alt="Sérénité" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
         <span className="corps">
           <strong>Sérénité</strong>
           <small>250 ₪/mois — 30 minutes incluses, réponse sous 3 jours ouvrés.</small>
@@ -54,7 +54,7 @@ export default function CatalogueDigital({ onRetour }) {
       </div>
 
       <div className="carte-service" style={{ cursor: "default" }}>
-        <img src="/digital/confort.png" alt="Confort" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
+        <img src="/digital/maintenance-confort.svg" alt="Confort" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
         <span className="corps">
           <strong>Confort</strong>
           <small>450 ₪/mois — 1 h 30 incluse, réponse sous 48 heures ouvrées.</small>
@@ -63,7 +63,7 @@ export default function CatalogueDigital({ onRetour }) {
       </div>
 
       <div className="carte-service" style={{ cursor: "default" }}>
-        <img src="/digital/premium.png" alt="Premium" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
+        <img src="/digital/maintenance-premium.svg" alt="Premium" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
         <span className="corps">
           <strong>Premium</strong>
           <small>750 ₪/mois — 3 heures incluses, réponse sous 24 heures ouvrées.</small>

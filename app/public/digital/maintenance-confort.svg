@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Maintenance Confort">
+  <defs>
+    <radialGradient id="fond" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#2a2126"/>
+      <stop offset="1" stop-color="#080709"/>
+    </radialGradient>
+    <linearGradient id="or" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F1AEB7"/>
+      <stop offset="1" stop-color="#B97870"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#fond)"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="url(#or)" stroke-width="3" opacity="0.45"/>
+  <g fill="none" stroke="url(#or)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M364 236 A110 110 0 0 0 170 188"/>
+    <path d="M170 132 V190 H228"/>
+    <path d="M148 276 A110 110 0 0 0 342 324"/>
+    <path d="M342 380 V322 H284"/>
+    <circle cx="256" cy="256" r="26"/>
+  </g>
+</svg>

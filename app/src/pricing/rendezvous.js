@@ -107,3 +107,63 @@ export function synchroniser(voulus = [], existants = []) {
   const aSupprimer = existants.filter((e) => !ids.has(e.id) && e.source !== "rendezvous").map((e) => e.id);
   return { aEcrire, aSupprimer };
 }
+
+/* ---------- Verrouillage des creneaux de rendez-vous (11 nov. 2026) ----------
+ Decision de Rebecca : un creneau est bloque DES la demande ; il se libere si elle refuse ou si la cliente annule.
+ Chaque jour a un document public agendaJours/rebecca__AAAA-MM-JJ = { cells: { "1115": true, "1130": true, ... } } :
+ une « cellule » = un quart d'heure occupe (sans nom ni activite). Les regles Firebase n'acceptent que l'AJOUT de
+ cellules libres : deux clientes ne peuvent donc jamais obtenir le meme quart d'heure, meme au meme instant.
+ Une reservation occupe sa duree + le temps entre deux clientes (la marge suit le rendez-vous). */
+
+export const ACTIVITES_RENDEZVOUS = ["nails", "hair", "slim", "regenx"];
+export const PAS_CELLULE = 15;
+export const idAgenda = (date, personne = "rebecca") => `${personne}__${date}`;
+
+// Cellules occupees par un rendez-vous : de son debut a sa fin + la marge, par quarts d'heure. Ex. « 1115 ».
+export function cellulesDe(heure, dureeMinutes, margeMinutes = 0, pas = PAS_CELLULE) {
+  const debut = enMinutes(heure);
+  const duree = Number(dureeMinutes);
+  if (debut == null || !(duree > 0)) return [];
+  const fin = Math.min(debut + duree + Math.max(0, Number(margeMinutes) || 0), 24 * 60);
+  const res = [];
+  for (let m = Math.floor(debut / pas) * pas; m < fin; m += pas) res.push(enHeure(m).replace(":", ""));
+  return res;
+}
+
+// Le creneau est-il libre dans l'agenda du jour ? prises = champ « cells » du document du jour
+export const cellulesLibres = (cellules = [], prises = {}) => cellules.length > 0 && !cellules.some((c) => prises && prises[c] === true);
+
+const RDV_ACTIFS = ["en attente", "acceptee", "confirmee", "acceptée", "confirmée"];
+const SUIVI_ANNULE = ["annulée par le client", "remplacée"];
+
+// Ce que l'agenda DOIT contenir d'apres les demandes de rendez-vous encore actives, a partir d'aujourd'hui.
+// suivis : { idDemande: statutDuSuivi } pour tenir compte d'une annulation faite par la cliente.
+// Renvoie { "rebecca__2026-11-12": ["1115", "1130", ...] } (cellules triees, sans doublon).
+export function agendaVoulu(demandes = [], { depuis = "0000-00-00", suivis = {}, margeDefaut = 20 } = {}) {
+  const par = {};
+  for (const d of demandes) {
+    if (!ACTIVITES_RENDEZVOUS.includes(d.service) || !RDV_ACTIFS.includes(d.statut)) continue;
+    if (SUIVI_ANNULE.includes(suivis[d.id])) continue;
+    if (!DATE_OK.test(d.date || "") || d.date < depuis) continue;
+    const v = d.details || {};
+    const cellules = Array.isArray(v.cellules) && v.cellules.length ? v.cellules.filter((c) => /^\d{4}$/.test(c)) : cellulesDe(d.heure, Number(v.duree) || 60, margeDefaut);
+    if (!cellules.length) continue;
+    const id = idAgenda(d.date);
+    par[id] = [...new Set([...(par[id] || []), ...cellules])].sort();
+  }
+  return par;
+}
+
+// Ecarts entre l'agenda voulu et les documents existants : [{ id, cellules }] a reecrire (cellules vides = a supprimer)
+export function ecartsAgenda(voulu = {}, existants = []) {
+  const res = [];
+  const vus = new Set();
+  for (const e of existants) {
+    vus.add(e.id);
+    const actuelles = Object.keys(e.cells || {}).filter((c) => e.cells[c] === true).sort();
+    const cibles = voulu[e.id] || [];
+    if (actuelles.join(",") !== cibles.join(",")) res.push({ id: e.id, cellules: cibles });
+  }
+  for (const id of Object.keys(voulu)) if (!vus.has(id)) res.push({ id, cellules: voulu[id] });
+  return res;
+}

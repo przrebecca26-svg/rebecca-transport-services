@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase.js";
 import { CATALOGUE_DEPART, ACTIVITES_DEPART, avecAjustement, libellePrix, libelleDuree } from "../pricing/catalogue.js";
-import { creneauxDuJour } from "../pricing/rendezvous.js";
+import { creneauxDuJour, cellulesDe, cellulesLibres, idAgenda } from "../pricing/rendezvous.js";
 import { TARIFS } from "../pricing/config.js";
-import { enregistrerDemande } from "../demandes.js";
+import { enregistrerDemande, messageEchec } from "../demandes.js";
 import { ecouterCatalogue, ecouterPhotos } from "../catalogueClient.js";
 import Galerie from "./Galerie.jsx";
 import { lienWhatsApp } from "../pricing/navigation.js";
@@ -51,18 +51,28 @@ export default function CatalogueHair({ onRetour }) {
     };
   }, []);
 
+  // Agenda du jour choisi : quarts d'heure deja retenus (demandes en attente comprises)
+  const [prises, setPrises] = useState({});
+  useEffect(() => {
+    if (!date) return setPrises({});
+    return onSnapshot(doc(db, "agendaJours", idAgenda(date)), (x) => setPrises(x.exists() ? x.data().cells || {} : {}), () => setPrises({}));
+  }, [date]);
+  const margeRdv = Math.max(0, Number(activite?.margeMinutes) || 0);
+
   useEffect(() => {
     if (!selection || !date || !activite) return;
+    const duree = selection.dureeMinutes || 60;
     const slots = creneauxDuJour({
       activite,
-      dureeMinutes: selection.dureeMinutes || 60,
+      dureeMinutes: duree,
       date,
       occupes,
       service: "hair",
-    });
+    }).map((c) => (c.libre && !cellulesLibres(cellulesDe(c.heure, duree, margeRdv), prises) ? { ...c, libre: false } : c));
     setCreneaux(slots);
-    setHeure("");
-  }, [selection, date, activite, occupes]);
+    // On garde l'heure choisie tant qu'elle reste libre ; sinon on revient au choix du creneau
+    setHeure((h) => (slots.some((c) => c.heure === h && c.libre) ? h : ""));
+  }, [selection, date, activite, occupes, prises, margeRdv]);
 
   const categories = [...new Set(prestations.map((p) => p.categorie))];
   const photoDe = (p) => {
@@ -70,17 +80,7 @@ export default function CatalogueHair({ onRetour }) {
     return PHOTOS[p.nom] || null;
   };
 
-  const creneauDejaPris = () => {
-    if (!selection || !date || !heure) return false;
-    const debut = date + "T" + heure;
-    return occupes.some((o) => o.debut === debut);
-  };
-
   const envoyer = async () => {
-    if (creneauDejaPris()) {
-      setEnvoi({ enCours: false, ok: false, erreur: "Ce créneau vient d'être pris. Choisis-en un autre." });
-      return;
-    }
     if (!user || !user.emailVerified) {
       setEnvoi({ enCours: false, ok: false, erreur: "Connecte-toi avec un compte vérifié pour réserver." });
       return;
@@ -92,6 +92,7 @@ export default function CatalogueHair({ onRetour }) {
     setEnvoi({ enCours: true, ok: false, erreur: "" });
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
     const message = `Bonjour Rebecca,\n\nNouvelle demande Prestige Hair :\n- Prestation : ${p.nom}\n- Date : ${date}\n- Heure : ${heure}\n- Prix : ${libellePrix(p)}\n- Durée : ${libelleDuree(p)}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nPaiement : ${client.moyenPaiement}\n\nMerci de me confirmer.`;
+    const cellules = cellulesDe(heure, p.dureeMinutes || 60, margeRdv);
     const demande = {
       service: "hair",
       serviceTitre: "Prestige Hair – " + p.nom,
@@ -102,21 +103,22 @@ export default function CatalogueHair({ onRetour }) {
       moyenPaiement: client.moyenPaiement,
       prixEstime: p.prix || null,
       surDevis: false,
-      details: { prestation: p.nom, duree: p.dureeMinutes },
+      details: { prestation: p.nom, duree: p.dureeMinutes, cellules },
       message,
       statut: "en attente",
       source: "site",
       kmEstime: null,
-      minutesEstimees: null,
+      minutesEstimees: p.dureeMinutes || null,
       uid: user.uid,
     };
     try {
-      await enregistrerDemande(demande);
+      await enregistrerDemande(demande, { verrou: { date, cellules } });
       const url = lienWhatsApp(WHATSAPP, message);
       window.open(url, "_blank", "noopener");
       setEnvoi({ enCours: false, ok: true, erreur: "" });
     } catch (e) {
-      setEnvoi({ enCours: false, ok: false, erreur: e && e.code === "permission-denied" ? "Votre demande n'a pas pu être enregistrée. Contactez Rebecca sur WhatsApp." : "Enregistrement impossible pour le moment. Vérifiez la connexion puis réessayez." });
+      setEnvoi({ enCours: false, ok: false, erreur: messageEchec(e, demande) });
+      if (e && e.code === "creneau-pris") setHeure("");
     }
   };
 
@@ -124,7 +126,7 @@ export default function CatalogueHair({ onRetour }) {
     return (
       <section className="catalogue-nails">
         <h2>Demande envoyée</h2>
-        <p>Votre demande pour <strong>{selection?.nom}</strong> le {date} à {heure} a été enregistrée.</p>
+        <p>Votre demande pour <strong>{selection?.nom}</strong> le {date} à {heure} a été enregistrée. Ce créneau est retenu pour vous en attendant la confirmation de Rebecca.</p>
         <p>WhatsApp s'est ouvert pour prévenir Rebecca. Elle vous confirmera selon ses disponibilités.</p>
         <button className="bouton" onClick={onRetour}>Retour à l'accueil</button>
       </section>
@@ -176,6 +178,7 @@ export default function CatalogueHair({ onRetour }) {
           Date
           <br /><input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
         </label>
+        {envoi.erreur && <p className="erreur">{envoi.erreur}</p>}
         {date && (
           <div className="creneaux">
             <p>Créneaux disponibles :</p>

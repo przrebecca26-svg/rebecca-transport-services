@@ -11,7 +11,7 @@ export const MARGE_DEFAUT = 30; // minutes, modifiable dans Reglages (reglages/e
 export const DUREE_TRAJET_INCONNUE = 45; // minutes comptees quand la demande n'a pas de duree estimee
 
 // Temps estime sur place (prise en charge, chargement, remise...) en minutes, par service
-export const SUR_PLACE = {
+export const SUR_PLACE = { nails: 0, hair: 0, slim: 0, regenx: 0,
   transport: 15,
   aeroport: 20,
   livraison: 10, // par adresse de livraison

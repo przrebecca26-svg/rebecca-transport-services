@@ -1,5 +1,8 @@
 rules_version = '2';
-// Regles Rebecca Services v12 (11 novembre 2026) : reservations beaute et commandes Epoxy raccordees au site
+// Regles Rebecca Services v13 (11 novembre 2026) : verrouillage des creneaux de rendez-vous
+// v13 = v12 + agendaJours : un creneau est bloque des la demande ; deux clientes ne peuvent jamais obtenir
+//   le meme quart d'heure ; une demande de rendez-vous n'est acceptee que si elle verrouille son creneau.
+// v12 : reservations beaute et commandes Epoxy raccordees au site
 // v7 : espaces et acces au Transport prive. v8 : courses ajoutees a la main. v9 : Lot J (equipe). v10 : Lot C.
 // v11 (Grok, 10 nov.) : commandes Epoxy, en morceaux. v12 : texte complet qui remplace la v10 et la v11.
 //   - activites beaute, Epoxy et Digital ouvertes par defaut (plus besoin d'une fiche « publique » dans la base) ;
@@ -88,6 +91,29 @@ service cloud.firestore {
         && (activitePublique(activiteDe(nom)) || compteAutorise(activiteDe(nom)));
     }
 
+    // v13 : la demande de rendez-vous verrouille son creneau DANS la meme operation.
+    // Le quart d'heure de debut (ex. « 1115 ») doit etre libre avant, et pris apres.
+    function creneauVerrouille(d) {
+      return d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.heure is string && d.heure.matches("^[0-9]{2}:[0-9]{2}$")
+        && getAfter(/databases/$(database)/documents/agendaJours/$("rebecca__" + d.date)).data.cells.get(d.heure.replace(":", ""), false) == true
+        && (!exists(/databases/$(database)/documents/agendaJours/$("rebecca__" + d.date))
+            || get(/databases/$(database)/documents/agendaJours/$("rebecca__" + d.date)).data.cells.get(d.heure.replace(":", ""), false) != true);
+    }
+
+    // v13 : cellules d'agenda envoyees par un client : uniquement des AJOUTS (1 a 24 quarts d'heure), jamais de
+    // modification ni de suppression de ce qui est deja pris.
+    function cellulesAjoutees() {
+      let avant = resource.data.cells;
+      let apres = request.resource.data.cells;
+      return apres is map
+        && apres.diff(avant).removedKeys().size() == 0
+        && apres.diff(avant).changedKeys().size() == 0
+        && apres.diff(avant).addedKeys().size() >= 1
+        && apres.diff(avant).addedKeys().size() <= 24
+        && apres.values().toSet().hasOnly([true]);
+    }
+
     // Une demande envoyee par un client. Sans compte : forme de base. Avec un compte verifie : uid, remplacement, code promo.
     // v12 : un rendez-vous beaute exige un compte verifie (champ uid).
     function demandeValide() {
@@ -97,7 +123,7 @@ service cloud.firestore {
         && d.statut == "en attente"
         && d.source == "site"
         && serviceAutorise(d["service"])
-        && (!estBeaute(activiteDe(d["service"])) || "uid" in d)
+        && (!estBeaute(activiteDe(d["service"])) || ("uid" in d && creneauVerrouille(d)))
         && d.creeLe == request.time
         && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
         && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
@@ -408,6 +434,25 @@ service cloud.firestore {
     match /commandes/{id} {
       allow create: if commandeEpoxyValide();
       allow read, update, delete: if estAdmin();
+    }
+
+    // v13 : agenda des rendez-vous, un document par jour (rebecca__AAAA-MM-JJ) = quarts d'heure pris, sans nom
+    // ni activite. Lecture publique (le site grise ces heures). Un client verifie peut seulement AJOUTER des
+    // quarts d'heure libres ; Rebecca seule libere (refus, annulation).
+    match /agendaJours/{id} {
+      allow read: if true;
+      allow create: if compteVerifie()
+        && id.matches("^rebecca__[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && request.resource.data.keys().hasOnly(["cells", "majLe"])
+        && request.resource.data.cells is map
+        && request.resource.data.cells.size() >= 1 && request.resource.data.cells.size() <= 24
+        && request.resource.data.cells.values().toSet().hasOnly([true])
+        && request.resource.data.majLe == request.time;
+      allow update: if compteVerifie()
+        && request.resource.data.keys().hasOnly(["cells", "majLe"])
+        && cellulesAjoutees()
+        && request.resource.data.majLe == request.time;
+      allow create, update, delete: if estAdmin();
     }
 
     // Fermetures de Rebecca : lecture publique (le site bloque ces dates), ecriture par Rebecca seule

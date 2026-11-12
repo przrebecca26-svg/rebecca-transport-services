@@ -66,3 +66,19 @@ section("Calendrier : vacances scolaires");
     vrai(types("2026-12-16").every((x) => x !== "personnel"), "jour ajoute par Rebecca : leve aussi");
   });
 }
+
+section("Calendrier : trajets confies a Jeremy (creneaux par date)");
+{
+  const C = await import("../src/pricing/calendrier.js");
+  const { TARIFS: TT } = await import("../src/pricing/config.js");
+  test("ce jour-la, mes creneaux par date remplacent ceux de la semaine", () => {
+    const t = JSON.parse(JSON.stringify(TT));
+    t.calendrier.creneauxPersonnels = [{ jours: [0, 1, 2, 3, 4, 5], debut: "07:45", fin: "08:45", motif: "x" }, { jours: [0, 1, 2, 3, 4], debut: "13:50", fin: "14:35", motif: "x" }];
+    t.calendrier.creneauxDates = { "2026-11-16": [{ debut: "07:45", fin: "08:45" }] };
+    const perso = (d) => C.periodesFermees(d, 0, t).filter((p) => p.type === "personnel" && p.debut.date === d).map((p) => p.debut.heure);
+    egal(perso("2026-11-16"), ["07:45"]);
+    egal(perso("2026-11-17"), ["07:45", "13:50"]);
+    t.calendrier.creneauxDates = { "2026-11-16": [] };
+    egal(perso("2026-11-16"), []);
+  });
+}

@@ -196,7 +196,9 @@ export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
     const jourSemaine = new Date(Date.UTC(a, m - 1, j, 12)).getUTCDay();
     const enVacances = vacancesDuCalendrier(t).some((v) => jour >= v.du && jour <= v.au);
     if (!(cal.joursLibres || []).includes(jour) && !enVacances) {
-      for (const c of cal.creneauxPersonnels || []) {
+      // Une date ou j'ai confie des trajets a Jeremy : ses creneaux a elle remplacent ceux de la semaine
+      const parDate = cal.creneauxDates && Array.isArray(cal.creneauxDates[jour]) ? cal.creneauxDates[jour].map((c) => ({ ...c, jours: [jourSemaine] })) : null;
+      for (const c of parDate || cal.creneauxPersonnels || []) {
         if (!c.jours.includes(jourSemaine)) continue;
         resultat.push(periode(localVersUtc(jour, c.debut), localVersUtc(jour, c.fin), c.motif || "Créneau déjà réservé", "personnel"));
       }

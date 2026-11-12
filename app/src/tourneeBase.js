@@ -24,7 +24,8 @@ export function useTournee() {
   return etat;
 }
 
-export const enregistrerTournee = ({ trajets, forfaits, vacances, domicile, lieux, choix, devis }) => setDoc(REF(), { json: JSON.stringify({ trajets, forfaits, vacances, lieux: lieux || [], choix: choix || [], devis: devis || [], domicile: domicile || null }), majLe: serverTimestamp() });
+export const enregistrerTournee = ({ trajets, forfaits, vacances, domicile, lieux, choix, devis, transferts }) =>
+  setDoc(REF(), { json: JSON.stringify({ trajets, forfaits, vacances, lieux: lieux || [], choix: choix || [], devis: devis || [], transferts: transferts || [], domicile: domicile || null }), majLe: serverTimestamp() });
 
 // Temps de route entre tous les lieux des trajets (un seul appel). Renvoie { duree(cleA, cleB), statut }.
 export function useDurees(trajets, domicile = null) {

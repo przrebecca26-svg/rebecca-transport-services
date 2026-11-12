@@ -221,6 +221,39 @@ function chargerVacances() {
   return chargementVac;
 }
 
+/* ---------- Creneaux par date (trajets confies a Jeremy) : document public reglages/creneauxDates ---------- */
+const DATE_SEULE = /^\d{4}-\d{2}-\d{2}$/;
+export function lireCreneauxDates(json) {
+  try {
+    const o = JSON.parse(json || "{}");
+    const sortie = {};
+    for (const [date, liste] of Object.entries(o && typeof o === "object" && !Array.isArray(o) ? o : {})) {
+      if (!DATE_SEULE.test(date) || !Array.isArray(liste)) continue;
+      sortie[date] = liste.filter((c) => c && HEURE.test(c.debut || "") && HEURE.test(c.fin || "") && c.fin > c.debut).slice(0, 10).map((c) => ({ debut: c.debut, fin: c.fin, motif: MOTIF_CRENEAU }));
+    }
+    return sortie;
+  } catch {
+    return {};
+  }
+}
+export function appliquerCreneauxDates(o) {
+  TARIFS.calendrier.creneauxDates = o || {};
+  notifier();
+}
+let chargementDates = null;
+function chargerCreneauxDates() {
+  if (chargementDates) return chargementDates;
+  chargementDates = fetch(`${BASE}/reglages/creneauxDates?${CLE}`, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      if (j && j.fields) appliquerCreneauxDates(lireCreneauxDates(texte(j.fields.json)));
+    })
+    .catch(() => {
+      chargementDates = null;
+    });
+  return chargementDates;
+}
+
 /* ---------- Recherche d'adresses Google (facultative) : cle enregistree par Rebecca, document public reglages/google ---------- */
 let chargementGoogle = null;
 function chargerGoogle() {
@@ -267,6 +300,7 @@ export function useFermetures() {
     chargerTarifs();
     chargerGoogle();
     chargerVacances();
+    chargerCreneauxDates();
     return () => abonnes.delete(setV);
   }, []);
   return v;

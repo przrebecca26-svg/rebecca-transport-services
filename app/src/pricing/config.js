@@ -88,6 +88,8 @@ export const TARIFS = {
     // Exemple : { date: "2026-11-12", debut: "11:45", fin: "13:15", motif: "Créneau déjà réservé" }
     creneauxPonctuels: [],
     vacancesAjoutees: [], // { debut, fin, motif } : jours sans ecole ajoutes par Rebecca (greve, journee pedagogique...)
+    // Dates ou des trajets de ma tournee sont confies a Jeremy : ce jour-la, seuls ces creneaux me bloquent
+    creneauxDates: {}, // { "AAAA-MM-JJ": [{ debut, fin }] }
   },
 
   // AGENDA : une seule course a la fois. Apres chaque mission confirmee, un tampon est reserve.

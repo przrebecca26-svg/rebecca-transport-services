@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { lireCreneaux, lireVacancesAjoutees, appliquerVacancesAjoutees } from "./fermetures.js";
+import { lireCreneaux, lireVacancesAjoutees, appliquerVacancesAjoutees, lireCreneauxDates, appliquerCreneauxDates } from "./fermetures.js";
 import { TARIFS } from "./pricing/config.js";
-import { creneauxDeLaTournee, creneauxAEnregistrer, memesCreneaux } from "./pricing/tournee.js";
+import { creneauxDeLaTournee, creneauxAEnregistrer, memesCreneaux, creneauxParDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { useTournee, useDurees } from "./tourneeBase.js";
 import { useRepertoire } from "./repertoireBase.js";
@@ -62,5 +62,29 @@ export default function SyncTournee() {
     return () => clearTimeout(minuteur);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cle]);
+  // Trajets confies a Jeremy certaines dates : ces jours-la, mes creneaux bloques sont recalcules
+  const datesPubliques = useRef(null);
+  useEffect(() => onSnapshot(doc(db, "reglages", "creneauxDates"), (x) => {
+    const o = lireCreneauxDates(x.exists() ? x.data().json : "{}");
+    datesPubliques.current = o;
+    appliquerCreneauxDates(o);
+  }, () => {}), []);
+  const parDate = utilisee && (durees.statut === "ok" || tous.length === 0) ? creneauxParDate(tous, base.donnees.transferts || [], durees.duree, base.donnees.domicile, TARIFS, aujourdhui()) : null;
+  const cleDates = parDate ? JSON.stringify(parDate) : "";
+  useEffect(() => {
+    if (!parDate) return undefined;
+    const minuteur = setTimeout(async () => {
+      const actuel = datesPubliques.current && JSON.stringify(Object.fromEntries(Object.entries(datesPubliques.current).filter(([d]) => d >= aujourdhui()).map(([d, l]) => [d, l.map((c) => ({ debut: c.debut, fin: c.fin }))])));
+      if (!datesPubliques.current || actuel === cleDates) return;
+      try {
+        await setDoc(doc(db, "reglages", "creneauxDates"), { json: cleDates, majLe: serverTimestamp() });
+      } catch {
+        /* reessaye au prochain changement */
+      }
+    }, 4000);
+    return () => clearTimeout(minuteur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleDates]);
+
   return null;
 }

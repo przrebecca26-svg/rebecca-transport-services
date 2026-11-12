@@ -13,6 +13,7 @@ import { useTournee, useDurees, enregistrerTournee } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { trajetsDesChoix, lireChoix, doublonsTrajets } from "./pricing/familles.js";
 import MesTrajets from "./MesTrajets.jsx";
+import ConfierTrajets from "./ConfierTrajets.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
@@ -158,7 +159,7 @@ export default function TourneeScolaire() {
   const changerTrajet = (id, r) => changer({ ...brouillon, trajets: trajets.map((x) => (x.id === id ? r : x)) });
   const enregistrer = async () => {
     try {
-      await enregistrerTournee(brouillon);
+      await enregistrerTournee({ ...brouillon, transferts: base.donnees.transferts, devis: base.donnees.devis }); // les trajets confies et les devis se gerent ailleurs : on garde leur derniere version
       setModifie(false);
       setTrajetOuvert("");
       setMessage("C'est enregistré.");
@@ -171,7 +172,7 @@ export default function TourneeScolaire() {
 
   // Remise a zero des trajets ajoutes a la main (le domicile, les vacances, les forfaits et les fiches du Repertoire restent)
   const toutEffacer = async () => {
-    const suite = { ...brouillon, trajets: [] };
+    const suite = { ...brouillon, transferts: base.donnees.transferts, devis: base.donnees.devis, trajets: [] };
     try {
       await enregistrerTournee(suite);
       setBrouillon(suite);
@@ -254,6 +255,8 @@ export default function TourneeScolaire() {
         <JourneeTournee titre={JOURS[jour]} jour={journee} ouvert nomLieu={nomLieu} />
         <p className="tdb-note">Compté : temps de route + {regles.margeRouteMinutes} min de marge à chaque déplacement, {regles.arretMinutes} min par arrêt, {regles.retardMaxMinutes} min de retard au maximum à une sortie, {regles.places} places, retour à la maison s'il reste au moins {regles.retourMaisonMinutes} min de libre. Le bouton Waze de chaque arrêt donne le temps réel du moment. Modifiable dans Réglages → Tarifs.</p>
       </section>
+
+      <ConfierTrajets donnees={base.donnees} tous={tous} duree={durees.duree} dureesPretes={durees.statut === "ok"} nomLieu={nomLieu} aujourdhui={aujourdhui()} jour={jour} />
 
       {brouillon.forfaits.length > 0 && (
         <section className="tdb-bloc">

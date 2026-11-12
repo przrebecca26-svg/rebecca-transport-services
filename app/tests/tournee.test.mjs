@@ -371,3 +371,39 @@ test("temps de route inconnus : rien n'est propose ; tournee vide : un creneau i
     });
   }
 }
+
+section("Confier des trajets a Jeremy pour une date");
+
+const LUNDI = "2026-11-16";
+
+test("ce jour-la, les trajets confies sortent de ma journee ; mes creneaux ne gardent que le reste", () => {
+  const sans = To.creneauxDeLaDate(TOURNEE, LUNDI, [], duree, MAISON, T);
+  egal(sans, [{ debut: "07:45", fin: "08:45" }, { debut: "13:50", fin: "14:35" }]);
+  const transferts = [{ id: "x", date: LUNDI, trajets: ["f3", "f4"], membre: "jeremy", nomMembre: "Jérémy" }];
+  egal(To.creneauxDeLaDate(TOURNEE, LUNDI, transferts, duree, MAISON, T), [{ debut: "07:45", fin: "08:45" }]);
+  egal(To.creneauxParDate(TOURNEE, transferts, duree, MAISON, T, "2026-11-12"), { [LUNDI]: [{ debut: "07:45", fin: "08:45" }] });
+  egal(To.creneauxParDate(TOURNEE, transferts, duree, MAISON, T, "2026-11-20"), {});
+  egal(To.creneauxParDate(TOURNEE, transferts, () => null, MAISON, T), null);
+});
+
+test("tout confie : rien ne me bloque ce jour-la (liste vide)", () => {
+  const t = [{ id: "x", date: LUNDI, trajets: ["f1", "f2", "f3", "f4"], membre: "j" }];
+  egal(To.creneauxDeLaDate(TOURNEE, LUNDI, t, duree, MAISON, T), []);
+});
+
+test("la mission du coequipier : etapes dans l'ordre, heures, debut et fin ; message WhatsApp", () => {
+  const m = To.missionDuTransfert(TOURNEE, ["f3", "f4"], LUNDI, duree, T);
+  egal(m.etapes.map((e) => `${e.heure} ${e.texte}`).sort(), ["14h00 Prendre Les 2 filles (sortie)", "14h14 Déposer Les 2 filles (sortie)", "14h14 Prendre Ma fille (chez l'amie)", "14h28 Déposer Ma fille (chez l'amie)"]);
+  egal([m.debut, m.fin], ["13:45", "14:35"]);
+  const msg = To.messageMission(m, "Jérémy");
+  vrai(msg.startsWith("Bonjour Jérémy") && msg.includes("lundi 16 novembre") && msg.includes("14h00 : Prendre Les 2 filles (sortie) (Gan, Netanya)"), msg);
+  egal(To.missionDuTransfert(TOURNEE, [], LUNDI, duree, T), null);
+});
+
+test("un trajet hors de ses dates ne compte pas ; lecture des transferts", () => {
+  const borne = To.trajetVide({ id: "b", nom: "B", de: GAN, a: AMIE, heure: "16:00", jours: tous(), du: "2026-12-01" });
+  egal(To.trajetsDuJourDate([borne], LUNDI), []);
+  const relu = To.lireTournee(JSON.stringify({ trajets: [], transferts: [{ date: LUNDI, trajets: ["f3"], membre: "j", nomMembre: "Jérémy" }, { date: "x", trajets: ["a"], membre: "j" }, { date: LUNDI, trajets: [], membre: "j" }] }));
+  egal(relu.transferts.map((x) => [x.date, x.trajets, x.membre]), [[LUNDI, ["f3"], "j"]]);
+  egal(To.lireTournee("").transferts, []);
+});

@@ -221,7 +221,7 @@ export function lireTournee(json) {
     .filter((l) => l.nom.trim() && cleLieu(l.adresse))
     .slice(0, 60);
   // choix : trajets choisis par Rebecca a partir des fiches enfants (liste brute, nettoyee par pricing/familles.js)
-  return { trajets: lireTrajets(o.trajets), forfaits, vacances, lieux, devis: lireDevis(o.devis), choix: Array.isArray(o.choix) ? o.choix : [], domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
+  return { trajets: lireTrajets(o.trajets), forfaits, vacances, lieux, devis: lireDevis(o.devis), transferts: lireTransferts(o.transferts), choix: Array.isArray(o.choix) ? o.choix : [], domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
 }
 
 // Le trajet compte-t-il ce jour de semaine, sur la periode [du ; au] regardee ? (dates vides = toujours)
@@ -599,3 +599,64 @@ export function creneauxDeLaTournee(trajets, duree, domicile = null, t = TARIFS,
 // Liste a enregistrer (une liste vide ferait revenir les anciens creneaux du programme : on met un creneau inactif)
 export const creneauxAEnregistrer = (liste) => (liste && liste.length ? liste : [{ jours: [0], debut: "00:00", fin: "00:05", actif: false }]);
 export const memesCreneaux = (a, b) => JSON.stringify(creneauxAEnregistrer(a)) === JSON.stringify(creneauxAEnregistrer(b));
+
+/* ---------- Confier des trajets a Jeremy pour UNE date (12 nov. 2026, 15h32) ----------
+   transfert = { id, date, trajets: [identifiants des trajets confies], membre (uid), nomMembre }
+   - ce jour-la, ces trajets sortent de MA journee : mon calendrier ne bloque plus que le reste (creneaux par date) ;
+   - ils deviennent une mission dans le planning du coequipier (heures et etapes calculees) et bloquent ses horaires. */
+export function lireTransferts(liste) {
+  if (!Array.isArray(liste)) return [];
+  return liste
+    .filter((x) => x && typeof x === "object" && DATE_OK.test(x.date || "") && Array.isArray(x.trajets) && x.trajets.length && x.membre)
+    .slice(0, 200)
+    .map((x) => ({ id: String(x.id || nouvelId()).slice(0, 40), date: x.date, trajets: x.trajets.map((t) => String(t).slice(0, 80)).slice(0, 20), membre: String(x.membre).slice(0, 128), nomMembre: String(x.nomMembre || "").slice(0, 60), debut: HEURE_OK.test(x.debut || "") ? x.debut : "", fin: HEURE_OK.test(x.fin || "") ? x.fin : "", noms: Array.isArray(x.noms) ? x.noms.map((n) => String(n).slice(0, 80)).slice(0, 20) : [] }));
+}
+
+const jourDe = (date) => new Date(`${date}T12:00:00Z`).getUTCDay();
+export const trajetsDuJourDate = (trajets, date) => trajets.filter((r) => !manqueTrajet(r) && trajetActif(r, jourDe(date), date, date));
+export const idsConfies = (transferts, date) => new Set(transferts.filter((x) => x.date === date).flatMap((x) => x.trajets));
+
+// Mes creneaux bloques pour UNE date ou des trajets ont ete confies. null si un temps de route manque.
+export function creneauxDeLaDate(trajets, date, transferts, duree, domicile = null, t = TARIFS) {
+  const confies = idsConfies(transferts, date);
+  const restants = trajetsDuJourDate(trajets, date).filter((r) => !confies.has(r.id));
+  const j = evaluerJour(restants, jourDe(date), duree, t, { du: date, au: date, domicile });
+  if (j.statut === "inconnu") return null;
+  return momentsDuJour(j)
+    .map((m) => ({ debut: hhmm(auCinq(m.debut, false)), fin: hhmm(auCinq(m.fin, true)) }))
+    .filter((c) => c.fin > c.debut);
+}
+
+// Toutes les dates a venir avec des trajets confies -> { date: [{ debut, fin }] } (liste vide = rien a bloquer ce jour-la)
+export function creneauxParDate(trajets, transferts, duree, domicile = null, t = TARIFS, depuis = "") {
+  const sortie = {};
+  for (const date of [...new Set(transferts.map((x) => x.date))].sort()) {
+    if (depuis && date < depuis) continue;
+    const c = creneauxDeLaDate(trajets, date, transferts, duree, domicile, t);
+    if (c === null) return null;
+    sortie[date] = c;
+  }
+  return sortie;
+}
+
+// La mission du coequipier : les trajets confies seuls, dans le meilleur ordre, avec les heures
+export function missionDuTransfert(trajets, ids, date, duree, t = TARIFS, nomLieu = null) {
+  const choisis = trajetsDuJourDate(trajets, date).filter((r) => ids.includes(r.id));
+  const j = evaluerJour(choisis, jourDe(date), duree, t, { du: date, au: date });
+  if (j.statut === "inconnu" || !choisis.length) return null;
+  const arrets = j.arrets.filter((x) => x.trajet);
+  const etapes = arrets.map((x) => {
+    const a = texteArret(x, nomLieu);
+    return { heure: a.heure, texte: a.texte, lieu: a.lieu, adresse: x.lieu.label };
+  });
+  const moments = momentsDuJour(j);
+  const debut = hhmm(auCinq(Math.min(...moments.map((m) => m.debut)) - 15, false)); // 15 min pour arriver au 1er arret
+  const fin = hhmm(auCinq(Math.max(...moments.map((m) => m.fin)), true));
+  return { date, debut, fin, etapes, statut: j.statut, probleme: j.probleme };
+}
+
+export function messageMission(m, nomMembre = "") {
+  const [a, mo, jj] = m.date.split("-").map(Number);
+  const jour = new Date(Date.UTC(a, mo - 1, jj, 12)).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  return [`Bonjour${nomMembre ? " " + nomMembre : ""} 😊 Peux-tu faire ces trajets d'école ${jour} ?`, "", ...m.etapes.map((e) => `${e.heure} : ${e.texte} (${e.adresse})`), "", "Merci ! Rebecca"].join("\n");
+}

@@ -1,4 +1,6 @@
 rules_version = '2';
+// Regles Rebecca Services v14 (12 novembre 2026) = v13 + missionsEquipe : trajets de la tournee scolaire confies
+//   a un coequipier pour une date (lus par l'equipe, ecrits par Rebecca seule). Rien d'autre ne change.
 // Regles Rebecca Services v13 (11 novembre 2026) : verrouillage des creneaux de rendez-vous
 // v13 = v12 + agendaJours : un creneau est bloque des la demande ; deux clientes ne peuvent jamais obtenir
 //   le meme quart d'heure ; une demande de rendez-vous n'est acceptee que si elle verrouille son creneau.
@@ -682,6 +684,21 @@ service cloud.firestore {
         && request.resource.data.fin > request.resource.data.debut
         && request.resource.data.personne is string && request.resource.data.personne.size() <= 128;
       allow delete: if gestion();
+    }
+
+    // ---------- v14 : tournee scolaire ----------
+
+    // Trajets de la tournee confies a un coequipier pour une date (heures et etapes du ramassage) :
+    // l'equipe les lit (chacun voit ses missions dans son planning), Rebecca seule les cree et les retire.
+    match /missionsEquipe/{id} {
+      allow read: if gestion();
+      allow create, update: if estAdmin()
+        && request.resource.data.keys().hasOnly(["membre","nomMembre","date","debut","fin","etapes","creeLe"])
+        && request.resource.data.membre is string && request.resource.data.membre.size() <= 128
+        && request.resource.data.date is string && request.resource.data.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && request.resource.data.debut is string && request.resource.data.fin is string
+        && request.resource.data.etapes is list && request.resource.data.etapes.size() <= 40;
+      allow delete: if estAdmin();
     }
 
     // Tout le reste : Rebecca peut lire, mais rien d'autre n'est ecrit sans regle precise

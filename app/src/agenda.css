@@ -24,3 +24,9 @@
 
 /* Vacances scolaires (12 nov. 2026) */
 .ag-vacances { margin: 6px 0; padding: 8px 12px; border-radius: 12px; font-size: 14px; background: rgba(241, 174, 183, 0.12); color: var(--g-rose, #f1aeb7); }
+.ag-mission { margin: 6px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(185, 120, 112, 0.6); background: rgba(185, 120, 112, 0.12); }
+.ag-mission p { margin: 0 0 4px; }
+.ag-mission ul { margin: 0; padding-left: 18px; font-size: 14px; }
+.ag-mission small { opacity: 0.75; }
+.fm-vacances { flex-wrap: wrap; gap: 8px; }
+.fm-choix { display: flex; flex-wrap: wrap; gap: 6px; }

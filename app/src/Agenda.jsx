@@ -3,12 +3,12 @@ import { filtrerPersonne } from "./pricing/quiFait.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { indispoValide } from "./fermetures.js";
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauValide, lireCreneaux } from "./fermetures.js";
 import "./agenda.css";
 import { lienAppel, lienWhatsApp } from "./pricing/navigation.js";
-import { ajouterJours, vacancesDuJour, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
+import { ajouterJours, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
 // Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
 
@@ -222,6 +222,51 @@ function LigneHolHamoed({ x, fermeture }) {
   );
 }
 
+// VACANCES SCOLAIRES A DECIDER (12 nov. 2026) : pendant les vacances, ma fille est avec moi.
+// Pour chaque periode : ouverte (comme d'habitude), fermee, ou fermee l'apres-midi (a partir de 13h).
+// Une decision = des fermetures marquees « vacances » (cle = debut de la periode) ; « ouverte » n'en cree aucune
+// mais la retient dans reglages/vacancesDecisions pour ne plus la proposer.
+const CHOIX_VACANCES = [
+  { v: "ouverte", l: "Ouverte" },
+  { v: "fermee", l: "Fermée" },
+  { v: "apresmidi", l: "Fermée l'après-midi" },
+];
+function LigneVacances({ v, decision, fermetures, onDecision }) {
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const choisir = async (choix) => {
+    setEnCours(true);
+    setErreur("");
+    try {
+      const lot = writeBatch(db);
+      for (const f of fermetures) lot.delete(doc(db, "fermetures", f.id));
+      if (choix === "fermee") lot.set(doc(collection(db, "fermetures")), { debut: `${v.du}T00:00`, fin: `${v.au}T23:59`, motif: v.nom, vacances: v.du, creeLe: serverTimestamp() });
+      if (choix === "apresmidi") {
+        for (let d = v.du; d <= v.au; d = ajouterJours(d, 1)) lot.set(doc(collection(db, "fermetures")), { debut: `${d}T13:00`, fin: `${d}T23:59`, motif: `${v.nom} (après-midi)`, vacances: v.du, creeLe: serverTimestamp() });
+      }
+      await lot.commit();
+      await onDecision(choix);
+    } catch {
+      setErreur("Modification impossible.");
+    }
+    setEnCours(false);
+  };
+  return (
+    <div className="fm-item fm-vacances">
+      <div>
+        <p><strong>{v.nom}</strong></p>
+        <small>du {libelleJour(v.du)} au {libelleJour(v.au)} · {decision ? CHOIX_VACANCES.find((c) => c.v === decision).l : "à décider (ouverte en attendant)"}</small>
+        {erreur && <p className="fm-erreur">{erreur}</p>}
+      </div>
+      <div className="fm-choix">
+        {CHOIX_VACANCES.map((c) => (
+          <button key={c.v} className={"fm-petit" + (decision === c.v ? "" : " clair")} disabled={enCours} onClick={() => choisir(c.v)}>{c.l}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Un creneau fixe (ecole, trajets reguliers) : actif = bloque les clients, libre = ne bloque plus
 function LigneCreneau({ c, onChanger }) {
   const [edition, setEdition] = useState(false);
@@ -325,7 +370,21 @@ function Evenement({ d }) {
   );
 }
 
-function JourListe({ jour, creneaux, evenements, aujourdhui, titre }) {
+// Mission confiee (trajets de la tournee scolaire donnes a un coequipier pour ce jour-la)
+function Mission({ m, pourTous }) {
+  return (
+    <div className="ag-mission">
+      <p><strong>🎒 {m.debut.replace(":", "h")} → {m.fin.replace(":", "h")} · Ramassage scolaire{pourTous && m.nomMembre ? ` (${m.nomMembre})` : ""}</strong></p>
+      <ul>
+        {(m.etapes || []).map((e, i) => (
+          <li key={i}>{e.heure} · {e.texte} <small>{e.lieu}</small></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false }) {
   return (
     <div className={"ag-jour" + (jour === aujourdhui ? " aujourdhui" : "")}>
       {titre && <h3>{libelleJour(jour)}</h3>}
@@ -333,10 +392,13 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre }) {
       {creneaux.map((c, i) => (
         <Fermeture key={i} c={c} />
       ))}
+      {missions.map((m) => (
+        <Mission key={m.id} m={m} pourTous={pourTous} />
+      ))}
       {evenements.map((d) => (
         <Evenement key={d.id} d={d} />
       ))}
-      {creneaux.length === 0 && evenements.length === 0 && <p className="ag-libre">Libre</p>}
+      {creneaux.length === 0 && evenements.length === 0 && missions.length === 0 && <p className="ag-libre">Libre</p>}
     </div>
   );
 }
@@ -402,6 +464,17 @@ export default function Agenda() {
   const [ref, setRef] = useState(aujourdhui);
   const [fermetures, setFermetures] = useState([]); // fermetures enregistrees par Rebecca
   const [creneaux, setCreneaux] = useState(CRENEAUX_PAR_DEFAUT); // creneaux fixes (actifs ou libres)
+  // Missions confiees (ramassage scolaire) : Rebecca voit toutes, un coequipier seulement les siennes
+  const [missions, setMissions] = useState([]);
+  useEffect(() => {
+    const q = moi === ADMIN_ID ? collection(db, "missionsEquipe") : query(collection(db, "missionsEquipe"), where("membre", "==", moi));
+    return onSnapshot(q, (snap) => setMissions(snap.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setMissions([]));
+  }, [moi]);
+  const missionsParDate = useMemo(() => {
+    const m = {};
+    for (const x of missions) if (typeof x.date === "string" && typeof x.debut === "string") (m[x.date] = m[x.date] || []).push(x);
+    return m;
+  }, [missions]);
 
   // Creneaux fixes : en direct, et appliques au calendrier du site
   useEffect(
@@ -469,8 +542,19 @@ export default function Agenda() {
 
   const prochaines = useMemo(() => prochainesFermetures(aujourdhui, 4), [aujourdhui, fermetures]);
   const adecider = useMemo(() => joursADecider(aujourdhui, 60), [aujourdhui]);
+  // Vacances scolaires des 90 prochains jours, et mes decisions
+  const vacancesProches = useMemo(() => vacancesDuCalendrier().filter((v) => v.au >= aujourdhui && v.du <= ajouterJours(aujourdhui, 90)), [aujourdhui, creneaux]);
+  const [decisions, setDecisions] = useState({});
+  useEffect(() => onSnapshot(doc(db, "reglages", "vacancesDecisions"), (x) => {
+    try {
+      setDecisions(x.exists() ? JSON.parse(x.data().json || "{}") || {} : {});
+    } catch {
+      setDecisions({});
+    }
+  }, () => {}), []);
+  const deciderVacances = (cle, choix) => setDoc(doc(db, "reglages", "vacancesDecisions"), { json: JSON.stringify({ ...decisions, [cle]: choix }), majLe: serverTimestamp() });
   const maintenant = `${aujourdhui}T00:00`;
-  const aVenir = fermetures.filter((f) => typeof f.fin === "string" && f.fin >= maintenant && !f.holHamoed);
+  const aVenir = fermetures.filter((f) => typeof f.fin === "string" && f.fin >= maintenant && !f.holHamoed && !f.vacances); // vacances : gerees dans « Vacances scolaires : a decider »
   const holFermes = {};
   for (const f of fermetures) if (f.holHamoed) holFermes[f.holHamoed] = f;
 
@@ -505,9 +589,9 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>
 
-      {vue === "jour" && <JourListe jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} aujourdhui={aujourdhui} />}
+      {vue === "jour" && <JourListe jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
-      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} aujourdhui={aujourdhui} />)}
+      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
 
       {vue === "mois" && (
         <>
@@ -562,6 +646,16 @@ export default function Agenda() {
           <p className="tb-note">Ces jours restent ouverts tant que tu ne les fermes pas.</p>
           {adecider.map((x) => (
             <LigneHolHamoed key={x.date} x={x} fermeture={holFermes[x.date]} />
+          ))}
+        </div>
+      )}
+
+      {moi === ADMIN_ID && vacancesProches.length > 0 && (
+        <div className="tb-bloc">
+          <h3>Vacances scolaires : à décider</h3>
+          <p className="tb-note">Pendant les vacances, pas de tournée et ta fille est avec toi. Ouverte : les clientes réservent comme d'habitude. Fermée : personne ne réserve. Fermée l'après-midi : réservable seulement le matin.</p>
+          {vacancesProches.map((v) => (
+            <LigneVacances key={v.du} v={v} decision={decisions[v.du]} fermetures={fermetures.filter((f) => f.vacances === v.du)} onDecision={(choix) => deciderVacances(v.du, choix)} />
           ))}
         </div>
       )}

@@ -124,7 +124,8 @@ test("la meme famille saisie deux fois est signalee (nom contenu dans l'autre, t
   const a = { ...AMIE_F, id: "x1", nom: "Alexia" };
   const b = { ...AMIE_F, id: "x2", nom: "Alexia Dahan" };
   egal(F.doublonsFamilles([MOI, a, b]).length, 1);
-  vrai(/« Alexia » et « Alexia Dahan » : même nom, enfant\(s\) en commun : liel, joy/.test(F.doublonsFamilles([MOI, a, b])[0]));
+  vrai(/« Alexia » et « Alexia Dahan » : même nom, enfant\(s\) en commun : liel, joy/.test(F.doublonsFamilles([MOI, a, b])[0].texte));
+  egal([F.doublonsFamilles([MOI, a, b])[0].a, F.doublonsFamilles([MOI, a, b])[0].b], ["x1", "x2"]);
   egal(F.doublonsFamilles([{ ...MOI, nom: "Rebecca", telephone: "054-111 22 33" }, { ...AMIE_F, nom: "Autre", telephone: "+972541112233" }]).length, 1);
   egal(F.doublonsFamilles([{ ...MOI, nom: "A" }, { ...MOI, id: "m2", nom: "B" }]).length, 1); // meme domicile, meme enfant
 });
@@ -133,11 +134,40 @@ test("deux familles differentes ne sont pas des doublons ; un enfant saisi deux 
   egal(F.doublonsFamilles([MOI, AMIE_F]), []);
   egal(F.doublonsFamilles([{ ...MOI, nom: "Anna" }, { ...AMIE_F, nom: "Joanna" }]), []);
   const deuxFois = { ...AMIE_F, enfants: [AMIE_F.enfants[0], { ...AMIE_F.enfants[0], id: "bis" }] };
-  vrai(/Liel.*deux fois/.test(F.doublonsFamilles([deuxFois])[0]));
+  vrai(/Liel.*deux fois/.test(F.doublonsFamilles([deuxFois])[0].texte));
+  egal(F.fusionnerDoublon([deuxFois], deuxFois.id, null)[0].enfants.map((e) => e.prenom), ["Liel"]);
 });
 
 test("trajet ajoute a la main en double avec une fiche", () => {
   const fiches = F.trajetsDesFamilles([AMIE_F]);
   const manuels = [To.trajetVide({ nom: "Vieux trajet Gan", type: "sortie", de: GAN, a: AMIE }), To.trajetVide({ nom: "Autre", type: "sortie", de: ECOLE, a: MAISON })];
   egal(F.doublonsTrajets(manuels, fiches).map((r) => r.nom), ["Vieux trajet Gan"]);
+});
+
+section("Familles : fusion de deux fiches en double");
+
+test("on garde la fiche la plus complete et on recupere ce qui lui manque dans l'autre", () => {
+  // Premiere saisie : incomplete (pas de telephone, une seule fille, pas d'heure de sortie)
+  const vieille = { ...F.familleVide(), id: "v", nom: "Alexia", domicile: { label: "tapé à la main" }, adresses: [{ nom: "Travail", adresse: TRAVAIL }],
+    enfants: [{ id: "v1", prenom: "Liel", rdv: [{ ...F.rdvVide("ecole"), lieu: GAN, heureArrivee: "08:30", jours: jours([0, 1, 2, 3, 4]) }, { ...F.rdvVide("activite"), nom: "Danse", lieu: GYMNASE, heureArrivee: "17:00", heureSortie: "18:00", jours: jours([2]) }] }] };
+  const neuve = { ...AMIE_F, id: "n", nom: "Alexia Dahan", telephone: "0541112233" };
+  const liste = F.fusionnerDoublon([MOI, vieille, neuve], "v", "n");
+  egal(liste.map((f) => f.id), ["moi", "v"]);
+  const f = liste[1];
+  egal([f.nom, f.telephone, f.domicile, f.adresses.length], ["Alexia Dahan", "0541112233", AMIE, 1]);
+  egal(f.enfants.map((e) => e.prenom), ["Liel", "Joy"]);
+  const liel = f.enfants[0];
+  egal(liel.rdv.map((r) => F.nomRdv(r)), ["École", "Danse"]); // l'activite de l'ancienne fiche est recuperee
+  egal([liel.rdv[0].heurePrise, liel.rdv[0].heureArrivee, liel.rdv[0].heureSortie], ["08:15", "08:30", "14:00"]);
+  egal(F.doublonsFamilles(liste), []);
+  vrai(F.trajetsDesFamilles(liste).every((r) => To.manqueTrajet(r) === ""));
+});
+
+test("fusion : peu importe l'ordre, rien n'est perdu ; identifiants inconnus = rien ne change", () => {
+  const a = { ...AMIE_F, id: "a", nom: "Alexia" };
+  const b = { ...AMIE_F, id: "b", nom: "Alexia Dahan", telephone: "0541112233" };
+  const f1 = F.fusionnerDoublon([a, b], "a", "b")[0];
+  const f2 = F.fusionnerDoublon([a, b], "b", "a")[0];
+  egal([f1.nom, f1.telephone, f1.enfants.length, f2.nom, f2.telephone, f2.enfants.length], ["Alexia Dahan", "0541112233", 2, "Alexia Dahan", "0541112233", 2]);
+  egal(F.fusionnerDoublon([a, b], "a", "zzz"), [a, b]);
 });

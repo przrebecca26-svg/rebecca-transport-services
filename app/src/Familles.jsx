@@ -2,7 +2,7 @@ import { useState } from "react";
 import Champ from "./components/Champ.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
 import { JOURS } from "./pricing/tournee.js";
-import { familleVide, enfantFicheVide, rdvVide, manqueRdv, nomRdv, arriveeDuJour, sortieDuJour, doublonsFamilles } from "./pricing/familles.js";
+import { familleVide, enfantFicheVide, rdvVide, manqueRdv, nomRdv, arriveeDuJour, sortieDuJour, doublonsFamilles, fusionnerDoublon } from "./pricing/familles.js";
 
 // FAMILLES ET ENFANTS (12 nov. 2026) : dans le Repertoire, la fiche de chaque enfant (ecole, activites, jours,
 // heures). La tournee scolaire se construit toute seule a partir de ces fiches.
@@ -175,8 +175,14 @@ export default function Familles({ familles, changer, connues, voit }) {
         <p className="tdb-note">Une fiche par enfant : école, activités, jours et heures. Ma tournée scolaire se construit toute seule à partir de ces fiches.</p>
         {doublons.length > 0 && (
           <div className="rp-correction">
-            <p className="rp-alerte">⚠️ Doublons possibles : garde une seule fiche et supprime l'autre, sinon ses trajets comptent deux fois.</p>
-            {doublons.map((d, k) => <p className="tdb-note" key={k}>{d}</p>)}
+            <p className="rp-alerte">⚠️ Doublons possibles : fusionne-les, sinon leurs trajets comptent deux fois.</p>
+            {doublons.map((d, k) => (
+              <div className="rp-forfait" key={k}>
+                <span>{d.texte}</span>
+                <button type="button" className="tdb-bouton" onClick={() => changer(fusionnerDoublon(familles, d.a, d.b))}>Fusionner en une seule fiche</button>
+              </div>
+            ))}
+            <p className="tdb-note">La fusion garde la fiche la plus complète et récupère dans l'autre ce qui lui manque (téléphone, adresses, enfants, horaires). Enregistre ensuite. Si ce ne sont pas des doublons, ne touche à rien.</p>
           </div>
         )}
         {familles.length === 0 && <p className="tdb-note">Commence par ta famille (ton enfant), puis ajoute les familles dont tu emmènes les enfants.</p>}

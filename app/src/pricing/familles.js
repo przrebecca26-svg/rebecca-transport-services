@@ -165,7 +165,7 @@ const cle = (a) => (aCoord(a) ? `${a.lat.toFixed(4)},${a.lon.toFixed(4)}` : "");
 const tel = (x) => String(x || "").replace(/\D/g, "").replace(/^972/, "0");
 
 // Familles probablement saisies deux fois : meme telephone, meme nom (ou l'un contient l'autre : « Alexia » et
-// « Alexia Dahan »), ou meme domicile avec un enfant du meme prenom. Renvoie des phrases a afficher.
+// « Alexia Dahan »), ou meme domicile avec un enfant du meme prenom. Renvoie [{ a, b, texte }] (b = null : enfant en double dans la famille a).
 export function doublonsFamilles(familles) {
   const alertes = [];
   for (let i = 0; i < familles.length; i++) {
@@ -178,14 +178,14 @@ export function doublonsFamilles(familles) {
       const memeMaison = !!cle(a.domicile) && cle(a.domicile) === cle(b.domicile);
       if (memeNom || memeTel || (prenoms.length > 0 && memeMaison)) {
         const raison = memeTel ? "même téléphone" : memeNom ? "même nom" : "même domicile et même enfant";
-        alertes.push(`« ${a.nom || "Sans nom"} » et « ${b.nom || "Sans nom"} » : ${raison}${prenoms.length ? `, enfant(s) en commun : ${prenoms.join(", ")}` : ""}.`);
+        alertes.push({ a: a.id, b: b.id, texte: `« ${a.nom || "Sans nom"} » et « ${b.nom || "Sans nom"} » : ${raison}${prenoms.length ? `, enfant(s) en commun : ${prenoms.join(", ")}` : ""}.` });
       }
     }
     // Le meme enfant deux fois dans la meme famille
     const vus = new Set();
     for (const e of familles[i].enfants) {
       const p = simple(e.prenom);
-      if (p && vus.has(p)) alertes.push(`« ${familles[i].nom || "Sans nom"} » : l'enfant « ${e.prenom} » est saisi deux fois.`);
+      if (p && vus.has(p)) alertes.push({ a: familles[i].id, b: null, texte: `« ${familles[i].nom || "Sans nom"} » : l'enfant « ${e.prenom} » est saisi deux fois.` });
       vus.add(p);
     }
   }
@@ -197,4 +197,74 @@ export function doublonsTrajets(manuels, desFiches) {
   const signature = (r) => `${r.type}|${cle(r.de)}|${cle(r.a)}`;
   const connus = new Set(desFiches.filter((r) => cle(r.de) && cle(r.a)).map(signature));
   return manuels.filter((r) => cle(r.de) && cle(r.a) && connus.has(signature(r)));
+}
+
+/* ---------- Fusion de deux fiches en double : on garde la plus complete et on recupere ce qui lui manque ---------- */
+
+const pointsRdv = (r) => (aCoord(r.lieu) ? 3 : r.lieu ? 1 : 0) + (r.heureArrivee ? 1 : 0) + (r.heureSortie ? 1 : 0) + (r.heurePrise ? 1 : 0) + r.jours.filter((j) => j.actif).length + r.jours.filter((j) => j.arrivee || j.sortie).length + (r.retour ? 1 : 0) + (r.priseAilleurs ? 1 : 0) + (String(r.nom || "").trim() ? 1 : 0);
+const pointsEnfant = (e) => e.rdv.reduce((n, r) => n + pointsRdv(r), 0) + (simple(e.prenom) ? 1 : 0);
+const pointsFamille = (f) => f.enfants.reduce((n, e) => n + pointsEnfant(e), 0) + (aCoord(f.domicile) ? 3 : f.domicile ? 1 : 0) + (f.telephone ? 1 : 0) + (f.adresses || []).length;
+const meilleureAdresse = (x, y) => (aCoord(x) ? x : aCoord(y) ? y : x || y || null);
+const cleRdv = (r) => `${r.type}|${r.type === "ecole" ? "" : simple(r.nom)}`;
+
+// Deux rendez-vous du meme genre : le plus complet, complete par l'autre
+function fusionnerRdv(x, y) {
+  const [g, p] = pointsRdv(x) >= pointsRdv(y) ? [x, y] : [y, x];
+  return {
+    ...g,
+    nom: String(g.nom || "").trim() ? g.nom : p.nom,
+    lieu: meilleureAdresse(g.lieu, p.lieu),
+    heurePrise: g.heurePrise || p.heurePrise,
+    heureArrivee: g.heureArrivee || p.heureArrivee,
+    heureSortie: g.heureSortie || p.heureSortie,
+    jours: g.jours.some((j) => j.actif) ? g.jours.map((j, w) => ({ ...j, arrivee: j.arrivee || (p.jours[w].actif ? p.jours[w].arrivee : ""), sortie: j.sortie || (p.jours[w].actif ? p.jours[w].sortie : "") })) : p.jours,
+    retour: g.retour || p.retour,
+    priseAilleurs: g.priseAilleurs || p.priseAilleurs,
+    attend: g.attend || p.attend,
+  };
+}
+
+function fusionnerEnfants(liste) {
+  const sortie = [];
+  for (const e of liste) {
+    const deja = sortie.findIndex((x) => simple(x.prenom) && simple(x.prenom) === simple(e.prenom));
+    if (deja < 0) {
+      sortie.push(e);
+      continue;
+    }
+    const [g, p] = pointsEnfant(sortie[deja]) >= pointsEnfant(e) ? [sortie[deja], e] : [e, sortie[deja]];
+    const rdv = g.rdv.map((r) => {
+      const autre = p.rdv.find((x) => cleRdv(x) === cleRdv(r));
+      return autre ? fusionnerRdv(r, autre) : r;
+    });
+    for (const r of p.rdv) if (!g.rdv.some((x) => cleRdv(x) === cleRdv(r))) rdv.push(r);
+    sortie[deja] = { ...g, rdv };
+  }
+  return sortie;
+}
+
+// Une seule fiche a partir de deux : la plus complete sert de base, l'autre comble ce qui manque
+export function fusionnerDeuxFamilles(x, y) {
+  const [g, p] = pointsFamille(x) >= pointsFamille(y) ? [x, y] : [y, x];
+  const adresses = [...(g.adresses || [])];
+  for (const a of p.adresses || []) if (!adresses.some((z) => (cle(z.adresse) && cle(z.adresse) === cle(a.adresse)) || z.adresse.label === a.adresse.label)) adresses.push(a);
+  return {
+    ...g,
+    nom: String(g.nom || "").trim().length >= String(p.nom || "").trim().length ? g.nom : p.nom,
+    telephone: g.telephone || p.telephone,
+    domicile: meilleureAdresse(g.domicile, p.domicile),
+    adresses,
+    du: g.du || p.du,
+    au: g.au || p.au,
+    enfants: fusionnerEnfants([...g.enfants, ...p.enfants]),
+  };
+}
+
+// Applique une fusion a la liste : a et b deviennent une seule fiche (b = null : enfants en double dans a)
+export function fusionnerDoublon(familles, a, b) {
+  const fa = familles.find((f) => f.id === a);
+  const fb = b ? familles.find((f) => f.id === b) : null;
+  if (!fa || (b && !fb)) return familles;
+  const fusion = fb ? fusionnerDeuxFamilles(fa, fb) : { ...fa, enfants: fusionnerEnfants(fa.enfants) };
+  return familles.filter((f) => f.id !== (fb ? fb.id : "")).map((f) => (f.id === fa.id ? { ...fusion, id: fa.id } : f));
 }

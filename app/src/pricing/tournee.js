@@ -170,22 +170,34 @@ export function lireTrajets(liste) {
 
 // DEVIS EN ATTENTE (12 nov. 2026, 15h11) : un devis de ramassage prepare par Rebecca est garde tant que la cliente
 // n'a pas repondu, pour le retrouver, le rouvrir, le modifier ou le supprimer.
-// devis = { id, nom (cliente), creeLe, total, plan, routes }
+// devis = { id, nom, telephone (cliente), creeLe, total, message (envoye par WhatsApp), statut, plan, routes }
+// statut : "attente" (envoye, pas de reponse) ou "refuse" ; un devis accepte sort de la liste et entre dans la tournee
 export function lireDevis(liste) {
   if (!Array.isArray(liste)) return [];
   return liste
     .filter((d) => d && typeof d === "object" && d.plan && Array.isArray(d.plan.enfants))
     .slice(0, 60)
-    .map((d) => ({ id: String(d.id || nouvelId()).slice(0, 40), nom: String(d.nom || "").slice(0, 60), creeLe: dateOk(d.creeLe), total: Number.isFinite(Number(d.total)) ? Number(d.total) : null, plan: d.plan, routes: d.routes && typeof d.routes === "object" ? d.routes : {} }));
+    .map((d) => ({
+      id: String(d.id || nouvelId()).slice(0, 40),
+      nom: String(d.nom || "").slice(0, 60),
+      telephone: String(d.telephone || "").slice(0, 20),
+      creeLe: dateOk(d.creeLe),
+      total: d.total != null && Number.isFinite(Number(d.total)) ? Number(d.total) : null,
+      message: String(d.message || "").slice(0, 3000),
+      statut: d.statut === "refuse" ? "refuse" : "attente",
+      plan: d.plan,
+      routes: d.routes && typeof d.routes === "object" ? d.routes : {},
+    }));
 }
 
 // Garde un devis (meme identifiant = il est remplace : on a rouvert puis modifie le meme devis)
-export function garderDevis(doc, { id, nom, plan, routes, total, creeLe }) {
-  const devis = { id: id || nouvelId(), nom: String(nom || "").trim().slice(0, 60) || "Cliente", creeLe: creeLe || "", total: total == null ? null : total, plan, routes: routes || {} };
+export function garderDevis(doc, { id, nom, telephone, plan, routes, total, creeLe, message }) {
+  const devis = { id: id || nouvelId(), nom: String(nom || "").trim().slice(0, 60) || "Cliente", telephone: String(telephone || "").trim().slice(0, 20), creeLe: creeLe || "", total: total == null ? null : total, message: String(message || "").slice(0, 3000), statut: "attente", plan, routes: routes || {} };
   const autres = (doc.devis || []).filter((d) => d.id !== devis.id);
   return { doc: { ...doc, devis: [devis, ...autres] }, id: devis.id };
 }
 export const retirerDevis = (doc, id) => ({ ...doc, devis: (doc.devis || []).filter((d) => d.id !== id) });
+export const statutDevis = (doc, id, statut) => ({ ...doc, devis: (doc.devis || []).map((d) => (d.id === id ? { ...d, statut: statut === "refuse" ? "refuse" : "attente" } : d)) });
 
 export function lireTournee(json) {
   let o;

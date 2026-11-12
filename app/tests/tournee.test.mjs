@@ -324,3 +324,14 @@ test("les devis en attente se relisent depuis la base ; contenu abime ignore", (
   const relu = To.lireTournee(JSON.stringify({ trajets: [], devis: [{ id: "d1", nom: "A", creeLe: "2026-11-12", total: 285, plan: p1, routes: {} }, { nom: "sans plan" }, null] }));
   egal(relu.devis.map((d) => [d.id, d.nom, d.total, d.plan.enfants.length]), [["d1", "A", 285, 1]]);
 });
+
+test("devis garde avec le telephone et le message ; refuse puis remis en attente", () => {
+  const p1 = devis({ enfants: [enfant({ heureSortie: "14:15" })] });
+  const r = To.garderDevis(To.lireTournee(""), { nom: "Mme Cohen", telephone: " 054 111 2233 ", plan: p1, total: 285, message: "Bonjour, voici mon devis" });
+  const d = r.doc.devis[0];
+  egal([d.telephone, d.message, d.statut], ["054 111 2233", "Bonjour, voici mon devis", "attente"]);
+  const refuse = To.statutDevis(r.doc, r.id, "refuse");
+  egal(refuse.devis[0].statut, "refuse");
+  egal(To.statutDevis(refuse, r.id, "attente").devis[0].statut, "attente");
+  egal(To.lireTournee(JSON.stringify(refuse)).devis[0].statut, "refuse");
+});

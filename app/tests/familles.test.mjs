@@ -231,7 +231,8 @@ test("fiche supprimee du repertoire : son choix ne donne plus de trajet ; lectur
 
 test("devis accepte : les trajets de la cliente sont choisis d'office", () => {
   const plan = { ...P.planVide(), domicile: TRAVAIL, ecole: ECOLE, enfants: [{ ...P.enfantVide(), prenom: "Noa", sens: "deux", heureMatin: "07:15", heureSortie: "14:15" }] };
-  const f = F.familleDuDevis(plan, "Mme Cohen");
+  const f = F.familleDuDevis(plan, "Mme Cohen", "0541112233");
+  egal(f.telephone, "0541112233");
   const choix = F.choixDeLaFamille(f);
   egal(choix.map((c) => c.sens), ["aller", "retour"]);
   egal(F.trajetsDesChoix([f], choix).map((r) => [r.nom, To.manqueTrajet(r)]), [["Noa · École (aller)", ""], ["Noa · École (retour)", ""]]);

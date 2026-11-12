@@ -12,7 +12,7 @@ import { JOURS, PERIODES, SENS, MAX_ENFANTS, planVide, enfantVide, reglerNombreE
 import JourneeTournee from "./components/JourneeTournee.jsx";
 import { aujourdhui } from "./profil.js";
 import ChoixLieu from "./components/MesLieux.jsx";
-import { evaluerDevis, ajouterALaTournee, adressesConnues, nomDuLieu, garderDevis, retirerDevis } from "./pricing/tournee.js";
+import { evaluerDevis, ajouterALaTournee, adressesConnues, nomDuLieu, garderDevis, retirerDevis, statutDevis } from "./pricing/tournee.js";
 import { useTournee, useDurees, enregistrerTournee, PASTILLES } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { trajetsDesChoix, lireChoix, choixDeLaFamille, familleDuDevis } from "./pricing/familles.js";
@@ -175,18 +175,21 @@ export default function RamassagePlanning({ retour, aller }) {
   );
   // La cliente accepte : sa famille et ses enfants deviennent des fiches du Repertoire (la tournee suit toute seule) ;
   // un forfait au mois est aussi garde pour comparer chaque mois le prix reel au prix complet.
-  const ajouterTournee = async () => {
+  // Devis accepte (celui de l'ecran, ou un devis en attente de la liste) : fiche de la famille + trajets + forfait
+  const accepter = async ({ plan: p, routes: r, nom, telephone, id }) => {
     try {
-      const famille = familleDuDevis(plan, cliente);
+      const famille = familleDuDevis(p, nom, telephone);
       await enregistrerRepertoire(repertoire.lieux, repertoire.corrections, [...repertoire.familles, famille]);
       // Ses trajets sont choisis d'office dans ma tournee (elle les a demandes) ; le forfait au mois est garde
-      const suite = retirerDevis(ajouterALaTournee(base.donnees, plan, routes, cliente, aujourdhui(), { sansTrajets: true }), devisOuvert); // accepte : il n'est plus « en attente »
+      const suite = retirerDevis(ajouterALaTournee(base.donnees, p, r, nom, aujourdhui(), { sansTrajets: true }), id || ""); // accepte : il n'est plus « en attente »
       await enregistrerTournee({ ...suite, choix: [...lireChoix(base.donnees.choix), ...choixDeLaFamille(famille)] });
-      setAjoutTournee("C'est ajouté : la fiche de la famille est dans ton Répertoire et ses trajets dans ta tournée.");
+      if (id && id === devisOuvert) setDevisOuvert("");
+      return `Devis de ${String(nom || "").trim() || "la cliente"} accepté : sa fiche est dans ton Répertoire et ses trajets dans ta tournée.`;
     } catch {
-      setAjoutTournee("Ajout impossible pour l'instant. Vérifie ta connexion et réessaie.");
+      return "Enregistrement impossible pour l'instant. Vérifie ta connexion et réessaie.";
     }
   };
+  const ajouterTournee = async () => setAjoutTournee(await accepter({ plan, routes, nom: cliente, telephone: tel, id: devisOuvert }));
 
   // Mes lieux deja nommes dans la tournee (ecoles, Gan...) : proposes pour l'ecole, sans retaper l'adresse
   const lieux = fusionnerLieux(repertoire.lieux, base.donnees.lieux);
@@ -198,7 +201,7 @@ export default function RamassagePlanning({ retour, aller }) {
   const [infoDevis, setInfoDevis] = useState("");
   const garder = async () => {
     try {
-      const r = garderDevis(base.donnees, { id: devisOuvert, nom: cliente, plan, routes, total: calcule ? resultat.total : null, creeLe: aujourdhui() });
+      const r = garderDevis(base.donnees, { id: devisOuvert, nom: cliente, telephone: tel, plan, routes, total: calcule ? resultat.total : null, creeLe: aujourdhui(), message });
       await enregistrerTournee(r.doc);
       setDevisOuvert(r.id);
       setInfoDevis("Devis gardé : tu le retrouves en haut de cette page, dans « Mes devis en attente ».");
@@ -209,9 +212,18 @@ export default function RamassagePlanning({ retour, aller }) {
   const rouvrir = (d) => {
     setPlan({ ...planVide(), ...d.plan, enfants: d.plan.enfants.map((e) => ({ ...enfantVide(), ...e })) });
     setCliente(d.nom);
+    setTel(d.telephone || "");
     setDevisOuvert(d.id);
     setInfoDevis("");
     setAjoutTournee("");
+  };
+  const [infoListe, setInfoListe] = useState("");
+  const changerStatut = async (id, statut) => {
+    try {
+      await enregistrerTournee(statutDevis(base.donnees, id, statut));
+    } catch {
+      setInfoListe("Enregistrement impossible pour l'instant.");
+    }
   };
   const supprimerDevis = async (id) => {
     try {
@@ -246,7 +258,7 @@ export default function RamassagePlanning({ retour, aller }) {
 
   return (
     <div className="tdb devis-rapide">
-      <button className="tdb-retour" onClick={retour}>← Tous les services</button>
+      {retour && <button className="tdb-retour" onClick={retour}>← Tous les services</button>}
       <header className="dr-titre">
         <IconeService id="ramassage" taille={40} />
         <h1>Ramassage scolaire</h1>
@@ -254,19 +266,47 @@ export default function RamassagePlanning({ retour, aller }) {
       <p className="tdb-note">Même prix par trajet que sur le site. Deux enfants à la même heure = un seul trajet. Rien n'est enregistré tant que tu ne cliques pas sur « Enregistrer ».</p>
       {base.donnees.devis.length > 0 && (
         <section className="tdb-bloc">
-          <h2>Mes devis en attente</h2>
-          {base.donnees.devis.map((d) => (
+          <h2>Mes devis en attente de réponse</h2>
+          {base.donnees.devis.filter((d) => d.statut !== "refuse").map((d) => (
             <div className="rp-forfait" key={d.id}>
-              <span><b>{d.nom}</b> · {d.plan.enfants.length} enfant{d.plan.enfants.length > 1 ? "s" : ""}{d.total != null ? ` · ${d.total} ₪` : ""}{d.creeLe ? ` · fait le ${d.creeLe.split("-").reverse().join("/")}` : ""}{devisOuvert === d.id ? " · ouvert ci-dessous" : ""}</span>
+              <span><b>{d.nom}</b>{d.telephone ? ` · ${d.telephone}` : ""} · {d.plan.enfants.length} enfant{d.plan.enfants.length > 1 ? "s" : ""}{d.total != null ? ` · ${d.total} ₪` : ""}{d.creeLe ? ` · fait le ${d.creeLe.split("-").reverse().join("/")}` : ""}{devisOuvert === d.id ? " · ouvert ci-dessous" : ""}</span>
               <div className="rp-boutons">
+                {d.telephone && d.message && <a className="rp-waze" href={lienWhatsApp(d.telephone, d.message)} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
                 <button type="button" className="rp-waze" onClick={() => rouvrir(d)}>Rouvrir</button>
-                <button type="button" className="rp-waze" onClick={() => supprimerDevis(d.id)}>Supprimer</button>
+                <button type="button" className="rp-waze" onClick={async () => setInfoListe(await accepter(d))}>Acceptée ✅</button>
+                <button type="button" className="rp-waze" onClick={() => changerStatut(d.id, "refuse")}>Refusée ❌</button>
               </div>
             </div>
           ))}
+          {base.donnees.devis.some((d) => d.statut === "refuse") && (
+            <details className="rp-journee">
+              <summary><span>Devis refusés</span><b>{base.donnees.devis.filter((d) => d.statut === "refuse").length}</b></summary>
+              {base.donnees.devis.filter((d) => d.statut === "refuse").map((d) => (
+                <div className="rp-forfait" key={d.id}>
+                  <span><b>{d.nom}</b>{d.total != null ? ` · ${d.total} ₪` : ""}</span>
+                  <div className="rp-boutons">
+                    <button type="button" className="rp-waze" onClick={() => changerStatut(d.id, "attente")}>Remettre en attente</button>
+                    <button type="button" className="rp-waze" onClick={() => supprimerDevis(d.id)}>Supprimer</button>
+                  </div>
+                </div>
+              ))}
+            </details>
+          )}
+          {infoListe && <p className="tdb-note" role="status">{infoListe}</p>}
         </section>
       )}
       <div className="formulaire dr-formulaire">
+        <div className="bloc rp-cliente">
+          <p className="rp-type">La cliente</p>
+          <div className="champ">
+            <label htmlFor="rp-cliente">Nom de la cliente</label>
+            <input id="rp-cliente" type="text" maxLength={60} value={cliente} onChange={(e) => setCliente(e.target.value)} />
+          </div>
+          <div className="champ">
+            <label htmlFor="rp-tel">Son téléphone (WhatsApp)</label>
+            <input id="rp-tel" type="tel" inputMode="tel" maxLength={20} placeholder="05X XXX XXXX" value={tel} onChange={(e) => setTel(e.target.value)} />
+          </div>
+        </div>
         <div className="bloc">
           <Champ champ={CHAMP_DOMICILE} valeurs={plan} onChange={changer} />
           {plan.enfants.length > 1 && (
@@ -365,7 +405,6 @@ export default function RamassagePlanning({ retour, aller }) {
           ))}
           <p className="tdb-note">Pour toi seulement. En rose : les enfants de ce devis. Rien n'est bloqué, c'est toi qui décides.</p>
           <div className="dr-actions">
-            <input className="dr-tel" type="text" maxLength={60} placeholder="Nom de la cliente" value={cliente} onChange={(e) => setCliente(e.target.value)} />
             <button className="dr-secondaire" onClick={ajouterTournee}>La cliente accepte : ajouter à ma tournée</button>
           </div>
           {ajoutTournee && <p className="tdb-note" role="status">{ajoutTournee}</p>}
@@ -375,9 +414,8 @@ export default function RamassagePlanning({ retour, aller }) {
       {pret && (
         <section className="tdb-bloc">
           <h2>Garder ce devis</h2>
-          <p className="tdb-note">Tant que tu ne le gardes pas, le devis disparaît quand tu quittes cette page.</p>
+          <p className="tdb-note">Tant que tu ne le gardes pas, le devis disparaît quand tu quittes cette page. Gardé, il reste dans « Mes devis en attente de réponse » avec le nom, le téléphone et le message envoyé.</p>
           <div className="dr-actions">
-            <input className="dr-tel" type="text" maxLength={60} placeholder="Nom de la cliente" value={cliente} onChange={(e) => setCliente(e.target.value)} />
             <button type="button" className="tdb-bouton" onClick={garder}>{devisOuvert ? "Enregistrer les changements du devis" : "Garder ce devis (en attente)"}</button>
           </div>
           {infoDevis && <p className="tdb-note" role="status">{infoDevis}</p>}
@@ -390,8 +428,7 @@ export default function RamassagePlanning({ retour, aller }) {
           <textarea className="dr-message" readOnly value={message} rows={14} />
           <div className="dr-actions">
             <button className="tdb-bouton" onClick={copier}>Copier le message</button>
-            <input className="dr-tel" type="tel" inputMode="tel" placeholder="Numéro WhatsApp du client" value={tel} onChange={(e) => setTel(e.target.value)} />
-            <a className={"tdb-bouton dr-lien" + (tel.trim().length >= 9 ? "" : " inactif")} href={tel.trim().length >= 9 ? lienWhatsApp(tel, message) : undefined} target="_blank" rel="noopener noreferrer">Envoyer sur WhatsApp</a>
+            <a className={"tdb-bouton dr-lien" + (tel.trim().length >= 9 ? "" : " inactif")} href={tel.trim().length >= 9 ? lienWhatsApp(tel, message) : undefined} target="_blank" rel="noopener noreferrer" onClick={() => { if (tel.trim().length >= 9) garder(); }}>{tel.trim().length >= 9 ? "Envoyer sur WhatsApp (et garder le devis)" : "Envoyer sur WhatsApp : mets son téléphone en haut"}</a>
             {calcule && <button className="dr-secondaire" onClick={() => setAjout(true)}>Le client accepte : enregistrer le forfait</button>}
           </div>
           {copie && <p className="tdb-note" role="status">{copie}</p>}

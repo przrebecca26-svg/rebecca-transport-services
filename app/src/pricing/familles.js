@@ -132,13 +132,14 @@ export function trajetsDesFamilles(familles) {
 }
 
 // Une cliente accepte un devis de ramassage : sa famille et ses enfants deviennent des fiches
-export function familleDuDevis(plan, nomCliente = "") {
+export function familleDuDevis(plan, nomCliente = "", telephone = "") {
   const jourUnique = plan.periode === "jour" && DATE_OK.test(plan.date || "") ? new Date(`${plan.date}T12:00:00Z`).getUTCDay() : null;
   const du = DATE_OK.test(plan.date || "") ? plan.date : "";
   const au = !du ? "" : plan.periode === "jour" ? du : plan.periode === "mois" ? finDuMois(du) : ajouterJours(du, 6);
   return {
     ...familleVide(),
     nom: String(nomCliente || "").trim().slice(0, 60) || "Cliente",
+    telephone: String(telephone || "").trim().slice(0, 20),
     domicile: plan.domicile,
     du,
     au,

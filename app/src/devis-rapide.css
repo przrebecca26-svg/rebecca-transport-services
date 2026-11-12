@@ -95,3 +95,9 @@
 /* MES TRAJETS CHOISIS (12 nov. 2026, 14h45) */
 .theme-sombre .rp-jour-choix { flex-wrap: wrap; }
 .theme-sombre .rp-jour-choix select { flex: 1 1 100%; min-height: 44px; padding: 8px 10px; font: 15px var(--g-sans); }
+
+/* ONGLET RAMASSAGE SCOLAIRE (12 nov. 2026, 15h15) */
+.theme-sombre .rp-deux { grid-template-columns: 1fr 1fr; margin: 12px 0; }
+.theme-sombre .rp-origine { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 700 12px var(--g-titre); color: #080709; background: var(--g-texte-2); }
+.theme-sombre .rp-origine.rapide { background: var(--g-rose); }
+.theme-sombre .devis-rapide .devis-rapide { padding: 0; }

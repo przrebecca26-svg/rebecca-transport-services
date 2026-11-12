@@ -1,0 +1,709 @@
+rules_version = '2';
+// Regles Rebecca Services v14 (12 novembre 2026) = v13 + missionsEquipe : trajets de la tournee scolaire confies
+//   a un coequipier pour une date (lus par l'equipe, ecrits par Rebecca seule). Rien d'autre ne change.
+// Regles Rebecca Services v13 (11 novembre 2026) : verrouillage des creneaux de rendez-vous
+// v13 = v12 + agendaJours : un creneau est bloque des la demande ; deux clientes ne peuvent jamais obtenir
+//   le meme quart d'heure ; une demande de rendez-vous n'est acceptee que si elle verrouille son creneau.
+// v12 : reservations beaute et commandes Epoxy raccordees au site
+// v7 : espaces et acces au Transport prive. v8 : courses ajoutees a la main. v9 : Lot J (equipe). v10 : Lot C.
+// v11 (Grok, 10 nov.) : commandes Epoxy, en morceaux. v12 : texte complet qui remplace la v10 et la v11.
+//   - activites beaute, Epoxy et Digital ouvertes par defaut (plus besoin d'une fiche « publique » dans la base) ;
+//   - reservation beaute : compte verifie obligatoire, rattachee au compte (visible dans « Mon historique ») ;
+//   - commandes Epoxy : article publie dans le catalogue, prix controle ; lues et gerees par Rebecca seule ;
+//   - catalogue : formules Digital acceptees ; un prix prive (seances RegenX) ne peut jamais etre publie.
+// A coller dans la console Firebase : rebecca-transport > Firestore > Regles > tout effacer > coller > Publier.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Rebecca = ce compte Google, adresse verifiee
+    function estAdmin() {
+      return request.auth != null
+        && request.auth.token.email == "przrebecca26@gmail.com"
+        && request.auth.token.email_verified == true;
+    }
+
+    // Compte client dont l'adresse e-mail est verifiee
+    function compteVerifie() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    // v9 : coequipier actif (fiche equipe/{uid} creee et activee par Rebecca dans la rubrique Equipe)
+    function estMembre() {
+      return compteVerifie()
+        && exists(/databases/$(database)/documents/equipe/$(request.auth.uid))
+        && get(/databases/$(database)/documents/equipe/$(request.auth.uid)).data.get("actif", false) == true;
+    }
+
+    // v9 : co-gestion du coursier et du transport (Rebecca ou un coequipier actif)
+    function gestion() {
+      return estAdmin() || estMembre();
+    }
+
+    // v9 : identifiant de la personne connectee dans l'equipe ("rebecca" pour Rebecca)
+    function moiEquipe() {
+      return estAdmin() ? "rebecca" : request.auth.uid;
+    }
+
+    // v9 : champ "operateur" (qui a recu l'argent / a qui est la ligne). Absent = Rebecca.
+    function operateurValide(d) {
+      return !("operateur" in d) || (d.operateur is string && d.operateur.size() > 0 && d.operateur.size() <= 128 && d.operateur != "rebecca");
+    }
+
+    // Un client bloque par Rebecca (fiche privee clientsAdmin) ne peut plus rien creer
+    function nonBloque(uid) {
+      return !exists(/databases/$(database)/documents/clientsAdmin/$(uid))
+        || get(/databases/$(database)/documents/clientsAdmin/$(uid)).data.get("bloque", false) != true;
+    }
+
+    // ---------- Espaces (activites) : v7 ----------
+    function activiteDe(nom) {
+      return nom in ["livraison", "courses", "demenagement"] ? "coursier"
+        : (nom in ["transport", "aeroport", "hatan_kala", "ramassage", "attente"] ? "transport"
+        : (nom in ["nails", "hair", "slim", "regenx", "epoxy", "digital"] ? nom : ""));
+    }
+
+    // v12 : activites ouvertes a tous par defaut (meme sans fiche dans la base).
+    // Rebecca peut en fermer une dans Reglages > Activites (acces « sur autorisation »).
+    function ouverteParDefaut(act) {
+      return act in ["nails", "hair", "slim", "regenx", "epoxy", "digital"];
+    }
+
+    // v12 : rendez-vous beaute (compte verifie obligatoire)
+    function estBeaute(act) {
+      return act in ["nails", "hair", "slim", "regenx"];
+    }
+
+    function activitePublique(act) {
+      return act == "coursier"
+        || (ouverteParDefaut(act)
+            && (!exists(/databases/$(database)/documents/activites/$(act))
+                || get(/databases/$(database)/documents/activites/$(act)).data.get("acces", "public") != "autorisation"))
+        || (act != "" && exists(/databases/$(database)/documents/activites/$(act))
+            && get(/databases/$(database)/documents/activites/$(act)).data.get("public", false) == true);
+    }
+
+    function compteAutorise(act) {
+      return act != "" && compteVerifie()
+        && exists(/databases/$(database)/documents/autorisations/$(request.auth.uid + "__" + act))
+        && get(/databases/$(database)/documents/autorisations/$(request.auth.uid + "__" + act)).data.actif == true;
+    }
+
+    function serviceAutorise(nom) {
+      return nom is string
+        && (activitePublique(activiteDe(nom)) || compteAutorise(activiteDe(nom)));
+    }
+
+    // v13 : la demande de rendez-vous verrouille son creneau DANS la meme operation.
+    // Le quart d'heure de debut (ex. « 1115 ») doit etre libre avant, et pris apres.
+    function creneauVerrouille(d) {
+      return d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.heure is string && d.heure.matches("^[0-9]{2}:[0-9]{2}$")
+        && getAfter(/databases/$(database)/documents/agendaJours/$("rebecca__" + d.date)).data.cells.get(d.heure.replace(":", ""), false) == true
+        && (!exists(/databases/$(database)/documents/agendaJours/$("rebecca__" + d.date))
+            || get(/databases/$(database)/documents/agendaJours/$("rebecca__" + d.date)).data.cells.get(d.heure.replace(":", ""), false) != true);
+    }
+
+    // v13 : cellules d'agenda envoyees par un client : uniquement des AJOUTS (1 a 24 quarts d'heure), jamais de
+    // modification ni de suppression de ce qui est deja pris.
+    function cellulesAjoutees() {
+      let avant = resource.data.cells;
+      let apres = request.resource.data.cells;
+      return apres is map
+        && apres.diff(avant).removedKeys().size() == 0
+        && apres.diff(avant).changedKeys().size() == 0
+        && apres.diff(avant).addedKeys().size() >= 1
+        && apres.diff(avant).addedKeys().size() <= 24
+        && apres.values().toSet().hasOnly([true]);
+    }
+
+    // Une demande envoyee par un client. Sans compte : forme de base. Avec un compte verifie : uid, remplacement, code promo.
+    // v12 : un rendez-vous beaute exige un compte verifie (champ uid).
+    function demandeValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["service","serviceTitre","date","heure","nom","telephone","moyenPaiement","prixEstime","surDevis","kmEstime","minutesEstimees","details","message","statut","source","creeLe","pourboire","passager","uid","remplace","codePromo","remise"])
+        && d.keys().hasAll(["service","serviceTitre","date","heure","nom","telephone","moyenPaiement","prixEstime","surDevis","kmEstime","minutesEstimees","details","message","statut","source","creeLe"])
+        && d.statut == "en attente"
+        && d.source == "site"
+        && serviceAutorise(d["service"])
+        && (!estBeaute(activiteDe(d["service"])) || ("uid" in d && creneauVerrouille(d)))
+        && d.creeLe == request.time
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
+        && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+        && d.message is string && d.message.size() <= 5000
+        && d.details is map
+        && (d.prixEstime == null || d.prixEstime is number)
+        && (!("pourboire" in d) || (d.pourboire is number && d.pourboire > 0 && d.pourboire <= 200))
+        && (!("passager" in d) || (d.passager is map && d.passager.keys().hasOnly(["nom", "telephone"])
+              && d.passager.nom is string && d.passager.nom.size() <= 80
+              && d.passager.telephone is string && d.passager.telephone.size() <= 30))
+        && (!("uid" in d) || (compteVerifie() && d.uid == request.auth.uid && nonBloque(request.auth.uid)))
+        && (!("remplace" in d) || ("uid" in d && d.remplace is string && d.remplace.size() <= 40))
+        && (("codePromo" in d) == ("remise" in d))
+        && (!("codePromo" in d) || ("uid" in d
+              && d.codePromo is string && d.codePromo.matches("^[A-Z0-9_-]{3,20}$")
+              && d.remise is number && d.remise >= 0 && d.remise <= 100000
+              && existsAfter(/databases/$(database)/documents/utilisationsPromo/$(d.codePromo + "__" + request.auth.uid))
+              && getAfter(/databases/$(database)/documents/utilisationsPromo/$(d.codePromo + "__" + request.auth.uid)).data.nombre >= 1));
+    }
+
+    // v8 : course ajoutee a la main (WhatsApp, Facebook...) ; v9 : aussi par un coequipier, avec "qui la fait"
+    function demandeManuelleValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["service","serviceTitre","date","heure","nom","telephone","moyenPaiement","prixEstime","prixFinal","surDevis","kmEstime","minutesEstimees","details","message","statut","source","origine","pourboire","creeLe","majLe","attribueA","realisePar","vehicule"])
+        && d.keys().hasAll(["service","date","heure","nom","telephone","prixFinal","statut","source","creeLe"])
+        && d.source == "manuel"
+        && d.statut in ["acceptee", "terminee"]
+        && d["service"] is string && d["service"].size() <= 40
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
+        && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+        && d.prixFinal is number && d.prixFinal > 0 && d.prixFinal <= 20000
+        && (!("pourboire" in d) || (d.pourboire is number && d.pourboire > 0 && d.pourboire <= 20000))
+        && (!("attribueA" in d) || (d.attribueA is string && d.attribueA.size() <= 128))
+        && (!("realisePar" in d) || (d.realisePar is string && d.realisePar.size() <= 128))
+        && d.creeLe == request.time;
+    }
+
+    // v12 : commande de la Boutique Epoxy (compte verifie). L'article doit exister dans le catalogue, etre publie,
+    // porter le meme nom, et le prix envoye doit etre celui du catalogue (prix fixe), nul (sur devis),
+    // ou celui d'une variante (article a variantes).
+    function commandeEpoxyValide() {
+      let d = request.resource.data;
+      let cat = get(/databases/$(database)/documents/catalogue/$(d.produitId)).data;
+      return d.keys().hasOnly(["uid","type","activite","service","serviceTitre","nom","telephone","produitId","produit","varianteId","varianteNom","quantite","prixUnitaire","surDevis","messageClient","statut","source","creeLe"])
+        && d.keys().hasAll(["type","activite","service","nom","telephone","produitId","produit","quantite","prixUnitaire","surDevis","messageClient","statut","source","creeLe"])
+        && compteVerifie() && nonBloque(request.auth.uid)
+        && (!("uid" in d) || d.uid == request.auth.uid)
+        && d["type"] == "commande"
+        && d.activite == "epoxy"
+        && d["service"] == "epoxy"
+        && d.statut == "en attente"
+        && d.source == "site"
+        && d.creeLe == request.time
+        && (activitePublique("epoxy") || compteAutorise("epoxy"))
+        && (!("serviceTitre" in d) || (d.serviceTitre is string && d.serviceTitre.size() <= 160))
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 100
+        && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+        && d.produitId is string && d.produitId.size() > 0 && d.produitId.size() <= 100
+        && d.produit is string && d.produit.size() > 0 && d.produit.size() <= 120
+        && d.quantite is int && d.quantite >= 1 && d.quantite <= 50
+        && d.surDevis is bool
+        && d.messageClient is string && d.messageClient.size() <= 1000
+        && (!("varianteNom" in d) || (d.varianteNom is string && d.varianteNom.size() <= 40))
+        && (!("varianteId" in d) || (d.varianteId is string && d.varianteId.size() <= 40))
+        && exists(/databases/$(database)/documents/catalogue/$(d.produitId))
+        && cat.get("activite", "") == "epoxy"
+        && cat.get("publiee", false) == true
+        && cat.get("nom", "") == d.produit
+        && (
+             (d.get("varianteNom", "") == "" && cat.get("typePrix", "") in ["fixe", "apartir"]
+                && d.prixUnitaire is number && d.prixUnitaire == cat.get("prix", null) && d.surDevis == false)
+          || (d.get("varianteNom", "") == "" && cat.get("typePrix", "") == "devis"
+                && d.prixUnitaire == null && d.surDevis == true)
+          || (d.get("varianteNom", "") != "" && cat.get("typePrix", "") != "devis" && cat.get("variantes", []).size() > 0
+                && d.prixUnitaire is number && d.prixUnitaire >= 0 && d.prixUnitaire <= 100000 && d.surDevis == false)
+        );
+    }
+
+    // ---------- Mouvements financiers : JAMAIS modifies ni supprimes ----------
+
+    function moyenValide(m) {
+      return m in ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement"];
+    }
+
+    // v9 : une course peut etre payee avec le credit prepaye du client (paiement seulement)
+    function paiementValide(d) {
+      return d.kind == "paiement"
+        && d.keys().hasAll(["montant", "moyen"])
+        && d.montant is number && d.montant > 0 && d.montant <= 100000
+        && (moyenValide(d.moyen) || (d.moyen == "Crédit du client" && !("operateur" in d)));
+    }
+
+    function correctionValide(d) {
+      return d.kind == "correction"
+        && d.keys().hasAll(["montant", "motif"])
+        && d.montant is number && d.montant != 0 && d.montant >= -100000 && d.montant <= 100000
+        && d.motif is string && d.motif.size() >= 3 && d.motif.size() <= 200;
+    }
+
+    function annulationValide(d) {
+      return d.kind == "annulation"
+        && d.keys().hasAll(["cas", "frais", "fraisRetenus", "remboursementValide", "validePar"])
+        && d.cas in ["client", "tardive", "absence", "rebecca"]
+        && d.frais is number && d.frais >= 0 && d.frais <= 100000
+        && d.fraisRetenus is number && d.fraisRetenus >= 0 && d.fraisRetenus <= 100000
+        && d.remboursementValide is number && d.remboursementValide >= 0 && d.remboursementValide <= 100000
+        && d.validePar == request.auth.token.email
+        && (!("motif" in d) || (d.motif is string && d.motif.size() <= 200));
+    }
+
+    function remboursementEffectueValide(d) {
+      return d.kind == "remboursement_effectue"
+        && d.keys().hasAll(["montant", "moyen", "annulationId"])
+        && d.montant is number && d.montant > 0 && d.montant <= 100000
+        && moyenValide(d.moyen)
+        && d.annulationId is string && d.annulationId.size() > 0 && d.annulationId.size() <= 100
+        && (!("ref" in d) || (d.ref is string && d.ref.size() <= 100));
+    }
+
+    function mouvementValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["kind","id","resId","date","montant","moyen","motif","cas","frais","fraisRetenus","remboursementValide","validePar","annulationId","ref","creeLe","operateur"])
+        && d.keys().hasAll(["kind", "resId", "date", "creeLe"])
+        && d.creeLe == request.time
+        && operateurValide(d)
+        && d.resId is string && d.resId.size() > 0 && d.resId.size() <= 100
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && (paiementValide(d) || correctionValide(d) || annulationValide(d) || remboursementEffectueValide(d));
+    }
+
+    // Depenses : correction = nouvelle ligne negative avec motif. v9 : operateur (coequipier) et vehicule facultatifs.
+    function depenseValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["id","date","categorie","montant","motif","resId","creeLe","operateur","vehicule"])
+        && d.keys().hasAll(["date", "categorie", "montant", "creeLe"])
+        && d.creeLe == request.time
+        && operateurValide(d)
+        && (estAdmin() ? !("operateur" in d) : d.get("operateur", "") == request.auth.uid)
+        && (!("vehicule" in d) || (d.vehicule is string && d.vehicule.size() <= 100))
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.categorie is string && d.categorie.size() > 0 && d.categorie.size() <= 60
+        && d.montant is number && d.montant != 0 && d.montant >= -100000 && d.montant <= 100000
+        && (d.montant > 0 || ("motif" in d && d.motif is string && d.motif.size() >= 3 && d.motif.size() <= 200))
+        && (!("resId" in d) || (d.resId is string && d.resId.size() <= 100));
+    }
+
+    // Autres revenus (ex : gains Wolt). v9 : chacun les siens (operateur = le coequipier ; absent = Rebecca).
+    function autreRevenuForme() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["id","source","periode","debut","fin","livraisons","revenu","pourboire","detail","creeLe","majLe","operateur"])
+        && d.keys().hasAll(["source", "periode", "debut", "fin", "livraisons", "revenu", "pourboire", "creeLe"])
+        && (estAdmin() ? !("operateur" in d) : d.get("operateur", "") == request.auth.uid)
+        && d.source is string && d.source.size() > 0 && d.source.size() <= 40
+        && d.periode in ["jour", "semaine", "mois"]
+        && d.debut is string && d.debut.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.fin is string && d.fin.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.fin >= d.debut
+        && d.livraisons is int && d.livraisons >= 0 && d.livraisons <= 5000
+        && d.revenu is number && d.revenu >= -100000 && d.revenu <= 100000
+        && d.pourboire is number && d.pourboire >= -100000 && d.pourboire <= 100000
+        && d.revenu + d.pourboire != 0
+        && ((d.revenu >= 0 && d.pourboire >= 0) || ("detail" in d && d.detail is string && d.detail.size() >= 3 && d.detail.size() <= 200))
+        && (!("detail" in d) || (d.detail is string && d.detail.size() <= 200));
+    }
+
+    // Ligne d'autre revenu : Rebecca gere les siennes (sans operateur), un coequipier les siennes
+    function autreRevenuAMoi(d) {
+      return estAdmin() ? !("operateur" in d) : (estMembre() && d.get("operateur", "") == request.auth.uid);
+    }
+
+    // v9 : reversement entre coequipiers (« C'est reversé ») : jamais modifie ni supprime
+    function reversementValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["de","vers","montant","date","note","declarePar","creeLe"])
+        && d.keys().hasAll(["de","vers","montant","date","declarePar","creeLe"])
+        && d.de is string && d.vers is string && d.de != d.vers
+        && d.de.size() <= 128 && d.vers.size() <= 128
+        && (estAdmin() || d.de == request.auth.uid || d.vers == request.auth.uid)
+        && d.declarePar == moiEquipe()
+        && d.montant is number && d.montant > 0 && d.montant <= 100000
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && (!("note" in d) || (d.note is string && d.note.size() <= 200))
+        && d.creeLe == request.time;
+    }
+
+    // Codes promo : forme exacte d'un code (l'identifiant du document = le code)
+    function promoValide(codeId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["code","type","valeur","actif","utilisationsParCompte","finLe","creeLe","majLe","activite","cibles"])
+        && d.keys().hasAll(["code","type","valeur","actif","utilisationsParCompte","finLe","creeLe","majLe"])
+        && (!("activite" in d) || d.activite in ["coursier","transport","nails","hair","slim","regenx","epoxy","digital"])
+        && (!("cibles" in d) || (d.cibles is list && d.cibles.size() <= 50 && "activite" in d))
+        && d.code == codeId
+        && d.code is string && d.code.matches("^[A-Z0-9_-]{3,20}$")
+        && d["type"] in ["pourcentage", "montant"]
+        && d.valeur is int && d.valeur >= 1
+        && ((d["type"] == "pourcentage" && d.valeur <= 50) || (d["type"] == "montant" && d.valeur <= 500))
+        && d.actif is bool
+        && (d.utilisationsParCompte == null || (d.utilisationsParCompte is int && d.utilisationsParCompte >= 1 && d.utilisationsParCompte <= 1000))
+        && (d.finLe == null || (d.finLe is string && d.finLe.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")))
+        && d.majLe == request.time;
+    }
+
+    // Fiche d'un client connecte : forme exacte (l'identifiant du document = l'uid du compte)
+    function ficheValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["prenom","nom","telephone","email","adresse","naissance","moyensPreferes","accepteLe","creeLe","majLe","adresses","enfants","favoris"])
+        && d.keys().hasAll(["prenom","nom","telephone","email","adresse","naissance","moyensPreferes","accepteLe","creeLe","majLe"])
+        && d.prenom is string && d.prenom.size() > 0 && d.prenom.size() <= 60
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 60
+        && d.telephone is string && d.telephone.size() >= 6 && d.telephone.size() <= 20
+        && d.email is string && d.email == request.auth.token.email
+        && d.adresse is string && d.adresse.size() >= 5 && d.adresse.size() <= 300
+        && d.naissance is string && d.naissance.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && int(d.naissance.split("-")[0]) >= 1900
+        && int(d.naissance.split("-")[0]) <= request.time.year() - 18
+        && d.moyensPreferes is list && d.moyensPreferes.size() >= 1 && d.moyensPreferes.size() <= 5
+        && d.moyensPreferes.hasOnly(["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement"])
+        && (!("adresses" in d) || (d.adresses is list && d.adresses.size() <= 5))
+        && (!("enfants" in d) || (d.enfants is list && d.enfants.size() <= 6))
+        && (!("favoris" in d) || (d.favoris is list && d.favoris.size() <= 10))
+        && d.majLe == request.time;
+    }
+
+    // Suivi d'une demande (visible du client dans "Historique") : cree en meme temps que la demande
+    function suiviValide(id) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["uid","service","serviceTitre","date","heure","prixEstime","surDevis","statut","details","creeLe","majLe","pourboire","passager","codePromo","remise","remplace"])
+        && d.keys().hasAll(["uid","service","serviceTitre","date","heure","prixEstime","surDevis","statut","details","creeLe","majLe"])
+        && d.uid == request.auth.uid
+        && d.statut == "en attente"
+        && d.creeLe == request.time && d.majLe == request.time
+        && d["service"] is string && d["service"].size() <= 40
+        && serviceAutorise(d["service"])
+        && d.serviceTitre is string && d.serviceTitre.size() <= 100
+        && d.date is string && d.date.size() <= 10
+        && d.heure is string && d.heure.size() <= 5
+        && (d.prixEstime == null || d.prixEstime is number)
+        && d.surDevis is bool
+        && d.details is map
+        && nonBloque(request.auth.uid)
+        && existsAfter(/databases/$(database)/documents/demandes/$(id))
+        && getAfter(/databases/$(database)/documents/demandes/$(id)).data.get("uid", "") == request.auth.uid;
+    }
+
+    // Declaration de recharge de credit : le credit n'est ajoute que par Rebecca ou un coequipier (creditMouvements)
+    function rechargeValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["uid","montant","moyen","date","statut","creeLe","cadeau"])
+        && d.keys().hasAll(["uid","montant","moyen","date","statut","creeLe"])
+        && d.uid == request.auth.uid
+        && d.montant is number && d.montant >= 50 && d.montant <= 5000
+        && moyenValide(d.moyen)
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.statut == "en attente"
+        && d.creeLe == request.time
+        && (!("cadeau" in d) || (d.cadeau is map && d.cadeau.keys().hasOnly(["nom", "email", "message"])
+              && d.cadeau.nom is string && d.cadeau.nom.size() <= 60
+              && d.cadeau.email is string && d.cadeau.email.size() <= 120
+              && d.cadeau.message is string && d.cadeau.message.size() <= 300))
+        && nonBloque(request.auth.uid);
+    }
+
+    // Avis apres une course terminee (document = identifiant du suivi, donc un seul avis par course)
+    function avisValide(avisId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["uid","etoiles","commentaire","pourboire","creeLe"])
+        && d.keys().hasAll(["uid","etoiles","commentaire","pourboire","creeLe"])
+        && d.uid == request.auth.uid
+        && d.etoiles is int && d.etoiles >= 1 && d.etoiles <= 5
+        && d.commentaire is string && d.commentaire.size() <= 600
+        && d.pourboire is number && d.pourboire >= 0 && d.pourboire <= 200
+        && d.creeLe == request.time
+        && exists(/databases/$(database)/documents/suivi/$(avisId))
+        && get(/databases/$(database)/documents/suivi/$(avisId)).data.uid == request.auth.uid
+        && get(/databases/$(database)/documents/suivi/$(avisId)).data.statut == "terminée"
+        && nonBloque(request.auth.uid);
+    }
+
+    // Compteur d'utilisation d'un code promo par un compte (document = CODE__uid)
+    function usageValide(usageId) {
+      let d = request.resource.data;
+      return compteVerifie() && nonBloque(request.auth.uid)
+        && d.keys().hasOnly(["code","uid","nombre","majLe"])
+        && d.keys().hasAll(["code","uid","nombre","majLe"])
+        && d.uid == request.auth.uid
+        && d.code is string && d.code.matches("^[A-Z0-9_-]{3,20}$")
+        && usageId == d.code + "__" + request.auth.uid
+        && d.nombre is int && d.nombre >= 1
+        && d.majLe == request.time
+        && exists(/databases/$(database)/documents/promos/$(d.code))
+        && get(/databases/$(database)/documents/promos/$(d.code)).data.actif == true
+        && (get(/databases/$(database)/documents/promos/$(d.code)).data.utilisationsParCompte == null
+            || d.nombre <= get(/databases/$(database)/documents/promos/$(d.code)).data.utilisationsParCompte);
+    }
+
+    // Demandes : un client peut en CREER, jamais lire, modifier ou supprimer.
+    // v9 : Rebecca et un coequipier actif gerent les demandes (coursier et transport) ; seule Rebecca supprime.
+    match /demandes/{id} {
+      allow create: if demandeValide() || (gestion() && demandeManuelleValide());
+      allow read, update: if gestion();
+      allow delete: if estAdmin();
+    }
+
+    // v12 : commandes de la Boutique Epoxy. Le client peut en CREER une ; seule Rebecca les lit et les gere
+    // (jamais un coequipier).
+    match /commandes/{id} {
+      allow create: if commandeEpoxyValide();
+      allow read, update, delete: if estAdmin();
+    }
+
+    // v13 : agenda des rendez-vous, un document par jour (rebecca__AAAA-MM-JJ) = quarts d'heure pris, sans nom
+    // ni activite. Lecture publique (le site grise ces heures). Un client verifie peut seulement AJOUTER des
+    // quarts d'heure libres ; Rebecca seule libere (refus, annulation).
+    match /agendaJours/{id} {
+      allow read: if true;
+      allow create: if compteVerifie()
+        && id.matches("^rebecca__[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && request.resource.data.keys().hasOnly(["cells", "majLe"])
+        && request.resource.data.cells is map
+        && request.resource.data.cells.size() >= 1 && request.resource.data.cells.size() <= 24
+        && request.resource.data.cells.values().toSet().hasOnly([true])
+        && request.resource.data.majLe == request.time;
+      allow update: if compteVerifie()
+        && request.resource.data.keys().hasOnly(["cells", "majLe"])
+        && cellulesAjoutees()
+        && request.resource.data.majLe == request.time;
+      allow create, update, delete: if estAdmin();
+    }
+
+    // Fermetures de Rebecca : lecture publique (le site bloque ces dates), ecriture par Rebecca seule
+    // v9 : champ "portee" ("moi" = seulement Rebecca ; absent = toute l'equipe)
+    match /fermetures/{id} {
+      allow read: if true;
+      allow write: if estAdmin();
+    }
+
+    // Reglages de Rebecca (creneaux fixes) : lecture publique, ecriture par Rebecca seule
+    match /reglages/{id} {
+      allow read: if true;
+      allow write: if estAdmin();
+    }
+
+    // Mouvements financiers : on peut lire et AJOUTER, jamais modifier ni supprimer
+    match /mouvements/{id} {
+      allow read: if gestion();
+      allow create: if gestion() && mouvementValide();
+      allow update, delete: if false;
+    }
+
+    // Depenses : Rebecca lit tout ; un coequipier ne lit et n'ajoute que les siennes ; jamais modifiees ni supprimees
+    match /depenses/{id} {
+      allow read: if estAdmin() || (estMembre() && resource.data.get("operateur", "") == request.auth.uid);
+      allow create: if gestion() && depenseValide();
+      allow update, delete: if false;
+    }
+
+    // Autres revenus (Wolt) : Rebecca lit tout ; chacun ajoute, corrige et supprime SES lignes
+    match /autresRevenus/{id} {
+      allow read: if estAdmin() || (estMembre() && resource.data.get("operateur", "") == request.auth.uid);
+      allow create: if gestion() && autreRevenuForme() && request.resource.data.creeLe == request.time;
+      allow update: if gestion() && autreRevenuAMoi(resource.data) && autreRevenuForme() && request.resource.data.creeLe == resource.data.creeLe;
+      allow delete: if estAdmin() || autreRevenuAMoi(resource.data);
+    }
+
+    // v9 : reversements entre coequipiers : lus par l'equipe, ajoutes, jamais modifies ni supprimes
+    match /reversements/{id} {
+      allow read: if gestion();
+      allow create: if gestion() && reversementValide();
+      allow update, delete: if false;
+    }
+
+    // Codes promo : geres par Rebecca et un coequipier actif (v9)
+    match /promos/{codeId} {
+      allow get: if gestion() || compteVerifie();
+      allow list: if gestion();
+      allow create: if gestion() && promoValide(codeId) && request.resource.data.creeLe == request.time;
+      allow update: if gestion() && promoValide(codeId) && request.resource.data.creeLe == resource.data.creeLe;
+      allow delete: if gestion();
+    }
+
+    // Fiches clients : chaque client ne voit et ne modifie que SA fiche ; Rebecca (et un coequipier, v9) peut les lire.
+    match /clients/{uid} {
+      allow read: if gestion() || (compteVerifie() && request.auth.uid == uid);
+      allow create: if request.auth != null && request.auth.uid == uid && ficheValide()
+        && request.resource.data.creeLe == request.time && request.resource.data.accepteLe == request.time;
+      allow update: if compteVerifie() && request.auth.uid == uid && ficheValide()
+        && request.resource.data.creeLe == resource.data.creeLe && request.resource.data.accepteLe == resource.data.accepteLe
+        && request.resource.data.prenom == resource.data.prenom
+        && request.resource.data.nom == resource.data.nom
+        && request.resource.data.naissance == resource.data.naissance;
+      allow delete: if estAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
+
+    // Suivi des demandes : le client voit les siennes ; il peut seulement les annuler tant qu'elles sont en attente
+    match /suivi/{id} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow create: if compteVerifie() && suiviValide(id);
+      allow update: if gestion()
+        || (compteVerifie() && resource.data.uid == request.auth.uid && resource.data.statut == "en attente"
+            && request.resource.data.statut in ["annulée par le client", "remplacée"]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "majLe"])
+            && request.resource.data.majLe == request.time);
+      allow delete: if estAdmin();
+    }
+
+    // Codes offerts a un client (fidelite...) : le client lit les siens, l'equipe gere
+    match /codesClient/{id} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow write: if gestion();
+    }
+
+    // Utilisation des codes promo par compte : lecture de SON compteur, ecriture controlee (+1 a la fois, limite du code)
+    match /utilisationsPromo/{usageId} {
+      allow get: if gestion() || (compteVerifie() && usageId.matches(".*__" + request.auth.uid));
+      allow list: if gestion();
+      allow create: if usageValide(usageId) && request.resource.data.nombre == 1;
+      allow update: if usageValide(usageId) && request.resource.data.nombre == resource.data.nombre + 1;
+      allow delete: if gestion();
+    }
+
+    // Recharges de credit declarees par les clients : l'equipe confirme (statut) ou refuse.
+    // v9 : une recharge confirmee par un coequipier porte son identifiant (argent a reverser a Rebecca).
+    match /recharges/{id} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow create: if compteVerifie() && rechargeValide();
+      allow update: if estAdmin()
+        || (estMembre() && (request.resource.data.statut == "refusée" || request.resource.data.get("operateur", "") == request.auth.uid));
+      allow delete: if estAdmin();
+    }
+
+    // Mouvements de credit (recharge, bonus, utilisation...) : le client les LIT, l'equipe AJOUTE, jamais modifies
+    match /creditMouvements/{id} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow create: if gestion() && request.resource.data.keys().hasAll(["uid", "montant", "creeLe"])
+        && request.resource.data.uid is string && request.resource.data.montant is number
+        && (!("resId" in request.resource.data) || (request.resource.data.resId is string && request.resource.data.resId.size() <= 100))
+        && request.resource.data.creeLe == request.time;
+      allow update, delete: if false;
+    }
+
+    // Avis des clients apres une course terminee : un seul par course, jamais modifie
+    match /avis/{avisId} {
+      allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
+      allow create: if compteVerifie() && avisValide(avisId);
+      allow update: if false;
+      allow delete: if estAdmin();
+    }
+
+    // Espaces (activites) : lecture publique, ecriture par Rebecca seule (v7)
+    match /activites/{id} {
+      allow read: if true;
+      allow write: if estAdmin();
+    }
+
+    // Acces aux espaces reserves (Transport prive) : document {uid}__{espace} cree par l'equipe.
+    // Le client peut seulement lire SES acces ; il ne peut jamais se les donner lui-meme
+    match /autorisations/{id} {
+      allow get: if gestion() || (request.auth != null && id.matches("^" + request.auth.uid + "__[a-z_]+$"));
+      allow list: if gestion();
+      allow write: if gestion();
+    }
+
+    // Notes privees sur un client (absences, blocage, pre-fiches...) : jamais visibles du client
+    match /clientsAdmin/{uid} {
+      allow read, write: if gestion();
+    }
+
+    // Reservee a Rebecca (reglages prives, plafond, rappels, sauvegardes) : jamais un coequipier
+    match /admin/{id} {
+      allow read, write: if estAdmin();
+    }
+
+    // ---------- v9 : equipe ----------
+
+    // Fiches de l'equipe : Rebecca cree, active et regle ; le membre lit l'equipe et modifie
+    // seulement son telephone, son plafond et ses modes de transport. Jamais ses droits.
+    match /equipe/{uid} {
+      allow read: if estAdmin() || estMembre() || (request.auth != null && request.auth.uid == uid);
+      allow create, delete: if estAdmin();
+      allow update: if estAdmin()
+        || (estMembre() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["telephone", "plafond", "modes", "majLe"]));
+    }
+
+    // Demande d'acces d'un coequipier : creee a sa premiere connexion, decidee par Rebecca
+    match /demandesEquipe/{uid} {
+      allow read: if estAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create: if compteVerifie() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(["email", "nom", "statut", "creeLe"])
+        && request.resource.data.statut == "en_attente"
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.nom is string && request.resource.data.nom.size() <= 80
+        && request.resource.data.creeLe == request.time;
+      allow update, delete: if estAdmin();
+    }
+
+    // Vehicules : chacun gere les siens (proprietaire) ; Rebecca peut tout regler
+    match /vehicules/{id} {
+      allow read: if gestion();
+      allow create: if estAdmin() || (estMembre() && request.resource.data.proprietaire == request.auth.uid);
+      allow update: if estAdmin()
+        || (estMembre() && resource.data.proprietaire == request.auth.uid && request.resource.data.proprietaire == request.auth.uid);
+      allow delete: if estAdmin() || (estMembre() && resource.data.proprietaire == request.auth.uid);
+    }
+
+    // Disponibilites publiques de l'equipe (sans motif) : le site sait si « l'un de nous est libre ».
+    // Rebecca recopie "actif" et "services" ; le membre ne change que ses indisponibilites.
+    match /disposEquipe/{uid} {
+      allow read: if true;
+      allow write: if estAdmin();
+      allow create: if estMembre() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(["indispos", "majLe"]) && request.resource.data.indispos is list
+        && request.resource.data.indispos.size() <= 200;
+      allow update: if estMembre() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["indispos", "majLe"])
+        && request.resource.data.indispos is list && request.resource.data.indispos.size() <= 200;
+    }
+
+    // ---------- v10 : fondations (Lot C) ----------
+
+    // Catalogue (beaute, Epoxy, Digital) : Rebecca gere ; le public lit seulement ce qui est publie.
+    // v12 : un prix prive (seances RegenX) ne peut jamais etre publie : il n'est donc jamais lisible du public.
+    match /catalogue/{id} {
+      allow read: if gestion() || resource.data.publiee == true;
+      allow create, update: if estAdmin()
+        && request.resource.data.nom is string && request.resource.data.nom.size() > 0 && request.resource.data.nom.size() <= 100
+        && request.resource.data.activite in ["nails","hair","slim","regenx","epoxy","digital"]
+        && !(request.resource.data.get("typePrix", "") == "prive" && request.resource.data.get("publiee", false) == true);
+      allow delete: if estAdmin();
+    }
+
+    // Photos du catalogue : une photo reduite par document (moins de 750 Ko), avec une description facultative
+    match /photosCatalogue/{id} {
+      allow read: if true;
+      allow create: if estAdmin()
+        && request.resource.data.keys().hasOnly(["prestationId","donnees","legende","ordre","creeLe"])
+        && request.resource.data.prestationId is string && request.resource.data.prestationId.size() <= 100
+        && request.resource.data.donnees is string && request.resource.data.donnees.size() < 750000
+        && request.resource.data.donnees.matches("^data:image/(jpeg|png|webp);base64,.*")
+        && request.resource.data.legende is string && request.resource.data.legende.size() <= 200;
+      allow update: if estAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["legende","ordre"])
+        && request.resource.data.legende is string && request.resource.data.legende.size() <= 200;
+      allow delete: if estAdmin();
+    }
+
+    // Agenda commun : moments occupes publics, sans nom ni activite (le site grise ces cases)
+    match /creneauxOccupes/{id} {
+      allow read: if true;
+      allow create, update: if gestion()
+        && request.resource.data.keys().hasOnly(["debut","fin","personne","source","majLe"])
+        && request.resource.data.debut is string && request.resource.data.debut.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$")
+        && request.resource.data.fin is string && request.resource.data.fin.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$")
+        && request.resource.data.fin > request.resource.data.debut
+        && request.resource.data.personne is string && request.resource.data.personne.size() <= 128;
+      allow delete: if gestion();
+    }
+
+    // ---------- v14 : tournee scolaire ----------
+
+    // Trajets de la tournee confies a un coequipier pour une date (heures et etapes du ramassage) :
+    // l'equipe les lit (chacun voit ses missions dans son planning), Rebecca seule les cree et les retire.
+    match /missionsEquipe/{id} {
+      allow read: if gestion();
+      allow create, update: if estAdmin()
+        && request.resource.data.keys().hasOnly(["membre","nomMembre","date","debut","fin","etapes","creeLe"])
+        && request.resource.data.membre is string && request.resource.data.membre.size() <= 128
+        && request.resource.data.date is string && request.resource.data.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && request.resource.data.debut is string && request.resource.data.fin is string
+        && request.resource.data.etapes is list && request.resource.data.etapes.size() <= 40;
+      allow delete: if estAdmin();
+    }
+
+    // Tout le reste : Rebecca peut lire, mais rien d'autre n'est ecrit sans regle precise
+    match /{document=**} {
+      allow read: if estAdmin();
+    }
+  }
+}

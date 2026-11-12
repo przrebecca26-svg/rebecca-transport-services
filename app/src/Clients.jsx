@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { FILTRES, compterOrigines, construireFiches, estSansCompte, filtrer, telNormalise } from "./pricing/clients.js";
 import { LIBELLE_ORIGINE } from "./pricing/ajoutManuel.js";
 import FicheClient from "./FicheClient.jsx";
@@ -30,7 +31,7 @@ export default function Clients({ aller, cible }) {
   useEffect(() => {
     const arrets = COLLECTIONS.map((nom) =>
       onSnapshot(
-        collection(db, nom),
+        nom === "demandes" ? refDemandes() : collection(db, nom),
         (s) => setDonnees((avant) => ({ ...avant, [nom]: s.docs.map((x) => ({ id: x.id, ...x.data() })) })),
         () => setLectureImpossible(true)
       )

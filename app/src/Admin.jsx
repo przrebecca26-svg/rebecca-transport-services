@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase.js";
+import { definirEquipier } from "./accesDemandes.js";
 import { NOM } from "./contact.js";
 import TableauDeBord from "./TableauDeBord.jsx";
 import Activites from "./Activites.jsx";
@@ -251,6 +252,8 @@ export default function Admin() {
   };
 
   // Espace de Rebecca (tout) ou d'un coequipier actif (ses activites, sans les finances de Rebecca)
+  // v15 : un coequipier ne lit que les demandes du coursier et du transport (jamais la beaute)
+  definirEquipier(role === "equipe");
   if (role === "admin" || role === "equipe") {
     const membre = role === "equipe" ? equipe.fiche : null;
     const moi = membre ? membre.id : ADMIN_ID;

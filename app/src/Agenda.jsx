@@ -5,6 +5,7 @@ import { indispoValide } from "./fermetures.js";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauValide, lireCreneaux } from "./fermetures.js";
 import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
@@ -675,7 +676,7 @@ export default function Agenda() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "demandes"), orderBy("creeLe", "desc"));
+    const q = refDemandes(orderBy("creeLe", "desc"));
     return onSnapshot(
       q,
       (snap) => setItems(snap.docs.map((x) => ({ id: x.id, ...x.data() }))),

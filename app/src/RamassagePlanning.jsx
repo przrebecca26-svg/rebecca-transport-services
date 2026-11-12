@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Champ from "./components/Champ.jsx";
 import Devis from "./components/Devis.jsx";
 import IconeService from "./components/IconeService.jsx";
@@ -141,7 +142,7 @@ export default function RamassagePlanning({ retour, aller }) {
 
   useEffect(() => {
     if (!ajout) return undefined;
-    return onSnapshot(collection(db, "demandes"), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {});
+    return onSnapshot(refDemandes(), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {});
   }, [ajout]);
 
   const ecolesDifferentes = plan.enfants.some((e) => e.autreEcole);

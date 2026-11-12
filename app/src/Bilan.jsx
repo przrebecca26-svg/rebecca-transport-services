@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { indicateurs } from "./pricing/comptes.js";
 import { TYPES, decaler, libelle, periodeDe, suivantPossible } from "./pricing/bilan.js";
 import { journalCsv, joursEntre, nomFichier, sauvegardeJson } from "./pricing/sauvegarde.js";
@@ -66,7 +67,7 @@ export default function Bilan({ personne = "tous" }) {
   useEffect(() => {
     const echec = () => setLectureImpossible(true);
     const arrets = [
-      onSnapshot(query(collection(db, "demandes"), orderBy("creeLe", "desc")), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), echec),
+      onSnapshot(refDemandes(orderBy("creeLe", "desc")), (s) => setDemandes(trierDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() })))), echec),
       onSnapshot(collection(db, "mouvements"), (s) => setMouvements(s.docs.map((x) => ({ id: x.id, ...x.data() }))), echec),
       onSnapshot(query(collection(db, "depenses"), orderBy("date", "desc")), (s) => setDepenses(s.docs.map((x) => ({ id: x.id, ...x.data() }))), echec),
     ];

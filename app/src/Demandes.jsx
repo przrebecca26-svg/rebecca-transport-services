@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { arrayUnion, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
 import { calculerTrajet } from "./routing.js";
 import { SERVICES } from "./services.js";
@@ -373,10 +374,10 @@ export default function Demandes({ aller, cible, membre = null }) {
   const [rattrapage, setRattrapage] = useState({ enCours: false, message: "" });
 
   useEffect(() => {
-    const q = query(collection(db, "demandes"), orderBy("creeLe", "desc"));
+    const q = refDemandes(orderBy("creeLe", "desc"));
     return onSnapshot(
       q,
-      (snap) => setItems(snap.docs.map((x) => ({ id: x.id, ...x.data() }))),
+      (snap) => setItems(trierDemandes(snap.docs.map((x) => ({ id: x.id, ...x.data() })))),
       () => setErreur("Impossible de lire les demandes. Vérifiez la connexion et les règles Firebase.")
     );
   }, []);

@@ -2,6 +2,7 @@ import { Pastille } from "./equipeContexte.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { situationCourse } from "./pricing/comptes.js";
@@ -114,7 +115,7 @@ export default function Aujourdhui({ aller }) {
   useEffect(() => {
     const echec = () => setLectureImpossible(true);
     const arrets = [
-      onSnapshot(query(collection(db, "demandes"), orderBy("creeLe", "desc")), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), echec),
+      onSnapshot(refDemandes(orderBy("creeLe", "desc")), (s) => setDemandes(trierDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() })))), echec),
       onSnapshot(collection(db, "mouvements"), (s) => setMouvements(s.docs.map((x) => ({ id: x.id, ...x.data() }))), echec),
     ];
     return () => arrets.forEach((a) => a());

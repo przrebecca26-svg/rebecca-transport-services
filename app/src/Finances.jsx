@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, deleteDoc, deleteField, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Bilan from "./Bilan.jsx";
 import Depenses from "./Depenses.jsx";
 import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu } from "./pricing/financesAnnee.js";
@@ -51,7 +52,7 @@ function useDonnees(moi, estRebecca) {
     const noms = estRebecca ? COLLECTIONS : COLLECTIONS.filter((n) => n !== "creditMouvements");
     const arrets = noms.map((nom) =>
       onSnapshot(
-        !estRebecca && SEULEMENT_SIENNES.includes(nom) ? query(collection(db, nom), where("operateur", "==", moi)) : collection(db, nom),
+        nom === "demandes" ? refDemandes() : !estRebecca && SEULEMENT_SIENNES.includes(nom) ? query(collection(db, nom), where("operateur", "==", moi)) : collection(db, nom),
         (s) => setDonnees((avant) => ({ ...avant, [nom]: s.docs.map((x) => ({ id: x.id, ...x.data() })) })),
         () => (nom === "reversements" ? setDonnees((avant) => ({ ...avant, reversements: [] })) : setLectureImpossible(true))
       )

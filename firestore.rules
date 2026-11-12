@@ -1,5 +1,6 @@
 rules_version = '2';
-// Regles Rebecca Services v14 (12 novembre 2026) = v13 + missionsEquipe : trajets de la tournee scolaire confies
+// Regles Rebecca Services v15 (12 novembre 2026) = v14 + demandes beaute invisibles pour un coequipier
+// v14 (12 novembre 2026) = v13 + missionsEquipe : trajets de la tournee scolaire confies
 //   a un coequipier pour une date (lus par l'equipe, ecrits par Rebecca seule). Rien d'autre ne change.
 // Regles Rebecca Services v13 (11 novembre 2026) : verrouillage des creneaux de rendez-vous
 // v13 = v12 + agendaJours : un creneau est bloque des la demande ; deux clientes ne peuvent jamais obtenir
@@ -425,9 +426,17 @@ service cloud.firestore {
 
     // Demandes : un client peut en CREER, jamais lire, modifier ou supprimer.
     // v9 : Rebecca et un coequipier actif gerent les demandes (coursier et transport) ; seule Rebecca supprime.
+    // v15 (12 nov. 2026) : un coequipier ne lit et ne modifie que les demandes du coursier et du transport.
+    // Les rendez-vous beaute (Nails, Hair, Slim & Lift, RegenX) restent visibles par Rebecca seule.
+    // (Le site du coequipier lit les demandes avec where("service", "in", ces services) : app/src/accesDemandes.js)
     match /demandes/{id} {
       allow create: if demandeValide() || (gestion() && demandeManuelleValide());
-      allow read, update: if gestion();
+      allow read: if estAdmin()
+        || (estMembre() && resource.data.service in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"]);
+      allow update: if estAdmin()
+        || (estMembre()
+          && resource.data.service in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"]
+          && request.resource.data.service == resource.data.service);
       allow delete: if estAdmin();
     }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { ACTIVITES_TB, indicateurs, repartitionServices, serieCA, tuiles } from "./pricing/tableauBord.js";
 import PeriodeTB, { periodeTB } from "./PeriodeTB.jsx";
 import TuileActivite from "./components/TuileActivite.jsx";
@@ -94,7 +95,7 @@ export default function Activites({ cible, membre = null }) {
   const [type, setType] = useState("mois");
 
   useEffect(() => {
-    const a = onSnapshot(collection(db, "demandes"), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setDemandes([]));
+    const a = onSnapshot(refDemandes(), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setDemandes([]));
     const b = onSnapshot(collection(db, "mouvements"), (s) => setMouvements(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {});
     return () => {
       a();

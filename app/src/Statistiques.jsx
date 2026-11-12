@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { vehiculesEffectifs } from "./pricing/quiFait.js";
@@ -30,7 +31,7 @@ function useDonnees(membre) {
     const lire = (nom, q) =>
       onSnapshot(q || collection(db, nom), (s) => setD((x) => ({ ...x, [nom]: s.docs.map((y) => ({ id: y.id, ...y.data() })) })), () => setErreur(true));
     const arrets = [
-      lire("demandes"),
+      lire("demandes", refDemandes()),
       lire("mouvements"),
       lire("depenses", moi ? query(collection(db, "depenses"), where("operateur", "==", moi)) : null),
       lire("autresRevenus", moi ? query(collection(db, "autresRevenus"), where("operateur", "==", moi)) : null),

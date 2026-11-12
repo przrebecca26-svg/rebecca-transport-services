@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { indicateurs, tuiles } from "./pricing/tableauBord.js";
 import { PERIODES_TB, periodeTB } from "./PeriodeTB.jsx";
 import PeriodeTB from "./PeriodeTB.jsx";
@@ -22,7 +23,7 @@ export default function TableauDeBord({ aller, membre = null }) {
 
   useEffect(() => {
     const echec = () => setErreur("Impossible de charger les chiffres. Vérifiez la connexion.");
-    const a = onSnapshot(collection(db, "demandes"), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), echec);
+    const a = onSnapshot(refDemandes(), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), echec);
     const b = onSnapshot(collection(db, "mouvements"), (s) => setMouvements(s.docs.map((x) => ({ id: x.id, ...x.data() }))), echec);
     return () => {
       a();

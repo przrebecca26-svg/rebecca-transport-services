@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { collection, doc, onSnapshot, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { agendaVoulu, blocsDesCourses, ecartsAgenda, synchroniser } from "./pricing/rendezvous.js";
 
 // AGENDA COMMUN (Lot C, C3) : tient a jour la liste PUBLIQUE des moments ou Rebecca est occupee
@@ -61,7 +62,7 @@ export default function SyncCreneaux() {
       clearTimeout(minuteur.current);
       minuteur.current = setTimeout(accorderAgenda, 6000);
     };
-    const a = onSnapshot(collection(db, "demandes"), (s) => {
+    const a = onSnapshot(refDemandes(), (s) => {
       demandes.current = s.docs.map((x) => ({ id: x.id, ...x.data() }));
       lancer();
       planifierAgenda();

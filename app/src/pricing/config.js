@@ -72,6 +72,10 @@ export const TARIFS = {
     // pendant ces dates, les creneaux personnels d'ecole sont leves (Chabbat et fetes restent fermes).
     // Dates inclusives. Mets actif: false sur une ligne si tu dois quand meme emmener tes enfants ce jour-la.
     // Les classes de college finissent le 20 juin 2027 ; verifie aussi la circulaire de l'ecole de ta fille.
+    // Annee 2026-2027 (calendrier transmis par Rebecca le 12 nov. 2026, a verifier avec chaque ecole). Sert PARTOUT :
+    // calendrier, tournee scolaire, devis de ramassage, forfaits au mois. Ete : gan et primaire (college et lycee :
+    // 20 juin). Yom HaZikaron (11 mai, cours jusqu'a 12h) : jour d'ecole. Les vacances ajoutees par Rebecca dans sa
+    // tournee s'y ajoutent (document public reglages/vacances -> vacancesAjoutees).
     vacancesScolaires: [
       { debut: "2026-12-06", fin: "2026-12-12", motif: "Vacances de Hanoucca", actif: true },
       { debut: "2027-03-23", fin: "2027-03-24", motif: "Vacances de Pourim", actif: true },
@@ -83,6 +87,7 @@ export const TARIFS = {
     // CRENEAUX PONCTUELS : un horaire exceptionnel sur une date precise (changement d'horaire de l'ecole...)
     // Exemple : { date: "2026-11-12", debut: "11:45", fin: "13:15", motif: "Créneau déjà réservé" }
     creneauxPonctuels: [],
+    vacancesAjoutees: [], // { debut, fin, motif } : jours sans ecole ajoutes par Rebecca (greve, journee pedagogique...)
   },
 
   // AGENDA : une seule course a la fois. Apres chaque mission confirmee, un tampon est reserve.
@@ -174,19 +179,7 @@ export const TARIFS = {
   // Devis a plusieurs enfants (12 nov. 2026, regle de Rebecca) : un jour = prix normal ; forfait au mois = reductionMois ;
   // plusieurs enfants en forfait (semaine ou mois) = reductionPlusieursEnfants.
   ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionMois: 0.15, reductionPlusieursEnfants: 0.2,
-    // Vacances scolaires en Israel, annee 2026-2027 (calendrier transmis par Rebecca le 12 nov. 2026, a verifier
-    // avec chaque ecole). Retirees des devis dates et du prix reel des forfaits au mois, comme Chabbat et les fetes.
-    // Ete : gan et primaire (college et lycee finissent le 20 juin). Yom HaZikaron (11 mai, cours jusqu'a 12h) : non retire.
-    vacancesScolaires: [
-      { nom: "Roch Hachana", du: "2026-09-11", au: "2026-09-13" },
-      { nom: "Yom Kippour et Souccot", du: "2026-09-20", au: "2026-10-03" },
-      { nom: "Hanoucca", du: "2026-12-06", au: "2026-12-12" },
-      { nom: "Pourim", du: "2027-03-23", au: "2027-03-24" },
-      { nom: "Pessah", du: "2027-04-13", au: "2027-04-28" },
-      { nom: "Yom HaAtsmaout", du: "2027-05-12", au: "2027-05-12" },
-      { nom: "Chavouot", du: "2027-06-10", au: "2027-06-11" },
-      { nom: "Vacances d'été", du: "2027-07-01", au: "2027-08-31" },
-    ],
+    // Vacances scolaires : la liste du calendrier (TARIFS.calendrier.vacancesScolaires) sert partout (12 nov. 2026)
   },
   // Ma tournee scolaire (12 nov. 2026) : marge de route a chaque deplacement (petit probleme sur la route), temps
   // d'arret pour faire monter ou descendre les enfants, retard maximum accepte a une sortie d'ecole, places passagers.

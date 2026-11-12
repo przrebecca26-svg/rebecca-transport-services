@@ -8,7 +8,7 @@ import { db } from "./firebase.js";
 import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauValide, lireCreneaux } from "./fermetures.js";
 import "./agenda.css";
 import { lienAppel, lienWhatsApp } from "./pricing/navigation.js";
-import { ajouterJours, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
+import { ajouterJours, vacancesDuJour, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
 // Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
 
@@ -329,6 +329,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre }) {
   return (
     <div className={"ag-jour" + (jour === aujourdhui ? " aujourdhui" : "")}>
       {titre && <h3>{libelleJour(jour)}</h3>}
+      {vacancesDuJour(jour) && <p className="ag-vacances">🏖️ {vacancesDuJour(jour)} : pas d'école, ta tournée est levée</p>}
       {creneaux.map((c, i) => (
         <Fermeture key={i} c={c} />
       ))}

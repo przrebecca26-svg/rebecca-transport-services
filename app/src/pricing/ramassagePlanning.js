@@ -16,7 +16,7 @@
 
 import { TARIFS } from "./config.js";
 import { arrondiSup, analyserRentabilite, detecterZone, prixTrajetRamassage } from "./engine.js";
-import { ajouterJours, nomsJourSacre, verifierDisponibilite } from "./calendrier.js";
+import { ajouterJours, nomsJourSacre, vacancesDuCalendrier, verifierDisponibilite } from "./calendrier.js";
 
 export const JOURS = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
 export const PERIODES = [
@@ -199,7 +199,7 @@ export function trajetsPlan(plan, t = TARIFS, options = {}) {
   const retires = []; // { date, motif }
   const jourUnique = plan.periode === "jour" && !options.du;
   // Jours sans ecole : ceux du devis, ceux notes par Rebecca, et le calendrier des vacances scolaires
-  const plages = [{ du: plan.sansEcoleDu, au: plan.sansEcoleAu }, ...(options.vacances || []), ...(t.ramassage.vacancesScolaires || [])];
+  const plages = [{ du: plan.sansEcoleDu, au: plan.sansEcoleAu }, ...(options.vacances || []), ...vacancesDuCalendrier(t)];
   for (const jour of joursDuPlan(plan, options)) {
     const prevus = prevusDuJour(plan, jour.w, jourUnique);
     if (prevus.length === 0) continue;

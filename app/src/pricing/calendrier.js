@@ -140,6 +140,16 @@ function periode(debutUtc, finUtc, label, type) {
   };
 }
 
+// Vacances scolaires (liste du programme + jours ajoutes par Rebecca), au format { nom, du, au }
+export function vacancesDuCalendrier(t = TARIFS) {
+  const cal = t.calendrier;
+  return [...(cal.vacancesScolaires || []), ...(cal.vacancesAjoutees || [])]
+    .filter((v) => v && v.actif !== false && /^\d{4}-\d{2}-\d{2}$/.test(v.debut || ""))
+    .map((v) => ({ nom: v.motif || "Vacances scolaires", du: v.debut, au: /^\d{4}-\d{2}-\d{2}$/.test(v.fin || "") && v.fin >= v.debut ? v.fin : v.debut }));
+}
+// Nom des vacances d'une date, ou ""
+export const vacancesDuJour = (date, t = TARIFS) => (vacancesDuCalendrier(t).find((v) => date >= v.du && date <= v.au) || {}).nom || "";
+
 // Toutes les periodes de fermeture qui touchent [depuis ; depuis + nbJours]
 export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
   const cal = t.calendrier;
@@ -184,7 +194,7 @@ export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
     const jour = ajouterJours(depuis, i);
     const [a, m, j] = jour.split("-").map(Number);
     const jourSemaine = new Date(Date.UTC(a, m - 1, j, 12)).getUTCDay();
-    const enVacances = (cal.vacancesScolaires || []).some((v) => v.actif !== false && jour >= v.debut && jour <= v.fin);
+    const enVacances = vacancesDuCalendrier(t).some((v) => jour >= v.du && jour <= v.au);
     if (!(cal.joursLibres || []).includes(jour) && !enVacances) {
       for (const c of cal.creneauxPersonnels || []) {
         if (!c.jours.includes(jourSemaine)) continue;

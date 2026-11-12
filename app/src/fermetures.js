@@ -190,6 +190,37 @@ function chargerTarifs() {
   return chargementTarifs;
 }
 
+/* ---------- Jours sans ecole ajoutes par Rebecca (document public reglages/vacances : dates et nom seulement) ---------- */
+export function lireVacancesAjoutees(json) {
+  try {
+    const l = JSON.parse(json || "[]");
+    return (Array.isArray(l) ? l : [])
+      .filter((v) => v && /^\d{4}-\d{2}-\d{2}$/.test(v.debut || ""))
+      .slice(0, 60)
+      .map((v) => ({ debut: v.debut, fin: /^\d{4}-\d{2}-\d{2}$/.test(v.fin || "") && v.fin >= v.debut ? v.fin : v.debut, motif: String(v.motif || "Pas d'école").slice(0, 40) }));
+  } catch {
+    return [];
+  }
+}
+export function appliquerVacancesAjoutees(liste) {
+  const cible = TARIFS.calendrier.vacancesAjoutees;
+  cible.splice(0, cible.length, ...liste);
+  notifier();
+}
+let chargementVac = null;
+function chargerVacances() {
+  if (chargementVac) return chargementVac;
+  chargementVac = fetch(`${BASE}/reglages/vacances?${CLE}`, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      if (j && j.fields) appliquerVacancesAjoutees(lireVacancesAjoutees(texte(j.fields.json)));
+    })
+    .catch(() => {
+      chargementVac = null;
+    });
+  return chargementVac;
+}
+
 /* ---------- Recherche d'adresses Google (facultative) : cle enregistree par Rebecca, document public reglages/google ---------- */
 let chargementGoogle = null;
 function chargerGoogle() {
@@ -235,6 +266,7 @@ export function useFermetures() {
     chargerEquipe();
     chargerTarifs();
     chargerGoogle();
+    chargerVacances();
     return () => abonnes.delete(setV);
   }, []);
   return v;

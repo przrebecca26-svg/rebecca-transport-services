@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { lireCreneaux } from "./fermetures.js";
+import { lireCreneaux, lireVacancesAjoutees, appliquerVacancesAjoutees } from "./fermetures.js";
 import { TARIFS } from "./pricing/config.js";
 import { creneauxDeLaTournee, creneauxAEnregistrer, memesCreneaux } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
@@ -18,6 +18,28 @@ export default function SyncTournee() {
   const base = useTournee();
   const repertoire = useRepertoire();
   const actuels = useRef(null);
+  const vacancesPubliques = useRef(null);
+  useEffect(() => onSnapshot(doc(db, "reglages", "vacances"), (x) => {
+    const l = lireVacancesAjoutees(x.exists() ? x.data().json : "[]");
+    vacancesPubliques.current = l;
+    appliquerVacancesAjoutees(l);
+  }, () => {}), []);
+  // Jours sans ecole ajoutes dans la tournee -> calendrier public (dates et nom seulement)
+  const vacancesVoulues = base.pret && !base.refuse ? lireVacancesAjoutees(JSON.stringify((base.donnees.vacances || []).map((v) => ({ debut: v.du, fin: v.au, motif: v.nom })))) : null;
+  const cleVac = vacancesVoulues ? JSON.stringify(vacancesVoulues) : "";
+  useEffect(() => {
+    if (!vacancesVoulues) return undefined;
+    const minuteur = setTimeout(async () => {
+      if (!vacancesPubliques.current || JSON.stringify(vacancesPubliques.current) === cleVac) return;
+      try {
+        await setDoc(doc(db, "reglages", "vacances"), { json: cleVac, majLe: serverTimestamp() });
+      } catch {
+        /* reessaye au prochain changement */
+      }
+    }, 4000);
+    return () => clearTimeout(minuteur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleVac]);
   useEffect(() => onSnapshot(doc(db, "reglages", "creneaux"), (x) => { actuels.current = (x.exists() && lireCreneaux(x.data().json)) || []; }, () => {}), []);
 
   const tous = useMemo(() => [...trajetsDesChoix(repertoire.familles, lireChoix(base.donnees.choix)), ...base.donnees.trajets], [repertoire.familles, base.donnees.choix, base.donnees.trajets]);

@@ -47,3 +47,22 @@ test("synchronisation : ecrire le nouveau, supprimer l'ancien, garder les rendez
   const s = R.synchroniser(blocs, [{ id: "vieux", debut: "x", fin: "y", personne: "rebecca", source: "course" }, { id: "rdv1", source: "rendezvous" }, { ...blocs[0] }]);
   egal([s.aEcrire.length, s.aSupprimer], [0, ["vieux"]]);
 });
+
+section("Calendrier : vacances scolaires");
+{
+  const C = await import("../src/pricing/calendrier.js");
+  const { TARIFS: TT } = await import("../src/pricing/config.js");
+  test("vacances du calendrier lisibles par date", () => {
+    egal(C.vacancesDuJour("2026-12-08", TT), "Vacances de Hanoucca");
+    egal(C.vacancesDuJour("2026-12-15", TT), "");
+  });
+  test("pendant les vacances, les creneaux fixes (tournee) sont leves ; Chabbat reste ferme", () => {
+    const t = JSON.parse(JSON.stringify(TT));
+    t.calendrier.creneauxPersonnels = [{ jours: [0, 1, 2, 3, 4, 5], debut: "07:45", fin: "08:45", motif: "x" }];
+    const types = (d) => C.periodesFermees(d, 0, t).filter((p) => p.debut.date === d).map((p) => p.type);
+    vrai(types("2026-12-09").every((x) => x !== "personnel"), "Hanoucca : tournee levee");
+    vrai(types("2026-12-16").includes("personnel"), "jour d'ecole : tournee bloquee");
+    t.calendrier.vacancesAjoutees = [{ debut: "2026-12-16", fin: "2026-12-16", motif: "Grève" }];
+    vrai(types("2026-12-16").every((x) => x !== "personnel"), "jour ajoute par Rebecca : leve aussi");
+  });
+}

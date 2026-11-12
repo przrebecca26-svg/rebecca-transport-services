@@ -21,3 +21,6 @@
 .cf-jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cf-jour { min-height: 44px; padding: 0; font: inherit; font-size: 13px; color: var(--noir); background: var(--rose); border: 0; border-radius: 10px; cursor: pointer; }
 .cf-jour.actif { color: var(--blanc); background: var(--noir); }
+
+/* Vacances scolaires (12 nov. 2026) */
+.ag-vacances { margin: 6px 0; padding: 8px 12px; border-radius: 12px; font-size: 14px; background: rgba(241, 174, 183, 0.12); color: var(--g-rose, #f1aeb7); }

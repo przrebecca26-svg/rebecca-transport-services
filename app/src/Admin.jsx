@@ -7,6 +7,8 @@ import TableauDeBord from "./TableauDeBord.jsx";
 import Activites from "./Activites.jsx";
 import SimulateurDevis from "./SimulateurDevis.jsx";
 import TourneeScolaire from "./TourneeScolaire.jsx";
+import Repertoire from "./Repertoire.jsx";
+import { useChargerRepertoire } from "./repertoireBase.js";
 import Demandes from "./Demandes.jsx";
 import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
 import Agenda from "./Agenda.jsx";
@@ -45,6 +47,7 @@ const RUBRIQUES = [
   { id: "demandes", label: "Demandes et missions" },
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true },
   { id: "agenda", label: "Calendrier" },
+  { id: "repertoire", label: "Répertoire" }, // 12 nov. 2026 : mes lieux et les adresses des clientes (Rebecca et son equipe)
   { id: "equipe", label: "Équipe" },
   { id: "clients", label: "Clients et codes promo" },
   { id: "finances", label: "Finances" },
@@ -165,6 +168,7 @@ export default function Admin() {
   const equipe = useEquipe(user, estAdmin);
   const donneesEquipe = useEquipeDonnees(); // J3 : equipe et vehicules (lecture refusee avant les regles v9 = Rebecca seule)
   const role = user ? roleDe({ estAdmin, fiche: equipe.fiche, demande: equipe.demande }) : "aucun";
+  useChargerRepertoire(role === "admin" || role === "equipe"); // repertoire d'adresses : charge une fois pour tous les champs d'adresse
   const permises = rubriquesPour(role); // null = toutes (Rebecca)
   const rubriques = permises ? RUBRIQUES.filter((r) => permises.includes(r.id)) : RUBRIQUES.filter((r) => r.id !== "mesfinances");
   if ((role === "admin" || role === "equipe") && rubriques.length && !rubriques.some((r) => r.id === onglet)) {
@@ -193,6 +197,7 @@ export default function Admin() {
     if (onglet === "tableau") contenu = <TableauDeBord {...props} membre={membre} />;
     else if (onglet === "devis") contenu = <SimulateurDevis {...props} />;
     else if (onglet === "tournee" && estAdmin) contenu = <TourneeScolaire />;
+    else if (onglet === "repertoire") contenu = <Repertoire />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
     else if (onglet === "commandes-epoxy" && estAdmin) contenu = <CommandesEpoxy onRetour={() => setOnglet("demandes")} />;
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;

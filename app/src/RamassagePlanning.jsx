@@ -14,6 +14,8 @@ import { aujourdhui } from "./profil.js";
 import MesLieux from "./components/MesLieux.jsx";
 import { evaluerDevis, ajouterALaTournee, adressesConnues, nomDuLieu } from "./pricing/tournee.js";
 import { useTournee, useDurees, enregistrerTournee, PASTILLES } from "./tourneeBase.js";
+import { fusionnerLieux } from "./pricing/repertoire.js";
+import { useRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
 
@@ -177,8 +179,10 @@ export default function RamassagePlanning({ retour, aller }) {
   };
 
   // Mes lieux deja nommes dans la tournee (ecoles, Gan...) : proposes pour l'ecole, sans retaper l'adresse
-  const connues = adressesConnues(null, [], base.donnees.lieux);
-  const nomLieu = (adresse) => nomDuLieu(adresse, base.donnees.domicile, base.donnees.lieux);
+  const repertoire = useRepertoire();
+  const lieux = fusionnerLieux(repertoire.lieux, base.donnees.lieux);
+  const connues = adressesConnues(null, [], lieux);
+  const nomLieu = (adresse) => nomDuLieu(adresse, base.donnees.domicile, lieux);
 
   const copier = async () => {
     try {

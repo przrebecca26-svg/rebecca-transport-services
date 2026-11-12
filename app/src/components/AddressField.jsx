@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { adresseDepuisPosition, chercherAdresses, positionActuelle } from "../routing.js";
 import { compteOuvert, useClient } from "../client.js";
+import { chercherRepertoire } from "../pricing/repertoire.js";
 import "../client-commun.css";
 
 // Champ adresse avec suggestions. Si la recherche est indisponible, le client peut
@@ -74,6 +75,9 @@ export default function AddressField({ id, valeur, onChange, erreur, raccourcis 
     }
   };
 
+  // Repertoire de Rebecca (espace prive seulement ; toujours vide sur le site des clientes) : recherche par nom
+  const duRepertoire = ouvert && !(valeur && typeof valeur.lat === "number" && valeur.label === texte) ? chercherRepertoire(texte) : [];
+
   // Adresses enregistrees du compte (seulement si le compte est ouvert)
   const enregistrees = raccourcis && compteOuvert(client) && client.profil && Array.isArray(client.profil.adresses) ? client.profil.adresses.filter((a) => a && a.label) : [];
 
@@ -98,8 +102,22 @@ export default function AddressField({ id, valeur, onChange, erreur, raccourcis 
       {valeur && valeur.label && typeof valeur.lat !== "number" && (
         <span className="aide">{panne ? "Recherche indisponible : Rebecca confirmera le prix." : "Choisissez une suggestion pour un prix automatique."}</span>
       )}
-      {ouvert && liste.length > 0 && (
+      {ouvert && (liste.length > 0 || duRepertoire.length > 0) && (
         <ul className="suggestions" role="listbox">
+          {duRepertoire.map((r, i) => (
+            <li key={"r" + i}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  choisir(r.adresse);
+                  if (typeof r.adresse.lat !== "number") setOuvert(true); // adresse ecrite a la main : on propose les suggestions
+                }}
+              >
+                <strong>★ {r.titre}</strong> <small>{r.sous}</small>
+              </button>
+            </li>
+          ))}
           {liste.map((a, i) => (
             <li key={i}>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => choisir(a)}>

@@ -8,6 +8,8 @@ import { TARIFS } from "./pricing/config.js";
 import { JOURS, trajetVide, tourneeDepart, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, separerTrajet, cleLieu, nomDuLieu, nommerLieu } from "./pricing/tournee.js";
 import { bilanMois } from "./pricing/ramassagePlanning.js";
 import { useTournee, useDurees, enregistrerTournee } from "./tourneeBase.js";
+import { fusionnerLieux } from "./pricing/repertoire.js";
+import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
 
@@ -102,6 +104,7 @@ function Trajet({ r, changer, supprimer, connues, creerRetour, separer, nomLieu,
 
 export default function TourneeScolaire() {
   const base = useTournee();
+  const repertoire = useRepertoire(); // mes lieux nommes (Repertoire) : les memes noms partout
   useFermetures();
   const [brouillon, setBrouillon] = useState(null); // null = pas encore charge
   const [modifie, setModifie] = useState(false);
@@ -134,14 +137,17 @@ export default function TourneeScolaire() {
       await enregistrerTournee(brouillon);
       setModifie(false);
       setMessage("C'est enregistré.");
+      // Les lieux nommes ici rejoignent le Repertoire (si cela echoue, la tournee reste enregistree)
+      if (brouillon.lieux.length) enregistrerRepertoire(fusionnerLieux(repertoire.lieux, brouillon.lieux)).catch(() => {});
     } catch {
       setMessage("Enregistrement impossible pour l'instant. Vérifie ta connexion et réessaie.");
     }
   };
 
   const depart = !base.donnees.existe;
-  const connues = adressesConnues(brouillon.domicile, trajets, brouillon.lieux);
-  const nomLieu = (adresse) => nomDuLieu(adresse, brouillon.domicile, brouillon.lieux);
+  const lieux = fusionnerLieux(repertoire.lieux, brouillon.lieux); // Repertoire + noms donnes ici
+  const connues = adressesConnues(brouillon.domicile, trajets, lieux);
+  const nomLieu = (adresse) => nomDuLieu(adresse, brouillon.domicile, lieux);
   const nommer = (adresse, nom) => changer({ ...brouillon, lieux: nommerLieu(brouillon.lieux, adresse, nom) });
   const journee = evaluerJour(trajets, jour, durees.duree, TARIFS, { du: aujourdhui(), au: "", domicile: brouillon.domicile });
   const [annee, mois] = aujourdhui().split("-").map(Number);

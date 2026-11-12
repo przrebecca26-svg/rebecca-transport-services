@@ -18,7 +18,7 @@ test("demande d'acces : aucun droit, seulement nom et e-mail", () => egal(E.dema
 
 section("Equipe : menu");
 test("Rebecca : tout le menu", () => egal(E.rubriquesPour("admin"), null));
-test("coequipier : tout le menu sauf Equipe et Finances (16h42)", () => egal(E.rubriquesPour("equipe"), ["tableau", "devis", "activites", "demandes", "agenda", "clients", "mesfinances", "statistiques", "rapports", "reglages"]));
+test("coequipier : tout le menu sauf Equipe et Finances (16h42)", () => egal(E.rubriquesPour("equipe"), ["tableau", "devis", "activites", "demandes", "agenda", "repertoire", "clients", "mesfinances", "statistiques", "rapports", "reglages"]));
 test("coequipier : jamais les finances de Rebecca ni la rubrique Equipe", () => vrai(["finances", "equipe"].every((r) => !E.rubriquesPour("equipe").includes(r))));
 test("en attente : rien", () => egal(E.rubriquesPour("attente"), []));
 

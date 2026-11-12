@@ -15,6 +15,7 @@ await import("./statistiques.test.mjs");
 await import("./verrouCreneaux.test.mjs");
 await import("./ramassagePlanning.test.mjs");
 await import("./tournee.test.mjs");
+await import("./repertoire.test.mjs");
 const r = bilan();
 console.log(`Tests reussis : ${r.ok} / ${r.ok + r.echecs.length}`);
 r.echecs.forEach((e) => console.log("ECHEC  " + e));

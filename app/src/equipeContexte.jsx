@@ -41,6 +41,8 @@ export function Pastille({ d }) {
 export function FiltrePersonne({ valeur, changer }) {
   const { membres, moi } = useEquipeContexte();
   if (!membres || membres.length < 2) return null;
+  // 12 nov. 2026 : un coequipier ne voit que ses courses : pas de filtre « Rebecca / Tous » chez lui
+  if (moi !== ADMIN_ID) return null;
   const options = [{ id: "tous", label: "Tous" }, { id: "moi", label: "Moi" }, ...membres.filter((m) => m.id !== moi).map((m) => ({ id: m.id, label: m.nom }))];
   return (
     <div className="tb-filtres" role="tablist" aria-label="Filtrer par personne">

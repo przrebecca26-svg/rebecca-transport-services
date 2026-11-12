@@ -398,7 +398,10 @@ export default function Demandes({ aller, cible, membre = null }) {
 
   // Un coequipier ne voit que les services de ses activites (J2/J3) ; Rebecca voit tout
   const sesServices = membre ? servicesDuMembre(membre) : null;
-  const dansActivite = (d) => (!sesServices || sesServices.includes(d.service)) && (activite === "toutes" || ACTIVITE_DE[d.service] === activite) && filtrerPersonne([d], personne, moi).length === 1;
+  // 12 nov. 2026 (Rebecca) : « chacun son agenda » - un coequipier ne voit que SES courses, les nouvelles demandes
+  // pas encore prises (pour pouvoir les accepter) et celles qu'on lui propose ; jamais les courses de Rebecca.
+  const aLui = (d) => attribueA(d) === moi || d.proposeA === moi || (d.statut === "en attente" && !d.attribueA);
+  const dansActivite = (d) => (!sesServices || sesServices.includes(d.service)) && (activite === "toutes" || ACTIVITE_DE[d.service] === activite) && (membre ? aLui(d) : filtrerPersonne([d], personne, moi).length === 1);
 
   const compte = useMemo(() => {
     const c = { tout: 0 };

@@ -623,7 +623,8 @@ export default function Agenda() {
   const [personne, setPersonne] = useState("tous");
   const [tousItems, setItems] = useState(null);
   // J3 : filtre « Moi / Rebecca / Jeremy / Tous »
-  const items = tousItems && filtrerPersonne(tousItems, personne, moi);
+  // 12 nov. 2026 : un coequipier ne voit que SES courses dans son agenda (chacun son agenda)
+  const items = tousItems && filtrerPersonne(tousItems, moi !== ADMIN_ID ? "moi" : personne, moi);
   const [erreur, setErreur] = useState("");
   // 12 nov. 2026 : le Calendrier s'ouvre sur la journee d'aujourd'hui (vue Jour)
   const [vue, setVue] = useState("jour");

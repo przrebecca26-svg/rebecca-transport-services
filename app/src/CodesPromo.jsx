@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { collection, deleteDoc, deleteField, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { ADMIN_ID } from "./pricing/equipe.js";
+import { useEquipeContexte } from "./equipeContexte.jsx";
 import { ACTIVITES_PROMO, CODES_DE_DEPART, POURCENT_MAX, MONTANT_MAX, etatCode, libelleActivitePromo, libelleLimite, libelleRemise, normaliserCode, validerPromo } from "./pricing/promos.js";
 import { CATALOGUE_DEPART } from "./pricing/catalogue.js";
 import "./paiements.css";
@@ -22,6 +24,8 @@ const VIDE = { code: "", type: "pourcentage", valeur: "", limite: "", avecFin: f
 // Lot C (21h28) : chaque code est cree pour UNE activite ; « toutes » seulement pour le code de bienvenue.
 
 export default function CodesPromo() {
+  const { moi } = useEquipeContexte();
+  const equipier = !!moi && moi !== ADMIN_ID;
   const [codes, setCodes] = useState(null); // null = chargement
   const [lectureImpossible, setLectureImpossible] = useState(false);
   const [mode, setMode] = useState(null); // null | "nouveau" | "modifier"
@@ -167,7 +171,8 @@ export default function CodesPromo() {
 
   const jour = aujourdhui();
   const activiteDe = (c) => c.activite || "toutes";
-  const RUBRIQUES = [{ id: "toutes", label: "Code de bienvenue (toutes les activités)" }, ...ACTIVITES_PROMO];
+  // 12 nov. 2026 : un coequipier ne voit que les codes de ses activites (coursier, transport) et le code de bienvenue
+  const RUBRIQUES = [{ id: "toutes", label: "Code de bienvenue (toutes les activités)" }, ...ACTIVITES_PROMO.filter((a) => !equipier || ["coursier", "transport"].includes(a.id))];
   const visibles = activiteVue ? codes.filter((c) => activiteDe(c) === activiteVue) : [];
 
   // Ecran 1 : les activites, chacune avec ses codes

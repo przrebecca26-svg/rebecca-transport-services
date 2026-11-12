@@ -278,3 +278,12 @@ test("le deroule de la journee affiche le nom du lieu ; les lieux se relisent de
   const doc = To.lireTournee(JSON.stringify({ trajets: [], lieux: [...lieux, { nom: "", adresse: ECOLE }, { nom: "Sans adresse" }] }));
   egal(doc.lieux, lieux);
 });
+
+section("Waze : le point exact");
+{
+  const { lienWazePoint } = await import("../src/pricing/navigation.js");
+  test("avec des coordonnees : seulement les coordonnees (jamais le texte, qui envoyait vers un homonyme)", () => {
+    egal(lienWazePoint({ label: "Uziel, Netanya", lat: 32.31, lon: 34.86 }), "https://waze.com/ul?ll=32.31%2C34.86&navigate=yes");
+  });
+  test("sans coordonnees : recherche par le texte", () => vrai(lienWazePoint({ label: "Rue Herzl 10, Netanya" }).includes("q=Rue%20Herzl%2010%2C%20Netanya")));
+}

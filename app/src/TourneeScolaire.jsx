@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Champ from "./components/Champ.jsx";
 import JourneeTournee from "./components/JourneeTournee.jsx";
-import MesLieux from "./components/MesLieux.jsx";
+import ChoixLieu, { NomLieu } from "./components/MesLieux.jsx";
 import { useFermetures } from "./fermetures.js";
 import { aujourdhui } from "./profil.js";
 import { TARIFS } from "./pricing/config.js";
@@ -21,7 +21,7 @@ const TYPES = [
   { v: "sortie", l: "Récupérer (sortie, fin d'activité)" },
 ];
 
-function Trajet({ r, changer, supprimer, connues, creerRetour, separer, nomLieu, nommer }) {
+function Trajet({ r, changer, supprimer, connues, creerRetour, separer, nomLieu, nommer, domicile }) {
   const set = (cle, valeur) => changer({ ...r, [cle]: valeur });
   const setJour = (w, cle, valeur) => changer({ ...r, jours: r.jours.map((j, k) => (k === w ? { ...j, [cle]: valeur } : j)) });
   const manque = manqueTrajet(r);
@@ -55,10 +55,14 @@ function Trajet({ r, changer, supprimer, connues, creerRetour, separer, nomLieu,
           ))}
         </div>
       </fieldset>
-      <Champ champ={{ name: "de" + r.id, label: matin ? "Où je prends les enfants" : "Où je récupère les enfants (école, Gan, activité…)", type: "adresse" }} valeurs={{ ["de" + r.id]: r.de }} onChange={(_, v) => set("de", v)} />
-      <MesLieux id={"ld-" + r.id} connues={connues} valeur={r.de} choisir={(x) => set("de", x)} nom={nomLieu(r.de)} maison={nomLieu(r.de) === "Maison"} nommer={(n) => nommer(r.de, n)} />
-      <Champ champ={{ name: "a" + r.id, label: matin ? "Où je les dépose (école, Gan, activité…)" : "Où je les dépose", type: "adresse" }} valeurs={{ ["a" + r.id]: r.a }} onChange={(_, v) => set("a", v)} />
-      <MesLieux id={"la-" + r.id} connues={connues} valeur={r.a} choisir={(x) => set("a", x)} nom={nomLieu(r.a)} maison={nomLieu(r.a) === "Maison"} nommer={(n) => nommer(r.a, n)} />
+      <p className="rp-type">{matin ? "Où je prends les enfants" : "Où je récupère les enfants (école, Gan, activité…)"}</p>
+      <ChoixLieu id={"cd-" + r.id} connues={connues} valeur={r.de} choisir={(x) => set("de", x)} />
+      <Champ champ={{ name: "de" + r.id, label: "Adresse", type: "adresse" }} valeurs={{ ["de" + r.id]: r.de }} onChange={(_, v) => set("de", v)} />
+      <NomLieu id={"ld-" + r.id} valeur={r.de} nom={nomLieu(r.de)} nommer={(n) => nommer(r.de, n)} domicile={domicile} />
+      <p className="rp-type">{matin ? "Où je les dépose (école, Gan, activité…)" : "Où je les dépose"}</p>
+      <ChoixLieu id={"ca-" + r.id} connues={connues} valeur={r.a} choisir={(x) => set("a", x)} />
+      <Champ champ={{ name: "a" + r.id, label: "Adresse", type: "adresse" }} valeurs={{ ["a" + r.id]: r.a }} onChange={(_, v) => set("a", v)} />
+      <NomLieu id={"la-" + r.id} valeur={r.a} nom={nomLieu(r.a)} nommer={(n) => nommer(r.a, n)} domicile={domicile} />
       {matin && (
         <div className="champ">
           <label htmlFor={"tp-" + r.id}>Je les prends à partir de (facultatif)</label>
@@ -207,7 +211,7 @@ export default function TourneeScolaire() {
 
       <div className="formulaire dr-formulaire">
         {trajets.map((r) => (
-          <Trajet key={r.id} r={r} connues={connues} nomLieu={nomLieu} nommer={nommer} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
+          <Trajet key={r.id} r={r} connues={connues} nomLieu={nomLieu} nommer={nommer} domicile={brouillon.domicile} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
         ))}
       </div>
       <button type="button" className="dr-secondaire rp-large" onClick={() => changer({ ...brouillon, trajets: [...trajets, trajetVide()] })}>+ Ajouter un trajet (école, activité, basket…)</button>

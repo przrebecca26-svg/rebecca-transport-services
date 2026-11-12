@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Champ from "./components/Champ.jsx";
-import { lienWaze, lienWhatsApp } from "./pricing/navigation.js";
+import ChoixLieu from "./components/MesLieux.jsx";
+import { lienWazePoint, lienWhatsApp } from "./pricing/navigation.js";
 import { TYPES_LIEU, lieuVide, manqueLieu, cleAdresse } from "./pricing/repertoire.js";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
@@ -8,10 +9,10 @@ import "./devis-rapide.css";
 
 // REPERTOIRE (12 nov. 2026) : mes lieux habituels par leur nom, et les adresses de mes clientes.
 
-const waze = (a) => lienWaze({ adresse: a.label, lat: a.lat, lon: a.lon });
+const waze = (a) => lienWazePoint(a);
 const sansAccent = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-function Lieu({ l, changer, supprimer }) {
+function Lieu({ l, changer, supprimer, connues }) {
   const set = (cle, valeur) => changer({ ...l, [cle]: valeur });
   return (
     <details className="bloc rp-enfant rp-trajet" open={!l.nom}>
@@ -29,6 +30,7 @@ function Lieu({ l, changer, supprimer }) {
           {TYPES_LIEU.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
         </select>
       </div>
+      <ChoixLieu id={"rc-" + l.id} connues={connues.filter((c) => c.id !== l.id)} valeur={l.adresse} choisir={(x) => set("adresse", x)} />
       <Champ champ={{ name: "ra" + l.id, label: "Adresse", type: "adresse" }} valeurs={{ ["ra" + l.id]: l.adresse }} onChange={(_, v) => set("adresse", v)} />
       <div className="champ">
         <label htmlFor={"ro-" + l.id}>Note (code du portail, étage…), facultatif</label>
@@ -97,7 +99,7 @@ export default function Repertoire() {
             <div key={t.v}>
               <p className="rp-type">{t.l}</p>
               {duType.map((l) => (
-                <Lieu key={l.id} l={l} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
+                <Lieu key={l.id} l={l} connues={lieux.filter((x) => x.nom.trim() && cleAdresse(x.adresse)).map((x) => ({ id: x.id, nom: x.nom, adresse: x.adresse }))} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
               ))}
             </div>
           );

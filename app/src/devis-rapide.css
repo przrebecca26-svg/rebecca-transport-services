@@ -77,3 +77,5 @@
 .theme-sombre .devis-rapide select { min-height: 48px; padding: 10px 12px; font: 16px var(--g-sans); }
 .theme-sombre .rp-arrets li button.rp-waze { background: transparent; cursor: pointer; }
 .suggestions li button small { display: block; opacity: 0.75; font-size: 13px; }
+.theme-sombre .rp-choix-lieu select { width: 100%; }
+.theme-sombre .rp-trajet .rp-type { margin: 6px 0 -6px; }

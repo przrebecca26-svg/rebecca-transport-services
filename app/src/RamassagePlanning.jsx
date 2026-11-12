@@ -11,7 +11,7 @@ import { useFermetures } from "./fermetures.js";
 import { JOURS, PERIODES, SENS, MAX_ENFANTS, planVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel } from "./pricing/ramassagePlanning.js";
 import JourneeTournee from "./components/JourneeTournee.jsx";
 import { aujourdhui } from "./profil.js";
-import MesLieux from "./components/MesLieux.jsx";
+import ChoixLieu from "./components/MesLieux.jsx";
 import { evaluerDevis, ajouterALaTournee, adressesConnues, nomDuLieu } from "./pricing/tournee.js";
 import { useTournee, useDurees, enregistrerTournee, PASTILLES } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
@@ -59,8 +59,8 @@ function Enfant({ enfant, index, periode, jourUnique, changer, connues }) {
       </div>
       {enfant.autreEcole && (
         <>
+        <ChoixLieu id={"le-" + index} connues={connues} valeur={enfant.ecole} choisir={(x) => set("ecole", x)} />
         <Champ champ={{ name: "ecole" + index, label: "Adresse de son école", type: "adresse", required: true }} valeurs={{ ["ecole" + index]: enfant.ecole }} onChange={(_, valeur) => set("ecole", valeur)} />
-          <MesLieux id={"le-" + index} connues={connues} valeur={enfant.ecole} choisir={(x) => set("ecole", x)} />
         </>
       )}
       {avecMatin && (
@@ -229,8 +229,8 @@ export default function RamassagePlanning({ retour, aller }) {
           )}
           {!plan.enfants.every((e) => e.autreEcole) && (
             <>
+              <ChoixLieu id="le-haut" connues={connues} valeur={plan.ecole} choisir={(x) => changer("ecole", x)} />
               <Champ champ={plan.enfants.some((e) => e.autreEcole) ? { ...CHAMP_ECOLE, label: "Adresse de l'école (enfants sans autre école)" } : CHAMP_ECOLE} valeurs={plan} onChange={changer} />
-              <MesLieux id="le-haut" connues={connues} valeur={plan.ecole} choisir={(x) => changer("ecole", x)} />
             </>
           )}
           <fieldset className="champ">

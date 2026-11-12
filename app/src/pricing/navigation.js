@@ -19,6 +19,13 @@ export function lienWaze(etape) {
   return `https://waze.com/ul?${p.join("&")}`;
 }
 
+// Waze vers un POINT EXACT (12 nov. 2026) : quand on a les coordonnees, on n'envoie QUE les coordonnees.
+// Avec le texte en plus, Waze refaisait sa propre recherche et pouvait partir vers un homonyme dans une autre ville.
+export function lienWazePoint(adresse) {
+  if (adresse && typeof adresse.lat === "number" && typeof adresse.lon === "number") return `https://waze.com/ul?ll=${enc(`${adresse.lat},${adresse.lon}`)}&navigate=yes`;
+  return lienWaze({ adresse: (adresse && adresse.label) || "" });
+}
+
 // Lien direct vers l'application Waze (iPhone) : a utiliser si Waze est installe
 export function lienWazeApp(etape) {
   return lienWaze(etape).replace("https://waze.com/ul?", "waze://?");

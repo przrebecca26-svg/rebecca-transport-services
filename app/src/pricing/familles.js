@@ -36,6 +36,7 @@ export const rdvVide = (type = "ecole") => ({
   jours: JOURS.map((_, w) => ({ actif: type === "ecole" ? w < 5 : false, arrivee: "", sortie: "" })),
   retour: null, // ou je le ramene (vide = son domicile)
   priseAilleurs: null, // il m'attend ailleurs qu'a l'ecole (chez une amie...) ; vide = sur place
+  joursAilleurs: JOURS.map(() => true), // les jours ou il m'attend la-bas (les autres jours : je le prends sur place)
   attend: false, // il peut m'attendre sans limite
 });
 export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", rdv: [rdvVide("ecole")] });
@@ -80,6 +81,7 @@ export function lireFamilles(liste) {
               jours: JOURS.map((_, w) => ({ actif: !!(r.jours && r.jours[w] && r.jours[w].actif), arrivee: heure(r.jours && r.jours[w] && r.jours[w].arrivee), sortie: heure(r.jours && r.jours[w] && r.jours[w].sortie) })),
               retour: adresseLue(r.retour),
               priseAilleurs: adresseLue(r.priseAilleurs),
+              joursAilleurs: JOURS.map((_, w) => !Array.isArray(r.joursAilleurs) || r.joursAilleurs[w] !== false),
               attend: r.attend === true,
             })),
         })),
@@ -115,7 +117,13 @@ export function trajetsDesFamilles(familles) {
           liste.push(trajetVide({ ...base, id: `fiche-${r.id}-aller`, nom: `${qui} (aller)`, type: "matin", de: f.domicile, a: r.lieu, heurePrise: r.heurePrise, heure: r.heureArrivee, jours: r.jours.map((j) => ({ actif: j.actif, heure: j.arrivee })) }));
         }
         if (r.recupere) {
-          liste.push(trajetVide({ ...base, id: `fiche-${r.id}-retour`, nom: `${qui} (retour)`, type: "sortie", de: r.priseAilleurs || r.lieu, a: r.retour || f.domicile, heure: r.heureSortie, peutAttendre: r.attend, jours: r.jours.map((j) => ({ actif: j.actif, heure: j.sortie })) }));
+          // Certains jours il m'attend ailleurs (chez une amie) : ces jours-la je le prends la-bas, les autres sur place
+          const ailleurs = (w) => !!r.priseAilleurs && (!r.joursAilleurs || r.joursAilleurs[w] !== false);
+          const retour = { ...base, type: "sortie", a: r.retour || f.domicile, heure: r.heureSortie };
+          const surPlace = r.jours.map((j, w) => ({ actif: j.actif && !ailleurs(w), heure: j.sortie }));
+          const laBas = r.jours.map((j, w) => ({ actif: j.actif && ailleurs(w), heure: j.sortie }));
+          if (surPlace.some((j) => j.actif) || !laBas.some((j) => j.actif)) liste.push(trajetVide({ ...retour, id: `fiche-${r.id}-retour`, nom: `${qui} (retour)`, de: r.lieu, peutAttendre: r.attend && !r.priseAilleurs, jours: surPlace }));
+          if (laBas.some((j) => j.actif)) liste.push(trajetVide({ ...retour, id: `fiche-${r.id}-retour-ailleurs`, nom: `${qui} (retour, m'attend ailleurs)`, de: r.priseAilleurs, peutAttendre: r.attend, jours: laBas }));
         }
       }
     }

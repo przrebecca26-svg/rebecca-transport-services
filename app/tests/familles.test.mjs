@@ -39,7 +39,7 @@ test("une fiche complete ne manque de rien ; sans domicile ou sans heure, on le 
 
 test("les fiches fabriquent les trajets : ecole aller et retour, activite aller et retour", () => {
   const t = F.trajetsDesFamilles([MOI]);
-  egal(t.map((r) => [r.nom, r.type, r.heure]), [["Dana · École (aller)", "matin", "08:00"], ["Dana · École (retour)", "sortie", "13:30"], ["Dana · Basket (aller)", "matin", "18:00"], ["Dana · Basket (retour)", "sortie", "19:30"]]);
+  egal(t.map((r) => [r.nom, r.type, r.heure]), [["Dana · École (aller)", "matin", "08:00"], ["Dana · École (retour, m'attend ailleurs)", "sortie", "13:30"], ["Dana · Basket (aller)", "matin", "18:00"], ["Dana · Basket (retour)", "sortie", "19:30"]]);
   egal([t[0].de, t[0].a], [MAISON, ECOLE]);
   egal([t[1].de, t[1].a, t[1].peutAttendre], [AMIE, MAISON, true]); // elle m'attend chez l'amie
   egal(To.heureTrajet(t[1], 4), "12:00"); // jeudi : sortie plus tot
@@ -105,4 +105,15 @@ test("forfait au mois d'une cliente : garde sans dupliquer les trajets (ils vien
   const d = To.ajouterALaTournee(doc, plan, { km: 2, minutes: 5 }, "Mme Cohen", "2026-11-12", { sansTrajets: true });
   egal([d.trajets.length, d.forfaits.length, d.forfaits[0].nom], [0, 1, "Mme Cohen"]);
   egal(To.ajouterALaTournee(doc, { ...plan, periode: "semaine" }, {}, "X", "", { sansTrajets: true }), doc);
+});
+
+test("elle m'attend chez l'amie seulement certains jours : ces jours-la je la prends la-bas, les autres a l'ecole", () => {
+  const r = { ...MOI.enfants[0].rdv[0], joursAilleurs: [true, false, true, false, false, false] };
+  const t = F.trajetsDesFamilles([{ ...MOI, enfants: [{ ...MOI.enfants[0], rdv: [r] }] }]).filter((x) => x.type === "sortie");
+  egal(t.map((x) => [x.nom, x.de, x.peutAttendre, x.jours.map((j) => (j.actif ? 1 : 0)).join("")]), [
+    ["Dana · École (retour)", ECOLE, false, "010110"],
+    ["Dana · École (retour, m'attend ailleurs)", AMIE, true, "101000"],
+  ]);
+  egal(To.heureTrajet(t[0], 4), "12:00");
+  egal(F.lireFamilles([{ enfants: [{ rdv: [{ priseAilleurs: AMIE }] }] }])[0].enfants[0].rdv[0].joursAilleurs, [true, true, true, true, true, true]);
 });

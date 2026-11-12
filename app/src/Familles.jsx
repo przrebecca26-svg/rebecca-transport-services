@@ -74,7 +74,17 @@ function Rdv({ famille, r, changer, supprimer, connues }) {
             <>
               <Adresse id={"rr" + r.id} label="Où je le ramène (vide = son domicile)" valeur={r.retour} changer={(v) => set("retour", v)} connues={connues} />
               <Adresse id={"ra" + r.id} label="Il m'attend ailleurs qu'ici (chez une amie…), facultatif" valeur={r.priseAilleurs} changer={(v) => set("priseAilleurs", v)} connues={connues} />
-              <label className="case"><input type="checkbox" checked={r.attend} onChange={(e) => set("attend", e.target.checked)} /><span>Il peut m'attendre (pas de retard maximum)</span></label>
+              {r.priseAilleurs && (
+                <fieldset className="champ">
+                  <legend>Quels jours il m'attend là-bas ? (les autres jours, je le prends sur place)</legend>
+                  <div className="choix rp-six">
+                    {JOURS.map((nom, w) => (r.jours[w].actif ? (
+                      <button key={w} type="button" className={r.joursAilleurs[w] ? "actif" : ""} aria-pressed={r.joursAilleurs[w]} aria-label={nom} onClick={() => set("joursAilleurs", r.joursAilleurs.map((x, k) => (k === w ? !x : x)))}>{nom.slice(0, 3)}</button>
+                    ) : <span key={w} />))}
+                  </div>
+                </fieldset>
+              )}
+              <label className="case"><input type="checkbox" checked={r.attend} onChange={(e) => set("attend", e.target.checked)} /><span>Là-bas, il peut m'attendre (pas de retard maximum)</span></label>
             </>
           )}
         </div>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { adresseDepuisPosition, chercherAdresses, positionActuelle } from "../routing.js";
+import { adresseDepuisPosition, chercherAdresses, distanceKm, positionActuelle } from "../routing.js";
 import { compteOuvert, useClient } from "../client.js";
-import { chercherRepertoire } from "../pricing/repertoire.js";
+import { chercherRepertoire, maisonDuRepertoire, texteDistance } from "../pricing/repertoire.js";
 import "../client-commun.css";
 
 // Champ adresse avec suggestions. Si la recherche est indisponible, le client peut
@@ -78,6 +78,8 @@ export default function AddressField({ id, valeur, onChange, erreur, raccourcis 
   // Repertoire de Rebecca (espace prive seulement ; toujours vide sur le site des clientes) : recherche par nom
   const duRepertoire = ouvert && !(valeur && typeof valeur.lat === "number" && valeur.label === texte) ? chercherRepertoire(texte) : [];
 
+  const maison = maisonDuRepertoire(); // espace prive seulement : distance de chaque suggestion a la maison
+
   // Adresses enregistrees du compte (seulement si le compte est ouvert)
   const enregistrees = raccourcis && compteOuvert(client) && client.profil && Array.isArray(client.profil.adresses) ? client.profil.adresses.filter((a) => a && a.label) : [];
 
@@ -122,6 +124,7 @@ export default function AddressField({ id, valeur, onChange, erreur, raccourcis 
             <li key={i}>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => choisir(a)}>
                 {a.label}
+                {maison && typeof a.lat === "number" && <small>{texteDistance(distanceKm(maison, a))}</small>}
               </button>
             </li>
           ))}

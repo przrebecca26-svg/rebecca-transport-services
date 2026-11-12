@@ -70,3 +70,10 @@ test("lieux nommes dans la tournee : ajoutes au repertoire, le nom le plus recen
   egal(f.map((l) => [l.nom, l.type]), [["Maman", "famille"], ["Carrefour", "magasin"], ["École Ouziel", "ecole"], ["Basket", "ecole"]]);
   egal(LIEUX[2].nom, "École de ma fille");
 });
+
+test("distance a la maison affichee dans les suggestions (espace prive)", () => {
+  egal(R.maisonDuRepertoire({ lieux: LIEUX, clients: [] }), null);
+  const maison = { id: "m", nom: "Maison", type: "maison", adresse: A("Chez moi", 0), note: "" };
+  egal(R.maisonDuRepertoire({ lieux: [...LIEUX, maison], clients: [] }), maison.adresse);
+  egal([R.texteDistance(0.02), R.texteDistance(0.42), R.texteDistance(2.46), R.texteDistance(27.3)], ["à 50 m de la maison", "à 400 m de la maison", "à 2,5 km de la maison", "à 27 km de la maison"]);
+});

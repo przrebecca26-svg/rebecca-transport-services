@@ -107,6 +107,19 @@ export function abonnerRepertoire(f) {
   return () => abonnes.delete(f);
 }
 
+// Ma maison (lieu de type « Maison » avec une adresse reconnue) : sert a dire a quelle distance est une suggestion
+export function maisonDuRepertoire(source = courant) {
+  const m = source.lieux.find((l) => l.type === "maison" && cleAdresse(l.adresse));
+  return m ? m.adresse : null;
+}
+
+// « à 400 m de la maison », « à 2,5 km de la maison »
+export function texteDistance(km) {
+  if (!(km >= 0)) return "";
+  if (km < 1) return `à ${Math.max(50, Math.round(km * 20) * 50)} m de la maison`;
+  return `à ${km < 10 ? String(Math.round(km * 10) / 10).replace(".", ",") : Math.round(km)} km de la maison`;
+}
+
 // Recherche par nom : « alex » -> Chez Alexia ; « carr » -> Carrefour ; nom d'une cliente -> ses adresses.
 // Renvoie [{ titre, sous, adresse }], les lieux de Rebecca d'abord.
 export function chercherRepertoire(texte, max = 5, source = courant) {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { adresseDepuisPosition, chercherAdresses, distanceKm, positionActuelle } from "../routing.js";
+import { adresseDepuisPosition, avecNumero, chercherAdresses, distanceKm, positionActuelle } from "../routing.js";
 import { compteOuvert, useClient } from "../client.js";
 import { chercherRepertoire, maisonDuRepertoire, texteDistance } from "../pricing/repertoire.js";
 import "../client-commun.css";
@@ -122,7 +122,7 @@ export default function AddressField({ id, valeur, onChange, erreur, raccourcis 
           ))}
           {liste.map((a, i) => (
             <li key={i}>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => choisir(a)}>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => choisir(avecNumero(a, texte))}>
                 {a.label}
                 {maison && typeof a.lat === "number" && <small>{texteDistance(distanceKm(maison, a))}</small>}
               </button>

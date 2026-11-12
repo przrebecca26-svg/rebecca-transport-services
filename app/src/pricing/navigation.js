@@ -19,11 +19,17 @@ export function lienWaze(etape) {
   return `https://waze.com/ul?${p.join("&")}`;
 }
 
-// Waze vers un POINT EXACT (12 nov. 2026) : quand on a les coordonnees, on n'envoie QUE les coordonnees.
-// Avec le texte en plus, Waze refaisait sa propre recherche et pouvait partir vers un homonyme dans une autre ville.
+// Waze vers la BONNE adresse (12 nov. 2026) :
+// - adresse avec un numero de rue (« Rue X 10, ville ») : on envoie le TEXTE, car le point enregistre peut n'etre
+//   que le milieu de la rue, et Waze connait les numeros ;
+// - lieu sans numero (ecole, Gan, magasin choisi par son nom) : on envoie seulement le point exact. Avec le texte,
+//   Waze refaisait sa propre recherche et pouvait partir vers un homonyme dans une autre ville.
+const AVEC_NUMERO = /(^|[\s,])\d{1,4}[a-zA-Z\u05d0-\u05ea]?(?=[\s,]|$)/;
 export function lienWazePoint(adresse) {
-  if (adresse && typeof adresse.lat === "number" && typeof adresse.lon === "number") return `https://waze.com/ul?ll=${enc(`${adresse.lat},${adresse.lon}`)}&navigate=yes`;
-  return lienWaze({ adresse: (adresse && adresse.label) || "" });
+  const label = (adresse && adresse.label) || "";
+  const aPoint = !!adresse && typeof adresse.lat === "number" && typeof adresse.lon === "number";
+  if (aPoint && !AVEC_NUMERO.test(label)) return `https://waze.com/ul?ll=${enc(`${adresse.lat},${adresse.lon}`)}&navigate=yes`;
+  return `https://waze.com/ul?q=${enc(label)}&navigate=yes`;
 }
 
 // Lien direct vers l'application Waze (iPhone) : a utiliser si Waze est installe

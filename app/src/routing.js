@@ -54,6 +54,20 @@ export async function chercherAdresses(texte, signal) {
   return classerAdresses(liste);
 }
 
+// NUMERO DE RUE (12 nov. 2026) : le service gratuit connait souvent la rue mais pas le numero. Si la personne a tape
+// un numero qui n'est pas dans la suggestion choisie, on le garde dans l'adresse : « Rue X 10, quartier, ville ».
+// Le point reste celui de la rue (suffisant pour le prix et les temps) ; Waze, lui, recoit l'adresse avec le numero.
+export function avecNumero(adresse, texteTape) {
+  if (!adresse || !adresse.label) return adresse;
+  const m = String(texteTape || "").match(/(?:^|\s)(\d{1,4}[a-zA-Z\u05d0-\u05ea]?)(?=\s|,|$)/);
+  if (!m) return adresse;
+  const numero = m[1];
+  if (/(^|[\s,])\d{1,4}[a-zA-Z\u05d0-\u05ea]?(?=[\s,]|$)/.test(adresse.label)) return adresse; // la suggestion a deja un numero
+  const morceaux = adresse.label.split(",");
+  morceaux[0] = `${morceaux[0].trim()} ${numero}`;
+  return { ...adresse, label: morceaux.map((x, i) => (i === 0 ? x : x.trim())).join(", ") };
+}
+
 // Une reponse Photon -> { label, lat, lon }
 function versAdresse(f) {
   const p = f.properties || {};

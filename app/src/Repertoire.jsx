@@ -14,14 +14,15 @@ import "./devis-rapide.css";
 const waze = (a) => lienWazePoint(a);
 const sansAccent = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-function Lieu({ l, changer, supprimer, connues }) {
+function Lieu({ l, changer, supprimer, connues, ouvert, ouvrir }) {
   const set = (cle, valeur) => changer({ ...l, [cle]: valeur });
   return (
-    <details className="bloc rp-enfant rp-trajet" open={!l.nom}>
+    <details className="bloc rp-enfant rp-trajet" open={ouvert} onToggle={(e) => ouvrir(e.currentTarget.open)}>
       <summary>
         <h3>{l.nom || "Nouveau lieu"}</h3>
         <span className="tdb-note">{l.adresse && l.adresse.label ? l.adresse.label : "Adresse à indiquer"}</span>
       </summary>
+      <button type="button" className="tdb-retour" onClick={() => ouvrir(false)}>← Retour au répertoire</button>
       <div className="champ">
         <label htmlFor={"rn-" + l.id}>Nom (Maman, École, Basket, Carrefour…)</label>
         <input id={"rn-" + l.id} type="text" maxLength={40} value={l.nom} onChange={(e) => set("nom", e.target.value)} />
@@ -83,6 +84,7 @@ export default function Repertoire() {
   const [modifie, setModifie] = useState(false);
   const [message, setMessage] = useState("");
   const [texte, setTexte] = useState("");
+  const [lieuOuvert, setLieuOuvert] = useState(""); // un seul lieu ouvert a la fois, avec sa fleche de retour
 
   useEffect(() => {
     if (!modifie) {
@@ -104,6 +106,8 @@ export default function Repertoire() {
     try {
       await enregistrerRepertoire(lieux, corrections);
       setModifie(false);
+      setLieuOuvert("");
+      setEnCorrection("");
       setMessage("C'est enregistré.");
     } catch {
       setMessage("Enregistrement impossible pour l'instant. Vérifie ta connexion et réessaie.");
@@ -141,13 +145,13 @@ export default function Repertoire() {
             <div key={t.v}>
               <p className="rp-type">{t.l}</p>
               {duType.map((l) => (
-                <Lieu key={l.id} l={l} connues={lieuxConnus} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
+                <Lieu key={l.id} l={l} connues={lieuxConnus} ouvert={lieuOuvert === l.id} ouvrir={(oui) => setLieuOuvert((actuel) => (oui ? l.id : actuel === l.id ? "" : actuel))} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
               ))}
             </div>
           );
         })}
       </div>
-      <button type="button" className="dr-secondaire rp-large" onClick={() => { setTexte(""); changer([...lieux, lieuVide()]); }}>+ Ajouter un lieu</button>
+      <button type="button" className="dr-secondaire rp-large" onClick={() => { const nouveau = lieuVide(); setTexte(""); setLieuOuvert(nouveau.id); changer([...lieux, nouveau]); }}>+ Ajouter un lieu</button>
 
       <section className="tdb-bloc">
         <h2>Mes clientes</h2>

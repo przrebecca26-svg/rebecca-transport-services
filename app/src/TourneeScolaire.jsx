@@ -21,17 +21,24 @@ const TYPES = [
   { v: "sortie", l: "Récupérer (sortie, fin d'activité)" },
 ];
 
-function Trajet({ r, changer, supprimer, connues, creerRetour, separer, nomLieu, nommer, domicile }) {
+const jourCourt = (d) => {
+  const [a, m, j] = d.split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, j, 12)).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+};
+const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+
+function Trajet({ r, changer, supprimer, connues, creerRetour, separer, nomLieu, nommer, domicile, ouvert, ouvrir }) {
   const set = (cle, valeur) => changer({ ...r, [cle]: valeur });
   const setJour = (w, cle, valeur) => changer({ ...r, jours: r.jours.map((j, k) => (k === w ? { ...j, [cle]: valeur } : j)) });
   const manque = manqueTrajet(r);
   const matin = r.type === "matin";
   return (
-    <details className="bloc rp-enfant rp-trajet">
+    <details className="bloc rp-enfant rp-trajet" open={ouvert} onToggle={(e) => ouvrir(e.currentTarget.open)}>
       <summary>
         <h3>{r.nom || "Trajet sans nom"}</h3>
         <span className={manque ? "rp-alerte" : "tdb-note"}>{manque ? `À compléter : ${manque}` : `${nomLieu(r.de) || "?"} → ${nomLieu(r.a) || "?"} · ${r.places} enfant${r.places > 1 ? "s" : ""} · ${r.jours.filter((j) => j.actif).length} jour(s)${r.client ? " · cliente" : ""}`}</span>
       </summary>
+      <button type="button" className="tdb-retour" onClick={() => ouvrir(false)}>← Retour à ma tournée</button>
       <div className="champ">
         <label htmlFor={"tn-" + r.id}>Qui ? (prénoms)</label>
         <input id={"tn-" + r.id} type="text" maxLength={60} value={r.nom} onChange={(e) => set("nom", e.target.value)} />
@@ -113,6 +120,7 @@ export default function TourneeScolaire() {
   const [brouillon, setBrouillon] = useState(null); // null = pas encore charge
   const [modifie, setModifie] = useState(false);
   const [message, setMessage] = useState("");
+  const [trajetOuvert, setTrajetOuvert] = useState(""); // un seul trajet ouvert a la fois, avec sa fleche de retour
   const [jour, setJour] = useState(() => {
     const w = new Date().getDay();
     return w === 6 ? 0 : w;
@@ -140,6 +148,7 @@ export default function TourneeScolaire() {
     try {
       await enregistrerTournee(brouillon);
       setModifie(false);
+      setTrajetOuvert("");
       setMessage("C'est enregistré.");
       // Les lieux nommes ici rejoignent le Repertoire (si cela echoue, la tournee reste enregistree)
       if (brouillon.lieux.length) enregistrerRepertoire(fusionnerLieux(repertoire.lieux, brouillon.lieux)).catch(() => {});
@@ -211,7 +220,7 @@ export default function TourneeScolaire() {
 
       <div className="formulaire dr-formulaire">
         {trajets.map((r) => (
-          <Trajet key={r.id} r={r} connues={connues} nomLieu={nomLieu} nommer={nommer} domicile={brouillon.domicile} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
+          <Trajet key={r.id} r={r} ouvert={trajetOuvert === r.id} ouvrir={(oui) => setTrajetOuvert((actuel) => (oui ? r.id : actuel === r.id ? "" : actuel))} connues={connues} nomLieu={nomLieu} nommer={nommer} domicile={brouillon.domicile} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
         ))}
       </div>
       <button type="button" className="dr-secondaire rp-large" onClick={() => changer({ ...brouillon, trajets: [...trajets, trajetVide()] })}>+ Ajouter un trajet (école, activité, basket…)</button>

@@ -335,3 +335,39 @@ test("devis garde avec le telephone et le message ; refuse puis remis en attente
   egal(To.statutDevis(refuse, r.id, "attente").devis[0].statut, "attente");
   egal(To.lireTournee(JSON.stringify(refuse)).devis[0].statut, "refuse");
 });
+
+section("Ma tournee dans mon calendrier");
+
+test("chaque moment de la journee, du depart au retour a la maison, devient un creneau bloque", () => {
+  const c = To.creneauxDeLaTournee(TOURNEE, duree, MAISON, T);
+  egal(c, [
+    { jours: [0, 1, 2, 3, 4, 5], debut: "07:45", fin: "08:45", actif: true },
+    { jours: [0, 1, 2, 3, 4, 5], debut: "13:50", fin: "14:35", actif: true },
+  ]);
+});
+
+test("sans domicile : du premier au dernier arret ; un jour different a son propre creneau", () => {
+  const t = TOURNEE.map((r) => (r.id === "f3" ? { ...r, jours: r.jours.map((j, w) => (w === 5 ? { ...j, heure: "12:00" } : j)) } : r.id === "f4" ? { ...r, jours: r.jours.map((j, w) => (w === 5 ? { ...j, heure: "11:45" } : j)) } : r));
+  const c = To.creneauxDeLaTournee(t, duree, null, T);
+  vrai(c.some((x) => x.jours.join() === "5" && x.debut === "12:00"), JSON.stringify(c));
+  vrai(c.some((x) => x.jours.join() === "0,1,2,3,4" && x.debut === "14:00"), JSON.stringify(c));
+});
+
+test("temps de route inconnus : rien n'est propose ; tournee vide : un creneau inactif (jamais les anciens creneaux)", () => {
+  egal(To.creneauxDeLaTournee(TOURNEE, () => null, MAISON, T), null);
+  egal(To.creneauxDeLaTournee([], duree, MAISON, T), []);
+  egal(To.creneauxAEnregistrer([]), [{ jours: [0], debut: "00:00", fin: "00:05", actif: false }]);
+  vrai(To.memesCreneaux([], []));
+  vrai(!To.memesCreneaux(To.creneauxDeLaTournee(TOURNEE, duree, MAISON, T), []));
+});
+
+{
+  const { lireCreneaux } = await import("../src/fermetures.js").catch(() => ({}));
+  if (lireCreneaux) {
+    test("lus par le Calendrier sans perte", () => {
+      const c = To.creneauxDeLaTournee(TOURNEE, duree, MAISON, T);
+      egal(lireCreneaux(JSON.stringify(c)), c);
+      egal(lireCreneaux(JSON.stringify(To.creneauxAEnregistrer([])))[0].actif, false);
+    });
+  }
+}

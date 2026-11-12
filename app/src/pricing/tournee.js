@@ -533,3 +533,69 @@ export function ajouterALaTournee(doc, plan, routes, nomCliente, aujourdhui = ""
   if (plan.periode === "mois" && ajoutes.length) forfaits.push({ id: nouvelId(), nom: nom || "Cliente", plan, routes, creeLe: aujourdhui });
   return { ...doc, trajets: [...doc.trajets, ...ajoutes], forfaits };
 }
+
+/* ---------- Ma tournee dans mon calendrier (12 nov. 2026, 15h23) ----------
+   Chaque moment de la journee (du depart de la maison au retour) devient un creneau fixe bloque, chaque semaine :
+   les clientes ne peuvent plus reserver pendant ces trajets. Meme format que les « creneaux fixes » du Calendrier
+   ({ jours, debut, fin, actif }), sans aucun nom ni adresse (ce document est public). Les jours identiques sont
+   regroupes ; Chabbat, fetes et vacances scolaires levent ces creneaux comme avant. */
+const auCinq = (min, haut) => (haut ? Math.ceil(min / 5) * 5 : Math.floor(min / 5) * 5);
+const hhmm = (min) => {
+  const m = Math.max(0, Math.min(1439, Math.round(min)));
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+};
+
+// Moments d'une journee calculee : [{ debut, fin }] en minutes
+export function momentsDuJour(jour) {
+  const moments = [];
+  let courant = null;
+  const fermer = () => {
+    if (courant && courant.fin > courant.debut) moments.push(courant);
+    courant = null;
+  };
+  for (const x of jour.arrets || []) {
+    if (x.pause) {
+      fermer();
+      continue;
+    }
+    if (x.maison === "depart") {
+      fermer();
+      courant = { debut: x.heure, fin: x.heure };
+      continue;
+    }
+    if (x.maison === "retour") {
+      if (courant) courant.fin = Math.max(courant.fin, x.heure);
+      fermer();
+      continue;
+    }
+    if (!x.trajet) continue;
+    const debut = Math.min(x.arrivee, x.debut);
+    const fin = Math.max(x.depart != null ? x.depart : x.debut, x.debut);
+    if (!courant) courant = { debut, fin };
+    else courant.fin = Math.max(courant.fin, fin);
+  }
+  fermer();
+  return moments;
+}
+
+// Creneaux fixes a partir de ma tournee. Renvoie null si un temps de route manque (on n'invente rien).
+export function creneauxDeLaTournee(trajets, duree, domicile = null, t = TARIFS, du = "") {
+  const parHoraire = new Map();
+  for (let w = 0; w < JOURS.length; w++) {
+    const j = evaluerJour(trajets, w, duree, t, { du, au: "", domicile });
+    if (j.statut === "inconnu") return null;
+    for (const m of momentsDuJour(j)) {
+      const debut = hhmm(auCinq(m.debut, false));
+      const fin = hhmm(auCinq(m.fin, true));
+      if (fin <= debut) continue;
+      const cle = `${debut}-${fin}`;
+      if (!parHoraire.has(cle)) parHoraire.set(cle, { jours: [], debut, fin, actif: true });
+      parHoraire.get(cle).jours.push(w);
+    }
+  }
+  return [...parHoraire.values()].sort((a, b) => (a.debut < b.debut ? -1 : a.debut > b.debut ? 1 : a.jours[0] - b.jours[0])).slice(0, 20);
+}
+
+// Liste a enregistrer (une liste vide ferait revenir les anciens creneaux du programme : on met un creneau inactif)
+export const creneauxAEnregistrer = (liste) => (liste && liste.length ? liste : [{ jours: [0], debut: "00:00", fin: "00:05", actif: false }]);
+export const memesCreneaux = (a, b) => JSON.stringify(creneauxAEnregistrer(a)) === JSON.stringify(creneauxAEnregistrer(b));

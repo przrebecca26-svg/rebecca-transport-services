@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import Champ from "./components/Champ.jsx";
 import JourneeTournee from "./components/JourneeTournee.jsx";
 import ChoixLieu, { NomLieu } from "./components/MesLieux.jsx";
-import { useFermetures } from "./fermetures.js";
+import { useFermetures, lireCreneaux } from "./fermetures.js";
+import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "./firebase.js";
 import { aujourdhui } from "./profil.js";
 import { TARIFS } from "./pricing/config.js";
-import { JOURS, trajetVide, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, separerTrajet, cleLieu, nomDuLieu, nommerLieu } from "./pricing/tournee.js";
+import { JOURS, trajetVide, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, separerTrajet, cleLieu, nomDuLieu, nommerLieu, creneauxDeLaTournee, creneauxAEnregistrer, memesCreneaux } from "./pricing/tournee.js";
 import { bilanMois } from "./pricing/ramassagePlanning.js";
 import { useTournee, useDurees, enregistrerTournee } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
@@ -123,7 +125,11 @@ export default function TourneeScolaire() {
   const [modifie, setModifie] = useState(false);
   const [message, setMessage] = useState("");
   const [trajetOuvert, setTrajetOuvert] = useState("");
-  const [effacer, setEffacer] = useState(false); // « Tout effacer » demande une confirmation // un seul trajet ouvert a la fois, avec sa fleche de retour
+  const [effacer, setEffacer] = useState(false);
+  // Creneaux fixes du Calendrier (document public reglages/creneaux) : pour savoir s'ils suivent ma tournee
+  const [creneauxCal, setCreneauxCal] = useState(null);
+  const [infoCal, setInfoCal] = useState("");
+  useEffect(() => onSnapshot(doc(db, "reglages", "creneaux"), (x) => setCreneauxCal((x.exists() && lireCreneaux(x.data().json)) || []), () => setCreneauxCal([])), []); // « Tout effacer » demande une confirmation // un seul trajet ouvert a la fois, avec sa fleche de retour
   const [jour, setJour] = useState(() => {
     const w = new Date().getDay();
     return w === 6 ? 0 : w;
@@ -178,6 +184,18 @@ export default function TourneeScolaire() {
     }
   };
   const depart = repertoire.familles.length === 0;
+  // Ma tournee -> creneaux fixes du Calendrier (bloquent les reservations des clientes pendant mes trajets)
+  const aBloquer = durees.statut === "ok" || tous.every((r) => manqueTrajet(r)) ? creneauxDeLaTournee(tous, durees.duree, brouillon.domicile, TARIFS, aujourdhui()) : null;
+  const calendrierAJour = !!aBloquer && !!creneauxCal && memesCreneaux(aBloquer, creneauxCal.filter((c) => c.actif !== false));
+  const mettreAuCalendrier = async () => {
+    if (!aBloquer) return;
+    try {
+      await setDoc(doc(db, "reglages", "creneaux"), { json: JSON.stringify(creneauxAEnregistrer(aBloquer)), majLe: serverTimestamp() });
+      setInfoCal("C'est fait : ton Calendrier bloque maintenant les horaires de ta tournée.");
+    } catch {
+      setInfoCal("Mise à jour du calendrier impossible pour l'instant. Vérifie ta connexion et réessaie.");
+    }
+  };
   const lieux = fusionnerLieux(repertoire.lieux, brouillon.lieux); // Repertoire + noms donnes ici
   const connues = adressesConnues(brouillon.domicile, tous, lieux);
   const nomLieu = (adresse) => nomDuLieu(adresse, brouillon.domicile, lieux);
@@ -205,6 +223,25 @@ export default function TourneeScolaire() {
           <Champ champ={{ name: "domicile", label: "Mon domicile (départ et retour de mes tournées)", type: "adresse", indice: "Enregistré dans ta base privée, jamais visible par les clientes." }} valeurs={{ domicile: brouillon.domicile }} onChange={(_, v) => changer({ ...brouillon, domicile: v })} />
         </div>
       </div>
+
+      <section className="tdb-bloc">
+        <h2>Mon calendrier</h2>
+        {!aBloquer && <p className="tdb-note">Calcul des temps de route en cours…</p>}
+        {aBloquer && (
+          <>
+            <p className={calendrierAJour ? "tdb-note" : "rp-alerte"}>{calendrierAJour ? "✅ Ton Calendrier suit ta tournée." : "⚠️ Ton Calendrier n'a pas les horaires de ta tournée : les clientes peuvent réserver pendant tes trajets."}</p>
+            <ul className="rp-detail">
+              {aBloquer.map((c) => (
+                <li key={c.debut + c.jours.join("")}><span>{c.jours.map((w) => JOURS[w].slice(0, 3)).join(", ")}</span><b>{c.debut.replace(":", "h")} → {c.fin.replace(":", "h")}</b></li>
+              ))}
+              {aBloquer.length === 0 && <li><span>Aucun trajet : rien à bloquer</span></li>}
+            </ul>
+            {!calendrierAJour && <button type="button" className="tdb-bouton rp-large" onClick={mettreAuCalendrier}>Mettre ma tournée dans mon calendrier</button>}
+            <p className="tdb-note">Ces horaires remplacent « Mes créneaux fixes » du Calendrier. Chabbat, fêtes et vacances scolaires les lèvent tout seuls. Après un changement dans ta tournée, reviens ici et touche le bouton.</p>
+          </>
+        )}
+        {infoCal && <p className="tdb-note" role="status">{infoCal}</p>}
+      </section>
 
       <section className="tdb-bloc">
         <h2>Ma journée</h2>

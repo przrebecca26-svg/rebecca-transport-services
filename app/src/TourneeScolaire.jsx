@@ -229,7 +229,7 @@ export default function TourneeScolaire() {
         {!aBloquer && <p className="tdb-note">Calcul des temps de route en cours…</p>}
         {aBloquer && (
           <>
-            <p className={calendrierAJour ? "tdb-note" : "rp-alerte"}>{calendrierAJour ? "✅ Ton Calendrier suit ta tournée." : "⚠️ Ton Calendrier n'a pas les horaires de ta tournée : les clientes peuvent réserver pendant tes trajets."}</p>
+            <p className={calendrierAJour ? "tdb-note" : "rp-alerte"}>{calendrierAJour ? "✅ Ton Calendrier suit ta tournée." : "⏳ Mise à jour automatique de ton Calendrier en cours… (si ça reste affiché, touche le bouton)"}</p>
             <ul className="rp-detail">
               {aBloquer.map((c) => (
                 <li key={c.debut + c.jours.join("")}><span>{c.jours.map((w) => JOURS[w].slice(0, 3)).join(", ")}</span><b>{c.debut.replace(":", "h")} → {c.fin.replace(":", "h")}</b></li>
@@ -237,7 +237,7 @@ export default function TourneeScolaire() {
               {aBloquer.length === 0 && <li><span>Aucun trajet : rien à bloquer</span></li>}
             </ul>
             {!calendrierAJour && <button type="button" className="tdb-bouton rp-large" onClick={mettreAuCalendrier}>Mettre ma tournée dans mon calendrier</button>}
-            <p className="tdb-note">Ces horaires remplacent « Mes créneaux fixes » du Calendrier. Chabbat, fêtes et vacances scolaires les lèvent tout seuls. Après un changement dans ta tournée, reviens ici et touche le bouton.</p>
+            <p className="tdb-note">Ces horaires remplacent « Mes créneaux fixes » du Calendrier et se mettent à jour tout seuls à chaque changement de ta tournée. Chabbat, fêtes et vacances scolaires les lèvent tout seuls.</p>
           </>
         )}
         {infoCal && <p className="tdb-note" role="status">{infoCal}</p>}

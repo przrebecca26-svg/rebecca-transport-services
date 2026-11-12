@@ -16,6 +16,7 @@ import Clients from "./Clients.jsx";
 import Finances from "./Finances.jsx";
 import ReglagesFondations from "./ReglagesFondations.jsx";
 import SyncCreneaux from "./SyncCreneaux.jsx";
+import SyncTournee from "./SyncTournee.jsx";
 import Statistiques, { Rapports } from "./Statistiques.jsx";
 import CodesPromo from "./CodesPromo.jsx";
 import Reglages from "./Reglages.jsx";
@@ -214,6 +215,7 @@ export default function Admin() {
     return (
       <EquipeContexte.Provider value={contexte}>
       {role === "admin" && <SyncCreneaux />}
+      {role === "admin" && <SyncTournee />}
       <div className="admin admin-tableau theme-sombre">
         <header className="ts-entete">
           <button className="ts-burger" onClick={() => setMenu(true)} aria-label="Ouvrir le menu" aria-expanded={menu}>

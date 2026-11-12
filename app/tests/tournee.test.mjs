@@ -233,3 +233,19 @@ test("une activite le soir (basket) entre dans la journee comme un autre trajet"
   egal(r.statut, "possible");
   vrai(heures(r).includes("18h00 depose b1") && heures(r).includes("19h30 prise b2"), heures(r).join(" / "));
 });
+
+test("adresses differentes : un trajet par enfant, un seul arret s'ils partent du meme endroit", () => {
+  const morceaux = To.separerTrajet(TOURNEE[1]);
+  egal(morceaux.map((r) => [r.nom, r.places]), [["Les 2 filles (matin) - enfant 1", 1], ["Les 2 filles (matin) - enfant 2", 1]]);
+  vrai(morceaux[0].id === "f2" && morceaux[1].id !== "f2");
+  egal(To.separerTrajet(TOURNEE[0]).length, 1);
+  const autre = [morceaux[0], { ...morceaux[1], a: ECOLE_B }];
+  const r = To.evaluerJour([TOURNEE[0], ...autre], 0, duree, T);
+  vrai(r.arrets.filter((x) => x.trajet && x.sorte === "depose").length === 3, heures(r).join(" / "));
+});
+
+test("devis : toutes les ecoles differentes, l'ecole du haut n'est plus demandee", () => {
+  const p = devis({ ecole: null, enfants: [enfant({ heureSortie: "12:00", autreEcole: true, ecole: ECOLE_B }), enfant({ heureSortie: "12:00", autreEcole: true, ecole: GAN })] });
+  egal(P.manquePlan(p), "");
+  egal(P.ecolesDuPlan(p).length, 2);
+});

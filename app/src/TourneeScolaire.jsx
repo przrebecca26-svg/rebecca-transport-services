@@ -4,7 +4,7 @@ import JourneeTournee from "./components/JourneeTournee.jsx";
 import { useFermetures } from "./fermetures.js";
 import { aujourdhui } from "./profil.js";
 import { TARIFS } from "./pricing/config.js";
-import { JOURS, trajetVide, tourneeDepart, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, cleLieu } from "./pricing/tournee.js";
+import { JOURS, trajetVide, tourneeDepart, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, separerTrajet, cleLieu } from "./pricing/tournee.js";
 import { bilanMois } from "./pricing/ramassagePlanning.js";
 import { useTournee, useDurees, enregistrerTournee } from "./tourneeBase.js";
 import "./client-commun.css";
@@ -36,7 +36,7 @@ const jourCourt = (d) => {
 };
 const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
-function Trajet({ r, changer, supprimer, connues, creerRetour }) {
+function Trajet({ r, changer, supprimer, connues, creerRetour, separer }) {
   const set = (cle, valeur) => changer({ ...r, [cle]: valeur });
   const setJour = (w, cle, valeur) => changer({ ...r, jours: r.jours.map((j, k) => (k === w ? { ...j, [cle]: valeur } : j)) });
   const manque = manqueTrajet(r);
@@ -52,6 +52,16 @@ function Trajet({ r, changer, supprimer, connues, creerRetour }) {
         <input id={"tn-" + r.id} type="text" maxLength={60} value={r.nom} onChange={(e) => set("nom", e.target.value)} />
       </div>
       <Champ champ={{ name: "places" + r.id, label: "Nombre d'enfants dans la voiture", type: "nombre", min: 1, max: 8 }} valeurs={{ ["places" + r.id]: String(r.places) }} onChange={(_, v) => set("places", Math.min(8, Math.max(1, Number(v) || 1)))} />
+      {r.places > 1 && (
+        <fieldset className="champ">
+          <legend>Adresses des {r.places} enfants</legend>
+          <div className="choix">
+            <button type="button" className="actif" aria-pressed="true">Mêmes adresses pour tous</button>
+            <button type="button" aria-pressed="false" onClick={separer}>Adresses différentes</button>
+          </div>
+          <span className="aide">« Adresses différentes » crée un trajet par enfant : tu mets ensuite l'adresse de chacun. S'ils partent du même endroit, ça reste un seul arrêt.</span>
+        </fieldset>
+      )}
       <fieldset className="champ">
         <legend>Quel trajet ?</legend>
         <div className="choix">
@@ -206,7 +216,7 @@ export default function TourneeScolaire() {
 
       <div className="formulaire dr-formulaire">
         {trajets.map((r) => (
-          <Trajet key={r.id} r={r} connues={connues} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
+          <Trajet key={r.id} r={r} connues={connues} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
         ))}
       </div>
       <button type="button" className="dr-secondaire rp-large" onClick={() => changer({ ...brouillon, trajets: [...trajets, trajetVide()] })}>+ Ajouter un trajet (école, activité, basket…)</button>

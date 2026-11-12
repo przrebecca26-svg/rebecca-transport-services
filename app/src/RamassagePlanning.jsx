@@ -137,6 +137,7 @@ export default function RamassagePlanning({ retour, aller }) {
     return onSnapshot(collection(db, "demandes"), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {});
   }, [ajout]);
 
+  const ecolesDifferentes = plan.enfants.some((e) => e.autreEcole);
   const manque = manquePlan(plan);
   const pret = !manque;
   const distanceOk = trajet && trajet.statut === "ok";
@@ -204,7 +205,19 @@ export default function RamassagePlanning({ retour, aller }) {
       <div className="formulaire dr-formulaire">
         <div className="bloc">
           <Champ champ={CHAMP_DOMICILE} valeurs={plan} onChange={changer} />
-          <Champ champ={plan.enfants.some((e) => e.autreEcole) ? { ...CHAMP_ECOLE, label: "Adresse de l'école (enfants sans autre école)" } : CHAMP_ECOLE} valeurs={plan} onChange={changer} />
+          {plan.enfants.length > 1 && (
+            <fieldset className="champ">
+              <legend>École des enfants</legend>
+              <div className="choix">
+                <button type="button" className={ecolesDifferentes ? "" : "actif"} aria-pressed={!ecolesDifferentes} onClick={() => changer("enfants", plan.enfants.map((e) => ({ ...e, autreEcole: false })))}>Même école pour tous</button>
+                <button type="button" className={ecolesDifferentes ? "actif" : ""} aria-pressed={ecolesDifferentes} onClick={() => changer("enfants", plan.enfants.map((e, i) => ({ ...e, autreEcole: true, ecole: e.ecole || (i === 0 ? plan.ecole : null) })))}>Écoles différentes</button>
+              </div>
+              {ecolesDifferentes && <span className="aide">Indique l'adresse de l'école dans la fiche de chaque enfant, plus bas.</span>}
+            </fieldset>
+          )}
+          {!plan.enfants.every((e) => e.autreEcole) && (
+            <Champ champ={plan.enfants.some((e) => e.autreEcole) ? { ...CHAMP_ECOLE, label: "Adresse de l'école (enfants sans autre école)" } : CHAMP_ECOLE} valeurs={plan} onChange={changer} />
+          )}
           <fieldset className="champ">
             <legend>Devis pour</legend>
             <div className="choix rp-trois">

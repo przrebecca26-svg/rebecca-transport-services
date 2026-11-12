@@ -81,6 +81,13 @@ export function adressesConnues(domicile, trajets) {
   return [...vues.values()];
 }
 
+// Plusieurs enfants qui n'ont pas la meme adresse : un trajet par enfant, pour donner a chacun la sienne
+// (pris ou deposes au meme endroit, ils restent un seul arret dans le calcul)
+export function separerTrajet(r) {
+  if (r.places < 2) return [r];
+  return Array.from({ length: r.places }, (_, k) => ({ ...r, id: k === 0 ? r.id : nouvelId(), nom: `${r.nom || "Enfant"} - enfant ${k + 1}`.slice(0, 60), places: 1, jours: r.jours.map((j) => ({ ...j })) }));
+}
+
 // Le trajet retour d'un trajet : memes enfants, memes jours, adresses inversees ; l'heure reste a indiquer
 export function trajetRetour(r) {
   const base = String(r.nom || "").replace(/\s*\((matin|aller|retour|sortie[^)]*)\)\s*$/i, "").trim();

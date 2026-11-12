@@ -144,7 +144,7 @@ export function manqueTrajet(r) {
 // { trajets: [...], forfaits: [{ id, nom, plan, routes, creeLe }], vacances: [{ nom, du, au }] }
 const heureOk = (x) => (HEURE_OK.test(x || "") ? x : "");
 const dateOk = (x) => (DATE_OK.test(x || "") ? x : "");
-const adresseLue = (x) => (x && typeof x === "object" && typeof x.label === "string" ? { label: x.label.slice(0, 200), ...(typeof x.lat === "number" && typeof x.lon === "number" ? { lat: x.lat, lon: x.lon } : {}) } : null);
+const adresseLue = (x) => (x && typeof x === "object" && typeof x.label === "string" ? { label: x.label.slice(0, 200), ...(typeof x.lat === "number" && typeof x.lon === "number" ? { lat: x.lat, lon: x.lon } : {}), ...(x.approx === true ? { approx: true } : {}) } : null);
 
 export function lireTrajets(liste) {
   if (!Array.isArray(liste)) return [];

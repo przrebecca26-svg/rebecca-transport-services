@@ -3,7 +3,9 @@ import Champ from "./components/Champ.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
 import { lienWazePoint, lienWhatsApp } from "./pricing/navigation.js";
 import { TYPES_LIEU, lieuVide, manqueLieu, cleAdresse, adressesClients, corriger } from "./pricing/repertoire.js";
-import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
+import { useRepertoire, enregistrerRepertoire, enregistrerCleGoogle } from "./repertoireBase.js";
+import { useFermetures } from "./fermetures.js";
+import { definirCleGoogle, googleActif } from "./routing.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
 
@@ -41,6 +43,35 @@ function Lieu({ l, changer, supprimer, connues }) {
         <button type="button" className="dr-secondaire" onClick={supprimer}>Supprimer ce lieu</button>
       </div>
     </details>
+  );
+}
+
+// Recherche d'adresses Google : Rebecca colle sa cle ici (jamais ecrite dans le programme)
+function RechercheGoogle() {
+  useFermetures(); // charge la cle deja enregistree
+  const [cle, setCle] = useState("");
+  const [message, setMessage] = useState("");
+  const enregistrer = async (valeur) => {
+    try {
+      await enregistrerCleGoogle(valeur);
+      definirCleGoogle(valeur);
+      setCle("");
+      setMessage(valeur ? (googleActif() ? "Clé enregistrée : la recherche Google est active." : "Cette clé n'a pas la bonne forme : vérifie que tu as tout copié.") : "Recherche Google arrêtée : retour au service gratuit.");
+    } catch {
+      setMessage("Enregistrement impossible : seule Rebecca peut régler la recherche Google.");
+    }
+  };
+  return (
+    <section className="tdb-bloc">
+      <h2>Recherche d'adresses Google</h2>
+      <p className="tdb-note">{googleActif() ? "✅ Active : écoles et magasins par leur nom, français, anglais ou hébreu, numéros de rue." : "Pas encore active : la recherche utilise le service gratuit."}</p>
+      <div className="dr-actions">
+        <input className="dr-tel" type="text" autoComplete="off" placeholder="Colle ici ta clé Google" value={cle} onChange={(e) => setCle(e.target.value)} />
+        <button type="button" className="tdb-bouton" disabled={!cle.trim()} onClick={() => enregistrer(cle.trim())}>Enregistrer la clé</button>
+        {googleActif() && <button type="button" className="dr-secondaire" onClick={() => enregistrer("")}>Arrêter la recherche Google</button>}
+      </div>
+      {message && <p className="tdb-note" role="status">{message}</p>}
+    </section>
   );
 }
 
@@ -159,6 +190,8 @@ export default function Repertoire() {
           </details>
         ))}
       </section>
+
+      <RechercheGoogle />
 
       <div className="rp-enregistrer">
         <button type="button" className="tdb-bouton" onClick={enregistrer} disabled={!modifie}>{modifie ? "Enregistrer mon répertoire" : "Tout est enregistré"}</button>

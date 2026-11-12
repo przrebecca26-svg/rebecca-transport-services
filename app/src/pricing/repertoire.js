@@ -17,7 +17,7 @@ export const DOC_REPERTOIRE = "_repertoire";
 const sansAccent = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 const aCoord = (a) => !!a && typeof a.lat === "number" && typeof a.lon === "number";
 export const cleAdresse = (a) => (aCoord(a) ? `${a.lat.toFixed(5)},${a.lon.toFixed(5)}` : "");
-const adresseLue = (x) => (x && typeof x === "object" && typeof x.label === "string" && x.label.trim() ? { label: x.label.slice(0, 300), ...(aCoord(x) ? { lat: x.lat, lon: x.lon } : {}) } : null);
+const adresseLue = (x) => (x && typeof x === "object" && typeof x.label === "string" && x.label.trim() ? { label: x.label.slice(0, 300), ...(aCoord(x) ? { lat: x.lat, lon: x.lon } : {}), ...(x.approx === true ? { approx: true } : {}) } : null);
 
 let compteur = 0;
 export const nouvelIdLieu = () => `l${Date.now().toString(36)}${(compteur++).toString(36)}`;

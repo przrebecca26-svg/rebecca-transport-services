@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { TARIFS } from "./pricing/config.js";
 import { appliquerTarifs, lireTarifs } from "./pricing/catalogue.js";
+import { definirCleGoogle } from "./routing.js";
 
 // Reglages modifiables par Rebecca depuis l'agenda :
 //  - fermetures (vacances, jours de repos, Hol Hamoed ferme...) : collection "fermetures"
@@ -189,6 +190,21 @@ function chargerTarifs() {
   return chargementTarifs;
 }
 
+/* ---------- Recherche d'adresses Google (facultative) : cle enregistree par Rebecca, document public reglages/google ---------- */
+let chargementGoogle = null;
+function chargerGoogle() {
+  if (chargementGoogle) return chargementGoogle;
+  chargementGoogle = fetch(`${BASE}/reglages/google?${CLE}`, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      if (j && j.fields) definirCleGoogle(texte(j.fields.cle));
+    })
+    .catch(() => {
+      chargementGoogle = null;
+    });
+  return chargementGoogle;
+}
+
 let chargementCren = null;
 function chargerCreneaux() {
   if (chargementCren) return chargementCren;
@@ -218,6 +234,7 @@ export function useFermetures() {
     chargerCreneaux();
     chargerEquipe();
     chargerTarifs();
+    chargerGoogle();
     return () => abonnes.delete(setV);
   }, []);
   return v;

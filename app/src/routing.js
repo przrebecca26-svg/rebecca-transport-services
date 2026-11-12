@@ -36,9 +36,87 @@ async function photon(q, signal) {
   return (data.features || []).map(versAdresse).filter((a) => a.label);
 }
 
+/* ---------- Recherche Google (facultative) ----------
+   12 nov. 2026, decision de Rebecca (« oui Google ») : le service gratuit ne connait ni les ecoles par leur nom, ni
+   les rues ecrites en lettres latines, ni les numeros. Avec une cle Google (enregistree par Rebecca dans son espace,
+   document reglages/google ; jamais ecrite dans le programme), la recherche passe par Google Places :
+   nom d'une ecole ou d'un magasin, francais, anglais ou hebreu, numero de rue, point exact.
+   Sans cle, ou si Google refuse (quota du jour atteint, panne), le service gratuit prend le relais tout seul.
+   Cout maitrise : une « session » par adresse cherchee, et seulement l'adresse et le point demandes a la fin
+   (tarif « Essentials »). */
+const GOOGLE = "https://places.googleapis.com/v1/places";
+let cleGoogle = "";
+let sessionGoogle = "";
+export function definirCleGoogle(cle) {
+  cleGoogle = /^[A-Za-z0-9_-]{20,80}$/.test(String(cle || "").trim()) ? String(cle).trim() : "";
+}
+export const googleActif = () => !!cleGoogle;
+const nouvelleSession = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `s${Date.now()}${Math.round(Math.random() * 1e9)}`.slice(0, 36));
+const sansPays = (label) => String(label || "").replace(/,\s*(Israël|Israel|ישראל)\s*$/i, "").trim();
+
+// Reponse de Google (suggestions) -> [{ label, placeId, session }]
+export function lireSuggestionsGoogle(data, session) {
+  return ((data && data.suggestions) || [])
+    .map((x) => x && x.placePrediction)
+    .filter((p) => p && p.placeId && p.text && p.text.text)
+    .slice(0, 6)
+    .map((p) => ({ label: sansPays(p.text.text), placeId: p.placeId, session }));
+}
+
+// Reponse de Google (detail d'un lieu) -> { label, lat, lon } ; le nom du lieu choisi est garde devant l'adresse
+export function lireDetailGoogle(data, suggestion) {
+  const loc = data && data.location;
+  if (!loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return null;
+  const adresse = sansPays(data.formattedAddress);
+  const nom = String(suggestion.label || "").split(",")[0].trim();
+  const label = !adresse ? suggestion.label : nom && !adresse.toLowerCase().includes(nom.toLowerCase()) && !/\d/.test(nom) ? `${nom}, ${adresse}` : adresse;
+  return { label, lat: loc.latitude, lon: loc.longitude };
+}
+
+async function google(q, signal) {
+  if (!sessionGoogle) sessionGoogle = nouvelleSession();
+  const rep = await fetch(`${GOOGLE}:autocomplete`, {
+    method: "POST",
+    signal,
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": cleGoogle },
+    body: JSON.stringify({
+      input: q,
+      languageCode: "fr",
+      includedRegionCodes: ["il"],
+      locationBias: { circle: { center: { latitude: CENTRE.lat, longitude: CENTRE.lon }, radius: 30000 } },
+      sessionToken: sessionGoogle,
+    }),
+  });
+  if (!rep.ok) throw new Error("Recherche Google indisponible");
+  return lireSuggestionsGoogle(await rep.json(), sessionGoogle);
+}
+
+// Suggestion choisie : si elle vient de Google, on demande son adresse exacte et son point (fin de la session)
+export async function preciserAdresse(a, signal) {
+  if (!a || !a.placeId) return a;
+  const rep = await fetch(`${GOOGLE}/${encodeURIComponent(a.placeId)}?sessionToken=${encodeURIComponent(a.session || "")}&languageCode=fr`, {
+    signal,
+    headers: { "X-Goog-Api-Key": cleGoogle, "X-Goog-FieldMask": "location,formattedAddress" },
+  });
+  sessionGoogle = "";
+  if (!rep.ok) throw new Error("Adresse Google indisponible");
+  const r = lireDetailGoogle(await rep.json(), a);
+  if (!r) throw new Error("Adresse Google incomplète");
+  return r;
+}
+
 export async function chercherAdresses(texte, signal) {
   const q = (texte || "").trim();
   if (q.length < 3) return [];
+  if (cleGoogle && q.length >= 4) {
+    try {
+      const trouvees = await google(q, signal);
+      if (trouvees.length) return trouvees;
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      // Google indisponible ou quota atteint : le service gratuit prend le relais
+    }
+  }
   let liste = await photon(q, signal);
   // Rien pres de Netanya : on reessaie sans les mots « ecole », « school », « gan »... (le nom de la rue suffit souvent)
   if (!liste.some((a) => distanceKm(CENTRE, a) <= RAYON_PROCHE_KM)) {
@@ -65,7 +143,8 @@ export function avecNumero(adresse, texteTape) {
   if (/(^|[\s,])\d{1,4}[a-zA-Z\u05d0-\u05ea]?(?=[\s,]|$)/.test(adresse.label)) return adresse; // la suggestion a deja un numero
   const morceaux = adresse.label.split(",");
   morceaux[0] = `${morceaux[0].trim()} ${numero}`;
-  return { ...adresse, label: morceaux.map((x, i) => (i === 0 ? x : x.trim())).join(", ") };
+  // approx : le point est celui de la rue, pas de la porte (Waze recevra donc le texte avec le numero)
+  return { ...adresse, label: morceaux.map((x, i) => (i === 0 ? x : x.trim())).join(", "), approx: true };
 }
 
 // Une reponse Photon -> { label, lat, lon }

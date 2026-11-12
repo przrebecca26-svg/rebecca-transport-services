@@ -113,3 +113,29 @@ test("la recherche par nom utilise l'adresse corrigee", () => {
   egal(R.chercherRepertoire("noa").map((x) => x.sous), [BONNE.label]);
   R.definirRepertoire({ lieux: [], bruts: [], corrections: [] });
 });
+
+section("Recherche d'adresses Google (facultative)");
+{
+  const G = await import("../src/routing.js");
+  test("sans cle : Google n'est pas utilise ; une cle mal formee est refusee", () => {
+    egal(G.googleActif(), false);
+    G.definirCleGoogle("trop court");
+    egal(G.googleActif(), false);
+    G.definirCleGoogle("AIzaSyD-exemple_de_cle_0123456789abcdef");
+    egal(G.googleActif(), true);
+    G.definirCleGoogle("");
+    egal(G.googleActif(), false);
+  });
+  test("suggestions de Google : nom et adresse, sans le pays, 6 au maximum", () => {
+    const data = { suggestions: [{ placePrediction: { placeId: "abc", text: { text: "École Uziel, Rue Exemple, Netanya, Israël" } } }, { queryPrediction: { text: { text: "ecole" } } }, { placePrediction: { placeId: "", text: { text: "x" } } }] };
+    egal(G.lireSuggestionsGoogle(data, "s1"), [{ label: "École Uziel, Rue Exemple, Netanya", placeId: "abc", session: "s1" }]);
+    egal(G.lireSuggestionsGoogle({}, "s1"), []);
+  });
+  test("lieu choisi : point exact, et le nom de l'ecole garde devant l'adresse", () => {
+    const s1 = { label: "École Uziel, Rue Exemple, Netanya", placeId: "abc" };
+    egal(G.lireDetailGoogle({ location: { latitude: 32.31, longitude: 34.86 }, formattedAddress: "Rue Exemple 12, Netanya, Israël" }, s1), { label: "École Uziel, Rue Exemple 12, Netanya", lat: 32.31, lon: 34.86 });
+    const s2 = { label: "Rue Exemple 12, Netanya", placeId: "def" };
+    egal(G.lireDetailGoogle({ location: { latitude: 1, longitude: 2 }, formattedAddress: "Rue Exemple 12, Netanya, Israël" }, s2).label, "Rue Exemple 12, Netanya");
+    egal(G.lireDetailGoogle({ formattedAddress: "sans point" }, s2), null);
+  });
+}

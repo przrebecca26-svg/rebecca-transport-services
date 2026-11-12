@@ -286,14 +286,17 @@ section("Waze : le point exact");
     egal(lienWazePoint({ label: "Uziel, Netanya", lat: 32.31, lon: 34.86 }), "https://waze.com/ul?ll=32.31%2C34.86&navigate=yes");
   });
   test("sans coordonnees : recherche par le texte", () => vrai(lienWazePoint({ label: "Rue Herzl, Netanya" }).includes("q=Rue%20Herzl%2C%20Netanya")));
-  test("adresse avec un numero de rue : Waze recoit le texte avec le numero, pas le milieu de la rue", () => {
-    egal(lienWazePoint({ label: "Nahal Dolev 10, Neot Shaked, Netanya", lat: 32.28, lon: 34.86 }), "https://waze.com/ul?q=Nahal%20Dolev%2010%2C%20Neot%20Shaked%2C%20Netanya&navigate=yes");
-    vrai(lienWazePoint({ label: "10 Rue Herzl, Netanya", lat: 32.3, lon: 34.85 }).includes("q=10%20Rue"));
+  test("numero ajoute a une rue (point approximatif) : Waze recoit le texte avec le numero", () => {
+    egal(lienWazePoint({ label: "Nahal Dolev 10, Neot Shaked, Netanya", lat: 32.28, lon: 34.86, approx: true }), "https://waze.com/ul?q=Nahal%20Dolev%2010%2C%20Neot%20Shaked%2C%20Netanya&navigate=yes");
+  });
+  test("adresse exacte avec numero (Google, suggestion complete) : le point exact", () => {
+    egal(lienWazePoint({ label: "École Uziel, Rue Exemple 12, Netanya", lat: 32.3, lon: 34.85 }), "https://waze.com/ul?ll=32.3%2C34.85&navigate=yes");
   });
   const { avecNumero } = await import("../src/routing.js");
   test("le numero tape est garde quand la suggestion ne l'a pas", () => {
     const rue = { label: "Nahal Dolev, Neot Shaked, Netanya", lat: 32.28, lon: 34.86 };
-    egal(avecNumero(rue, "nahal dolev 10 netanya"), { label: "Nahal Dolev 10, Neot Shaked, Netanya", lat: 32.28, lon: 34.86 });
+    egal(avecNumero(rue, "nahal dolev 10 netanya"), { label: "Nahal Dolev 10, Neot Shaked, Netanya", lat: 32.28, lon: 34.86, approx: true });
+    egal(To.lireTournee(JSON.stringify({ trajets: [], domicile: avecNumero(rue, "dolev 10") })).domicile.approx, true);
     egal(avecNumero(rue, "nahal dolev netanya"), rue);
     egal(avecNumero({ label: "10 Nahal Besor, Netanya", lat: 1, lon: 2 }, "nahal 10").label, "10 Nahal Besor, Netanya");
     egal(avecNumero({ label: "Herzl 100, Netanya", lat: 1, lon: 2 }, "herzl 10").label, "Herzl 100, Netanya");

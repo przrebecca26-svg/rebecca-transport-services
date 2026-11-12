@@ -29,3 +29,6 @@ export function useRepertoire() {
 
 // corrections non fournies = on garde celles deja enregistrees
 export const enregistrerRepertoire = (lieux, corrections = repertoireCourant().corrections) => setDoc(doc(db, "clientsAdmin", DOC_REPERTOIRE), { json: JSON.stringify({ lieux, corrections }), majLe: serverTimestamp() });
+
+// Cle de la recherche d'adresses Google (Rebecca seule peut l'enregistrer ; vide = retour au service gratuit)
+export const enregistrerCleGoogle = (cle) => setDoc(doc(db, "reglages", "google"), { cle: String(cle || "").trim(), majLe: serverTimestamp() });

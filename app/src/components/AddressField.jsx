@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { adresseDepuisPosition, avecNumero, chercherAdresses, distanceKm, positionActuelle } from "../routing.js";
+import { adresseDepuisPosition, avecNumero, chercherAdresses, distanceKm, googleActif, positionActuelle, preciserAdresse } from "../routing.js";
 import { compteOuvert, useClient } from "../client.js";
 import { chercherRepertoire, maisonDuRepertoire, texteDistance } from "../pricing/repertoire.js";
 import "../client-commun.css";
@@ -42,7 +42,7 @@ export default function AddressField({ id, valeur, onChange, erreur, raccourcis 
       } catch (e) {
         if (e.name !== "AbortError" && num === reqRef.current) setPanne(true);
       }
-    }, 300);
+    }, googleActif() ? 550 : 300); // avec Google : on attend un peu plus la fin de la frappe (moins de recherches)
     return () => {
       clearTimeout(timer);
       ctrl.abort();
@@ -58,6 +58,20 @@ export default function AddressField({ id, valeur, onChange, erreur, raccourcis 
     setListe([]);
     setGps({ enCours: false, erreur: "" });
     onChange(a);
+  };
+
+  // Suggestion touchee. Google : on va chercher l'adresse exacte et le point ; en cas d'echec on garde le texte.
+  const choisirSuggestion = async (a) => {
+    if (!a.placeId) return choisir(avecNumero(a, texte));
+    setTexte(a.label);
+    setOuvert(false);
+    setListe([]);
+    try {
+      choisir(await preciserAdresse(a));
+    } catch {
+      onChange({ label: a.label });
+    }
+    return undefined;
   };
 
   const maPosition = async () => {
@@ -122,7 +136,7 @@ export default function AddressField({ id, valeur, onChange, erreur, raccourcis 
           ))}
           {liste.map((a, i) => (
             <li key={i}>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => choisir(avecNumero(a, texte))}>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => choisirSuggestion(a)}>
                 {a.label}
                 {maison && typeof a.lat === "number" && <small>{texteDistance(distanceKm(maison, a))}</small>}
               </button>

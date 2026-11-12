@@ -123,7 +123,8 @@ test("reduction du mois modifiable dans les tarifs", () => {
 test("ce qui manque : adresse, date, heure d'un jour", () => {
   vrai(/domicile/.test(P.manquePlan(P.planVide())));
   vrai(/école/.test(P.manquePlan(plan({ ecole: null }))));
-  vrai(/premier jour/.test(P.manquePlan(plan({ date: "" }))));
+  egal(P.manquePlan(plan({ date: "", enfants: [enfant({ heureSortie: "12:00" })] })), "");
+  vrai(/date/.test(P.manquePlan(plan({ periode: "jour", date: "", enfants: [enfant({ heureSortie: "12:00" })] }))));
   egal(P.manquePlan(plan({ enfants: [enfant()] })), "Enfant 1 : indique l'heure de sortie du dimanche.");
   egal(P.manquePlan(plan({ enfants: [enfant({ prenom: "Noa", sens: "deux", heureSortie: "12:00" })] })), "Noa : indique l'heure du matin.");
   egal(P.manquePlan(plan({ periode: "jour", date: "2026-11-14", enfants: [enfant({ heureSortie: "12:00" })] })), "Ce jour est un samedi : choisis un autre jour.");
@@ -159,4 +160,46 @@ test("message pour la cliente", () => {
 test("pre-remplissage de l'ajout manuel : forfait entier au premier trajet", () => {
   const p = plan({ enfants: [enfant({ heureSortie: "12:00" }), enfant({ heureSortie: "16:00" })] });
   egal(P.planVersAjoutManuel(p, calc(p)), { service: "ramassage", date: "2026-11-15", heure: "12:00", adresses: { domicile: A.netanya, ecole: A.netanya2 }, direction: "vers", magasin: "", prix: "530" });
+});
+
+section("Ramassage : devis sans date et forfait au mois");
+
+test("semaine sans date = semaine complete (meme prix qu'une semaine sans fete)", () => {
+  const p = plan({ date: "", enfants: [enfant({ heureSortie: "12:00" }), enfant({ heureSortie: "16:00" })] });
+  const r = calc(p);
+  egal([r.details.nbTrajets, r.details.sansDate, r.total], [12, true, 530]);
+  vrai(P.messagePlan(p, r).includes("pour une semaine complète (6 jours d'école)"));
+});
+
+test("mois sans date = le mois le plus long : 4 semaines + 3 jours = 27 jours, prix maximum", () => {
+  const p = plan({ periode: "mois", date: "", enfants: [enfant({ heureSortie: "12:00" }), enfant({ heureSortie: "16:00" })] });
+  const r = calc(p);
+  egal([r.details.jours, r.details.nbTrajets, r.details.brut, r.total], [27, 54, 2970, 2380]);
+  const m = P.messagePlan(p, r);
+  vrai(m.includes("pour un mois complet (jusqu'à 27 jours d'école)") && !m.includes("Chabbat"), m);
+});
+
+test("mois sans date : les 3 jours en plus sont les plus charges", () => {
+  const e = enfant({ heureSortie: "12:00" });
+  [0, 1, 4, 5].forEach((w) => (e.jours[w].actif = false)); // seulement mardi et mercredi
+  egal(calc(plan({ periode: "mois", date: "", enfants: [e] })).details.nbTrajets, 10);
+});
+
+test("un seul jour : la date reste obligatoire", () => egal(calc(plan({ periode: "jour", date: "", enfants: [enfant({ heureSortie: "12:00" })] })).ok, false));
+
+const FORFAIT = { plan: plan({ periode: "mois", date: "", enfants: [enfant({ heureSortie: "12:00" }), enfant({ heureSortie: "16:00" })] }), routes: ROUTE };
+
+test("forfait accepte : mois sans vacances", () => {
+  const b = P.bilanMois(FORFAIT, 2026, 11, [], T); // novembre 2026 : 30 jours, 4 samedis
+  egal([b.complet, b.jours, b.reel], [2380, 26, 2290]);
+});
+
+test("forfait accepte : vacances retirees = ce que je dois encaisser a la place du prix complet", () => {
+  const b = P.bilanMois(FORFAIT, 2026, 12, [{ nom: "Hanouka", du: "2026-12-06", au: "2026-12-11" }], T);
+  egal([b.complet, b.jours, b.retires.length, b.reel, b.difference], [2380, 21, 6, 1850, 530]);
+});
+
+test("forfait accepte : fete du calendrier retiree toute seule (Pessah, avril 2027)", () => {
+  const b = P.bilanMois(FORFAIT, 2027, 4, [], T);
+  vrai(b.retires.some((x) => /Pessah/.test(x.motif)) && b.reel < b.complet, JSON.stringify(b));
 });

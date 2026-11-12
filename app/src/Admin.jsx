@@ -6,6 +6,7 @@ import { NOM } from "./contact.js";
 import TableauDeBord from "./TableauDeBord.jsx";
 import Activites from "./Activites.jsx";
 import SimulateurDevis from "./SimulateurDevis.jsx";
+import TourneeScolaire from "./TourneeScolaire.jsx";
 import Demandes from "./Demandes.jsx";
 import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
 import Agenda from "./Agenda.jsx";
@@ -39,6 +40,7 @@ const MESSAGES = {
 const RUBRIQUES = [
   { id: "tableau", label: "Tableau de bord" },
   { id: "devis", label: "Devis rapide" },
+  { id: "tournee", label: "Tournée scolaire", adminOnly: true }, // 12 nov. 2026 : trajets d'ecole fixes de Rebecca (prive)
   { id: "activites", label: "Activités" },
   { id: "demandes", label: "Demandes et missions" },
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true },
@@ -190,6 +192,7 @@ export default function Admin() {
     let contenu;
     if (onglet === "tableau") contenu = <TableauDeBord {...props} membre={membre} />;
     else if (onglet === "devis") contenu = <SimulateurDevis {...props} />;
+    else if (onglet === "tournee" && estAdmin) contenu = <TourneeScolaire />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
     else if (onglet === "commandes-epoxy" && estAdmin) contenu = <CommandesEpoxy onRetour={() => setOnglet("demandes")} />;
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;

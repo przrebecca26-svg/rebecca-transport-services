@@ -9,7 +9,10 @@
 // - reduction proposee : un jour = prix normal ; semaine = paliers du site (3 jours, 5 jours) ; mois = « reductionMois » ;
 //   plusieurs enfants en forfait = « reductionPlusieursEnfants » (Reglages -> Tarifs) ; Rebecca peut taper un autre
 //   pourcentage dans le devis ;
-// - Chabbat, fetes et jours sans ecole indiques par Rebecca ne sont pas comptes.
+// - Chabbat, fetes et jours sans ecole indiques par Rebecca ne sont pas comptes ;
+// - semaine ou mois SANS date (la cliente veut juste un prix) : semaine complete, ou mois le plus long
+//   (31 jours, sans fete ni vacances) = le prix MAXIMUM d'un mois ;
+// - forfait accepte : chaque mois, le prix reel du mois (fetes et vacances retirees) a cote du prix du mois complet.
 
 import { TARIFS } from "./config.js";
 import { arrondiSup, analyserRentabilite, detecterZone, prixTrajetRamassage } from "./engine.js";
@@ -125,7 +128,7 @@ export function manquePlan(plan) {
   for (let i = 0; i < plan.enfants.length; i++) {
     if (!adresseSaisie(ecoleDe(plan, i))) return plan.enfants[i].autreEcole ? `${nomEnfant(plan.enfants[i], i)} : indique l'adresse de son école.` : "Indique l'adresse de l'école pour voir le prix.";
   }
-  if (!DATE_OK.test(plan.date || "")) return plan.periode === "jour" ? "Choisis la date pour voir le prix." : "Choisis le premier jour pour voir le prix.";
+  if (plan.periode === "jour" && !DATE_OK.test(plan.date || "")) return "Choisis la date pour voir le prix.";
   if (plan.periode === "jour" && jourSemaine(plan.date) === 6) return "Ce jour est un samedi : choisis un autre jour.";
   const jourUnique = plan.periode === "jour" ? jourSemaine(plan.date) : null;
   for (let i = 0; i < plan.enfants.length; i++) {
@@ -143,32 +146,72 @@ export function manquePlan(plan) {
 
 /* ---------- Les trajets ---------- */
 
-// Tous les trajets de la periode. Un trajet = { date, sens: "matin" | "sortie", heure, ecole, enfants: [index] }.
+// Trajets d'un enfant un jour de semaine donne (sans tenir compte des dates)
+function prevusDuJour(plan, w, jourUnique) {
+  const prevus = [];
+  plan.enfants.forEach((e, i) => {
+    if (!jourUnique && !e.jours[w].actif) return;
+    const ecole = cleEcole(ecoleDe(plan, i)) || String((ecoleDe(plan, i) || {}).label || "");
+    if (e.sens !== "sortie" && HEURE_OK.test(e.heureMatin || "")) prevus.push({ sens: "matin", heure: e.heureMatin, ecole, i });
+    if (e.sens !== "matin" && HEURE_OK.test(heureDuJour(e, w))) prevus.push({ sens: "sortie", heure: heureDuJour(e, w), ecole, i });
+  });
+  return prevus;
+}
+const nbTrajetsDuJour = (plan, w) => new Set(prevusDuJour(plan, w, false).map((p) => `${p.sens}|${p.heure}|${p.ecole}`)).size;
+
+// Jours a compter : { cle, w, date } (date = null pour un devis sans date).
+// options.du / options.au : periode imposee (un mois du calendrier pour un forfait accepte).
+export function joursDuPlan(plan, options = {}) {
+  const reels = (du, au) => {
+    const liste = [];
+    for (let d = du; d <= au; d = ajouterJours(d, 1)) if (jourSemaine(d) !== 6) liste.push({ cle: d, w: jourSemaine(d), date: d });
+    return liste;
+  };
+  if (DATE_OK.test(options.du || "") && DATE_OK.test(options.au || "")) return reels(options.du, options.au);
+  if (DATE_OK.test(plan.date || "")) {
+    const dates = datesPeriode(plan);
+    return reels(dates[0], dates[dates.length - 1]);
+  }
+  if (plan.periode === "jour") return [];
+  const semaines = plan.periode === "mois" ? 4 : 1;
+  const liste = [];
+  for (let k = 0; k < semaines; k++) for (let w = 0; w < 6; w++) liste.push({ cle: `type-${k}-${w}`, w, date: null });
+  if (plan.periode === "mois") {
+    // Mois de 31 jours = 4 semaines + 3 jours qui se suivent : on prend les 3 jours les plus charges (prix maximum)
+    let debut = 0;
+    let max = -1;
+    for (let d = 0; d < 7; d++) {
+      const n = [d, (d + 1) % 7, (d + 2) % 7].reduce((x, w) => x + (w === 6 ? 0 : nbTrajetsDuJour(plan, w)), 0);
+      if (n > max) [max, debut] = [n, d];
+    }
+    for (const w of [debut, (debut + 1) % 7, (debut + 2) % 7]) if (w !== 6) liste.push({ cle: `type-4-${w}`, w, date: null });
+  }
+  return liste;
+}
+
+const dansUnePlage = (date, plages) => plages.some((v) => DATE_OK.test(v.du || "") && date >= v.du && date <= (DATE_OK.test(v.au || "") ? v.au : v.du));
+
+// Tous les trajets de la periode. Un trajet = { date, w, sens: "matin" | "sortie", heure, ecole, enfants: [index] }.
 // Deux enfants de la meme ecole au meme moment = un seul trajet. Chabbat, fetes et jours sans ecole : non comptes.
-export function trajetsPlan(plan, t = TARIFS) {
+// options.vacances : [{ du, au }] (vacances scolaires notees par Rebecca), en plus de celles du devis.
+export function trajetsPlan(plan, t = TARIFS, options = {}) {
   const trajets = new Map();
   const retires = []; // { date, motif }
-  const jourUnique = plan.periode === "jour";
-  for (const date of datesPeriode(plan)) {
-    const w = jourSemaine(date);
-    if (w === 6) continue;
-    const prevus = [];
-    plan.enfants.forEach((e, i) => {
-      if (!jourUnique && !e.jours[w].actif) return;
-      const ecole = cleEcole(ecoleDe(plan, i)) || String((ecoleDe(plan, i) || {}).label || "");
-      if (e.sens !== "sortie" && HEURE_OK.test(e.heureMatin || "")) prevus.push({ sens: "matin", heure: e.heureMatin, ecole, i });
-      if (e.sens !== "matin" && HEURE_OK.test(heureDuJour(e, w))) prevus.push({ sens: "sortie", heure: heureDuJour(e, w), ecole, i });
-    });
+  const jourUnique = plan.periode === "jour" && !options.du;
+  const plages = [{ du: plan.sansEcoleDu, au: plan.sansEcoleAu }, ...(options.vacances || [])];
+  for (const jour of joursDuPlan(plan, options)) {
+    const prevus = prevusDuJour(plan, jour.w, jourUnique);
     if (prevus.length === 0) continue;
-    const sacre = nomsJourSacre(date, t);
-    const vacances = DATE_OK.test(plan.sansEcoleDu || "") && date >= plan.sansEcoleDu && date <= (DATE_OK.test(plan.sansEcoleAu || "") ? plan.sansEcoleAu : plan.sansEcoleDu);
-    if (sacre.length || vacances) {
-      retires.push({ date, motif: sacre.length ? sacre.join(", ") : "Pas d'école" });
-      continue;
+    if (jour.date) {
+      const sacre = nomsJourSacre(jour.date, t);
+      if (sacre.length || dansUnePlage(jour.date, plages)) {
+        retires.push({ date: jour.date, motif: sacre.length ? sacre.join(", ") : "Pas d'école" });
+        continue;
+      }
     }
     for (const p of prevus) {
-      const cle = `${date}|${p.sens}|${p.heure}|${p.ecole}`;
-      if (!trajets.has(cle)) trajets.set(cle, { date, sens: p.sens, heure: p.heure, ecole: p.ecole, enfants: [] });
+      const cle = `${jour.cle}|${p.sens}|${p.heure}|${p.ecole}`;
+      if (!trajets.has(cle)) trajets.set(cle, { date: jour.cle, w: jour.w, reel: !!jour.date, sens: p.sens, heure: p.heure, ecole: p.ecole, enfants: [] });
       trajets.get(cle).enfants.push(p.i);
     }
   }
@@ -180,11 +223,12 @@ export function trajetsPlan(plan, t = TARIFS) {
 
 // routes = distance domicile <-> ecole (meme calcul que le site) : soit { km, minutes } (une seule ecole),
 // soit une table { [cleEcole]: { km, minutes } } quand les enfants ont des ecoles differentes.
-export function calculerPlan(plan, routes, t = TARIFS) {
+export function calculerPlan(plan, routes, t = TARIFS, options = {}) {
   const manque = manquePlan(plan);
   if (manque) return { ok: false, erreur: manque };
   const routeDe = (ecole) => (routes && typeof routes.km === "number" ? routes : routes && routes[ecole]) || null;
-  const { trajets, retires } = trajetsPlan(plan, t);
+  const { trajets, retires } = trajetsPlan(plan, t, options);
+  const sansDate = trajets.length > 0 && !trajets[0].reel;
   if (trajets.length === 0) return { ok: false, erreur: "Aucun jour d'école dans cette période (Chabbat, fête ou jours sans école)." };
 
   // Prix d'un trajet pour chaque ecole (exactement la regle du site)
@@ -219,12 +263,14 @@ export function calculerPlan(plan, routes, t = TARIFS) {
 
   const aConfirmer = [];
   if (horsAxe) aConfirmer.push("Trajet hors axe Netanya : prix à confirmer par Rebecca.");
-  if (plan.periode !== "jour") aConfirmer.push("Chabbat, fêtes et jours sans école ne sont pas comptés.");
+  if (sansDate && plan.periode === "mois") aConfirmer.push("Prix d'un mois complet (le plus long, sans fête ni vacances).");
+  else if (plan.periode !== "jour" && !sansDate) aConfirmer.push("Chabbat, fêtes et jours sans école ne sont pas comptés.");
 
   // Pour Rebecca seulement : ses propres creneaux deja pris (ecole de sa fille, fermetures...)
   const conflits = [];
   const vus = new Set();
   for (const x of trajets) {
+    if (!x.reel) continue;
     const p = verifierDisponibilite(x.date, x.heure, prixEcole.get(x.ecole).route.minutes * 2, t, "ramassage");
     const cle = `${jourSemaine(x.date)}|${x.heure}|${p ? p.label : ""}`;
     if (p && !vus.has(cle)) {
@@ -250,6 +296,7 @@ export function calculerPlan(plan, routes, t = TARIFS) {
       parTrajetNet,
       nbTrajets: trajets.length,
       jours,
+      sansDate,
       brut,
       reduction: total < brut ? pct : 0,
       reductionProposee: Math.round(proposee * 1000) / 10,
@@ -290,6 +337,10 @@ export function horairesEnfant(plan, i) {
 
 export function libellePeriode(plan, resultat) {
   if (plan.periode === "jour") return `le ${dateFr(plan.date)}`;
+  if (!DATE_OK.test(plan.date || "")) {
+    const n = resultat && resultat.ok ? resultat.details.jours : 0;
+    return plan.periode === "mois" ? `pour un mois complet${n ? ` (jusqu'à ${n} jours d'école)` : ""}` : `pour une semaine complète${n ? ` (${n} jour${n > 1 ? "s" : ""} d'école)` : ""}`;
+  }
   const fin = plan.periode === "mois" ? finDuMois(plan.date) : ajouterJours(plan.date, 6);
   const court = { day: "numeric", month: "long" };
   return `du ${dateFr(plan.date, court)} au ${dateFr(fin, court)}${resultat && resultat.ok ? ` (${resultat.details.jours} jour${resultat.details.jours > 1 ? "s" : ""} d'école)` : ""}`;
@@ -311,7 +362,7 @@ export function messagePlan(plan, resultat) {
     for (const g of x.groupes) lignes.push(`${g.nombre} trajet${g.nombre > 1 ? "s" : ""} x ${g.prix} ₪ = ${nombreFr(g.nombre * g.prix)} ₪`);
     if (x.reduction) lignes.push(`Réduction ${plan.periode === "jour" ? "" : "forfait "}${String(x.reduction).replace(".", ",")} % : -${nombreFr(x.economie)} ₪`);
     lignes.push(`Total : ${nombreFr(resultat.total)} ₪${x.reduction ? ` (soit ${String(x.parTrajetNet).replace(".", ",")} ₪ par trajet)` : ""}`);
-    if (plan.periode !== "jour") lignes.push("", "Chabbat, fêtes et jours sans école ne sont pas comptés.");
+    if (plan.periode !== "jour" && !x.sansDate) lignes.push("", "Chabbat, fêtes et jours sans école ne sont pas comptés.");
   }
   lignes.push("", "Pouvez-vous me confirmer les adresses exactes et les horaires ?", "", "Rebecca Services", "Votre temps est précieux, je vous aide à en profiter. 🌸");
   return lignes.join("\n");
@@ -333,4 +384,31 @@ export function planVersAjoutManuel(plan, resultat) {
     prix: resultat && resultat.ok ? String(resultat.total) : "",
   };
 }
-const trajetsPlanPremier = (plan) => trajetsPlan(plan).trajets[0] || null;
+const trajetsPlanPremier = (plan) => trajetsPlan(plan).trajets.find((x) => x.reel) || null;
+
+/* ---------- Forfait au mois accepte : prix du mois complet et prix reel de chaque mois ---------- */
+
+// forfait = { plan, routes } enregistres a l'acceptation. Prix du mois complet (le maximum) :
+export const prixMoisComplet = (forfait, t = TARIFS) => calculerPlan({ ...forfait.plan, periode: "mois", date: "", sansEcoleDu: "", sansEcoleAu: "" }, forfait.routes, t);
+
+// Prix reel d'un mois du calendrier (mois = 1 a 12) : Chabbat, fetes et vacances scolaires retires
+export function prixMoisReel(forfait, annee, mois, vacances = [], t = TARIFS) {
+  const p = (x) => String(x).padStart(2, "0");
+  const du = `${annee}-${p(mois)}-01`;
+  const au = `${annee}-${p(mois)}-${p(new Date(Date.UTC(annee, mois, 0)).getUTCDate())}`;
+  return calculerPlan({ ...forfait.plan, periode: "mois", date: du, sansEcoleDu: "", sansEcoleAu: "" }, forfait.routes, t, { du, au, vacances });
+}
+
+// Ce que Rebecca doit savoir pour un mois : prix complet, prix reel, jours retires
+export function bilanMois(forfait, annee, mois, vacances = [], t = TARIFS) {
+  const complet = prixMoisComplet(forfait, t);
+  const reel = prixMoisReel(forfait, annee, mois, vacances, t);
+  if (!complet.ok) return null;
+  return {
+    complet: complet.total,
+    reel: reel.ok ? reel.total : 0,
+    jours: reel.ok ? reel.details.jours : 0,
+    retires: reel.ok ? reel.details.retires : [],
+    difference: complet.total - (reel.ok ? reel.total : 0),
+  };
+}

@@ -78,3 +78,15 @@ export async function calculerTrajet(depart, arrivee, signal) {
     source: "OSRM",
   };
 }
+
+// Temps de route (minutes) entre plusieurs points, en UN seul appel : matrice[i][j] = de i vers j.
+// Meme majoration prudente de 15 % que calculerTrajet (OSRM ne connait pas la circulation).
+export async function calculerDurees(points, signal) {
+  if (!points || points.length < 2) return [[0]];
+  const url = `https://router.project-osrm.org/table/v1/driving/${points.map((p) => `${p.lon},${p.lat}`).join(";")}?annotations=duration`;
+  const rep = await fetch(url, { signal });
+  if (!rep.ok) throw new Error("Calcul d'itinéraire indisponible");
+  const data = await rep.json();
+  if (!data.durations) throw new Error("Aucun itinéraire trouvé");
+  return data.durations.map((ligne) => ligne.map((s) => (typeof s === "number" ? Math.max(1, Math.round((s / 60) * 1.15)) : null)));
+}

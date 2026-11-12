@@ -32,3 +32,27 @@
 .theme-sombre .rp-detail li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid rgba(185, 120, 112, 0.3); color: var(--g-texte); }
 .theme-sombre .rp-detail li b { text-align: right; }
 .theme-sombre .rp-alerte { color: var(--g-rose); }
+
+/* MA TOURNEE SCOLAIRE ET « EST-CE QUE JE PEUX ACCEPTER ? » (12 nov. 2026) */
+.theme-sombre .rp-six { grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 10px 0; }
+.theme-sombre .rp-six button { padding-left: 0; padding-right: 0; }
+.theme-sombre .rp-reponse { margin: 8px 0; font: 800 17px var(--g-titre); color: var(--g-texte); }
+.theme-sombre .rp-journee { border-top: 1px solid rgba(185, 120, 112, 0.3); padding: 10px 0; color: var(--g-texte); }
+.theme-sombre .rp-journee summary { display: flex; justify-content: space-between; gap: 10px; min-height: 44px; align-items: center; cursor: pointer; font-weight: 600; }
+.theme-sombre .rp-journee.impossible summary b { color: var(--g-alerte); }
+.theme-sombre .rp-arrets { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.theme-sombre .rp-arrets li { display: flex; gap: 12px; align-items: baseline; }
+.theme-sombre .rp-arrets li b { flex: none; width: 56px; font: 800 15px var(--g-titre); }
+.theme-sombre .rp-arrets li small { display: block; color: var(--g-texte-2); }
+.theme-sombre .rp-arrets li.nouveau { color: var(--g-rose); }
+.theme-sombre .rp-arrets li.coince b { color: var(--g-alerte); }
+.theme-sombre .rp-arrets li.pause { color: var(--g-texte-2); font-size: 13px; border-top: 1px dashed rgba(185, 120, 112, 0.3); padding-top: 6px; }
+.theme-sombre .rp-trajet summary { cursor: pointer; display: grid; gap: 4px; min-height: 44px; }
+.theme-sombre .rp-trajet summary h3 { display: inline; }
+.theme-sombre .rp-large { width: 100%; margin-top: 12px; }
+.theme-sombre .rp-forfait { padding: 10px 0; border-top: 1px solid rgba(185, 120, 112, 0.3); color: var(--g-texte); display: grid; gap: 8px; }
+.theme-sombre .rp-vacance { display: grid; gap: 8px; padding: 10px 0; border-top: 1px solid rgba(185, 120, 112, 0.3); }
+.theme-sombre .rp-vacance input[type="text"] { min-height: 44px; padding: 8px 12px; font: 16px var(--g-sans); }
+.theme-sombre .rp-enregistrer { position: sticky; bottom: 0; padding: 10px 0 14px; background: var(--g-fond); }
+.theme-sombre .rp-enregistrer .tdb-bouton { width: 100%; margin-top: 0; }
+.theme-sombre .rp-enregistrer .tdb-bouton:disabled { opacity: 0.5; }

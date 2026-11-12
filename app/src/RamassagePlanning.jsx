@@ -9,6 +9,10 @@ import { calculerTrajet } from "./routing.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { useFermetures } from "./fermetures.js";
 import { JOURS, PERIODES, SENS, MAX_ENFANTS, planVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel } from "./pricing/ramassagePlanning.js";
+import JourneeTournee from "./components/JourneeTournee.jsx";
+import { aujourdhui } from "./profil.js";
+import { evaluerDevis, ajouterALaTournee } from "./pricing/tournee.js";
+import { useTournee, useDurees, enregistrerTournee, PASTILLES } from "./tourneeBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
 
@@ -147,6 +151,26 @@ export default function RamassagePlanning({ retour, aller }) {
   const message = messagePlan(plan, resultat);
   const jourUnique = jourDeLaDate(plan.date);
 
+  // Est-ce que je peux accepter ? Les trajets de la cliente sont inseres dans ma tournee, jour par jour.
+  const base = useTournee();
+  const [cliente, setCliente] = useState("");
+  const [ajoutTournee, setAjoutTournee] = useState("");
+  const tousTrajets = useMemo(() => (pret ? [...base.donnees.trajets, ...evaluerDevis([], plan, () => 0).nouveaux] : []), [pret, plan, base.donnees.trajets]);
+  const durees = useDurees(tousTrajets);
+  const faisable = useMemo(
+    () => (pret && !base.refuse ? evaluerDevis(base.donnees.trajets, plan, durees.duree) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pret, plan, base, durees.statut, reglages]
+  );
+  const ajouterTournee = async () => {
+    try {
+      await enregistrerTournee(ajouterALaTournee(base.donnees, plan, routes, cliente, aujourdhui()));
+      setAjoutTournee("C'est ajouté à ta tournée scolaire.");
+    } catch {
+      setAjoutTournee("Ajout impossible pour l'instant. Vérifie ta connexion et réessaie.");
+    }
+  };
+
   const copier = async () => {
     try {
       await navigator.clipboard.writeText(message);
@@ -189,13 +213,15 @@ export default function RamassagePlanning({ retour, aller }) {
               ))}
             </div>
             {plan.periode === "semaine" && <span className="aide">Coche les jours de chaque enfant (1, 3, 5 jours…).</span>}
-            {plan.periode === "mois" && <span className="aide">Un mois à partir du premier jour. Chabbat et fêtes sont retirés automatiquement.</span>}
+            {plan.periode === "mois" && plan.date && <span className="aide">Un mois à partir du premier jour. Chabbat et fêtes sont retirés automatiquement.</span>}
           </fieldset>
           <div className="champ">
-            <label htmlFor="rp-date">{plan.periode === "jour" ? "Date" : "Premier jour"} *</label>
+            <label htmlFor="rp-date">{plan.periode === "jour" ? "Date *" : "Premier jour (facultatif)"}</label>
             <input id="rp-date" type="date" value={plan.date} onChange={(e) => changer("date", e.target.value)} />
+            {plan.periode === "semaine" && !plan.date && <span className="aide">Sans date : prix d'une semaine complète.</span>}
+            {plan.periode === "mois" && !plan.date && <span className="aide">Sans date : prix du mois le plus long, sans fête ni vacances. C'est le prix maximum d'un mois.</span>}
           </div>
-          {plan.periode !== "jour" && (
+          {plan.periode !== "jour" && plan.date && (
             <fieldset className="champ">
               <legend>Jours sans école dans la période (vacances), facultatif</legend>
               <div className="rp-vacances">
@@ -245,6 +271,24 @@ export default function RamassagePlanning({ retour, aller }) {
           {x.conflits.length > 0 && (
             <p className="tdb-note rp-alerte">Pour toi seulement, déjà pris dans ton agenda : {x.conflits.join(" ; ")}.</p>
           )}
+        </section>
+      )}
+
+      {calcule && faisable && faisable.jours.length > 0 && (
+        <section className="tdb-bloc">
+          <h2>Est-ce que je peux accepter ?</h2>
+          <p className="rp-reponse">{PASTILLES[faisable.statut].signe} {faisable.statut === "possible" ? "Oui, ça rentre dans ma tournée." : faisable.statut === "serre" ? "Oui, mais c'est serré certains jours." : faisable.statut === "impossible" ? "Non, pas tous les jours tel quel." : "Calcul des temps de route en cours…"}</p>
+          {durees.statut === "erreur" && <p className="rp-alerte">Temps de route indisponibles pour l'instant. Réessaie dans un moment.</p>}
+          {base.donnees.trajets.length === 0 && <p className="tdb-note">Ta tournée scolaire est vide : remplis-la dans la rubrique « Tournée scolaire » pour que la réponse en tienne compte.</p>}
+          {faisable.jours.map((j) => (
+            <JourneeTournee key={j.w} titre={j.jour} jour={j} nouveaux={faisable.nouveaux.map((r) => r.id)} />
+          ))}
+          <p className="tdb-note">Pour toi seulement. En rose : les enfants de ce devis. Rien n'est bloqué, c'est toi qui décides.</p>
+          <div className="dr-actions">
+            <input className="dr-tel" type="text" maxLength={60} placeholder="Nom de la cliente" value={cliente} onChange={(e) => setCliente(e.target.value)} />
+            <button className="dr-secondaire" onClick={ajouterTournee}>La cliente accepte : ajouter à ma tournée</button>
+          </div>
+          {ajoutTournee && <p className="tdb-note" role="status">{ajoutTournee}</p>}
         </section>
       )}
 

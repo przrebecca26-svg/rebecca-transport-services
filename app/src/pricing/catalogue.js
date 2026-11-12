@@ -381,6 +381,10 @@ export const TARIFS_EDITABLES = [
   { chemin: "ramassage.reductions.1.pourcentage", label: "Ramassage : réduction 3 jours ou plus", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
   { chemin: "ramassage.reductionMois", label: "Ramassage : réduction forfait au mois", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
   { chemin: "ramassage.reductionPlusieursEnfants", label: "Ramassage : réduction plusieurs enfants (forfait)", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
+  { chemin: "tournee.margeRouteMinutes", label: "Tournée : marge de route à chaque déplacement", unite: "min", groupe: "Ramassage scolaire" },
+  { chemin: "tournee.arretMinutes", label: "Tournée : temps d'arrêt (monter ou descendre)", unite: "min", groupe: "Ramassage scolaire" },
+  { chemin: "tournee.retardMaxMinutes", label: "Tournée : retard maximum à une sortie d'école", unite: "min", groupe: "Ramassage scolaire" },
+  { chemin: "tournee.places", label: "Tournée : places pour les enfants dans la voiture", unite: "", groupe: "Ramassage scolaire" },
   { chemin: "carburant.prixLitre", label: "Prix du litre d'essence", unite: "₪", decimales: true, groupe: "Calcul du prix" },
   { chemin: "tempsParHeure", label: "Valeur de mon heure de travail", unite: "₪", groupe: "Calcul du prix" },
 ];

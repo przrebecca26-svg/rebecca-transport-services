@@ -159,14 +159,27 @@ function PhotosArticle({ prestationId, visuel, max = PHOTO.maxParArticle, galeri
       ),
     [prestationId]
   );
+  // L'image du site devient une vraie photo (copiee dans la base), pour rester la photo principale
+  const copierImageSite = async (ordre) => {
+    const reponse = await fetch(visuel);
+    const v = validerPhoto({ donnees: await reduirePhoto(await reponse.blob()), legende: "" });
+    if (v.erreur) throw new Error(v.erreur);
+    await addDoc(collection(db, "photosCatalogue"), { prestationId, ...v.photo, ordre, creeLe: serverTimestamp() });
+  };
+  const ordreMin = () => photos.reduce((m, p) => Math.min(m, p.ordre || 0), 0);
+  const ordreMax = () => photos.reduce((m, p) => Math.max(m, p.ordre || 0), -1);
   const ajouter = async (e) => {
-    const fichiers = [...(e.target.files || [])].slice(0, max - photos.length);
+    const placeSite = photos.length === 0 && visuel && !galerie ? 1 : 0;
+    const fichiers = [...(e.target.files || [])].slice(0, max - photos.length - placeSite);
     e.target.value = "";
     if (!fichiers.length) return;
     setEnCours(true);
     setMessage(null);
     try {
-      let ordre = photos.length;
+      // 12 nov. 2026 (Rebecca) : ajouter des photos ne doit pas effacer la photo principale (« photo de profil ») :
+      // l'image du site est d'abord gardee comme photo n° 1, les nouvelles photos vont dans la galerie de l'article.
+      if (placeSite) await copierImageSite(0);
+      let ordre = Math.max(ordreMax() + 1, placeSite);
       for (const f of fichiers) {
         const v = validerPhoto({ donnees: await reduirePhoto(f) });
         if (v.erreur) throw new Error(v.erreur);
@@ -193,23 +206,45 @@ function PhotosArticle({ prestationId, visuel, max = PHOTO.maxParArticle, galeri
       setMessage({ erreur: true, texte: "Suppression impossible." });
     }
   };
+  // La photo choisie passe en premier : c'est elle que les clientes voient sur la carte de l'article
+  const principale = async (p) => {
+    try {
+      await updateDoc(doc(db, "photosCatalogue", p.id), { ordre: ordreMin() - 1 });
+    } catch {
+      setMessage({ erreur: true, texte: "Enregistrement impossible." });
+    }
+  };
+  const remettreImageSite = async () => {
+    setEnCours(true);
+    setMessage(null);
+    try {
+      await copierImageSite(ordreMin() - 1);
+    } catch {
+      setMessage({ erreur: true, texte: "Impossible de remettre l'image du site pour l'instant." });
+    }
+    setEnCours(false);
+  };
   return (
     <div className="rg-photos">
       <p className="tb-note">Photos ({photos.length}/{max}) : réduites automatiquement. {galerie ? "Tu peux en choisir plusieurs d'un coup. Description facultative (ex. Avant / après, sourcils)." : "Description facultative (dimensions, couleurs…)."}</p>
       {photos.length === 0 && visuel && (
         <div className="rg-photo">
           <img src={visuel} alt="Image affichée actuellement sur le site" />
-          <p className="tb-note">Image affichée actuellement sur le site. Elle sera remplacée dès que tu ajoutes ta photo.</p>
+          <p className="tb-note">Photo principale actuelle (image du site). Elle reste la photo principale quand tu ajoutes tes photos : les nouvelles vont dans la galerie de l'article.</p>
         </div>
       )}
       {photos.length === 0 && !visuel && !galerie && <p className="tb-note">Aucune image pour l'instant : les clientes voient la prestation sans photo.</p>}
-      {photos.map((p) => (
+      {photos.map((p, i) => (
         <div key={p.id} className="rg-photo">
+          {!galerie && (i === 0 ? <p className="rg-principale">★ Photo principale (carte de l'article)</p> : <button type="button" className="tb-bouton tb-clair" onClick={() => principale(p)}>★ Mettre en photo principale</button>)}
           <img src={p.donnees} alt={p.legende || "Photo de l'article"} />
           <input className="am-champ" defaultValue={p.legende || ""} maxLength={PHOTO.legendeMax} placeholder={galerie ? "Ex : Avant / après, sourcils" : "Ex : 30 x 20 cm, noir et or"} onBlur={(e) => e.target.value !== (p.legende || "") && legende(p, e.target.value)} />
           <button type="button" className="tb-bouton tb-danger" onClick={() => { if (confirm("Supprimer cette photo ?")) supprimer(p); }}>Supprimer</button>
         </div>
       ))}
+      {!galerie && visuel && photos.length > 0 && photos.length < max && (
+        <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={remettreImageSite}>Remettre l'image du site en photo principale</button>
+      )}
       {photos.length < max && (
         <label className="tb-bouton tb-clair rg-ajout-photo">
           {enCours ? "Ajout en cours…" : "+ Ajouter des photos"}
@@ -230,22 +265,41 @@ function FichePrestation({ f: depart, existe, onFermer }) {
   const [message, setMessage] = useState(null);
   const ch = (k, v) => setF((a) => ({ ...a, [k]: v }));
   const commande = f.activite === "epoxy";
+  const [cree, setCree] = useState(existe);
   const enregistrer = async () => {
     const v = validerPrestation(f);
     if (v.erreur) return setMessage({ erreur: true, texte: v.erreur });
     try {
       const id = f.id || `${f.activite}-${Date.now().toString(36)}`;
       await setDoc(doc(db, "catalogue", id), { ...v.prestation, ordre: f.ordre ?? 999, majLe: serverTimestamp() });
+      // Nouvel article : la fiche reste ouverte pour ajouter ses photos tout de suite
+      if (!cree) {
+        setF((a) => ({ ...a, id }));
+        setCree(true);
+        return setMessage({ texte: "Article créé. Tu peux maintenant ajouter ses photos ci-dessous." });
+      }
       onFermer();
     } catch {
       setMessage({ erreur: true, texte: "Enregistrement impossible pour l'instant (connexion ou règles Firebase)." });
+    }
+  };
+  // 12 nov. 2026 : revenir aux valeurs de depart (nom, prix, variantes) d'un article de la liste de depart
+  const origine = f.id ? CATALOGUE_DEPART.find((x) => x.id === f.id) : null;
+  const remettreDepart = async () => {
+    if (!confirm("Remettre « " + origine.nom + " » comme au départ (nom, prix, variantes, descriptif) ? Les photos ne changent pas.")) return;
+    try {
+      const { id, ...reste } = origine;
+      await setDoc(doc(db, "catalogue", id), { ...reste, publiee: true, supprimee: false, majLe: serverTimestamp() });
+      onFermer();
+    } catch {
+      setMessage({ erreur: true, texte: "Impossible pour l'instant (connexion ou règles Firebase)." });
     }
   };
   const variante = (i, k, val) => ch("variantes", f.variantes.map((v, j) => (j === i ? { ...v, [k]: val } : v)));
   return (
     <div className="tb-bloc pm-form">
       <button type="button" className="tb-retour aj-lien" onClick={onFermer}>← Retour au catalogue</button>
-      <h4>{existe ? "Modifier" : commande ? "Nouvel article" : "Nouvelle prestation"} · {NOMS_ACTIVITE[f.activite]}</h4>
+      <h4>{cree ? "Modifier" : commande ? "Nouvel article" : "Nouvelle prestation"} · {NOMS_ACTIVITE[f.activite]}</h4>
       <label className="pm-champ">Nom<input value={f.nom} maxLength={100} onChange={(e) => ch("nom", e.target.value)} /></label>
       <label className="pm-champ">
         Catégorie
@@ -278,14 +332,17 @@ function FichePrestation({ f: depart, existe, onFermer }) {
           {f.variantes.length < 6 && <button type="button" className="tb-retour aj-lien" onClick={() => ch("variantes", [...f.variantes, { nom: "", prix: "" }])}>+ Ajouter une variante</button>}
         </>
       )}
-      {existe && f.id ? <PhotosArticle prestationId={f.id} visuel={visuelDe(f.activite, depart.nom)} /> : <p className="tb-note">Les photos s'ajoutent après le premier enregistrement.</p>}
+      {cree && f.id ? <PhotosArticle prestationId={f.id} visuel={visuelDe(f.activite, depart.nom)} /> : <p className="tb-note">Touche « Enregistrer » : la fiche reste ouverte et tu peux ajouter les photos aussitôt.</p>}
       <label className="rg-case"><input type="checkbox" checked={f.option} onChange={(e) => ch("option", e.target.checked)} /> Option (s'ajoute à une prestation)</label>
       <label className="rg-case"><input type="checkbox" checked={f.publiee} onChange={(e) => ch("publiee", e.target.checked)} /> Publiée (visible des clientes quand l'activité est ouverte)</label>
       <Message m={message} />
       <div className="tb-actions">
         <button className="tb-bouton" onClick={enregistrer}>Enregistrer</button>
-        <button className="tb-bouton tb-clair" onClick={onFermer}>Annuler</button>
+        <button className="tb-bouton tb-clair" onClick={onFermer}>{cree && !existe ? "Fermer" : "Annuler"}</button>
       </div>
+      {origine && (
+        <button type="button" className="tb-retour aj-lien" onClick={remettreDepart}>↺ Remettre comme au départ ({origine.nom})</button>
+      )}
     </div>
   );
 }
@@ -335,22 +392,21 @@ function Catalogue() {
     []
   );
   const enBase = (liste || []).length > 0;
-  const source = (() => {
-    if (!enBase) return CATALOGUE_DEPART;
-    // Merge: Firestore items + CATALOGUE_DEPART items not yet in Firestore (same nom + activite)
-    const noms = new Set(liste.map((l) => l.activite + "|" + l.nom));
-    const manquants = CATALOGUE_DEPART.filter((d) => !noms.has(d.activite + "|" + d.nom));
-    return [...liste, ...manquants];
+  // 12 nov. 2026 : un article de depart renomme dans la base (meme identifiant) ne revient plus en double,
+  // et un article supprime reste supprime (marque « supprimee » : il ne revient ni dans la liste ni au site).
+  const actifs = (liste || []).filter((l) => !l.supprimee);
+  const supprimes = (liste || []).filter((l) => l.supprimee);
+  const manquantsDepart = (() => {
+    const ids = new Set((liste || []).map((l) => l.id));
+    const noms = new Set((liste || []).map((l) => l.activite + "|" + l.nom));
+    return CATALOGUE_DEPART.filter((d) => !ids.has(d.id) && !noms.has(d.activite + "|" + d.nom));
   })();
+  const source = !enBase ? CATALOGUE_DEPART : [...actifs, ...manquantsDepart];
   const items = useMemo(() => source.filter((x) => x.activite === activite).sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999) || String(a.nom).localeCompare(String(b.nom))), [source, activite]);
   const categories = [...new Set(items.map((x) => x.categorie))];
 
   // Prestations de la liste de depart absentes de la base (ni meme identifiant, ni meme nom dans l'activite)
-  const manquantsBase = useMemo(() => {
-    const ids = new Set((liste || []).map((l) => l.id));
-    const noms = new Set((liste || []).map((l) => l.activite + "|" + l.nom));
-    return CATALOGUE_DEPART.filter((d) => !ids.has(d.id) && !noms.has(d.activite + "|" + d.nom));
-  }, [liste]);
+  const manquantsBase = manquantsDepart;
   const nonPubliees = items.filter((x) => (liste || []).some((l) => l.id === x.id) && !x.publiee && x.typePrix !== "prive");
 
   // Enregistre dans la base UNIQUEMENT ce qui y manque : rien de ce que Rebecca a deja modifie n'est ecrase.
@@ -448,9 +504,11 @@ function Catalogue() {
               <div style={{ display: "flex", gap: 8, width: "100%", justifyContent: "flex-end" }}>
               <button type="button" className="tb-bouton" style={{ fontSize: 13, padding: "4px 8px" }} onClick={() => setEdition({ f: enFormulaire(x), existe: true })}>Modifier</button>
               <button type="button" className="tb-bouton tb-danger" style={{ fontSize: 13, padding: "6px 10px" }} onClick={async () => {
-                if (!confirm("Supprimer « " + x.nom + " » ? Cette action est irréversible.")) return;
+                if (!confirm("Supprimer « " + x.nom + " » ? Il disparaît du site. Tu pourras le remettre en bas de la liste (« Articles supprimés »).")) return;
                 try {
-                  await deleteDoc(doc(db, "catalogue", x.id));
+                  // Supprime = retire du site et de la liste, mais gardé de côté (photos comprises) pour pouvoir le remettre
+                  const { id, ...reste } = x;
+                  await setDoc(doc(db, "catalogue", id), { ...reste, publiee: false, supprimee: true, majLe: serverTimestamp() });
                 } catch {
                   setMessage({ erreur: true, texte: "Suppression impossible." });
                 }
@@ -460,6 +518,23 @@ function Catalogue() {
           ))}
         </div>
       ))}
+      {supprimes.filter((x) => x.activite === activite).length > 0 && (
+        <div className="tb-bloc">
+          <h3>Articles supprimés · {NOMS_ACTIVITE[activite]}</h3>
+          <p className="tb-note">Invisibles pour les clientes. « Remettre » les replace dans le catalogue, publiés, avec leurs photos.</p>
+          {supprimes.filter((x) => x.activite === activite).map((x) => (
+            <div key={x.id} className="tb-ligne" style={{ alignItems: "center", gap: 8, margin: "6px 0" }}>
+              <span>{x.nom} · {libellePrix(x)}</span>
+              <span style={{ display: "flex", gap: 6 }}>
+                <button type="button" className="tb-bouton tb-clair" style={{ fontSize: 13, padding: "4px 8px" }} onClick={() => updateDoc(doc(db, "catalogue", x.id), { supprimee: false, publiee: true, majLe: serverTimestamp() }).catch(() => setMessage({ erreur: true, texte: "Impossible pour l'instant." }))}>Remettre</button>
+                {!CATALOGUE_DEPART.some((d) => d.id === x.id) && (
+                  <button type="button" className="tb-bouton tb-danger" style={{ fontSize: 13, padding: "4px 8px" }} onClick={() => { if (confirm("Effacer définitivement « " + x.nom + " » ?")) deleteDoc(doc(db, "catalogue", x.id)).catch(() => setMessage({ erreur: true, texte: "Impossible pour l'instant." })); }}>Effacer</button>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       <datalist id={"cat-" + activite}>
         {(activite === "epoxy" ? CATEGORIES_EPOXY : categories).map((c) => <option key={c} value={c} />)}
       </datalist>

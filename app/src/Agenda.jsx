@@ -360,7 +360,10 @@ function Evenement({ d }) {
         <div className="ag-detail">
           <p>{d.telephone} · Paiement prévu : {d.moyenPaiement}</p>
           {adresses.map((a, i) => (
-            <p key={i} dir="auto" className="ag-adresse">{a.label}</p>
+            <div key={i} className="ag-adresse-ligne">
+              <p dir="auto" className="ag-adresse">{a.label}</p>
+              <a className="ag-waze" href={lienWazePoint(a)} target="_blank" rel="noopener noreferrer" aria-label={"Ouvrir " + a.label + " dans Waze"}>Waze</a>
+            </div>
           ))}
           <div className="tb-actions">
             {whatsapp && <a className="tb-bouton" href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
@@ -526,8 +529,9 @@ const enMinutes = (h) => {
 // Une journee : fermetures (Chabbat, fetes...), puis UN SEUL FIL dans l'ordre des heures :
 // ma tournee (etapes reelles), mes courses et rendez-vous, les missions confiees.
 // fil = etapes de ma tournee (vide si pas de tournee) ; tourneeOk = la tournee remplace les « Creneau deja reserve »
-function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false, journee = null }) {
-  const fermetures = tourneeOk ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
+function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false, journee = null, equipier = false }) {
+  // Les creneaux personnels sont ceux de Rebecca (sa tournee) : jamais dans l'agenda d'un coequipier (12 nov. 2026)
+  const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
     ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} />, etape: true })),
     ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id, rendu: <Evenement d={d} /> })),
@@ -759,9 +763,9 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>
 
-      {vue === "jour" && <JourListe fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
+      {vue === "jour" && <JourListe equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
-      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
+      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre equipier={moi !== ADMIN_ID} fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
 
       {vue === "mois" && (
         <>

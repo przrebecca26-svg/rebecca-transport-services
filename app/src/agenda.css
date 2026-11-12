@@ -65,3 +65,5 @@
 .ag-changements { margin: 6px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--g-rose, #f1aeb7); background: rgba(241, 174, 183, 0.08); display: grid; gap: 6px; }
 .ag-changements p { margin: 0; }
 .ag-retire { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ag-adresse-ligne { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.ag-adresse-ligne .ag-adresse { flex: 1; min-width: 0; margin: 4px 0; }

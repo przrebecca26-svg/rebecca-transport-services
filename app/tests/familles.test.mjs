@@ -117,3 +117,27 @@ test("elle m'attend chez l'amie seulement certains jours : ces jours-la je la pr
   egal(To.heureTrajet(t[0], 4), "12:00");
   egal(F.lireFamilles([{ enfants: [{ rdv: [{ priseAilleurs: AMIE }] }] }])[0].enfants[0].rdv[0].joursAilleurs, [true, true, true, true, true, true]);
 });
+
+section("Familles : doublons");
+
+test("la meme famille saisie deux fois est signalee (nom contenu dans l'autre, telephone, domicile + enfant)", () => {
+  const a = { ...AMIE_F, id: "x1", nom: "Alexia" };
+  const b = { ...AMIE_F, id: "x2", nom: "Alexia Dahan" };
+  egal(F.doublonsFamilles([MOI, a, b]).length, 1);
+  vrai(/« Alexia » et « Alexia Dahan » : même nom, enfant\(s\) en commun : liel, joy/.test(F.doublonsFamilles([MOI, a, b])[0]));
+  egal(F.doublonsFamilles([{ ...MOI, nom: "Rebecca", telephone: "054-111 22 33" }, { ...AMIE_F, nom: "Autre", telephone: "+972541112233" }]).length, 1);
+  egal(F.doublonsFamilles([{ ...MOI, nom: "A" }, { ...MOI, id: "m2", nom: "B" }]).length, 1); // meme domicile, meme enfant
+});
+
+test("deux familles differentes ne sont pas des doublons ; un enfant saisi deux fois est signale", () => {
+  egal(F.doublonsFamilles([MOI, AMIE_F]), []);
+  egal(F.doublonsFamilles([{ ...MOI, nom: "Anna" }, { ...AMIE_F, nom: "Joanna" }]), []);
+  const deuxFois = { ...AMIE_F, enfants: [AMIE_F.enfants[0], { ...AMIE_F.enfants[0], id: "bis" }] };
+  vrai(/Liel.*deux fois/.test(F.doublonsFamilles([deuxFois])[0]));
+});
+
+test("trajet ajoute a la main en double avec une fiche", () => {
+  const fiches = F.trajetsDesFamilles([AMIE_F]);
+  const manuels = [To.trajetVide({ nom: "Vieux trajet Gan", type: "sortie", de: GAN, a: AMIE }), To.trajetVide({ nom: "Autre", type: "sortie", de: ECOLE, a: MAISON })];
+  egal(F.doublonsTrajets(manuels, fiches).map((r) => r.nom), ["Vieux trajet Gan"]);
+});

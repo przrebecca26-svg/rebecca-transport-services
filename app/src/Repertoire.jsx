@@ -43,6 +43,7 @@ function Lieu({ l, changer, supprimer, connues, ouvert, ouvrir }) {
       <div className="dr-actions">
         {l.adresse && l.adresse.label && <a className="tdb-bouton dr-lien" href={waze(l.adresse)} target="_blank" rel="noopener noreferrer">Ouvrir dans Waze</a>}
         <button type="button" className="dr-secondaire" onClick={supprimer}>Supprimer ce lieu</button>
+        <button type="button" className="tdb-bouton" onClick={() => ouvrir(false)}>← Retour au répertoire</button>
       </div>
     </details>
   );
@@ -150,7 +151,7 @@ export default function Repertoire() {
             <div key={t.v}>
               <p className="rp-type">{t.l}</p>
               {duType.map((l) => (
-                <Lieu key={l.id} l={l} connues={lieuxConnus} ouvert={lieuOuvert === l.id} ouvrir={(oui) => setLieuOuvert((actuel) => (oui ? l.id : actuel === l.id ? "" : actuel))} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
+                <Lieu key={l.id} l={l} connues={lieuxConnus} ouvert={lieuOuvert === l.id} ouvrir={(oui) => { setLieuOuvert((actuel) => (oui ? l.id : actuel === l.id ? "" : actuel)); if (!oui) window.scrollTo({ top: 0, behavior: "smooth" }); }} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
               ))}
             </div>
           );

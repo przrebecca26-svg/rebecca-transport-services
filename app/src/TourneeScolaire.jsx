@@ -9,7 +9,7 @@ import { JOURS, trajetVide, manqueTrajet, heureTrajet, evaluerJour, adressesConn
 import { bilanMois } from "./pricing/ramassagePlanning.js";
 import { useTournee, useDurees, enregistrerTournee } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
-import { trajetsDesFamilles } from "./pricing/familles.js";
+import { trajetsDesFamilles, doublonsTrajets } from "./pricing/familles.js";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
@@ -250,6 +250,9 @@ export default function TourneeScolaire() {
       <section className="tdb-bloc">
         <h2>Trajets ajoutés à la main</h2>
         <p className="tdb-note">Pour un trajet qui n'est dans aucune fiche.</p>
+        {doublonsTrajets(trajets, desFiches).length > 0 && (
+          <p className="rp-alerte">⚠️ En double avec une fiche du Répertoire (mêmes adresses) : {doublonsTrajets(trajets, desFiches).map((r) => r.nom || "trajet sans nom").join(", ")}. Supprime-les ici, sinon ils comptent deux fois.</p>
+        )}
       </section>
       <div className="formulaire dr-formulaire">
         {trajets.map((r) => (

@@ -2,7 +2,7 @@ import { useState } from "react";
 import Champ from "./components/Champ.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
 import { JOURS } from "./pricing/tournee.js";
-import { familleVide, enfantFicheVide, rdvVide, manqueRdv, nomRdv, arriveeDuJour, sortieDuJour } from "./pricing/familles.js";
+import { familleVide, enfantFicheVide, rdvVide, manqueRdv, nomRdv, arriveeDuJour, sortieDuJour, doublonsFamilles } from "./pricing/familles.js";
 
 // FAMILLES ET ENFANTS (12 nov. 2026) : dans le Repertoire, la fiche de chaque enfant (ecole, activites, jours,
 // heures). La tournee scolaire se construit toute seule a partir de ces fiches.
@@ -154,23 +154,36 @@ function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
         <button type="button" className="dr-secondaire" onClick={() => set("enfants", [...f.enfants, enfantFicheVide()])}>+ Ajouter un enfant</button>
         <button type="button" className="dr-secondaire" onClick={supprimer}>Supprimer cette famille</button>
       </div>
+      <button type="button" className="tdb-bouton" onClick={() => ouvrir(false)}>← Retour au répertoire</button>
     </details>
   );
 }
 
 export default function Familles({ familles, changer, connues, voit }) {
   const [ouverte, setOuverte] = useState("");
+  const doublons = doublonsFamilles(familles);
+  // Fermer une fiche ramene en haut du repertoire
+  const ouvrir = (id, oui) => {
+    setOuverte((a) => (oui ? id : a === id ? "" : a));
+    if (!oui && typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const visibles = familles.filter((f) => !f.nom || voit(f.nom, f.telephone, ...f.enfants.map((e) => e.prenom)));
   return (
     <>
       <section className="tdb-bloc">
         <h2>Familles et enfants</h2>
         <p className="tdb-note">Une fiche par enfant : école, activités, jours et heures. Ma tournée scolaire se construit toute seule à partir de ces fiches.</p>
+        {doublons.length > 0 && (
+          <div className="rp-correction">
+            <p className="rp-alerte">⚠️ Doublons possibles : garde une seule fiche et supprime l'autre, sinon ses trajets comptent deux fois.</p>
+            {doublons.map((d, k) => <p className="tdb-note" key={k}>{d}</p>)}
+          </div>
+        )}
         {familles.length === 0 && <p className="tdb-note">Commence par ta famille (ton enfant), puis ajoute les familles dont tu emmènes les enfants.</p>}
       </section>
       <div className="formulaire dr-formulaire">
         {visibles.map((f) => (
-          <Famille key={f.id} f={f} connues={connues} ouvert={ouverte === f.id} ouvrir={(oui) => setOuverte((a) => (oui ? f.id : a === f.id ? "" : a))} changer={(n) => changer(familles.map((x) => (x.id === f.id ? n : x)))} supprimer={() => changer(familles.filter((x) => x.id !== f.id))} />
+          <Famille key={f.id} f={f} connues={connues} ouvert={ouverte === f.id} ouvrir={(oui) => ouvrir(f.id, oui)} changer={(n) => changer(familles.map((x) => (x.id === f.id ? n : x)))} supprimer={() => changer(familles.filter((x) => x.id !== f.id))} />
         ))}
       </div>
       <button type="button" className="dr-secondaire rp-large" onClick={() => { const n = familleVide(); setOuverte(n.id); changer([...familles, n]); }}>+ Ajouter une famille (moi, une amie, une cliente)</button>

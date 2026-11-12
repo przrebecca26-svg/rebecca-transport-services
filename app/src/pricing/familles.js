@@ -157,3 +157,44 @@ export function familleDuDevis(plan, nomCliente = "") {
     })),
   };
 }
+
+/* ---------- Doublons ---------- */
+
+const simple = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u05d0-\u05ea]+/g, " ").trim();
+const cle = (a) => (aCoord(a) ? `${a.lat.toFixed(4)},${a.lon.toFixed(4)}` : "");
+const tel = (x) => String(x || "").replace(/\D/g, "").replace(/^972/, "0");
+
+// Familles probablement saisies deux fois : meme telephone, meme nom (ou l'un contient l'autre : « Alexia » et
+// « Alexia Dahan »), ou meme domicile avec un enfant du meme prenom. Renvoie des phrases a afficher.
+export function doublonsFamilles(familles) {
+  const alertes = [];
+  for (let i = 0; i < familles.length; i++) {
+    for (let j = i + 1; j < familles.length; j++) {
+      const [a, b] = [familles[i], familles[j]];
+      const [na, nb] = [simple(a.nom), simple(b.nom)];
+      const memeNom = !!na && !!nb && (na === nb || ` ${na} `.includes(` ${nb} `) || ` ${nb} `.includes(` ${na} `));
+      const memeTel = tel(a.telephone).length >= 9 && tel(a.telephone) === tel(b.telephone);
+      const prenoms = a.enfants.map((e) => simple(e.prenom)).filter((p) => p && b.enfants.some((e) => simple(e.prenom) === p));
+      const memeMaison = !!cle(a.domicile) && cle(a.domicile) === cle(b.domicile);
+      if (memeNom || memeTel || (prenoms.length > 0 && memeMaison)) {
+        const raison = memeTel ? "même téléphone" : memeNom ? "même nom" : "même domicile et même enfant";
+        alertes.push(`« ${a.nom || "Sans nom"} » et « ${b.nom || "Sans nom"} » : ${raison}${prenoms.length ? `, enfant(s) en commun : ${prenoms.join(", ")}` : ""}.`);
+      }
+    }
+    // Le meme enfant deux fois dans la meme famille
+    const vus = new Set();
+    for (const e of familles[i].enfants) {
+      const p = simple(e.prenom);
+      if (p && vus.has(p)) alertes.push(`« ${familles[i].nom || "Sans nom"} » : l'enfant « ${e.prenom} » est saisi deux fois.`);
+      vus.add(p);
+    }
+  }
+  return alertes;
+}
+
+// Trajets ajoutes a la main qui font double emploi avec un trajet venu d'une fiche (memes adresses, meme sens)
+export function doublonsTrajets(manuels, desFiches) {
+  const signature = (r) => `${r.type}|${cle(r.de)}|${cle(r.a)}`;
+  const connus = new Set(desFiches.filter((r) => cle(r.de) && cle(r.a)).map(signature));
+  return manuels.filter((r) => cle(r.de) && cle(r.a) && connus.has(signature(r)));
+}

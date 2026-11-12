@@ -186,7 +186,9 @@ export const TARIFS = {
   // Ma tournee scolaire (12 nov. 2026) : marge de route a chaque deplacement (petit probleme sur la route), temps
   // d'arret pour faire monter ou descendre les enfants, retard maximum accepte a une sortie d'ecole, places passagers.
   // retourMaisonMinutes : entre deux moments de la journee, retour a la maison seulement s'il reste au moins ce temps libre.
-  tournee: { margeRouteMinutes: 5, arretMinutes: 5, retardMaxMinutes: 10, places: 4, retourMaisonMinutes: 30 },
+  tournee: { margeRouteMinutes: 5, arretMinutes: 5, retardMaxMinutes: 10, places: 4, retourMaisonMinutes: 30, libreMinutes: 20 },
+  // libreMinutes (12 nov. 2026, 16h07) : pendant une activite (basket...), si j'attends au moins 20 min entre la depose
+  // et la recuperation, ce temps est LIBRE (pas bloque) : je peux prendre une petite course aux alentours.
 
   // Hatan & Kala : 220 minimum ; hors Netanya = trajet + prestation mariage
   hatanKala: { base: 220, decoration: 150, prestationHorsNetanya: 70 },

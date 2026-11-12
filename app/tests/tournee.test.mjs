@@ -346,11 +346,11 @@ test("chaque moment de la journee, du depart au retour a la maison, devient un c
   ]);
 });
 
-test("sans domicile : du premier au dernier arret ; un jour different a son propre creneau", () => {
+test("sans domicile : du depart vers le premier arret au dernier arret ; un jour different a son propre creneau", () => {
   const t = TOURNEE.map((r) => (r.id === "f3" ? { ...r, jours: r.jours.map((j, w) => (w === 5 ? { ...j, heure: "12:00" } : j)) } : r.id === "f4" ? { ...r, jours: r.jours.map((j, w) => (w === 5 ? { ...j, heure: "11:45" } : j)) } : r));
   const c = To.creneauxDeLaTournee(t, duree, null, T);
-  vrai(c.some((x) => x.jours.join() === "5" && x.debut === "12:00"), JSON.stringify(c));
-  vrai(c.some((x) => x.jours.join() === "0,1,2,3,4" && x.debut === "14:00"), JSON.stringify(c));
+  vrai(c.some((x) => x.jours.join() === "5" && x.debut === "11:55"), JSON.stringify(c));
+  vrai(c.some((x) => x.jours.join() === "0,1,2,3,4" && x.debut === "13:55"), JSON.stringify(c));
 });
 
 test("temps de route inconnus : rien n'est propose ; tournee vide : un creneau inactif (jamais les anciens creneaux)", () => {
@@ -406,4 +406,54 @@ test("un trajet hors de ses dates ne compte pas ; lecture des transferts", () =>
   const relu = To.lireTournee(JSON.stringify({ trajets: [], transferts: [{ date: LUNDI, trajets: ["f3"], membre: "j", nomMembre: "Jérémy" }, { date: "x", trajets: ["a"], membre: "j" }, { date: LUNDI, trajets: [], membre: "j" }] }));
   egal(relu.transferts.map((x) => [x.date, x.trajets, x.membre]), [[LUNDI, ["f3"], "j"]]);
   egal(To.lireTournee("").transferts, []);
+});
+
+// ---- Temps libre pendant une activite (12 nov. 2026, 16h07) ----
+section("Ma tournee : temps libre pendant une activite");
+const BASKET = lieu("Basket, Netanya", 6);
+const ACTIVITE = [
+  To.trajetVide({ id: "b1", nom: "Ma fille (basket aller)", type: "matin", de: MAISON, a: BASKET, heure: "17:45", jours: tous() }),
+  To.trajetVide({ id: "b2", nom: "Ma fille (basket retour)", type: "sortie", de: BASKET, a: MAISON, heure: "18:45", jours: tous() }),
+];
+
+test("basket d'une heure : seuls l'aller et le retour sont bloques, le milieu est libre", () => {
+  const r = To.evaluerJour(ACTIVITE, 2, duree, T, { domicile: MAISON });
+  egal(r.statut, "possible");
+  const libre = r.arrets.find((x) => x.pause && x.libre);
+  vrai(!!libre);
+  egal([To.enHeure(libre.du), To.enHeure(libre.au)], ["17h50", "18h40"]);
+  const moments = To.momentsDuJour(r).map((m) => `${To.enHeure(m.debut)}-${To.enHeure(m.fin)}`);
+  egal(moments, ["17h31-17h50", "18h40-19h04"]);
+});
+
+test("basket : le calendrier public ne bloque que les deux trajets", () => {
+  const c = To.creneauxDeLaTournee(ACTIVITE, duree, MAISON, T);
+  egal(c.map((x) => `${x.debut}-${x.fin}`), ["17:30-17:50", "18:40-19:05"]);
+});
+
+test("attente courte (moins de 20 min) : on reste sur place, rien n'est libere", () => {
+  const court = ACTIVITE.map((r) => (r.id === "b2" ? { ...r, heure: "18:00" } : r));
+  const r = To.evaluerJour(court, 2, duree, T, { domicile: MAISON });
+  egal(r.arrets.filter((x) => x.pause && x.libre).length, 0);
+  egal(To.momentsDuJour(r).length, 1);
+});
+
+test("la tournee du matin de Rebecca reste d'un seul bloc", () => {
+  const r = To.evaluerJour(TOURNEE, 0, duree, T, { domicile: MAISON });
+  egal(r.arrets.filter((x) => x.pause && x.libre).length, 0);
+});
+
+section("Ma journee dans mon calendrier (fil des etapes)");
+test("fil du basket : partir de la maison, deposer, libre, partir, recuperer, retour", () => {
+  const j = To.journeeDeLaDate(ACTIVITE, "2026-11-11", [], duree, MAISON, T);
+  const f = To.filTournee(j, null, MAISON);
+  egal(f.map((e) => e.genre), ["maison", "arret", "libre", "partir", "arret", "maison"]);
+  egal([f[0].texte, f[5].texte], ["Partir de la maison avec Ma fille", "De retour à la maison avec Ma fille"]);
+  const libre = f.find((e) => e.genre === "libre");
+  egal([libre.heure, libre.jusqua], ["17h50", "18h40"]);
+  vrai(f.every((e, i) => i === 0 || e.min >= f[i - 1].min), "dans l'ordre des heures");
+});
+test("fil : trajets confies a Jeremy ce jour-la retires ; jour sans trajet = null", () => {
+  egal(To.journeeDeLaDate(ACTIVITE, "2026-11-11", [{ date: "2026-11-11", trajets: ["b1", "b2"] }], duree, MAISON, T), null);
+  egal(To.journeeDeLaDate(ACTIVITE.map((r) => ({ ...r, jours: r.jours.map((x, w) => ({ ...x, actif: w === 0 })) })), "2026-11-11", [], duree, MAISON, T), null);
 });

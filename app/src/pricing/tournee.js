@@ -408,6 +408,29 @@ function meilleurOrdre(trajets, w, duree, regles, maison = "") {
   return fin ? { ...fin, complet: essais <= MAX_ESSAIS } : best;
 }
 
+// TEMPS LIBRE PENDANT UNE ACTIVITE (12 nov. 2026, 16h07, Rebecca) : « quand je vais au basket, ca dure une heure,
+// je peux peut-etre prendre une petite course aux alentours ». Dans un meme moment, si j'attends au moins
+// libreMinutes (20 min) avant un arret, ce temps n'est plus bloque : une pause « Libre » est inseree, et l'arret
+// indique l'heure ou il faut repartir (heure de l'arret - route - marge).
+function avecTempsLibre(lignes, regles) {
+  const seuil = regles.libreMinutes ?? 20;
+  const sortie = [];
+  lignes.forEach((x, k) => {
+    const attente = x.debut - x.arrivee;
+    if (k > 0 && x.sorte === "prise" && attente >= seuil) {
+      const partir = x.debut - x.route - regles.margeRouteMinutes;
+      const du = lignes[k - 1].depart;
+      if (partir - du >= seuil) {
+        sortie.push({ pause: true, libre: true, texte: "Libre, petite course possible aux alentours", minutes: Math.round(partir - du), du, au: partir });
+        sortie.push({ ...x, arrivee: x.debut, partir });
+        return;
+      }
+    }
+    sortie.push(x);
+  });
+  return sortie;
+}
+
 // Une journee : trajets actifs ce jour de semaine, regroupes par moment (matin, midi, sortie...), ordre calcule.
 // duree(cleA, cleB) = minutes de route, ou null si inconnue. Renvoie :
 // { statut: "vide" | "possible" | "serre" | "impossible" | "inconnu", arrets: [...], probleme, retard, incomplets }
@@ -450,6 +473,7 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
     if (!r) return { statut: "inconnu", arrets: [], probleme: "Temps de route pas encore calculés.", retard: 0, incomplets };
     violation += r.violation;
     retard += r.retard;
+    r.lignes = avecTempsLibre(r.lignes, regles);
     const libre = avant && maison ? r.departMaison - avant.retourMaison : null;
     const passeMaison = !avant || (maison && libre >= regles.retourMaisonMinutes);
     if (avant && !passeMaison) {
@@ -458,16 +482,18 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
       const b = r.lignes[0];
       const route = cleLieu(a.lieu) === cleLieu(b.lieu) ? 0 : duree(cleLieu(a.lieu), cleLieu(b.lieu));
       const arrivee = route == null ? null : a.depart + (route ? route + regles.margeRouteMinutes : 0);
+      if (route != null && arrivee <= b.debut && b.debut - arrivee >= (regles.libreMinutes ?? 20)) b.partir = b.debut - (route ? route + regles.margeRouteMinutes : regles.margeRouteMinutes);
       if (arrivee != null && arrivee > b.debut) {
         const manque = Math.round(arrivee - b.debut);
         b.depassement = Math.max(b.depassement, manque);
         violation += manque;
       }
-      arrets.push({ pause: true, texte: maison ? "J'enchaîne sans rentrer à la maison" : "Libre", minutes: arrivee == null ? null : Math.max(0, Math.round(b.debut - arrivee)) });
+      const libreLa = arrivee == null ? null : Math.max(0, Math.round(b.debut - arrivee));
+      arrets.push({ pause: true, texte: libreLa != null && libreLa >= (regles.libreMinutes ?? 20) ? "Libre, petite course possible aux alentours" : maison ? "J'enchaîne sans rentrer à la maison" : "Libre", minutes: libreLa, du: a.depart, au: b.partir != null ? b.partir : null });
     }
     if (avant && passeMaison && maison) {
       arrets.push({ maison: "retour", heure: avant.retourMaison });
-      arrets.push({ pause: true, texte: "Libre à la maison", minutes: Math.round(libre) });
+      arrets.push({ pause: true, texte: "Libre à la maison", minutes: Math.round(libre), du: avant.retourMaison, au: r.departMaison });
     }
     if (passeMaison && maison) arrets.push({ maison: "depart", heure: r.departMaison });
     arrets.push(...r.lignes);
@@ -492,7 +518,8 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
 // Texte d'un arret pour l'affichage : « 14h00  Récupérer Noa (sortie) — Gan »
 export function texteArret(x, nomLieu = null) {
   const nom = x.trajet.nom || "trajet";
-  const retard = x.sorte === "prise" && x.sortie && x.retard > 0 ? ` (${Math.round(x.retard)} min après la sortie)` : "";
+  // Un enfant qui m'attend sans limite (chez une amie...) : pas de « retard » affiche
+  const retard = x.sorte === "prise" && x.sortie && x.retard > 0 && x.retardMax !== Infinity ? ` (${Math.round(x.retard)} min après la sortie)` : "";
   // Marge : minutes d'avance sur l'heure prevue (sortie d'ecole, heure de prise, heure limite d'arrivee)
   let avance = null;
   if (x.sorte === "prise" && !x.souple && x.tot != null && x.debut >= x.arrivee && !x.retard) avance = x.debut - x.arrivee;
@@ -569,7 +596,7 @@ export function momentsDuJour(jour) {
       continue;
     }
     if (!x.trajet) continue;
-    const debut = Math.min(x.arrivee, x.debut);
+    const debut = x.partir != null ? x.partir : Math.min(x.arrivee, x.debut);
     const fin = Math.max(x.depart != null ? x.depart : x.debut, x.debut);
     if (!courant) courant = { debut, fin };
     else courant.fin = Math.max(courant.fin, fin);
@@ -659,4 +686,60 @@ export function messageMission(m, nomMembre = "") {
   const [a, mo, jj] = m.date.split("-").map(Number);
   const jour = new Date(Date.UTC(a, mo - 1, jj, 12)).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
   return [`Bonjour${nomMembre ? " " + nomMembre : ""} 😊 Peux-tu faire ces trajets d'école ${jour} ?`, "", ...m.etapes.map((e) => `${e.heure} : ${e.texte} (${e.adresse})`), "", "Merci ! Rebecca"].join("\n");
+}
+
+/* ---------- Ma journee dans mon Calendrier (12 nov. 2026, 16h07) ----------
+   Rebecca : « c'est mon agenda, je ne dois pas avoir "creneau deja reserve", je dois voir ce que j'ai a faire ».
+   Le deroule d'une journee de tournee devient une liste d'etapes datees (minutes) a meler aux courses du jour :
+   { min, genre: "maison" | "partir" | "arret" | "libre" | "pause", heure, texte, lieu, marge, adresse, jusqua, minutes } */
+// Prendre ou deposer un enfant A LA MAISON n'est pas une etape a part : « Partir de la maison avec Shyrel ».
+const nomCourt = (x) => String(x.trajet.nom || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+export function filTournee(jour, nomLieu = null, domicile = null) {
+  const sortie = [];
+  let dernier = 0;
+  const maison = cleLieu(domicile);
+  const avec = []; // enfants deposes a la maison, annonces au retour
+  for (const x of (jour && jour.arrets) || []) {
+    if (x.maison) {
+      dernier = x.heure;
+      if (x.maison === "retour") {
+        const noms = [...new Set(avec.splice(0).filter(Boolean))];
+        sortie.push({ min: x.heure, genre: "maison", heure: enHeure(x.heure), texte: `De retour à la maison${noms.length ? " avec " + noms.join(" et ") : ""}` });
+      } else sortie.push({ min: x.heure, genre: "maison", heure: enHeure(x.heure), texte: "Partir de la maison" });
+      continue;
+    }
+    if (x.trajet && maison && cleLieu(x.lieu) === maison) {
+      const precedent = sortie[sortie.length - 1];
+      if (x.sorte === "prise" && precedent && precedent.genre === "maison" && precedent.texte.startsWith("Partir")) {
+        precedent.texte += (precedent.texte.includes(" avec ") ? " et " : " avec ") + (nomCourt(x) || "l'enfant");
+        dernier = x.depart != null ? x.depart : dernier;
+        continue;
+      }
+      if (x.sorte === "depose") {
+        avec.push(nomCourt(x));
+        dernier = x.depart != null ? x.depart : x.arrivee;
+        continue;
+      }
+    }
+    if (x.pause) {
+      const libre = x.libre || /^Libre/.test(x.texte || "");
+      sortie.push({ min: (x.du != null ? x.du : dernier) + 0.1, genre: libre ? "libre" : "pause", heure: x.du != null ? enHeure(x.du) : "", jusqua: x.au != null ? enHeure(x.au) : "", texte: x.texte || "Libre", minutes: x.minutes });
+      continue;
+    }
+    if (!x.trajet) continue;
+    const a = texteArret(x, nomLieu);
+    const min = x.sorte === "prise" ? x.debut : x.arrivee;
+    if (x.partir != null) sortie.push({ min: x.partir, genre: "partir", heure: enHeure(x.partir), texte: `Partir pour ${a.lieu}` });
+    sortie.push({ min, genre: "arret", heure: a.heure, texte: a.texte + a.retard, lieu: a.lieu, marge: a.marge, adresse: x.lieu, coince: x.depassement > 0 });
+    dernier = x.depart != null ? x.depart : min;
+  }
+  return sortie;
+}
+
+// Ma journee pour UNE date : trajets du jour, sans ceux confies a un coequipier. null = rien a calculer ce jour-la.
+export function journeeDeLaDate(trajets, date, transferts, duree, domicile = null, t = TARIFS) {
+  const confies = idsConfies(transferts || [], date);
+  const restants = trajetsDuJourDate(trajets, date).filter((r) => !confies.has(r.id));
+  if (!restants.length) return null;
+  return evaluerJour(restants, jourDe(date), duree, t, { du: date, au: date, domicile });
 }

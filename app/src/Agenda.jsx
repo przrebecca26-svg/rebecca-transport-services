@@ -2,12 +2,13 @@ import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.js
 import { filtrerPersonne } from "./pricing/quiFait.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { indispoValide } from "./fermetures.js";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauValide, lireCreneaux } from "./fermetures.js";
 import "./agenda.css";
-import { lienAppel, lienWhatsApp } from "./pricing/navigation.js";
+import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
+import { useMaJournee } from "./maJournee.js";
 import { ajouterJours, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
 // Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
@@ -384,21 +385,70 @@ function Mission({ m, pourTous }) {
   );
 }
 
-function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false }) {
+// Une etape de ma journee (tournee scolaire) : heure, quoi faire, ou, bouton Waze
+function Etape({ e }) {
+  if (e.genre === "libre" || e.genre === "pause") {
+    return (
+      <li className={"ag-etape " + e.genre}>
+        <b>{e.heure}</b>
+        <span>{e.texte}{e.jusqua ? ` jusqu'à ${e.jusqua}` : e.minutes != null ? ` (${e.minutes} min)` : ""}</span>
+      </li>
+    );
+  }
+  return (
+    <li className={"ag-etape " + e.genre + (e.coince ? " coince" : "")}>
+      <b>{e.heure}</b>
+      <span>
+        {e.genre === "arret" ? "🎒 " : e.genre === "maison" ? "🏠 " : "🚗 "}
+        {e.texte}
+        {e.lieu && <small> · {e.lieu}{e.marge ? ` · ${e.marge}` : ""}</small>}
+        {e.alerte && <small className="ag-etape-alerte">{e.alerte}</small>}
+      </span>
+      {e.adresse && <a className="ag-waze" href={lienWazePoint(e.adresse)} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${e.lieu} dans Waze`}>Waze</a>}
+    </li>
+  );
+}
+
+const enMinutes = (h) => {
+  const m = /^(\d{1,2})[:h](\d{2})/.exec(String(h || ""));
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 24 * 60;
+};
+
+// Une journee : fermetures (Chabbat, fetes...), puis UN SEUL FIL dans l'ordre des heures :
+// ma tournee (etapes reelles), mes courses et rendez-vous, les missions confiees.
+// fil = etapes de ma tournee (vide si pas de tournee) ; tourneeOk = la tournee remplace les « Creneau deja reserve »
+function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false }) {
+  const fermetures = tourneeOk ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
+  const lignes = [
+    ...fil.map((e, i) => ({ min: e.min, cle: "t" + i, rendu: <Etape e={e} /> , etape: true })),
+    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id, rendu: <Evenement d={d} /> })),
+    ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
+  ].sort((a, b) => a.min - b.min);
+  // Les etapes qui se suivent sont regroupees dans une meme liste ; une course coupe la liste
+  const blocs = [];
+  for (const l of lignes) {
+    const dernier = blocs[blocs.length - 1];
+    if (l.etape && dernier && dernier.etapes) dernier.items.push(l);
+    else blocs.push(l.etape ? { etapes: true, cle: l.cle, items: [l] } : l);
+  }
   return (
     <div className={"ag-jour" + (jour === aujourdhui ? " aujourdhui" : "")}>
       {titre && <h3>{libelleJour(jour)}</h3>}
       {vacancesDuJour(jour) && <p className="ag-vacances">🏖️ {vacancesDuJour(jour)} : pas d'école, ta tournée est levée</p>}
-      {creneaux.map((c, i) => (
+      {fermetures.map((c, i) => (
         <Fermeture key={i} c={c} />
       ))}
-      {missions.map((m) => (
-        <Mission key={m.id} m={m} pourTous={pourTous} />
-      ))}
-      {evenements.map((d) => (
-        <Evenement key={d.id} d={d} />
-      ))}
-      {creneaux.length === 0 && evenements.length === 0 && missions.length === 0 && <p className="ag-libre">Libre</p>}
+      {calcul && <p className="tb-note">Calcul de ta tournée en cours…</p>}
+      {blocs.map((b) =>
+        b.etapes ? (
+          <ol key={b.cle} className="ag-fil">
+            {b.items.map((l) => <Fragment key={l.cle}>{l.rendu}</Fragment>)}
+          </ol>
+        ) : (
+          <Fragment key={b.cle}>{b.rendu}</Fragment>
+        )
+      )}
+      {fermetures.length === 0 && lignes.length === 0 && !calcul && <p className="ag-libre">Libre</p>}
     </div>
   );
 }
@@ -466,6 +516,10 @@ export default function Agenda() {
   const [creneaux, setCreneaux] = useState(CRENEAUX_PAR_DEFAUT); // creneaux fixes (actifs ou libres)
   // Missions confiees (ramassage scolaire) : Rebecca voit toutes, un coequipier seulement les siennes
   const [missions, setMissions] = useState([]);
+  // Ma journee reelle (tournee scolaire) a la place des « Creneau deja reserve » : Rebecca seulement
+  const maJournee = useMaJournee(moi === ADMIN_ID);
+  const tourneeOk = maJournee.etat === "ok";
+  const calcul = maJournee.etat === "calcul";
   useEffect(() => {
     const q = moi === ADMIN_ID ? collection(db, "missionsEquipe") : query(collection(db, "missionsEquipe"), where("membre", "==", moi));
     return onSnapshot(q, (snap) => setMissions(snap.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setMissions([]));
@@ -589,9 +643,9 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>
 
-      {vue === "jour" && <JourListe jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
+      {vue === "jour" && <JourListe fil={maJournee.fil(ref)} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
-      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
+      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre fil={maJournee.fil(j)} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
 
       {vue === "mois" && (
         <>

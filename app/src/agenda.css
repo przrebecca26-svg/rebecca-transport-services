@@ -44,3 +44,24 @@
 .ag-etape.coince > span { color: var(--g-alerte, #d85a68); }
 .ag-etape-alerte { display: block; color: var(--g-alerte, #d85a68); opacity: 1 !important; }
 .ag-waze { flex: none; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--g-bord, rgba(185, 120, 112, 0.45)); color: var(--g-rose, #f1aeb7); font-size: 13px; text-decoration: none; }
+
+/* Modifier ma journee directement dans le Calendrier (12 nov. 2026, 16h29) */
+.ag-etape { display: block; }
+.ag-etape-ligne { display: flex; gap: 10px; align-items: baseline; }
+.ag-etape-ligne > b { flex: none; width: 52px; font-weight: 800; color: var(--g-rose, #f1aeb7); }
+.ag-etape-ligne > span { flex: 1; min-width: 0; }
+.ag-etape.libre .ag-etape-ligne > b, .ag-etape.libre > b { color: var(--g-succes, #239b68); }
+.ag-etape.tache .ag-etape-ligne > span { font-weight: 600; }
+.ag-etape-modif { color: var(--g-rose, #f1aeb7); opacity: 1 !important; }
+.ag-modifier { flex: none; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--g-bord, rgba(185, 120, 112, 0.45)); background: transparent; color: var(--g-texte, #f8f3f1); font-size: 13px; }
+.ag-etape-actions { margin: 8px 0 4px 62px; padding: 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.25); }
+.ag-champ { display: grid; gap: 4px; font-size: 14px; margin: 6px 0; }
+.ag-champ input { font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--g-bord, rgba(185, 120, 112, 0.45)); background: var(--g-carte, #191518); color: var(--g-texte, #f8f3f1); }
+.ag-heures { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ag-danger { background: transparent !important; border: 1px solid var(--g-alerte, #d85a68) !important; color: var(--g-alerte, #d85a68) !important; }
+.ag-ajout { width: 100%; margin-top: 8px; }
+.ag-tache-form { margin-top: 8px; padding: 12px; border-radius: 12px; border: 1px dashed var(--g-bord, rgba(185, 120, 112, 0.45)); }
+.ag-tache-form h4 { margin: 0 0 6px; }
+.ag-changements { margin: 6px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--g-rose, #f1aeb7); background: rgba(241, 174, 183, 0.08); display: grid; gap: 6px; }
+.ag-changements p { margin: 0; }
+.ag-retire { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

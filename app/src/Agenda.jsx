@@ -9,6 +9,7 @@ import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauVal
 import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
 import { useMaJournee } from "./maJournee.js";
+import AddressField from "./components/AddressField.jsx";
 import { ajouterJours, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
 // Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
@@ -385,8 +386,12 @@ function Mission({ m, pourTous }) {
   );
 }
 
-// Une etape de ma journee (tournee scolaire) : heure, quoi faire, ou, bouton Waze
-function Etape({ e }) {
+// Une etape de ma journee (tournee scolaire ou tache) : heure, quoi faire, ou, Waze, et « Modifier »
+// Modifier = CE JOUR SEULEMENT : changer l'heure ou retirer le trajet ; la tournee de chaque semaine ne bouge pas.
+function Etape({ e, date, journee }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [heure, setHeure] = useState("");
+  const [message, setMessage] = useState("");
   if (e.genre === "libre" || e.genre === "pause") {
     return (
       <li className={"ag-etape " + e.genre}>
@@ -395,17 +400,115 @@ function Etape({ e }) {
       </li>
     );
   }
+  const modifiable = journee && (e.genre === "arret" || e.genre === "tache");
+  const faire = async (action) => {
+    setMessage("");
+    try {
+      await action();
+      setOuvert(false);
+    } catch {
+      setMessage("Enregistrement impossible. Vérifie la connexion.");
+    }
+  };
   return (
     <li className={"ag-etape " + e.genre + (e.coince ? " coince" : "")}>
-      <b>{e.heure}</b>
-      <span>
-        {e.genre === "arret" ? "🎒 " : e.genre === "maison" ? "🏠 " : "🚗 "}
-        {e.texte}
-        {e.lieu && <small> · {e.lieu}{e.marge ? ` · ${e.marge}` : ""}</small>}
-        {e.alerte && <small className="ag-etape-alerte">{e.alerte}</small>}
-      </span>
-      {e.adresse && <a className="ag-waze" href={lienWazePoint(e.adresse)} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${e.lieu} dans Waze`}>Waze</a>}
+      <div className="ag-etape-ligne">
+        <b>{e.heure}</b>
+        <span>
+          {e.genre === "arret" ? "🎒 " : e.genre === "maison" ? "🏠 " : e.genre === "tache" ? "📌 " : "🚗 "}
+          {e.texte}
+          {e.genre === "tache" && e.jusqua ? ` (jusqu'à ${e.jusqua})` : ""}
+          {e.lieu && <small> · {e.lieu}{e.marge ? ` · ${e.marge}` : ""}</small>}
+          {e.genre === "arret" && journee && journee.heureChangee(date, e.ids) && <small className="ag-etape-modif"> · heure changée ce jour</small>}
+          {e.alerte && <small className="ag-etape-alerte">{e.alerte}</small>}
+        </span>
+        {e.adresse && <a className="ag-waze" href={lienWazePoint(e.adresse)} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${e.lieu || "l'adresse"} dans Waze`}>Waze</a>}
+        {modifiable && <button type="button" className="ag-modifier" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert}>{ouvert ? "Fermer" : "Modifier"}</button>}
+      </div>
+      {ouvert && e.genre === "arret" && (
+        <div className="ag-etape-actions">
+          <p className="tb-note">Ce jour seulement : ta tournée des autres semaines ne change pas.</p>
+          <label className="ag-champ">
+            {e.type === "matin" ? "Arriver au plus tard à" : "Nouvelle heure de sortie"}
+            <input type="time" value={heure} onChange={(x) => setHeure(x.target.value)} />
+          </label>
+          <div className="tb-actions">
+            <button type="button" className="tb-bouton" disabled={!heure} onClick={() => faire(() => journee.changerHeure(date, e.ids, heure))}>Changer l'heure aujourd'hui</button>
+            {journee.heureChangee(date, e.ids) && <button type="button" className="tb-bouton tb-clair" onClick={() => faire(() => journee.remettre(date, e.ids))}>Remettre l'heure habituelle</button>}
+            <button type="button" className="tb-bouton ag-danger" onClick={() => faire(() => journee.retirer(date, e.ids))}>Supprimer ce trajet aujourd'hui</button>
+          </div>
+          {message && <p className="fm-erreur" role="alert">{message}</p>}
+        </div>
+      )}
+      {ouvert && e.genre === "tache" && (
+        <div className="ag-etape-actions">
+          <div className="tb-actions">
+            <button type="button" className="tb-bouton ag-danger" onClick={() => faire(() => journee.retirerTache(date, e.tache.id))}>Supprimer cette tâche</button>
+          </div>
+          {message && <p className="fm-erreur" role="alert">{message}</p>}
+        </div>
+      )}
     </li>
+  );
+}
+
+// « + Ajouter une tâche » : une course perso, un rendez-vous... qui bloque ce creneau (les clientes voient seulement
+// que c'est indisponible)
+function AjoutTache({ date, journee }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [f, setF] = useState({ titre: "", debut: "", fin: "", lieu: null });
+  const [message, setMessage] = useState("");
+  if (!ouvert) return <button type="button" className="tb-bouton tb-clair ag-ajout" onClick={() => setOuvert(true)}>+ Ajouter une tâche</button>;
+  const ok = f.titre.trim() && f.debut && f.fin && f.fin > f.debut;
+  const valider = async () => {
+    setMessage("");
+    try {
+      await journee.ajouterTache(date, f);
+      setF({ titre: "", debut: "", fin: "", lieu: null });
+      setOuvert(false);
+    } catch {
+      setMessage("Enregistrement impossible. Vérifie la connexion.");
+    }
+  };
+  return (
+    <div className="ag-tache-form">
+      <h4>Nouvelle tâche · {libelleJour(date)}</h4>
+      <label className="ag-champ">Quoi
+        <input type="text" maxLength={80} placeholder="Course chez Carrefour, rendez-vous…" value={f.titre} onChange={(x) => setF({ ...f, titre: x.target.value })} />
+      </label>
+      <div className="ag-heures">
+        <label className="ag-champ">De <input type="time" value={f.debut} onChange={(x) => setF({ ...f, debut: x.target.value })} /></label>
+        <label className="ag-champ">À <input type="time" value={f.fin} onChange={(x) => setF({ ...f, fin: x.target.value })} /></label>
+      </div>
+      <div className="ag-champ">Adresse (facultatif)
+        <AddressField id={"tache-" + date} valeur={f.lieu} position={false} onChange={(v) => setF({ ...f, lieu: v })} />
+      </div>
+      {f.debut && f.fin && f.fin <= f.debut && <p className="fm-erreur">L'heure de fin doit être après l'heure de début.</p>}
+      <p className="tb-note">Ce créneau sera bloqué sur le site (les clientes voient seulement qu'il est indisponible).</p>
+      <div className="tb-actions">
+        <button type="button" className="tb-bouton" disabled={!ok} onClick={valider}>Ajouter et bloquer le créneau</button>
+        <button type="button" className="tb-bouton tb-clair" onClick={() => setOuvert(false)}>Annuler</button>
+      </div>
+      {message && <p className="fm-erreur" role="alert">{message}</p>}
+    </div>
+  );
+}
+
+// Trajets retires ce jour-la, avec « Remettre », et « Remettre la journee normale »
+function ChangementsDuJour({ date, journee }) {
+  const retires = journee.retires(date);
+  if (!retires.length && !journee.modifie(date)) return null;
+  return (
+    <div className="ag-changements">
+      <p><strong>Modifié pour ce jour seulement</strong></p>
+      {retires.map((r) => (
+        <div key={r.id} className="ag-retire">
+          <span>❌ {r.nom || "Trajet"} : pas aujourd'hui</span>
+          <button type="button" className="fm-petit clair" onClick={() => journee.remettre(date, [r.id]).catch(() => {})}>Remettre</button>
+        </div>
+      ))}
+      <button type="button" className="fm-petit clair" onClick={() => journee.normale(date).catch(() => {})}>Remettre la journée normale</button>
+    </div>
   );
 }
 
@@ -417,10 +520,10 @@ const enMinutes = (h) => {
 // Une journee : fermetures (Chabbat, fetes...), puis UN SEUL FIL dans l'ordre des heures :
 // ma tournee (etapes reelles), mes courses et rendez-vous, les missions confiees.
 // fil = etapes de ma tournee (vide si pas de tournee) ; tourneeOk = la tournee remplace les « Creneau deja reserve »
-function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false }) {
+function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false, journee = null }) {
   const fermetures = tourneeOk ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
-    ...fil.map((e, i) => ({ min: e.min, cle: "t" + i, rendu: <Etape e={e} /> , etape: true })),
+    ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} />, etape: true })),
     ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id, rendu: <Evenement d={d} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);
@@ -439,6 +542,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
         <Fermeture key={i} c={c} />
       ))}
       {calcul && <p className="tb-note">Calcul de ta tournée en cours…</p>}
+      {journee && <ChangementsDuJour date={jour} journee={journee} />}
       {blocs.map((b) =>
         b.etapes ? (
           <ol key={b.cle} className="ag-fil">
@@ -449,6 +553,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
         )
       )}
       {fermetures.length === 0 && lignes.length === 0 && !calcul && <p className="ag-libre">Libre</p>}
+      {journee && jour >= aujourdhui && <AjoutTache date={jour} journee={journee} />}
     </div>
   );
 }
@@ -643,9 +748,9 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>
 
-      {vue === "jour" && <JourListe fil={maJournee.fil(ref)} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
+      {vue === "jour" && <JourListe fil={maJournee.fil(ref)} journee={tourneeOk ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
-      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre fil={maJournee.fil(j)} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
+      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre fil={maJournee.fil(j)} journee={tourneeOk ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
 
       {vue === "mois" && (
         <>

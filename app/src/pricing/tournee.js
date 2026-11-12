@@ -15,7 +15,7 @@
 // programme (le code est public) : ils sont enregistres dans la base privee de Rebecca (document admin/tournee).
 
 import { TARIFS } from "./config.js";
-import { ajouterJours } from "./calendrier.js";
+import { ajouterJours, vacancesDuJour } from "./calendrier.js";
 import { JOURS, finDuMois, nomEnfant, ecoleDe, heureDuJour } from "./ramassagePlanning.js";
 
 export { JOURS };
@@ -644,22 +644,26 @@ export const trajetsDuJourDate = (trajets, date) => trajets.filter((r) => !manqu
 export const idsConfies = (transferts, date) => new Set(transferts.filter((x) => x.date === date).flatMap((x) => x.trajets));
 
 // Mes creneaux bloques pour UNE date ou des trajets ont ete confies. null si un temps de route manque.
-export function creneauxDeLaDate(trajets, date, transferts, duree, domicile = null, t = TARIFS) {
+export function creneauxDeLaDate(trajets, date, transferts, duree, domicile = null, t = TARIFS, jours = {}) {
   const confies = idsConfies(transferts, date);
-  const restants = trajetsDuJourDate(trajets, date).filter((r) => !confies.has(r.id));
+  // Vacances scolaires ce jour-la : pas de tournee, seules mes taches du jour bloquent
+  const restants = vacancesDuJour(date, t) ? [] : appliquerJour(trajetsDuJourDate(trajets, date), date, jours).filter((r) => !confies.has(r.id));
   const j = evaluerJour(restants, jourDe(date), duree, t, { du: date, au: date, domicile });
   if (j.statut === "inconnu") return null;
-  return momentsDuJour(j)
-    .map((m) => ({ debut: hhmm(auCinq(m.debut, false)), fin: hhmm(auCinq(m.fin, true)) }))
-    .filter((c) => c.fin > c.debut);
+  return [
+    ...momentsDuJour(j).map((m) => ({ debut: hhmm(auCinq(m.debut, false)), fin: hhmm(auCinq(m.fin, true)) })),
+    ...tachesDuJour(jours, date).map((x) => ({ debut: x.debut, fin: x.fin })),
+  ]
+    .filter((c) => c.fin > c.debut)
+    .sort((a, b) => (a.debut < b.debut ? -1 : 1));
 }
 
 // Toutes les dates a venir avec des trajets confies -> { date: [{ debut, fin }] } (liste vide = rien a bloquer ce jour-la)
-export function creneauxParDate(trajets, transferts, duree, domicile = null, t = TARIFS, depuis = "") {
+export function creneauxParDate(trajets, transferts, duree, domicile = null, t = TARIFS, depuis = "", jours = {}) {
   const sortie = {};
-  for (const date of [...new Set(transferts.map((x) => x.date))].sort()) {
+  for (const date of [...new Set([...transferts.map((x) => x.date), ...Object.keys(jours || {})])].sort()) {
     if (depuis && date < depuis) continue;
-    const c = creneauxDeLaDate(trajets, date, transferts, duree, domicile, t);
+    const c = creneauxDeLaDate(trajets, date, transferts, duree, domicile, t, jours);
     if (c === null) return null;
     sortie[date] = c;
   }
@@ -730,16 +734,105 @@ export function filTournee(jour, nomLieu = null, domicile = null) {
     const a = texteArret(x, nomLieu);
     const min = x.sorte === "prise" ? x.debut : x.arrivee;
     if (x.partir != null) sortie.push({ min: x.partir, genre: "partir", heure: enHeure(x.partir), texte: `Partir pour ${a.lieu}` });
-    sortie.push({ min, genre: "arret", heure: a.heure, texte: a.texte + a.retard, lieu: a.lieu, marge: a.marge, adresse: x.lieu, coince: x.depassement > 0 });
+    sortie.push({ min, genre: "arret", heure: a.heure, texte: a.texte + a.retard, lieu: a.lieu, marge: a.marge, adresse: x.lieu, coince: x.depassement > 0, ids: x.trajet.ids || [x.trajet.id], type: x.trajet.type, sorte: x.sorte });
     dernier = x.depart != null ? x.depart : min;
   }
   return sortie;
 }
 
 // Ma journee pour UNE date : trajets du jour, sans ceux confies a un coequipier. null = rien a calculer ce jour-la.
-export function journeeDeLaDate(trajets, date, transferts, duree, domicile = null, t = TARIFS) {
+export function journeeDeLaDate(trajets, date, transferts, duree, domicile = null, t = TARIFS, jours = {}) {
   const confies = idsConfies(transferts || [], date);
-  const restants = trajetsDuJourDate(trajets, date).filter((r) => !confies.has(r.id));
+  const restants = appliquerJour(trajetsDuJourDate(trajets, date), date, jours).filter((r) => !confies.has(r.id));
   if (!restants.length) return null;
   return evaluerJour(restants, jourDe(date), duree, t, { du: date, au: date, domicile });
 }
+
+/* ---------- Modifier UNE journee sans toucher a ma tournee (12 nov. 2026, 16h29) ----------
+   Rebecca : « dans ma journee de mon calendrier, un bouton modifier ou supprimer : ca supprime de la journee mais ca
+   touche pas a ma tournee programmee pour toutes les semaines ». Document prive admin/tourneeJours :
+   { "AAAA-MM-JJ": { retires: [identifiants de trajets], heures: { identifiant: "HH:MM" } } }
+   - retire : ce trajet n'a pas lieu ce jour-la (pas d'ecole, pas d'activite, enfant malade...) ;
+   - heure : ce jour-la seulement, nouvelle heure (matin : arriver au plus tard ; retour : heure de sortie).
+   Le Calendrier public est recalcule pour cette date seulement (creneaux par date). */
+export function lireJours(json) {
+  let o;
+  try {
+    o = typeof json === "string" ? JSON.parse(json || "{}") : json;
+  } catch {
+    o = {};
+  }
+  const sortie = {};
+  if (!o || typeof o !== "object" || Array.isArray(o)) return sortie;
+  for (const [date, v] of Object.entries(o).slice(0, 400)) {
+    if (!DATE_OK.test(date) || !v || typeof v !== "object") continue;
+    const retires = (Array.isArray(v.retires) ? v.retires : []).map((x) => String(x).slice(0, 80)).slice(0, 40);
+    const heures = {};
+    for (const [id, h] of Object.entries(v.heures && typeof v.heures === "object" ? v.heures : {}).slice(0, 40)) if (HEURE_OK.test(h)) heures[String(id).slice(0, 80)] = h;
+    const taches = (Array.isArray(v.taches) ? v.taches : [])
+      .filter((x) => x && HEURE_OK.test(x.debut) && HEURE_OK.test(x.fin) && x.fin > x.debut)
+      .slice(0, 30)
+      .map((x) => ({ id: String(x.id || nouvelId()).slice(0, 40), titre: String(x.titre || "").slice(0, 80) || "Tâche", debut: x.debut, fin: x.fin, lieu: adresseLue(x.lieu) }));
+    if (retires.length || Object.keys(heures).length || taches.length) sortie[date] = { retires, heures, taches };
+  }
+  return sortie;
+}
+
+const jourVide = () => ({ retires: [], heures: {}, taches: [] });
+const propre = (jours, date, j) => {
+  const suite = { ...jours };
+  j = { ...jourVide(), ...j };
+  if (j.retires.length || Object.keys(j.heures).length || j.taches.length) suite[date] = j;
+  else delete suite[date];
+  return suite;
+};
+
+// Les trajets du jour, une fois mes changements de ce jour-la appliques
+export function appliquerJour(trajets, date, jours = {}) {
+  const j = (jours || {})[date];
+  if (!j) return trajets;
+  const w = jourDe(date);
+  return trajets
+    .filter((r) => !j.retires.includes(r.id))
+    .map((r) => {
+      const h = j.heures[r.id];
+      if (!h) return r;
+      return { ...r, heurePrise: r.type === "matin" ? "" : r.heurePrise, jours: r.jours.map((x, i) => (i === w ? { ...x, heure: h } : x)) };
+    });
+}
+
+export function retirerCeJour(jours, date, ids) {
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  return propre(jours, date, { ...j, retires: [...new Set([...j.retires, ...ids])] });
+}
+export function remettreCeJour(jours, date, ids) {
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  const heures = { ...j.heures };
+  for (const id of ids) delete heures[id];
+  return propre(jours, date, { ...j, retires: j.retires.filter((x) => !ids.includes(x)), heures });
+}
+export function changerHeureCeJour(jours, date, ids, heure) {
+  if (!HEURE_OK.test(heure || "")) return jours;
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  const heures = { ...j.heures };
+  for (const id of ids) heures[id] = heure;
+  return propre(jours, date, { ...j, heures });
+}
+// « Remettre la journee normale » : les trajets reviennent comme chaque semaine ; mes taches du jour restent
+export const journeeNormale = (jours, date) => propre(jours, date, { ...jourVide(), taches: ((jours || {})[date] || {}).taches || [] });
+
+// TACHES DU JOUR (12 nov. 2026, 16h29) : « rajouter une tache si j'ai une course a faire, et bloquer un creneau ».
+// tache = { id, titre, debut, fin, lieu } ; elle bloque ce creneau sur le site (sans titre ni lieu : c'est public)
+export function ajouterTache(jours, date, { titre, debut, fin, lieu = null }) {
+  if (!DATE_OK.test(date) || !HEURE_OK.test(debut || "") || !HEURE_OK.test(fin || "") || fin <= debut) return jours;
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  const t = { id: nouvelId(), titre: String(titre || "").trim().slice(0, 80) || "Tâche", debut, fin, lieu: lieu || null };
+  return propre(jours, date, { ...j, taches: [...j.taches, t].sort((a, b) => (a.debut < b.debut ? -1 : 1)) });
+}
+export function retirerTache(jours, date, id) {
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  return propre(jours, date, { ...j, taches: j.taches.filter((x) => x.id !== id) });
+}
+export const tachesDuJour = (jours, date) => ((jours || {})[date] || {}).taches || [];
+// Garde seulement les dates a partir d'hier (le document ne grossit pas)
+export const joursAVenir = (jours, depuis) => Object.fromEntries(Object.entries(jours).filter(([d]) => d >= depuis));

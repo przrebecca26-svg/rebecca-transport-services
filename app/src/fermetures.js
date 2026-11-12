@@ -229,7 +229,7 @@ export function lireCreneauxDates(json) {
     const sortie = {};
     for (const [date, liste] of Object.entries(o && typeof o === "object" && !Array.isArray(o) ? o : {})) {
       if (!DATE_SEULE.test(date) || !Array.isArray(liste)) continue;
-      sortie[date] = liste.filter((c) => c && HEURE.test(c.debut || "") && HEURE.test(c.fin || "") && c.fin > c.debut).slice(0, 10).map((c) => ({ debut: c.debut, fin: c.fin, motif: MOTIF_CRENEAU }));
+      sortie[date] = liste.filter((c) => c && HEURE.test(c.debut || "") && HEURE.test(c.fin || "") && c.fin > c.debut).slice(0, 30).map((c) => ({ debut: c.debut, fin: c.fin, motif: MOTIF_CRENEAU }));
     }
     return sortie;
   } catch {

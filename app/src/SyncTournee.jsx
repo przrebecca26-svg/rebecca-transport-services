@@ -5,7 +5,7 @@ import { lireCreneaux, lireVacancesAjoutees, appliquerVacancesAjoutees, lireCren
 import { TARIFS } from "./pricing/config.js";
 import { creneauxDeLaTournee, creneauxAEnregistrer, memesCreneaux, creneauxParDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
-import { useTournee, useDurees } from "./tourneeBase.js";
+import { useTournee, useDurees, useJoursTournee } from "./tourneeBase.js";
 import { useRepertoire } from "./repertoireBase.js";
 
 // MA TOURNEE -> MON CALENDRIER, AUTOMATIQUEMENT (12 nov. 2026, 15h28). Monte dans l'espace de Rebecca, n'affiche rien.
@@ -16,6 +16,7 @@ const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asi
 
 export default function SyncTournee() {
   const base = useTournee();
+  const joursModifies = useJoursTournee(); // journees modifiees depuis le Calendrier (trajet retire, heure, taches)
   const repertoire = useRepertoire();
   const actuels = useRef(null);
   const vacancesPubliques = useRef(null);
@@ -69,7 +70,7 @@ export default function SyncTournee() {
     datesPubliques.current = o;
     appliquerCreneauxDates(o);
   }, () => {}), []);
-  const parDate = utilisee && (durees.statut === "ok" || tous.length === 0) ? creneauxParDate(tous, base.donnees.transferts || [], durees.duree, base.donnees.domicile, TARIFS, aujourdhui()) : null;
+  const parDate = utilisee && (durees.statut === "ok" || tous.length === 0) ? creneauxParDate(tous, base.donnees.transferts || [], durees.duree, base.donnees.domicile, TARIFS, aujourdhui(), joursModifies) : null;
   const cleDates = parDate ? JSON.stringify(parDate) : "";
   useEffect(() => {
     if (!parDate) return undefined;

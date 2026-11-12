@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { calculerDurees } from "./routing.js";
-import { cleLieu, lieuxDesTrajets, lireTournee, tableDurees } from "./pricing/tournee.js";
+import { cleLieu, joursAVenir, lieuxDesTrajets, lireJours, lireTournee, tableDurees } from "./pricing/tournee.js";
+import { ajouterJours } from "./pricing/calendrier.js";
 
 // MA TOURNEE SCOLAIRE - lecture et enregistrement (12 nov. 2026)
 // Document PRIVE admin/tournee (lisible et modifiable par Rebecca seule) : noms, adresses et horaires des enfants
@@ -55,4 +56,17 @@ export const PASTILLES = {
   impossible: { signe: "❌", texte: "Impossible" },
   inconnu: { signe: "⏳", texte: "Calcul en cours" },
   vide: { signe: "•", texte: "Rien ce jour-là" },
+};
+
+// CHANGEMENTS D'UNE JOURNEE (12 nov. 2026, 16h29) : document PRIVE admin/tourneeJours. Un trajet retire ou une heure
+// changee pour une date, et mes taches du jour, sans toucher a la tournee de toutes les semaines.
+const REF_JOURS = () => doc(db, "admin", "tourneeJours");
+export function useJoursTournee(actif = true) {
+  const [jours, setJours] = useState({});
+  useEffect(() => (actif ? onSnapshot(REF_JOURS(), (s) => setJours(lireJours(s.exists() ? s.data().json : "{}")), () => setJours({})) : undefined), [actif]);
+  return jours;
+}
+export const enregistrerJours = (jours) => {
+  const hier = ajouterJours(new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), -1);
+  return setDoc(REF_JOURS(), { json: JSON.stringify(joursAVenir(jours, hier)), majLe: serverTimestamp() });
 };

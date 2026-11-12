@@ -457,3 +457,44 @@ test("fil : trajets confies a Jeremy ce jour-la retires ; jour sans trajet = nul
   egal(To.journeeDeLaDate(ACTIVITE, "2026-11-11", [{ date: "2026-11-11", trajets: ["b1", "b2"] }], duree, MAISON, T), null);
   egal(To.journeeDeLaDate(ACTIVITE.map((r) => ({ ...r, jours: r.jours.map((x, w) => ({ ...x, actif: w === 0 })) })), "2026-11-11", [], duree, MAISON, T), null);
 });
+
+section("Modifier une journee depuis le Calendrier (ce jour seulement)");
+const JEUDI = "2026-11-12";
+const VENDREDI = "2026-11-13";
+test("retirer les filles ce jeudi : seulement ce jeudi, la tournee des autres semaines ne bouge pas", () => {
+  const jours = To.retirerCeJour({}, JEUDI, ["f2", "f3"]);
+  const j = To.journeeDeLaDate(TOURNEE, JEUDI, [], duree, MAISON, T, jours);
+  vrai(j.arrets.filter((x) => x.trajet).every((x) => !["f2", "f3"].includes(x.trajet.id)));
+  const jeudiSuivant = To.journeeDeLaDate(TOURNEE, "2026-11-19", [], duree, MAISON, T, jours);
+  vrai(jeudiSuivant.arrets.some((x) => x.trajet && x.trajet.id === "f2"));
+  egal(TOURNEE.length, 4);
+});
+test("tout retirer ce jour-la : plus rien de bloque sur le site ce jour-la", () => {
+  const jours = To.retirerCeJour({}, JEUDI, ["f1", "f2", "f3", "f4"]);
+  egal(To.creneauxParDate(TOURNEE, [], duree, MAISON, T, "2026-11-12", jours), { [JEUDI]: [] });
+});
+test("changer l'heure de sortie un jour : nouvelle heure ce jour-la seulement", () => {
+  const jours = To.changerHeureCeJour({}, JEUDI, ["f3"], "12:00");
+  const f = To.filTournee(To.journeeDeLaDate(TOURNEE, JEUDI, [], duree, MAISON, T, jours), null, MAISON);
+  vrai(f.some((e) => e.heure === "12h00"), JSON.stringify(f.map((e) => e.heure)));
+  const remis = To.remettreCeJour(jours, JEUDI, ["f3"]);
+  egal(remis, {});
+});
+test("une tache bloque son creneau a l'avance (vendredi), sans titre sur le site ; la supprimer la retire", () => {
+  let jours = To.ajouterTache({}, VENDREDI, { titre: "Courses Carrefour", debut: "10:00", fin: "11:00" });
+  const c = To.creneauxParDate(TOURNEE, [], duree, MAISON, T, "2026-11-12", jours)[VENDREDI];
+  vrai(c.some((x) => x.debut === "10:00" && x.fin === "11:00" && !("titre" in x)), JSON.stringify(c));
+  egal(To.tachesDuJour(jours, VENDREDI)[0].titre, "Courses Carrefour");
+  jours = To.retirerTache(jours, VENDREDI, To.tachesDuJour(jours, VENDREDI)[0].id);
+  egal(jours, {});
+});
+test("tache mal remplie (fin avant debut) : refusee ; journee normale garde les taches", () => {
+  egal(To.ajouterTache({}, VENDREDI, { titre: "x", debut: "11:00", fin: "10:00" }), {});
+  let jours = To.ajouterTache(To.retirerCeJour({}, JEUDI, ["f1"]), JEUDI, { titre: "RDV", debut: "10:00", fin: "10:30" });
+  jours = To.journeeNormale(jours, JEUDI);
+  egal([jours[JEUDI].retires.length, jours[JEUDI].taches.length], [0, 1]);
+});
+test("lecture du document : dates et heures invalides ignorees", () => {
+  egal(To.lireJours('{"x":{"retires":["a"]},"2026-11-12":{"retires":["a"],"heures":{"b":"25:00"},"taches":[]}}'), { "2026-11-12": { retires: ["a"], heures: {}, taches: [] } });
+  egal(To.lireJours("pas du json"), {});
+});

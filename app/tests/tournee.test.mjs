@@ -208,3 +208,28 @@ section("Recherche d'adresse : Netanya d'abord");
   test("classement", () => egal(classerAdresses([ramatGan, netanya, ramatGan]).map((a) => a.label), ["Uziel, Netanya", "École Uziel, Ramat Gan"]));
   test("distance Netanya - Ramat Gan autour de 27 km", () => vrai(Math.abs(distanceKm(ramatGan, netanya) - 27) < 3));
 }
+
+section("Tournee : ne rien retaper");
+
+test("adresses deja saisies : la maison d'abord, chaque adresse une seule fois", () => {
+  const c = To.adressesConnues(MAISON, TOURNEE);
+  egal(c.map((x) => x.nom), ["Maison", "École A", "Chez l'amie", "Gan"]);
+  egal(To.adressesConnues(null, To.tourneeDepart()), []);
+});
+
+test("trajet retour : adresses inversees, memes jours, heure a indiquer", () => {
+  const r = To.trajetRetour(TOURNEE[1]);
+  egal([r.nom, r.type, r.places, r.de, r.a, r.heure, r.jours[0].actif], ["Les 2 filles (retour)", "sortie", 2, GAN, AMIE, "", true]);
+  vrai(/heure de sortie/.test(To.manqueTrajet(r)));
+  egal(To.trajetRetour(r).type, "matin");
+});
+
+test("une activite le soir (basket) entre dans la journee comme un autre trajet", () => {
+  const basket = [
+    To.trajetVide({ id: "b1", nom: "Basket (aller)", type: "matin", de: MAISON, a: ECOLE_B, heure: "18:00", jours: tous() }),
+    To.trajetVide({ id: "b2", nom: "Basket (retour)", type: "sortie", de: ECOLE_B, a: MAISON, heure: "19:30", jours: tous() }),
+  ];
+  const r = To.evaluerJour([...TOURNEE, ...basket], 0, duree, T, { domicile: MAISON });
+  egal(r.statut, "possible");
+  vrai(heures(r).includes("18h00 depose b1") && heures(r).includes("19h30 prise b2"), heures(r).join(" / "));
+});

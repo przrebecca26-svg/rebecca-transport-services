@@ -73,6 +73,31 @@ export const tourneeDepart = () => [
 
 export const heureTrajet = (r, w) => (r.jours[w] && r.jours[w].heure) || r.heure || "";
 
+// Adresses deja saisies (domicile + tous les trajets) : proposees en un geste pour ne jamais retaper une adresse
+export function adressesConnues(domicile, trajets) {
+  const vues = new Map();
+  if (cleLieu(domicile)) vues.set(cleLieu(domicile), { nom: "Maison", adresse: domicile });
+  for (const r of trajets) for (const x of [r.de, r.a]) if (cleLieu(x) && !vues.has(cleLieu(x))) vues.set(cleLieu(x), { nom: lieuCourt(x), adresse: x });
+  return [...vues.values()];
+}
+
+// Le trajet retour d'un trajet : memes enfants, memes jours, adresses inversees ; l'heure reste a indiquer
+export function trajetRetour(r) {
+  const base = String(r.nom || "").replace(/\s*\((matin|aller|retour|sortie[^)]*)\)\s*$/i, "").trim();
+  const versSortie = r.type === "matin";
+  return trajetVide({
+    nom: `${base || "Trajet"} (${versSortie ? "retour" : "aller"})`,
+    type: versSortie ? "sortie" : "matin",
+    places: r.places,
+    de: r.a,
+    a: r.de,
+    jours: r.jours.map((j) => ({ actif: j.actif, heure: "" })),
+    du: r.du,
+    au: r.au,
+    client: r.client,
+  });
+}
+
 // Ce qui manque a un trajet pour entrer dans les calculs ("" = complet)
 export function manqueTrajet(r) {
   if (!adresseOk(r.de)) return "adresse de prise à choisir dans la liste";

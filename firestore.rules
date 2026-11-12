@@ -429,14 +429,15 @@ service cloud.firestore {
     // v15 (12 nov. 2026) : un coequipier ne lit et ne modifie que les demandes du coursier et du transport.
     // Les rendez-vous beaute (Nails, Hair, Slim & Lift, RegenX) restent visibles par Rebecca seule.
     // (Le site du coequipier lit les demandes avec where("service", "in", ces services) : app/src/accesDemandes.js)
+    // Attention : "service" est un mot reserve des regles, on ecrit donc data["service"].
     match /demandes/{id} {
       allow create: if demandeValide() || (gestion() && demandeManuelleValide());
       allow read: if estAdmin()
-        || (estMembre() && resource.data.service in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"]);
+        || (estMembre() && resource.data["service"] in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"]);
       allow update: if estAdmin()
         || (estMembre()
-          && resource.data.service in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"]
-          && request.resource.data.service == resource.data.service);
+          && resource.data["service"] in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"]
+          && request.resource.data["service"] == resource.data["service"]);
       allow delete: if estAdmin();
     }
 

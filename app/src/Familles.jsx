@@ -21,6 +21,7 @@ function Rdv({ famille, r, changer, supprimer, connues }) {
   const setJour = (w, cle, valeur) => changer({ ...r, jours: r.jours.map((j, k) => (k === w ? { ...j, [cle]: valeur } : j)) });
   const manque = manqueRdv(famille, r);
   const [plus, setPlus] = useState(!!(r.retour || r.priseAilleurs || r.attend || r.heurePrise));
+  const [parJour, setParJour] = useState(r.jours.some((j) => j.arrivee || j.sortie)); // ouvert seulement si un jour a deja son heure a lui
   return (
     <div className="rp-rdv">
       <p className="rp-type">{nomRdv(r)}{manque ? <span className="rp-alerte"> · à compléter : {manque}</span> : ""}</p>
@@ -39,19 +40,27 @@ function Rdv({ famille, r, changer, supprimer, connues }) {
         {r.depose && <label>Commence à <input type="time" value={r.heureArrivee} onChange={(e) => set("heureArrivee", e.target.value)} /></label>}
         {r.recupere && <label>Finit à <input type="time" value={r.heureSortie} onChange={(e) => set("heureSortie", e.target.value)} /></label>}
       </div>
-      <span className="aide">Ces heures se mettent sur tous les jours cochés. Change ensuite l'heure des jours différents.</span>
-      <div className="rp-jours" role="group" aria-label="Jours">
-        {JOURS.map((nom, w) => (
-          <div className={"rp-jour" + (r.jours[w].actif ? "" : " inactif")} key={w}>
-            <label className="case">
-              <input type="checkbox" checked={r.jours[w].actif} onChange={(e) => setJour(w, "actif", e.target.checked)} />
-              <span>{nom}</span>
-            </label>
-            {r.jours[w].actif && r.depose && <input type="time" aria-label={`Commence le ${nom.toLowerCase()}`} value={arriveeDuJour(r, w)} onChange={(e) => setJour(w, "arrivee", e.target.value)} />}
-            {r.jours[w].actif && r.recupere && <input type="time" aria-label={`Finit le ${nom.toLowerCase()}`} value={sortieDuJour(r, w)} onChange={(e) => setJour(w, "sortie", e.target.value)} />}
-          </div>
-        ))}
-      </div>
+      <fieldset className="champ">
+        <legend>Quels jours ?</legend>
+        <div className="choix rp-six">
+          {JOURS.map((nom, w) => (
+            <button key={w} type="button" className={r.jours[w].actif ? "actif" : ""} aria-pressed={r.jours[w].actif} aria-label={nom} onClick={() => setJour(w, "actif", !r.jours[w].actif)}>{nom.slice(0, 3)}</button>
+          ))}
+        </div>
+        <span className="aide">Les heures ci-dessus valent pour tous les jours choisis : rien d'autre à remplir si c'est pareil chaque jour.</span>
+      </fieldset>
+      <button type="button" className="rp-waze" onClick={() => setParJour(!parJour)}>{parJour ? "Mêmes heures tous les jours" : "Une heure différente certains jours"}</button>
+      {parJour && (
+        <div className="rp-jours" role="group" aria-label="Heures par jour">
+          {JOURS.map((nom, w) => (r.jours[w].actif ? (
+            <div className="rp-jour" key={w}>
+              <span className="rp-nom">{nom}</span>
+              {r.depose && <input type="time" aria-label={`Commence le ${nom.toLowerCase()}`} value={arriveeDuJour(r, w)} onChange={(e) => setJour(w, "arrivee", e.target.value)} />}
+              {r.recupere && <input type="time" aria-label={`Finit le ${nom.toLowerCase()}`} value={sortieDuJour(r, w)} onChange={(e) => setJour(w, "sortie", e.target.value)} />}
+            </div>
+          ) : null))}
+        </div>
+      )}
       <button type="button" className="rp-waze" onClick={() => setPlus(!plus)}>{plus ? "Moins de détails" : "Plus de détails (où je le ramène, il m'attend ailleurs…)"}</button>
       {plus && (
         <div className="rp-correction">

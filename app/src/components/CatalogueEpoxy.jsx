@@ -51,10 +51,6 @@ export default function CatalogueEpoxy({ onRetour }) {
   const surDevis = () => prixEffectif() === null;
 
   const envoyer = async () => {
-    if (!user || !user.emailVerified) {
-      setEnvoi({ enCours: false, ok: false, erreur: "Connecte-toi avec un compte vérifié pour commander." });
-      return;
-    }
     if (!client.nom.trim() || !client.telephone.trim()) {
       setEnvoi({ enCours: false, ok: false, erreur: "Nom et téléphone obligatoires." });
       return;
@@ -68,7 +64,8 @@ export default function CatalogueEpoxy({ onRetour }) {
 
     const prix = prixEffectif();
     const commande = {
-      uid: user.uid,
+      // 13 nov. 2026 : sans compte aussi (le compte verifie ajoute seulement le suivi dans « Mon espace »)
+      ...(user && user.emailVerified ? { uid: user.uid } : {}),
       type: "commande",
       activite: "epoxy",
       service: "epoxy",

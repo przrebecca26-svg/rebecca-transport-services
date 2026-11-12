@@ -144,13 +144,14 @@ export async function enregistrerDemande(demande, options = {}) {
   const { addDoc, collection, doc, runTransaction, serverTimestamp } = fs;
 
   // Sans compte : la demande seule (comme avant). L'e-mail et la base sont independants : si l'un echoue, l'autre part quand meme.
-  if (!demande.uid) {
+  // 13 nov. 2026 : un rendez-vous beaute SANS compte passe aussi par la transaction (verrou du creneau)
+  if (!demande.uid && !(options.verrou && options.verrou.date)) {
     envoyerEmail(demande).catch(() => {});
     const ref = await addDoc(collection(db, "demandes"), { ...demande, creeLe: serverTimestamp() });
     return ref.id;
   }
 
-  // Avec un compte : demande + suivi (+ code promo, + ancienne demande "remplacée") en une seule operation
+  // Avec un compte (ou un rendez-vous a verrouiller) : demande + suivi si compte (+ code promo, + ancienne demande "remplacée") en une seule operation
   const ref = doc(collection(db, "demandes"));
   const suiviRef = doc(db, "suivi", ref.id);
   const usageRef = demande.codePromo ? doc(db, "utilisationsPromo", demande.codePromo + "__" + demande.uid) : null;
@@ -170,7 +171,7 @@ export async function enregistrerDemande(demande, options = {}) {
     // 2. Ecritures
     if (agendaRef) tx.set(agendaRef, { cells: Object.fromEntries(verrou.cellules.map((c) => [c, true])), majLe: serverTimestamp() }, { merge: true });
     tx.set(ref, { ...demande, creeLe: serverTimestamp() });
-    tx.set(suiviRef, { ...construireSuivi(demande), creeLe: serverTimestamp(), majLe: serverTimestamp() });
+    if (demande.uid) tx.set(suiviRef, { ...construireSuivi(demande), creeLe: serverTimestamp(), majLe: serverTimestamp() });
     if (usageRef) {
       const deja = usage.exists() ? Number(usage.data().nombre) || 0 : 0;
       tx.set(usageRef, { code: demande.codePromo, uid: demande.uid, nombre: deja + 1, majLe: serverTimestamp() });

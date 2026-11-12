@@ -81,10 +81,6 @@ export default function CatalogueNails({ onRetour }) {
   };
 
   const envoyer = async () => {
-    if (!user || !user.emailVerified) {
-      setEnvoi({ enCours: false, ok: false, erreur: "Connecte-toi avec un compte vérifié pour réserver." });
-      return;
-    }
     if (!client.nom.trim() || !client.telephone.trim()) {
       setEnvoi({ enCours: false, ok: false, erreur: "Nom et téléphone obligatoires." });
       return;
@@ -109,7 +105,8 @@ export default function CatalogueNails({ onRetour }) {
       source: "site",
       kmEstime: null,
       minutesEstimees: p.dureeMinutes || null,
-      uid: user.uid,
+      // 13 nov. 2026 : sans compte aussi (le compte verifie ajoute seulement le suivi dans « Mon espace »)
+      ...(user && user.emailVerified ? { uid: user.uid } : {}),
     };
     try {
       await enregistrerDemande(demande, { verrou: { date, cellules } });

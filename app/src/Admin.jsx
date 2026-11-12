@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase.js";
 import { NOM } from "./contact.js";
@@ -37,7 +37,59 @@ const MESSAGES = {
   "auth/popup-blocked": "Votre navigateur a bloqué la fenêtre Google. Autorisez-la puis réessayez.",
   "auth/unauthorized-domain": "Ce site n'est pas encore autorisé dans Firebase (domaines autorisés).",
   "auth/network-request-failed": "Pas de connexion internet. Réessayez.",
+  "auth/invalid-credential": "E-mail ou mot de passe incorrect.",
+  "auth/wrong-password": "E-mail ou mot de passe incorrect.",
+  "auth/user-not-found": "Aucun compte avec cet e-mail : touche « Créer mon compte ».",
+  "auth/email-already-in-use": "Ce compte existe déjà : touche « Me connecter ».",
+  "auth/invalid-email": "Adresse e-mail invalide.",
+  "auth/weak-password": "Mot de passe trop court (6 caractères minimum).",
+  "auth/too-many-requests": "Trop d'essais. Patiente quelques minutes.",
 };
+
+// 12 nov. 2026 : Jeremy n'arrivait pas a se connecter avec le lien envoye par WhatsApp. Les navigateurs integres
+// (WhatsApp, Instagram, Facebook) bloquent la connexion Google. On le detecte pour le dire, et on propose aussi
+// la connexion par e-mail et mot de passe (meme compte que sur le site).
+const navigateurIntegre = () => typeof navigator !== "undefined" && /FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|GSA\//i.test(navigator.userAgent || "");
+
+function ConnexionEmail({ setErreur }) {
+  const [email, setEmail] = useState("");
+  const [mdp, setMdp] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const [info, setInfo] = useState("");
+  const agir = async (action) => {
+    setErreur("");
+    setInfo("");
+    if (!email.trim()) return setErreur("Indique ton adresse e-mail.");
+    setEnCours(true);
+    try {
+      if (action === "oubli") {
+        await sendPasswordResetEmail(auth, email.trim());
+        setInfo("E-mail envoyé : clique sur le lien reçu pour choisir un nouveau mot de passe.");
+      } else if (action === "creer") {
+        const r = await createUserWithEmailAndPassword(auth, email.trim(), mdp);
+        await sendEmailVerification(r.user);
+        setInfo("Compte créé. Ouvre l'e-mail reçu et clique sur le lien de vérification, puis reviens ici.");
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), mdp);
+      }
+    } catch (e) {
+      setErreur(MESSAGES[e.code] || "Connexion impossible. Réessaie.");
+    }
+    setEnCours(false);
+    return undefined;
+  };
+  return (
+    <form className="admin-email" onSubmit={(e) => { e.preventDefault(); agir("connexion"); }}>
+      <label className="admin-texte" htmlFor="ad-email">Ou avec ton e-mail et un mot de passe</label>
+      <input id="ad-email" type="email" autoComplete="email" inputMode="email" placeholder="ton.adresse@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input type="password" autoComplete="current-password" placeholder="Mot de passe (6 caractères minimum)" value={mdp} onChange={(e) => setMdp(e.target.value)} />
+      <button className="admin-bouton" type="submit" disabled={enCours}>Me connecter</button>
+      <button className="admin-bouton admin-secondaire" type="button" disabled={enCours} onClick={() => agir("creer")}>Créer mon compte</button>
+      <button className="admin-lien" type="button" disabled={enCours} onClick={() => agir("oubli")}>Mot de passe oublié</button>
+      {info && <p className="admin-texte" role="status">{info}</p>}
+    </form>
+  );
+}
 
 // Menu lateral de l'espace prive (D2a, 9 nov. 2026 : 10 rubriques validees en G2 + « Devis rapide » demande par Rebecca)
 const RUBRIQUES = [
@@ -132,6 +184,10 @@ export default function Admin() {
   const [cible, setCible] = useState({ onglet: null, id: null });
 
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
+  // Retour d'une connexion Google par redirection (quand la fenetre Google est bloquee)
+  useEffect(() => {
+    getRedirectResult(auth).catch((e) => setErreur(MESSAGES[e.code] || ""));
+  }, []);
 
   useEffect(() => {
     try {
@@ -158,6 +214,15 @@ export default function Admin() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (e) {
+      // Fenetre bloquee ou impossible ici : on passe par une redirection vers Google
+      if (["auth/popup-blocked", "auth/operation-not-supported-in-this-environment", "auth/web-storage-unsupported"].includes(e.code)) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch {
+          /* message ci-dessous */
+        }
+      }
       setErreur(MESSAGES[e.code] || "Connexion impossible. Réessayez.");
     }
     setEnCours(false);
@@ -257,16 +322,30 @@ export default function Admin() {
         {user === null && (
           <>
             <p className="admin-texte">Cet espace est réservé à Rebecca et à son équipe.</p>
+            {navigateurIntegre() && (
+              <p className="admin-erreur" role="alert">Tu as ouvert ce lien dans WhatsApp (ou Instagram) : Google y bloque la connexion. Touche les trois points ⋯ ou l'icône de partage, puis « Ouvrir dans Safari » (ou Chrome), et reconnecte-toi là.</p>
+            )}
             <button className="admin-bouton" onClick={connecter} disabled={enCours}>
               {enCours ? "Connexion…" : "Se connecter avec Google"}
             </button>
+            <ConnexionEmail setErreur={setErreur} />
             {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}
           </>
         )}
 
-        {user && !estAdmin && !equipe.pret && <p className="admin-texte">Chargement…</p>}
+        {user && !estAdmin && !user.emailVerified && (
+          <>
+            <p className="admin-texte"><strong>Vérifie ton adresse e-mail</strong> ({user.email}) : ouvre l'e-mail reçu et clique sur le lien, puis touche « C'est fait ».</p>
+            <button className="admin-bouton" onClick={async () => { await user.reload(); window.location.reload(); }}>C'est fait</button>
+            <button className="admin-bouton admin-secondaire" onClick={() => sendEmailVerification(user).then(() => setErreur("E-mail renvoyé.")).catch(() => setErreur("Envoi impossible, réessaie dans quelques minutes."))}>Renvoyer l'e-mail</button>
+            <button className="admin-bouton admin-secondaire" onClick={deconnecter}>Se déconnecter</button>
+            {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}
+          </>
+        )}
 
-        {user && !estAdmin && equipe.pret && role === "aucun" && (
+        {user && !estAdmin && user.emailVerified && !equipe.pret && <p className="admin-texte">Chargement…</p>}
+
+        {user && !estAdmin && user.emailVerified && equipe.pret && role === "aucun" && (
           <>
             <p className="admin-texte">Ce compte ({user.email}) n'a pas encore accès à l'espace privé.</p>
             <p className="admin-texte">Tu fais partie de l'équipe ? Envoie une demande d'accès : Rebecca l'activera.</p>
@@ -276,7 +355,7 @@ export default function Admin() {
           </>
         )}
 
-        {user && !estAdmin && equipe.pret && role === "attente" && (
+        {user && !estAdmin && user.emailVerified && equipe.pret && role === "attente" && (
           <>
             <p className="admin-texte"><strong>Demande d'accès envoyée.</strong></p>
             <p className="admin-texte">Rebecca doit l'activer dans son espace (rubrique Équipe). Cette page s'ouvrira toute seule ensuite.</p>
@@ -285,14 +364,14 @@ export default function Admin() {
           </>
         )}
 
-        {user && !estAdmin && equipe.pret && role === "refuse" && (
+        {user && !estAdmin && user.emailVerified && equipe.pret && role === "refuse" && (
           <>
             <p className="admin-erreur" role="alert">Ta demande d'accès n'a pas été acceptée. Vois avec Rebecca.</p>
             <button className="admin-bouton" onClick={deconnecter}>Se déconnecter</button>
           </>
         )}
 
-        {user && !estAdmin && equipe.pret && role === "desactive" && (
+        {user && !estAdmin && user.emailVerified && equipe.pret && role === "desactive" && (
           <>
             <p className="admin-erreur" role="alert">Ton accès est désactivé. Vois avec Rebecca.</p>
             <button className="admin-bouton" onClick={deconnecter}>Se déconnecter</button>

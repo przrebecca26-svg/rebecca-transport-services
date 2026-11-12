@@ -185,3 +185,8 @@
   -webkit-box-shadow: 0 0 0 1000px #100d0f inset; box-shadow: 0 0 0 1000px #100d0f inset; transition: background-color 9999s;
 }
 .theme-sombre input:focus, .theme-sombre select:focus, .theme-sombre textarea:focus { outline: 2px solid rgba(241, 174, 183, 0.55); outline-offset: 1px; }
+
+/* Connexion par e-mail dans l'espace prive (12 nov. 2026) */
+.admin-email { display: grid; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--g-bord, #5a3b37); }
+.admin-email input { min-height: 48px; padding: 10px 12px; font: 16px var(--g-sans, sans-serif); border-radius: 12px; border: 1px solid var(--g-bord, #5a3b37); background: #100e10; color: var(--g-texte, #f8f3f1); }
+.admin-lien { background: transparent; border: 0; color: var(--g-rose, #f1aeb7); text-decoration: underline; font-size: 14px; cursor: pointer; }

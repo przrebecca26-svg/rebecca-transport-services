@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { indicateurs, tuiles } from "./pricing/tableauBord.js";
@@ -20,6 +20,17 @@ export default function TableauDeBord({ aller, membre = null }) {
   const [mouvements, setMouvements] = useState([]);
   const [erreur, setErreur] = useState("");
   const [type, setType] = useState("jour");
+  // 12 nov. 2026 : tuile « Wolt » dans Mes activites (revenus Wolt et autres de la personne connectee)
+  const [autres, setAutres] = useState([]);
+  useEffect(
+    () =>
+      onSnapshot(
+        membre ? query(collection(db, "autresRevenus"), where("operateur", "==", membre.id)) : collection(db, "autresRevenus"),
+        (s) => setAutres(s.docs.map((x) => x.data()).filter((x) => (membre ? true : !x.operateur))),
+        () => setAutres([])
+      ),
+    [membre]
+  );
 
   useEffect(() => {
     const echec = () => setErreur("Impossible de charger les chiffres. Vérifiez la connexion.");
@@ -40,8 +51,13 @@ export default function TableauDeBord({ aller, membre = null }) {
   }, [demandes, mouvements, type, vue]); // eslint-disable-line react-hooks/exhaustive-deps
   const listeTuiles = useMemo(() => {
     const t = tuiles({ demandes: vue ? vue.siennes : demandes || [], mouvements: vue ? vue.mouvements : mouvements, periode });
-    return membre ? t.filter((x) => tuileVisible(membre, x.id)) : t;
-  }, [demandes, mouvements, type, vue]); // eslint-disable-line react-hooks/exhaustive-deps
+    const liste = membre ? t.filter((x) => tuileVisible(membre, x.id)) : t;
+    const dansPeriode = autres.filter((x) => x.debut && x.debut >= periode.debut && x.debut <= periode.fin);
+    const revenu = dansPeriode.reduce((s, x) => s + (Number(x.revenu) || 0), 0);
+    const livraisons = dansPeriode.reduce((s, x) => s + (Number(x.livraisons) || 0), 0);
+    const wolt = { id: "wolt", titre: "Wolt", etat: "active", icone: "livraison", texte: `${Math.round(revenu).toLocaleString("fr-FR")} ₪ · ${livraisons} livraison${livraisons > 1 ? "s" : ""}` };
+    return [...liste, wolt];
+  }, [demandes, mouvements, type, vue, autres]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const val = (x, argent) => (chiffres ? (argent ? shekels(x) : String(x)) : "…");
 
@@ -67,7 +83,7 @@ export default function TableauDeBord({ aller, membre = null }) {
       </div>
       <div className="tdb-tuiles">
         {listeTuiles.map((t) => (
-          <TuileActivite key={t.id} activite={t} ouvrir={() => aller("activites", t.id)} />
+          <TuileActivite key={t.id} activite={t} ouvrir={() => (t.id === "wolt" ? aller(membre ? "mesfinances" : "finances") : aller("activites", t.id))} />
         ))}
       </div>
 

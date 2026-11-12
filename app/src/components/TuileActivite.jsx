@@ -15,7 +15,8 @@ export default function TuileActivite({ activite, ouvrir }) {
       <span className="tdb-tuile-texte">
         <b>{a.titre}</b>
         {active ? <span className="tdb-badge ok">Active</span> : <span className="tdb-badge bientot">Bientôt</span>}
-        {active && a.chiffres && <span className="tdb-tuile-ca">{shekels(a.chiffres.caRealise)} · {a.chiffres.prestationsTerminees} terminée{a.chiffres.prestationsTerminees > 1 ? "s" : ""}</span>}
+        {active && a.texte && <span className="tdb-tuile-ca">{a.texte}</span>}
+        {active && !a.texte && a.chiffres && <span className="tdb-tuile-ca">{shekels(a.chiffres.caRealise)} · {a.chiffres.prestationsTerminees} terminée{a.chiffres.prestationsTerminees > 1 ? "s" : ""}</span>}
       </span>
     </button>
   );

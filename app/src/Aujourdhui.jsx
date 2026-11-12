@@ -1,4 +1,5 @@
-import { Pastille } from "./equipeContexte.jsx";
+import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
+import { ADMIN_ID, attribueA } from "./pricing/equipe.js";
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -130,9 +131,13 @@ export default function Aujourdhui({ aller }) {
   const ouvrir = (id) => aller("demandes", id);
   const demain = ajouterJours(jour, 1);
 
+  // 12 nov. 2026 : un coequipier ne voit que SES courses (et les nouvelles demandes a prendre, et ses propositions)
+  const { moi } = useEquipeContexte();
+  const equipier = !!moi && moi !== ADMIN_ID;
   const vue = useMemo(() => {
     if (!demandes || !mouvements) return null;
-    const avecSit = demandes.map((d) => ({
+    const visibles = equipier ? demandes.filter((d) => attribueA(d) === moi || d.proposeA === moi || (d.statut === "en attente" && !d.attribueA)) : demandes;
+    const avecSit = visibles.map((d) => ({
       d,
       sit: situationCourse({ id: d.id, date: d.date, prixConvenu: prixDe(d), statut: d.statut }, mouvements),
     }));

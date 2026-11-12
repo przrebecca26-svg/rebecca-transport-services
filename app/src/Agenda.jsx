@@ -620,7 +620,8 @@ export default function Agenda() {
   // J3 : filtre « Moi / Rebecca / Jeremy / Tous »
   const items = tousItems && filtrerPersonne(tousItems, personne, moi);
   const [erreur, setErreur] = useState("");
-  const [vue, setVue] = useState("semaine");
+  // 12 nov. 2026 : le Calendrier s'ouvre sur la journee d'aujourd'hui (vue Jour)
+  const [vue, setVue] = useState("jour");
   const [ref, setRef] = useState(aujourdhui);
   const [fermetures, setFermetures] = useState([]); // fermetures enregistrees par Rebecca
   const [creneaux, setCreneaux] = useState(CRENEAUX_PAR_DEFAUT); // creneaux fixes (actifs ou libres)
@@ -738,7 +739,11 @@ export default function Agenda() {
       <FiltrePersonne valeur={personne} changer={setPersonne} />
       <div className="tb-filtres" role="tablist" aria-label="Type de vue">
         {[["jour", "Jour"], ["semaine", "Semaine"], ["mois", "Mois"]].map(([id, nom]) => (
-          <button key={id} role="tab" aria-selected={vue === id} className={"tb-filtre" + (vue === id ? " actif" : "")} onClick={() => setVue(id)}>
+          <button key={id} role="tab" aria-selected={vue === id} className={"tb-filtre" + (vue === id ? " actif" : "")} onClick={() => {
+              // Toucher Jour, Semaine ou Mois revient toujours a aujourd'hui ; les fleches changent ensuite de jour
+              setVue(id);
+              setRef(aujourdhui);
+            }}>
             {nom}
           </button>
         ))}

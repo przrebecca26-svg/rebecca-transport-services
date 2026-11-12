@@ -97,6 +97,19 @@ test("trop d'enfants en meme temps : l'ordre change pour ne jamais depasser 4 pl
   vrai(max <= 4, "charge " + max);
 });
 
+test("4 enfants d'une cliente a la meme heure = un seul arret de 4 places, fait a part des autres enfants", () => {
+  const r = To.evaluerDevis(TOURNEE, devis({ enfants: [1, 2, 3, 4].map(() => enfant({ heureSortie: "15:00" })) }), duree, T);
+  const prise = r.jours[0].arrets.find((x) => !x.pause && x.sorte === "prise" && x.trajet.places === 4);
+  vrai(!!prise && r.statut === "possible", r.statut + " " + r.jours[0].probleme);
+});
+
+test("4 enfants a 4 heures differentes : reponse rapide", () => {
+  const debut = Date.now();
+  const r = To.evaluerDevis(TOURNEE, devis({ enfants: ["13:30", "14:10", "14:40", "15:10"].map((h) => enfant({ heureSortie: h })) }), duree, T);
+  vrai(["possible", "serre", "impossible"].includes(r.statut));
+  vrai(Date.now() - debut < 4000, "trop lent : " + (Date.now() - debut) + " ms");
+});
+
 test("un trajet de 5 enfants : impossible (4 places)", () => {
   const r = To.evaluerJour([To.trajetVide({ nom: "Groupe", places: 5, de: GAN, a: AMIE, heure: "14:00", jours: tous() })], 0, duree, T);
   egal(r.statut, "impossible");

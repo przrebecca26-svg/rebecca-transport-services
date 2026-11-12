@@ -4,7 +4,7 @@ import { PASTILLES } from "../tourneeBase.js";
 // Une journee de tournee : la reponse (possible / serre / impossible) et l'ordre des arrets avec les heures.
 export default function JourneeTournee({ titre, jour, ouvert = false, nouveaux = [] }) {
   const p = PASTILLES[jour.statut] || PASTILLES.vide;
-  const estNouveau = (x) => nouveaux.includes(x.trajet.id);
+  const estNouveau = (x) => (x.trajet.ids || [x.trajet.id]).some((id) => nouveaux.includes(id));
   return (
     <details className={"rp-journee " + jour.statut} open={ouvert}>
       <summary>

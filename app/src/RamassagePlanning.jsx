@@ -16,7 +16,7 @@ import { useTournee, useDurees, enregistrerTournee, PASTILLES } from "./tourneeB
 import "./client-commun.css";
 import "./devis-rapide.css";
 
-// DEVIS RAPIDE - RAMASSAGE SCOLAIRE (12 nov. 2026) : 1 a 3 enfants, l'heure exacte de chaque jour pour chaque
+// DEVIS RAPIDE - RAMASSAGE SCOLAIRE (12 nov. 2026) : 1 a 4 enfants, l'heure exacte de chaque jour pour chaque
 // enfant, et un prix pour un jour, une semaine ou un mois. Meme prix par trajet que sur le site.
 
 const CHAMP_DOMICILE = { name: "domicile", label: "Adresse du domicile", type: "adresse", required: true };
@@ -232,7 +232,7 @@ export default function RamassagePlanning({ retour, aller }) {
           )}
           <fieldset className="champ">
             <legend>Nombre d'enfants</legend>
-            <div className="choix rp-trois">
+            <div className="choix rp-quatre">
               {Array.from({ length: MAX_ENFANTS }, (_, k) => k + 1).map((n) => (
                 <button key={n} type="button" className={plan.enfants.length === n ? "actif" : ""} aria-pressed={plan.enfants.length === n} onClick={() => changer("enfants", reglerNombreEnfants(plan.enfants, n))}>{n}</button>
               ))}

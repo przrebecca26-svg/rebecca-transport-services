@@ -130,10 +130,10 @@ test("ce qui manque : adresse, date, heure d'un jour", () => {
   egal(P.manquePlan(plan({ periode: "jour", date: "2026-11-14", enfants: [enfant({ heureSortie: "12:00" })] })), "Ce jour est un samedi : choisis un autre jour.");
 });
 
-test("nombre d'enfants : 1 a 3, sans perdre la saisie", () => {
+test("nombre d'enfants : 1 a 4 (4 places), sans perdre la saisie", () => {
   const l = P.reglerNombreEnfants([enfant({ prenom: "Noa" })], 3);
   egal([l.length, l[0].prenom], [3, "Noa"]);
-  egal(P.reglerNombreEnfants(l, 9).length, 3);
+  egal(P.reglerNombreEnfants(l, 9).length, 4);
   egal(P.reglerNombreEnfants(l, 1).length, 1);
 });
 

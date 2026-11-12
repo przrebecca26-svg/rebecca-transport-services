@@ -1,7 +1,7 @@
 // DEVIS RAMASSAGE SCOLAIRE A PLUSIEURS ENFANTS - regles pures (aucun acces internet ni base de donnees)
 // 12 nov. 2026, demande de Rebecca : une cliente a deux enfants dans la meme ecole, qui ne sortent pas a la meme
 // heure (donc deux trajets), avec des horaires differents selon les jours, et veut un prix AU MOIS.
-// - 1, 2 ou 3 enfants ; pour chaque enfant : les jours et l'heure exacte de chaque jour ;
+// - 1 a 4 enfants ; pour chaque enfant : les jours et l'heure exacte de chaque jour ;
 // - periode : un seul jour, une semaine ou un mois ;
 // - un trajet = un passage de Rebecca : deux enfants a la meme heure le meme jour = UN seul trajet ;
 // - prix d'un trajet : exactement celui du site (prixTrajetRamassage) ;
@@ -29,7 +29,7 @@ export const SENS = [
   { v: "matin", l: "Matin : domicile → école" },
   { v: "deux", l: "Les deux" },
 ];
-export const MAX_ENFANTS = 3;
+export const MAX_ENFANTS = 4; // 4 places pour les enfants dans la voiture (Rebecca, 12 nov. 2026)
 
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 const HEURE_OK = /^([01]\d|2[0-3]):[0-5]\d$/;

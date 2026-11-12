@@ -20,7 +20,7 @@ const HEURE_OK = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 const FENETRE_MATIN = 45; // matin sans heure de prise : on ne part pas plus de 45 min avant l'heure d'arrivee
 const ECART_GROUPE = 60; // deux trajets a plus d'une heure d'ecart ne sont jamais faits ensemble
-const MAX_ESSAIS = 300000;
+const MAX_ESSAIS = 60000; // nombre d'ordres essayes au maximum par moment de la journee (reponse rapide sur telephone)
 
 export const enMin = (hhmm) => {
   const [h, m] = hhmm.split(":").map(Number);
@@ -257,22 +257,26 @@ const meilleur = (a, b) => {
 // jamais plus d'enfants que de places)
 function meilleurOrdre(trajets, w, duree, regles) {
   const paires = trajets.map((r) => arretsDuTrajet(r, w));
-  let best = null;
+  // Point de depart : les trajets l'un apres l'autre, dans l'ordre des heures (toujours faisable pour les places)
+  const simple = [...paires].sort((a, b) => (a[0].tot ?? 0) - (b[0].tot ?? 0)).flat();
+  const depart = derouler(simple, duree, regles);
+  if (!depart) return null;
+  let best = { ...depart, ordre: simple };
   let essais = 0;
   const ordre = [];
   const etat = paires.map(() => 0); // 0 = pas pris, 1 = dans la voiture, 2 = depose
   const explorer = (charge) => {
-    if (essais > MAX_ESSAIS) return;
+    if (essais++ > MAX_ESSAIS) return;
     if (ordre.length === paires.length * 2) {
-      essais++;
       const r = derouler(ordre, duree, regles);
       if (r && meilleur(r, best)) best = { ...r, ordre: [...ordre] };
       return;
     }
-    if (best && ordre.length > 1) {
+    if (ordre.length > 1) {
       const partiel = derouler(ordre, duree, regles);
       if (!partiel) return;
       if (partiel.violation > best.violation || (partiel.violation === best.violation && partiel.retard > best.retard)) return;
+      if (partiel.violation === best.violation && partiel.retard === best.retard && partiel.conduite > best.conduite) return;
     }
     for (let i = 0; i < paires.length; i++) {
       if (etat[i] === 2) continue;
@@ -287,7 +291,6 @@ function meilleurOrdre(trajets, w, duree, regles) {
     }
   };
   explorer(0);
-  if (!best) return null;
   // Depart « au plus tard » pour les prises du matin sans heure : inutile de partir 45 minutes avant
   const tots = new Map();
   for (const s of [...best.ordre].reverse()) {
@@ -312,7 +315,14 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
   const regles = t.tournee;
   const actifs = trajets.filter((r) => trajetActif(r, w, periode.du, periode.au));
   const incomplets = actifs.filter((r) => manqueTrajet(r));
-  const bons = actifs.filter((r) => !manqueTrajet(r));
+  // Enfants pris au meme endroit, a la meme heure, pour le meme endroit (freres et soeurs) = un seul trajet
+  const fusion = new Map();
+  for (const r of actifs.filter((x) => !manqueTrajet(x))) {
+    const cle = [r.type, cleLieu(r.de), cleLieu(r.a), heureTrajet(r, w), r.heurePrise, r.peutAttendre].join("#");
+    const deja = fusion.get(cle);
+    fusion.set(cle, deja ? { ...deja, places: deja.places + r.places, nom: `${deja.nom} + ${r.nom}`, ids: [...deja.ids, r.id] } : { ...r, ids: [r.id] });
+  }
+  const bons = [...fusion.values()];
   if (bons.length === 0) return { statut: "vide", arrets: [], probleme: "", retard: 0, incomplets };
   const trop = bons.find((r) => r.places > regles.places);
   if (trop) return { statut: "impossible", arrets: [], probleme: `${trop.nom || "Un trajet"} : ${trop.places} enfants pour ${regles.places} places dans la voiture.`, retard: 0, incomplets };
@@ -381,9 +391,13 @@ export function evaluerDevis(tournee, plan, duree, t = TARIFS) {
   const periode = periodeDuPlan(plan);
   const nouveaux = trajetsDuDevis(plan);
   const jours = [];
+  const dejaCalcule = new Map(); // deux jours avec exactement les memes trajets et les memes heures = meme reponse
+  const tous = [...tournee, ...nouveaux];
   for (let w = 0; w < JOURS.length; w++) {
     if (!nouveaux.some((r) => r.jours[w].actif)) continue;
-    jours.push({ w, jour: JOURS[w], ...evaluerJour([...tournee, ...nouveaux], w, duree, t, periode) });
+    const cle = tous.map((r) => (trajetActif(r, w, periode.du, periode.au) ? `${r.id}@${heureTrajet(r, w)}` : "")).join("|");
+    if (!dejaCalcule.has(cle)) dejaCalcule.set(cle, evaluerJour(tous, w, duree, t, periode));
+    jours.push({ w, jour: JOURS[w], ...dejaCalcule.get(cle) });
   }
   const ordre = ["impossible", "inconnu", "serre", "possible", "vide"];
   const statut = jours.length ? ordre.find((s) => jours.some((j) => j.statut === s)) : "vide";

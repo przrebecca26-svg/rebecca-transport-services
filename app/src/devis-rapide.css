@@ -18,6 +18,7 @@
 
 /* RAMASSAGE SCOLAIRE A PLUSIEURS ENFANTS (12 nov. 2026) */
 .theme-sombre .rp-trois { grid-template-columns: repeat(3, 1fr); }
+.theme-sombre .rp-quatre { grid-template-columns: repeat(4, 1fr); }
 .theme-sombre .rp-enfant h3 { margin: 0; color: var(--g-rose); font: 800 18px var(--g-titre); }
 .theme-sombre .rp-jours { display: grid; gap: 6px; }
 .theme-sombre .rp-jour { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 4px 0; border-top: 1px solid rgba(185, 120, 112, 0.3); }

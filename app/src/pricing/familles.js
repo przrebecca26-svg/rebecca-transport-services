@@ -39,8 +39,10 @@ export const rdvVide = (type = "ecole") => ({
   joursAilleurs: JOURS.map(() => true), // les jours ou il m'attend la-bas (les autres jours : je le prends sur place)
   attend: false, // il peut m'attendre sans limite
 });
-export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", rdv: [rdvVide("ecole")] });
-export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", domicile: null, adresses: [], du: "", au: "", enfants: [enfantFicheVide()] });
+// age : "enfant" (mineur) ou "adulte" (18 ans et plus) - 12 nov. 2026, 22h52 : une case sur chaque fiche
+export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", rdv: [rdvVide("ecole")] });
+// nom2 / telephone2 : l'autre parent (facultatif)
+export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", enfants: [enfantFicheVide()] });
 
 // Nettoie ce qui vient de la base
 export function lireFamilles(liste) {
@@ -52,6 +54,8 @@ export function lireFamilles(liste) {
       id: String(f.id || nouvelIdFiche()).slice(0, 40),
       nom: String(f.nom || "").slice(0, 60),
       telephone: String(f.telephone || "").slice(0, 20),
+      nom2: String(f.nom2 || "").slice(0, 60),
+      telephone2: String(f.telephone2 || "").slice(0, 20),
       domicile: adresseLue(f.domicile),
       adresses: (Array.isArray(f.adresses) ? f.adresses : [])
         .map((a) => ({ nom: String((a && a.nom) || "").slice(0, 40), adresse: adresseLue(a && a.adresse) }))
@@ -65,6 +69,7 @@ export function lireFamilles(liste) {
         .map((e) => ({
           id: String(e.id || nouvelIdFiche()).slice(0, 40),
           prenom: String(e.prenom || "").slice(0, 40),
+          age: e.age === "adulte" ? "adulte" : "enfant",
           rdv: (Array.isArray(e.rdv) ? e.rdv : [])
             .filter((r) => r && typeof r === "object")
             .slice(0, 8)
@@ -86,6 +91,50 @@ export function lireFamilles(liste) {
             })),
         })),
     }));
+}
+
+/* ---------- Depuis le Calendrier : « + Ajouter une tache » de type Ramassage scolaire (12 nov. 2026, 22h52) ---------- */
+
+// Tous les enfants des fiches, pour les choisir en un clic : { famille, enfant, prenom, parent, ecole, sortie }
+export function listeEnfants(familles) {
+  const liste = [];
+  for (const f of familles || []) {
+    for (const e of f.enfants || []) {
+      const ecole = (e.rdv || []).find((r) => r.type === "ecole") || null;
+      liste.push({ famille: f.id, enfant: e.id, prenom: String(e.prenom || "").trim() || "Enfant", parent: String(f.nom || "").trim(), age: e.age === "adulte" ? "adulte" : "enfant", ecole: ecole ? ecole.lieu : null, entree: ecole ? ecole.heureArrivee : "", sortie: ecole ? ecole.heureSortie : "" });
+    }
+  }
+  return liste.sort((a, b) => a.prenom.localeCompare(b.prenom, "fr"));
+}
+
+// Nouvel enfant saisi depuis le Calendrier : il rejoint la famille choisie (famille = id) ou une nouvelle famille.
+// n = { famille, parent, telephone, parent2, telephone2, prenom, age, ecole (adresse), entree, sortie, jours: [w...] }
+// Renvoie { familles, ref: { famille, enfant } } ; null si le prenom manque (ou le nom du parent pour une nouvelle famille)
+export function ajouterEnfantDepuisTache(familles, n) {
+  const prenom = String((n && n.prenom) || "").trim().slice(0, 40);
+  if (!prenom) return null;
+  const existante = (familles || []).find((f) => f.id === n.famille) || null;
+  if (!existante && !String(n.parent || "").trim()) return null;
+  const ecole = {
+    ...rdvVide("ecole"),
+    lieu: adresseLue(n.ecole),
+    heureArrivee: heure(n.entree),
+    heureSortie: heure(n.sortie),
+    ...(Array.isArray(n.jours) ? { jours: JOURS.map((_, w) => ({ actif: n.jours.includes(w), arrivee: "", sortie: "" })) } : {}),
+  };
+  const enfant = { id: nouvelIdFiche(), prenom, age: n.age === "adulte" ? "adulte" : "enfant", rdv: [ecole] };
+  if (existante) {
+    return { familles: familles.map((f) => (f.id === existante.id ? { ...f, enfants: [...f.enfants, enfant] } : f)), ref: { famille: existante.id, enfant: enfant.id } };
+  }
+  const f = {
+    ...familleVide(),
+    nom: String(n.parent).trim().slice(0, 60),
+    telephone: String(n.telephone || "").trim().slice(0, 20),
+    nom2: String(n.parent2 || "").trim().slice(0, 60),
+    telephone2: String(n.telephone2 || "").trim().slice(0, 20),
+    enfants: [enfant],
+  };
+  return { familles: [...(familles || []), f], ref: { famille: f.id, enfant: enfant.id } };
 }
 
 export const nomRdv = (r) => String(r.nom || "").trim() || (r.type === "ecole" ? "École" : "Activité");

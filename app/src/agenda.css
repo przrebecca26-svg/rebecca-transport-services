@@ -67,3 +67,9 @@
 .ag-retire { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ag-adresse-ligne { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
 .ag-adresse-ligne .ag-adresse { flex: 1; min-width: 0; margin: 4px 0; }
+/* Tache : type d'activite, nouvel enfant, adulte ou enfant (12 nov. 2026) */
+.ag-tache-form .choix { grid-template-columns: 1fr 1fr; }
+.ag-tache-form .ag-champ select { width: 100%; }
+.ag-nouvel-enfant { margin: 8px 0; padding: 10px; border-radius: 10px; background: rgba(185, 120, 112, 0.08); }
+.ag-age { margin: 8px 0; border: 0; padding: 0; }
+.ag-age .choix { grid-template-columns: 1fr 1fr; }

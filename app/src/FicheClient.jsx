@@ -1,4 +1,5 @@
 import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
+import ChoixAge from "./components/ChoixAge.jsx";
 import { champOperateur } from "./pricing/reverser.js";
 import { useEffect, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
@@ -170,6 +171,14 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
           <button className="tb-bouton tb-clair" onClick={() => aller("demandes", "nouvelle:" + fiche.cle)}>+ Ajouter une course</button>
           {onModifier && <button className="tb-bouton tb-clair" onClick={onModifier}>{fiche.avecCompte ? "Modifier l'origine" : "Modifier les infos"}</button>}
         </div>
+      </Bloc>
+
+      <Bloc titre="Adulte ou enfant">
+        {fiche.avecCompte ? (
+          <p>Adulte (18 ans et plus) : un compte client est réservé aux personnes majeures. Un enfant s'ajoute dans le compte de son parent (« Mes enfants ») ou dans le Répertoire (« Familles et enfants »).</p>
+        ) : (
+          <ChoixAge titre="Cette personne est" valeur={(admin && admin.age) || ""} disabled={enCours} changer={(v) => executer(() => setDoc(refAdmin, { age: v, majLe: serverTimestamp() }, { merge: true }), v === "enfant" ? "Enregistré : enfant (mineur)." : "Enregistré : adulte.")} />
+        )}
       </Bloc>
 
       {!fiche.avecCompte && <Remerciement prenom={(pf && pf.prenom) || prenom} telephone={fiche.telephone} email={fiche.email} />}

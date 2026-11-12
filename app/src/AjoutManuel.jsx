@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ChoixAge from "./components/ChoixAge.jsx";
 import { collection, doc, onSnapshot, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
@@ -40,7 +41,7 @@ const heureRonde = () => {
   return String((h + (q === 60 ? 1 : 0)) % 24).padStart(2, "0") + ":" + String(q % 60).padStart(2, "0");
 };
 const shekels = (n) => (Math.round(n * 100) / 100).toLocaleString("fr-FR") + " ₪";
-const CLIENT_VIDE = { prenom: "", nom: "", telephone: "", email: "", adresse: "", notes: "" };
+const CLIENT_VIDE = { prenom: "", nom: "", telephone: "", email: "", adresse: "", notes: "", age: "" };
 
 // Duree d'un trajet avec OSRM, abandonnee apres 8 secondes
 async function trajetEntre(de, vers) {
@@ -136,6 +137,7 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
       email: fiche.email || "",
       adresse: (p && p.adresse) || pf.adresse || "",
       notes: "",
+      age: pf.age || (p ? "adulte" : ""),
     });
     setOrigine(fiche.origine && fiche.origine !== "site" ? fiche.origine : "");
   };
@@ -323,6 +325,7 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
             <label>Prénom *<input className="am-champ" value={client.prenom} maxLength={60} onChange={(e) => changerClient("prenom", e.target.value)} /></label>
             <label>Nom<input className="am-champ" value={client.nom} maxLength={60} onChange={(e) => changerClient("nom", e.target.value)} /></label>
             <label>Téléphone *<input className="am-champ" type="tel" inputMode="tel" value={client.telephone} maxLength={20} onChange={(e) => changerClient("telephone", e.target.value)} /></label>
+            <div className="am-large"><ChoixAge valeur={client.age} changer={(v) => changerClient("age", v)} /></div>
             <label>E-mail<input className="am-champ" type="email" inputMode="email" value={client.email} maxLength={120} onChange={(e) => changerClient("email", e.target.value)} /></label>
             <label className="am-large">Adresse<input className="am-champ" value={client.adresse} maxLength={300} onChange={(e) => changerClient("adresse", e.target.value)} /></label>
             {!choisi && (

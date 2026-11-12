@@ -98,6 +98,8 @@ export function donneesPreFiche(c, origine) {
     if (v) res[k] = k === "email" ? v.toLowerCase() : v;
   }
   if (origine && LIBELLE_ORIGINE[origine]) res.origine = origine;
+  // Adulte (18 ans et plus) ou enfant (mineur) - 12 nov. 2026
+  if (c.age === "adulte" || c.age === "enfant") res.age = c.age;
   return res;
 }
 

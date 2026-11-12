@@ -134,7 +134,8 @@ const abonnes = new Set();
 // les corrections) ; clients : liste deja prete (tests)
 export function definirRepertoire({ lieux, clients, corrections, bruts, familles }) {
   const suite = { lieux: lieux || courant.lieux, corrections: corrections || courant.corrections, bruts: bruts || courant.bruts, familles: familles || courant.familles };
-  courant = { ...suite, clients: clients || (bruts || corrections ? adressesClients(suite.bruts, suite.corrections) : courant.clients) };
+  // charge : le document du repertoire est arrive (avant, on n'enregistre rien : on effacerait mes lieux)
+  courant = { ...suite, charge: courant.charge === true || Array.isArray(lieux), clients: clients || (bruts || corrections ? adressesClients(suite.bruts, suite.corrections) : courant.clients) };
   version++;
   abonnes.forEach((f) => f(version));
 }

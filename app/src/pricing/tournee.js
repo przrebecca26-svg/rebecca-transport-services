@@ -776,7 +776,7 @@ export function lireJours(json) {
     const taches = (Array.isArray(v.taches) ? v.taches : [])
       .filter((x) => x && HEURE_OK.test(x.debut) && HEURE_OK.test(x.fin) && x.fin > x.debut)
       .slice(0, 30)
-      .map((x) => ({ id: String(x.id || nouvelId()).slice(0, 40), titre: String(x.titre || "").slice(0, 80) || "Tâche", debut: x.debut, fin: x.fin, lieu: adresseLue(x.lieu) }));
+      .map((x) => ({ id: String(x.id || nouvelId()).slice(0, 40), titre: String(x.titre || "").slice(0, 80) || "Tâche", debut: x.debut, fin: x.fin, lieu: adresseLue(x.lieu), ...detailsTache(x) }));
     if (retires.length || Object.keys(heures).length || taches.length) sortie[date] = { retires, heures, taches };
   }
   return sortie;
@@ -827,17 +827,35 @@ export const journeeNormale = (jours, date) => propre(jours, date, { ...jourVide
 
 // TACHES DU JOUR (12 nov. 2026, 16h29) : « rajouter une tache si j'ai une course a faire, et bloquer un creneau ».
 // tache = { id, titre, debut, fin, lieu } ; elle bloque ce creneau sur le site (sans titre ni lieu : c'est public)
-export function ajouterTache(jours, date, { titre, debut, fin, lieu = null }) {
+// 12 nov. 2026, 22h52 : on choisit d'abord le TYPE (ramassage scolaire, course ou livraison, rendez-vous beaute,
+// autre : docteur...), puis pour qui, et si c'est un adulte (18 ans et plus) ou un enfant (mineur).
+// En plus : { type, pour, age ("adulte" | "enfant" | ""), enfant: { famille, enfant } (fiche du Repertoire) | null }
+export const TYPES_TACHE = [
+  { v: "ramassage", l: "Ramassage scolaire", icone: "🎒" },
+  { v: "course", l: "Course / Livraison", icone: "📦" },
+  { v: "beaute", l: "Rendez-vous beauté", icone: "💅" },
+  { v: "autre", l: "Autre (docteur…)", icone: "📌" },
+];
+export const iconeTache = (t) => (TYPES_TACHE.find((x) => x.v === (t && t.type)) || TYPES_TACHE[3]).icone;
+function detailsTache(x) {
+  const type = TYPES_TACHE.some((t) => t.v === x.type) ? x.type : "autre";
+  const age = x.age === "adulte" || x.age === "enfant" ? x.age : type === "ramassage" ? "enfant" : "";
+  const e = x.enfant && typeof x.enfant === "object" && x.enfant.enfant ? { famille: String(x.enfant.famille || "").slice(0, 40), enfant: String(x.enfant.enfant).slice(0, 40) } : null;
+  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null };
+}
+export function ajouterTache(jours, date, tache) {
+  const { titre, debut, fin, lieu = null } = tache || {};
   if (!DATE_OK.test(date) || !HEURE_OK.test(debut || "") || !HEURE_OK.test(fin || "") || fin <= debut) return jours;
   const j = { ...jourVide(), ...(jours[date] || {}) };
-  const t = { id: nouvelId(), titre: String(titre || "").trim().slice(0, 80) || "Tâche", debut, fin, lieu: lieu || null };
+  const t = { id: nouvelId(), titre: String(titre || "").trim().slice(0, 80) || "Tâche", debut, fin, lieu: lieu || null, ...detailsTache(tache) };
   return propre(jours, date, { ...j, taches: [...j.taches, t].sort((a, b) => (a.debut < b.debut ? -1 : 1)) });
 }
 // Modifier une tache (quoi, heures, adresse) : elle garde sa place, son creneau bloque suit les nouvelles heures
-export function modifierTache(jours, date, id, { titre, debut, fin, lieu = null }) {
+export function modifierTache(jours, date, id, tache) {
+  const { titre, debut, fin, lieu = null } = tache || {};
   if (!HEURE_OK.test(debut || "") || !HEURE_OK.test(fin || "") || fin <= debut) return jours;
   const j = { ...jourVide(), ...(jours[date] || {}) };
-  const taches = j.taches.map((x) => (x.id === id ? { ...x, titre: String(titre || "").trim().slice(0, 80) || "Tâche", debut, fin, lieu: lieu || null } : x));
+  const taches = j.taches.map((x) => (x.id === id ? { ...x, titre: String(titre || "").trim().slice(0, 80) || "Tâche", debut, fin, lieu: lieu || null, ...detailsTache(tache) } : x));
   return propre(jours, date, { ...j, taches: taches.sort((a, b) => (a.debut < b.debut ? -1 : 1)) });
 }
 export function retirerTache(jours, date, id) {

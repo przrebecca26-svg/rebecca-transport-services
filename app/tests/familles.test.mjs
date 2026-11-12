@@ -19,7 +19,7 @@ const jours = (actifs, plus = {}) => To.JOURS.map((_, w) => ({ actif: actifs.inc
 
 const MOI = {
   ...F.familleVide(), id: "moi", nom: "Moi", domicile: MAISON, adresses: [{ nom: "Travail", adresse: TRAVAIL }],
-  enfants: [{ id: "e1", prenom: "Dana", rdv: [
+  enfants: [{ id: "e1", prenom: "Dana", age: "enfant", rdv: [
     { ...F.rdvVide("ecole"), id: "r1", lieu: ECOLE, heureArrivee: "08:00", heureSortie: "13:30", jours: jours([0, 1, 2, 3, 4], { 4: { sortie: "12:00" } }), priseAilleurs: AMIE, attend: true },
     { ...F.rdvVide("activite"), id: "r2", nom: "Basket", lieu: GYMNASE, heureArrivee: "18:00", heureSortie: "19:30", jours: jours([1, 3]) },
   ] }],
@@ -236,4 +236,40 @@ test("devis accepte : les trajets de la cliente sont choisis d'office", () => {
   const choix = F.choixDeLaFamille(f);
   egal(choix.map((c) => c.sens), ["aller", "retour"]);
   egal(F.trajetsDesChoix([f], choix).map((r) => [r.nom, To.manqueTrajet(r)]), [["Noa · École (aller)", ""], ["Noa · École (retour)", ""]]);
+});
+
+section("Calendrier : ramassage avec un nouvel enfant, adulte ou enfant (12 nov. 2026, 22h52)");
+test("liste des enfants : prenom, parent, ecole et heure de sortie", () => {
+  const l = F.listeEnfants([MOI]);
+  egal([l[0].prenom, l[0].parent, l[0].age, l[0].sortie], ["Dana", "Moi", "enfant", "13:30"]);
+  vrai(!!l[0].ecole);
+});
+test("nouvel enfant dans une nouvelle famille : parents, telephones, ecole, horaires", () => {
+  const res = F.ajouterEnfantDepuisTache([MOI], { parent: "Parent B", telephone: "0501112233", parent2: "Autre B", telephone2: "0524445566", prenom: "Lia", age: "enfant", ecole: GAN, entree: "08:00", sortie: "13:00" });
+  egal(res.familles.length, 2);
+  const f = res.familles[1];
+  egal([f.nom, f.telephone, f.nom2, f.telephone2, f.enfants[0].prenom, f.enfants[0].age], ["Parent B", "0501112233", "Autre B", "0524445566", "Lia", "enfant"]);
+  egal([f.enfants[0].rdv[0].heureArrivee, f.enfants[0].rdv[0].heureSortie, f.enfants[0].rdv[0].lieu.label], ["08:00", "13:00", GAN.label]);
+  egal(res.ref, { famille: f.id, enfant: f.enfants[0].id });
+  // relu depuis la base : rien ne se perd ; il n'entre pas dans la tournee sans choix
+  egal(F.lireFamilles(JSON.parse(JSON.stringify(res.familles)))[1].nom2, "Autre B");
+  egal(F.trajetsDesChoix(res.familles, []).length, 0);
+});
+test("nouvel enfant dans une famille existante ; refuse sans prenom ou sans parent", () => {
+  const res = F.ajouterEnfantDepuisTache([MOI], { famille: "moi", prenom: "Noa", ecole: ECOLE });
+  egal([res.familles.length, res.familles[0].enfants.length, res.ref.famille], [1, 2, "moi"]);
+  egal(F.ajouterEnfantDepuisTache([MOI], { famille: "moi", prenom: " " }), null);
+  egal(F.ajouterEnfantDepuisTache([MOI], { prenom: "Noa" }), null);
+});
+test("tache : type, pour qui, adulte ou enfant ; le ramassage garde l'enfant de la fiche", () => {
+  let j = To.ajouterTache({}, "2026-11-15", { type: "autre", titre: "Docteur", pour: "Moi", age: "adulte", debut: "11:00", fin: "12:00" });
+  let t = To.tachesDuJour(j, "2026-11-15")[0];
+  egal([t.type, t.titre, t.pour, t.age, t.enfant], ["autre", "Docteur", "Moi", "adulte", null]);
+  j = To.ajouterTache({}, "2026-11-15", { type: "ramassage", titre: "Ramassage · Lia", pour: "Lia", enfant: { famille: "f1", enfant: "e9" }, debut: "12:45", fin: "13:15" });
+  t = To.lireJours(JSON.stringify(j))["2026-11-15"].taches[0];
+  egal([t.type, t.age, t.enfant], ["ramassage", "enfant", { famille: "f1", enfant: "e9" }]);
+  // ancienne tache (sans type) : lue comme « autre », sans age
+  t = To.lireJours('{"2026-11-15":{"taches":[{"id":"a","titre":"RDV","debut":"10:00","fin":"10:30"}]}}')["2026-11-15"].taches[0];
+  egal([t.type, t.age, t.pour], ["autre", "", ""]);
+  egal(To.iconeTache({ type: "beaute" }), "💅");
 });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Champ from "./components/Champ.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
+import ChoixAge from "./components/ChoixAge.jsx";
 import { JOURS } from "./pricing/tournee.js";
 import { familleVide, enfantFicheVide, rdvVide, manqueRdv, nomRdv, arriveeDuJour, sortieDuJour, doublonsFamilles, fusionnerDoublon } from "./pricing/familles.js";
 
@@ -80,6 +81,15 @@ function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
         <label htmlFor={"ft" + f.id}>Téléphone (facultatif)</label>
         <input id={"ft" + f.id} type="tel" inputMode="tel" maxLength={20} value={f.telephone} onChange={(e) => set("telephone", e.target.value)} />
       </div>
+      <p className="tdb-note">Le parent est un adulte (18 ans et plus).</p>
+      <div className="champ">
+        <label htmlFor={"fn2" + f.id}>Autre parent (facultatif)</label>
+        <input id={"fn2" + f.id} type="text" maxLength={60} value={f.nom2 || ""} onChange={(e) => set("nom2", e.target.value)} />
+      </div>
+      <div className="champ">
+        <label htmlFor={"ft2" + f.id}>Téléphone de l'autre parent (facultatif)</label>
+        <input id={"ft2" + f.id} type="tel" inputMode="tel" maxLength={20} value={f.telephone2 || ""} onChange={(e) => set("telephone2", e.target.value)} />
+      </div>
       <Adresse id={"fd" + f.id} label="Domicile de la famille" valeur={f.domicile} changer={(v) => set("domicile", v)} connues={connues} />
       <p className="rp-type">Adresses favorites</p>
       {(f.adresses || []).map((x, k) => (
@@ -104,9 +114,10 @@ function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
       {f.enfants.map((e) => (
         <div className="rp-fiche-enfant" key={e.id}>
           <div className="champ">
-            <label htmlFor={"ep" + e.id}>Prénom de l'enfant</label>
+            <label htmlFor={"ep" + e.id}>Prénom</label>
             <input id={"ep" + e.id} type="text" maxLength={40} value={e.prenom} onChange={(x) => setEnfant(e.id, { ...e, prenom: x.target.value })} />
           </div>
+          <ChoixAge valeur={e.age || "enfant"} changer={(v) => setEnfant(e.id, { ...e, age: v })} />
           {e.rdv.map((r) => (
             <Rdv key={r.id} famille={f} r={r} connues={connues} changer={(n) => setEnfant(e.id, { ...e, rdv: e.rdv.map((x) => (x.id === r.id ? n : x)) })} supprimer={() => setEnfant(e.id, { ...e, rdv: e.rdv.filter((x) => x.id !== r.id) })} />
           ))}

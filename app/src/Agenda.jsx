@@ -11,6 +11,10 @@ import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
 import { useMaJournee } from "./maJournee.js";
 import AddressField from "./components/AddressField.jsx";
+import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
+import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
+import { listeEnfants, ajouterEnfantDepuisTache } from "./pricing/familles.js";
+import { TYPES_TACHE, iconeTache } from "./pricing/tournee.js";
 import { ajouterJours, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
 // Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
@@ -419,9 +423,11 @@ function Etape({ e, date, journee }) {
       <div className="ag-etape-ligne">
         <b>{e.heure}</b>
         <span>
-          {e.genre === "arret" ? "🎒 " : e.genre === "maison" ? "🏠 " : e.genre === "tache" ? "📌 " : "🚗 "}
+          {e.genre === "arret" ? "🎒 " : e.genre === "maison" ? "🏠 " : e.genre === "tache" ? iconeTache(e.tache) + " " : "🚗 "}
           {e.texte}
           {e.genre === "tache" && e.jusqua ? ` (jusqu'à ${e.jusqua})` : ""}
+          {e.genre === "tache" && e.tache && e.tache.type !== "ramassage" && e.tache.pour && <small> · pour {e.tache.pour}</small>}
+          {e.genre === "tache" && e.tache && libelleAge(e.tache.age) && <small> · {libelleAge(e.tache.age)}</small>}
           {e.lieu && <small> · {e.lieu}{e.marge ? ` · ${e.marge}` : ""}</small>}
           {e.genre === "arret" && journee && journee.heureChangee(date, e.ids) && <small className="ag-etape-modif"> · heure changée ce jour</small>}
           {e.alerte && <small className="ag-etape-alerte">{e.alerte}</small>}
@@ -458,37 +464,187 @@ function Etape({ e, date, journee }) {
 }
 
 // Formulaire d'une tache : ajout (« + Ajouter une tâche ») ou modification (initial = la tache a modifier)
+// 12 nov. 2026, 22h52 : on choisit d'abord l'activite, puis le formulaire s'adapte :
+// - Ramassage scolaire : choisir l'enfant dans le Repertoire, ou « Nouvel enfant » (sa fiche se cree : parents,
+//   telephones, ecole, horaires) ;
+// - Course / Livraison, Rendez-vous beaute, Autre (docteur...) : quoi, pour qui, adulte ou enfant.
+const PLACEHOLDER_QUOI = { course: "Livraison Herzliya, courses Carrefour…", beaute: "Nails, coiffure, Slim & Lift…", autre: "Docteur, banque, réunion…" };
+const LIBELLE_QUOI = { course: "Quelle course ou livraison ?", beaute: "Quelle prestation ?", autre: "Quoi ?" };
+const NOUVEL_ENFANT = { famille: "", parent: "", telephone: "", parent2: "", telephone2: "", prenom: "", age: "enfant", ecole: null, entree: "", sortie: "" };
+const decaler = (h, minutes) => {
+  const m = /^(\d{2}):(\d{2})$/.exec(h || "");
+  if (!m) return "";
+  const t = Math.min(23 * 60 + 59, Math.max(0, Number(m[1]) * 60 + Number(m[2]) + minutes));
+  return deuxChiffres(Math.floor(t / 60)) + ":" + deuxChiffres(t % 60);
+};
+
 function FormTache({ date, journee, initial = null, onFin }) {
-  const [f, setF] = useState(initial ? { titre: initial.titre, debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null } : { titre: "", debut: "", fin: "", lieu: null });
+  const rep = useRepertoire();
+  const enfants = listeEnfants(rep.familles);
+  const choixInitial = initial && initial.enfant ? initial.enfant.famille + "|" + initial.enfant.enfant : "";
+  const [f, setF] = useState(
+    initial
+      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, enfant: choixInitial }
+      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "" }
+  );
+  const [nouvel, setNouvel] = useState(NOUVEL_ENFANT);
   const [message, setMessage] = useState("");
-  const ok = f.titre.trim() && f.debut && f.fin && f.fin > f.debut;
+  const [enCours, setEnCours] = useState(false);
+  const set = (cle, v) => setF((x) => ({ ...x, [cle]: v }));
+  const setN = (cle, v) => setNouvel((x) => ({ ...x, [cle]: v }));
+  const choisi = enfants.find((e) => e.famille + "|" + e.enfant === f.enfant) || null;
+  const estNouvel = f.type === "ramassage" && f.enfant === "nouveau";
+
+  // Choisir un enfant connu : son ecole et son heure de sortie remplissent l'adresse et les heures (modifiables)
+  const choisirEnfant = (v) => {
+    const e = enfants.find((x) => x.famille + "|" + x.enfant === v);
+    setF((x) => ({
+      ...x,
+      enfant: v,
+      lieu: e && e.ecole ? e.ecole : x.lieu,
+      debut: x.debut || (e && e.sortie ? decaler(e.sortie, -15) : ""),
+      fin: x.fin || (e && e.sortie ? decaler(e.sortie, 15) : ""),
+    }));
+  };
+
+  const heuresOk = f.debut && f.fin && f.fin > f.debut;
+  const quiOk =
+    f.type === "ramassage"
+      ? estNouvel
+        ? nouvel.prenom.trim() && (nouvel.famille || nouvel.parent.trim())
+        : !!choisi
+      : f.quoi.trim();
+  const ok = !!f.type && heuresOk && quiOk && !enCours;
+
   const valider = async () => {
     setMessage("");
+    setEnCours(true);
     try {
-      if (initial) await journee.modifierTache(date, initial.id, f);
-      else await journee.ajouterTache(date, f);
+      let tache;
+      if (f.type === "ramassage") {
+        let ref = choisi ? { famille: choisi.famille, enfant: choisi.enfant } : null;
+        let prenom = choisi ? choisi.prenom : "";
+        let lieu = f.lieu;
+        if (estNouvel) {
+          if (!rep.charge) throw new Error("repertoire");
+          const res = ajouterEnfantDepuisTache(rep.familles, { ...nouvel, famille: nouvel.famille || null });
+          if (!res) throw new Error("fiche");
+          await enregistrerRepertoire(rep.lieux, rep.corrections, res.familles);
+          ref = res.ref;
+          prenom = nouvel.prenom.trim();
+          lieu = lieu || nouvel.ecole;
+        }
+        tache = { type: "ramassage", titre: "Ramassage · " + prenom, pour: prenom, age: estNouvel ? nouvel.age : choisi ? choisi.age : "enfant", enfant: ref, debut: f.debut, fin: f.fin, lieu };
+      } else {
+        tache = { type: f.type, titre: f.quoi, pour: f.pour, age: f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu };
+      }
+      if (initial) await journee.modifierTache(date, initial.id, tache);
+      else await journee.ajouterTache(date, tache);
       onFin();
-    } catch {
-      setMessage("Enregistrement impossible. Vérifie la connexion.");
+    } catch (err) {
+      setMessage(err && err.message === "repertoire" ? "Le Répertoire n'est pas encore chargé : patiente une seconde et réessaie." : "Enregistrement impossible. Vérifie la connexion.");
     }
+    setEnCours(false);
   };
+
   return (
     <div className="ag-tache-form">
       <h4>{initial ? "Modifier la tâche" : `Nouvelle tâche · ${libelleJour(date)}`}</h4>
-      <label className="ag-champ">Quoi
-        <input type="text" maxLength={80} placeholder="Docteur, courses Carrefour…" value={f.titre} onChange={(x) => setF({ ...f, titre: x.target.value })} />
-      </label>
-      <div className="ag-heures">
-        <label className="ag-champ">De <input type="time" value={f.debut} onChange={(x) => setF({ ...f, debut: x.target.value })} /></label>
-        <label className="ag-champ">À <input type="time" value={f.fin} onChange={(x) => setF({ ...f, fin: x.target.value })} /></label>
-      </div>
-      <div className="ag-champ">Adresse (facultatif)
-        <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position={false} onChange={(v) => setF({ ...f, lieu: v })} />
-      </div>
-      {f.debut && f.fin && f.fin <= f.debut && <p className="fm-erreur">L'heure de fin doit être après l'heure de début.</p>}
-      <p className="tb-note">Ce créneau est bloqué sur le site (les clientes voient seulement qu'il est indisponible).</p>
+
+      <fieldset className="champ">
+        <legend>1. Quelle activité ?</legend>
+        <div className="choix ag-types" role="radiogroup" aria-label="Type d'activité">
+          {TYPES_TACHE.map((t) => (
+            <button key={t.v} type="button" role="radio" aria-checked={f.type === t.v} className={f.type === t.v ? "actif" : ""} onClick={() => set("type", t.v)}>
+              {t.icone} {t.l}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      {f.type === "ramassage" && (
+        <>
+          <label className="ag-champ">2. Quel enfant ?
+            <select value={f.enfant} onChange={(x) => (x.target.value === "nouveau" ? set("enfant", "nouveau") : choisirEnfant(x.target.value))}>
+              <option value="">Choisir…</option>
+              {enfants.map((e) => (
+                <option key={e.famille + e.enfant} value={e.famille + "|" + e.enfant}>{e.prenom}{e.parent ? ` (${e.parent})` : ""}</option>
+              ))}
+              <option value="nouveau">+ Nouvel enfant (pas encore dans le Répertoire)</option>
+            </select>
+          </label>
+          {estNouvel && (
+            <div className="ag-nouvel-enfant">
+              <p className="tb-note">Sa fiche se crée dans le Répertoire (« Familles et enfants »). Elle n'entre dans ta tournée de chaque semaine que si tu la choisis dans « Tournée scolaire ».</p>
+              <label className="ag-champ">Prénom de l'enfant *
+                <input type="text" maxLength={40} value={nouvel.prenom} onChange={(x) => setN("prenom", x.target.value)} />
+              </label>
+              <ChoixAge valeur={nouvel.age} changer={(v) => setN("age", v)} />
+              <label className="ag-champ">Famille
+                <select value={nouvel.famille} onChange={(x) => setN("famille", x.target.value)}>
+                  <option value="">Nouvelle famille</option>
+                  {rep.familles.map((fa) => (
+                    <option key={fa.id} value={fa.id}>{fa.nom || "Sans nom"}</option>
+                  ))}
+                </select>
+              </label>
+              {!nouvel.famille && (
+                <>
+                  <label className="ag-champ">Nom du parent *
+                    <input type="text" maxLength={60} value={nouvel.parent} onChange={(x) => setN("parent", x.target.value)} />
+                  </label>
+                  <label className="ag-champ">Téléphone du parent
+                    <input type="tel" inputMode="tel" maxLength={20} value={nouvel.telephone} onChange={(x) => setN("telephone", x.target.value)} />
+                  </label>
+                  <label className="ag-champ">Autre parent (facultatif)
+                    <input type="text" maxLength={60} value={nouvel.parent2} onChange={(x) => setN("parent2", x.target.value)} />
+                  </label>
+                  <label className="ag-champ">Téléphone de l'autre parent
+                    <input type="tel" inputMode="tel" maxLength={20} value={nouvel.telephone2} onChange={(x) => setN("telephone2", x.target.value)} />
+                  </label>
+                </>
+              )}
+              <div className="ag-champ">École ou Gan
+                <AddressField id={"tache-ecole-" + date} valeur={nouvel.ecole} position={false} onChange={(v) => { setN("ecole", v); set("lieu", v); }} />
+              </div>
+              <div className="ag-heures">
+                <label className="ag-champ">Entre à <input type="time" value={nouvel.entree} onChange={(x) => setN("entree", x.target.value)} /></label>
+                <label className="ag-champ">Sort à <input type="time" value={nouvel.sortie} onChange={(x) => { setN("sortie", x.target.value); setF((y) => ({ ...y, debut: y.debut || decaler(x.target.value, -15), fin: y.fin || decaler(x.target.value, 15) })); }} /></label>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {f.type && f.type !== "ramassage" && (
+        <>
+          <label className="ag-champ">2. {LIBELLE_QUOI[f.type]}
+            <input type="text" maxLength={80} placeholder={PLACEHOLDER_QUOI[f.type]} value={f.quoi} onChange={(x) => set("quoi", x.target.value)} />
+          </label>
+          <label className="ag-champ">Pour qui ? (facultatif)
+            <input type="text" maxLength={60} placeholder={f.type === "autre" ? "Moi, Shyrel…" : "Prénom de la cliente ou du client"} value={f.pour} onChange={(x) => set("pour", x.target.value)} />
+          </label>
+          <ChoixAge valeur={f.age} changer={(v) => set("age", v)} />
+        </>
+      )}
+
+      {f.type && (
+        <>
+          <div className="ag-heures">
+            <label className="ag-champ">De <input type="time" value={f.debut} onChange={(x) => set("debut", x.target.value)} /></label>
+            <label className="ag-champ">À <input type="time" value={f.fin} onChange={(x) => set("fin", x.target.value)} /></label>
+          </div>
+          {!estNouvel && (
+            <div className="ag-champ">Adresse (facultatif)
+              <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position={false} onChange={(v) => set("lieu", v)} />
+            </div>
+          )}
+          {f.debut && f.fin && f.fin <= f.debut && <p className="fm-erreur">L'heure de fin doit être après l'heure de début.</p>}
+          <p className="tb-note">Ce créneau est bloqué sur le site (les clientes voient seulement qu'il est indisponible).</p>
+        </>
+      )}
       <div className="tb-actions">
-        <button type="button" className="tb-bouton" disabled={!ok} onClick={valider}>{initial ? "Enregistrer les changements" : "Ajouter et bloquer le créneau"}</button>
+        <button type="button" className="tb-bouton" disabled={!ok} onClick={valider}>{enCours ? "Enregistrement…" : initial ? "Enregistrer les changements" : "Ajouter et bloquer le créneau"}</button>
         <button type="button" className="tb-bouton tb-clair" onClick={onFin}>Annuler</button>
       </div>
       {message && <p className="fm-erreur" role="alert">{message}</p>}

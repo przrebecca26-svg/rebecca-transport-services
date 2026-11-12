@@ -268,3 +268,86 @@ export function fusionnerDoublon(familles, a, b) {
   const fusion = fb ? fusionnerDeuxFamilles(fa, fb) : { ...fa, enfants: fusionnerEnfants(fa.enfants) };
   return familles.filter((f) => f.id !== (fb ? fb.id : "")).map((f) => (f.id === fa.id ? { ...fusion, id: fa.id } : f));
 }
+
+/* ---------- MES TRAJETS CHOISIS (12 nov. 2026, 14h45) ----------
+   Rebecca : « c'est moi qui choisis tous les trajets ». La fiche de l'enfant n'est que son AGENDA (ecole, activites,
+   jours, heures). Dans la tournee, elle touche « + Ajouter un trajet », choisit l'enfant, puis Aller ou Retour :
+   l'agenda est propose tout coche, elle decoche les jours qu'elle ne fait pas, change une heure ou l'endroit ou
+   elle recupere l'enfant ce jour-la (chez une amie), et valide. Rien n'entre dans la tournee sans ce choix.
+   choix = { id, famille, enfant, rdv, sens: "aller" | "retour", jours: [{ actif, heure, lieu }] }
+   (heure vide = celle de l'agenda ; lieu vide = sur place, sinon l'endroit ou l'enfant m'attend ce jour-la). */
+
+export function trouverFiche(familles, c) {
+  const f = familles.find((x) => x.id === c.famille);
+  const e = f && f.enfants.find((x) => x.id === c.enfant);
+  const r = e && e.rdv.find((x) => x.id === c.rdv);
+  return r ? { f, e, r } : null;
+}
+
+// Nouveau choix : les jours de l'agenda, tous coches
+export const choixPour = (f, e, r, sens) => ({ id: nouvelIdFiche(), famille: f.id, enfant: e.id, rdv: r.id, sens: sens === "retour" ? "retour" : "aller", jours: r.jours.map((j) => ({ actif: j.actif, heure: "", lieu: null })) });
+
+export function lireChoix(liste) {
+  if (!Array.isArray(liste)) return [];
+  return liste
+    .filter((c) => c && typeof c === "object" && c.famille && c.enfant && c.rdv)
+    .slice(0, 200)
+    .map((c) => ({
+      id: String(c.id || nouvelIdFiche()).slice(0, 40),
+      famille: String(c.famille).slice(0, 40),
+      enfant: String(c.enfant).slice(0, 40),
+      rdv: String(c.rdv).slice(0, 40),
+      sens: c.sens === "retour" ? "retour" : "aller",
+      jours: JOURS.map((_, w) => ({ actif: !!(c.jours && c.jours[w] && c.jours[w].actif), heure: heure(c.jours && c.jours[w] && c.jours[w].heure), lieu: adresseLue(c.jours && c.jours[w] && c.jours[w].lieu) })),
+    }));
+}
+
+// Heure d'un jour pour un choix : celle que Rebecca a mise, sinon celle de l'agenda de l'enfant
+export const heureChoix = (r, c, w) => c.jours[w].heure || (c.sens === "aller" ? arriveeDuJour(r, w) : sortieDuJour(r, w));
+
+export function titreChoix(familles, c) {
+  const x = trouverFiche(familles, c);
+  if (!x) return "Fiche supprimée du Répertoire";
+  return `${String(x.e.prenom || "").trim() || "Enfant"} · ${nomRdv(x.r)} · ${c.sens === "aller" ? "Aller" : "Retour"}`;
+}
+
+// Les trajets de la tournee qui sortent des choix (un choix dont la fiche a disparu ne donne rien)
+export function trajetsDesChoix(familles, choix) {
+  const liste = [];
+  for (const c of choix) {
+    const x = trouverFiche(familles, c);
+    if (!x) continue;
+    const { f, e, r } = x;
+    const qui = `${String(e.prenom || "").trim() || "Enfant"} · ${nomRdv(r)}`;
+    const base = { places: 1, du: f.du, au: f.au, client: true, choix: c.id };
+    if (c.sens === "aller") {
+      liste.push(trajetVide({ ...base, id: `choix-${c.id}`, nom: `${qui} (aller)`, type: "matin", de: f.domicile, a: r.lieu, heurePrise: r.heurePrise, heure: "", jours: c.jours.map((j, w) => ({ actif: j.actif, heure: j.actif ? heureChoix(r, c, w) : "" })) }));
+      continue;
+    }
+    // Retour : un trajet par endroit de prise (sur place, ou la ou l'enfant m'attend certains jours)
+    const endroits = new Map();
+    c.jours.forEach((j, w) => {
+      if (!j.actif) return;
+      const k = cle(j.lieu);
+      if (!endroits.has(k)) endroits.set(k, { lieu: j.lieu, jours: [] });
+      endroits.get(k).jours.push(w);
+    });
+    let n = 0;
+    for (const [k, v] of endroits) {
+      liste.push(trajetVide({ ...base, id: `choix-${c.id}-${n++}`, nom: `${qui} (retour${k ? ", m'attend ailleurs" : ""})`, type: "sortie", de: k ? v.lieu : r.lieu, a: r.retour || f.domicile, heure: "", peutAttendre: !!k, jours: c.jours.map((j, w) => ({ actif: v.jours.includes(w), heure: v.jours.includes(w) ? heureChoix(r, c, w) : "" })) }));
+    }
+  }
+  return liste;
+}
+
+// Une cliente accepte un devis : en plus de sa fiche, ses trajets sont choisis d'office (elle les a demandes)
+export function choixDeLaFamille(f) {
+  const liste = [];
+  for (const e of f.enfants) {
+    for (const r of e.rdv) {
+      if (r.depose) liste.push(choixPour(f, e, r, "aller"));
+      if (r.recupere) liste.push(choixPour(f, e, r, "retour"));
+    }
+  }
+  return liste;
+}

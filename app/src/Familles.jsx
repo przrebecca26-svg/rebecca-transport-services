@@ -20,7 +20,6 @@ function Rdv({ famille, r, changer, supprimer, connues }) {
   const set = (cle, valeur) => changer({ ...r, [cle]: valeur });
   const setJour = (w, cle, valeur) => changer({ ...r, jours: r.jours.map((j, k) => (k === w ? { ...j, [cle]: valeur } : j)) });
   const manque = manqueRdv(famille, r);
-  const [plus, setPlus] = useState(!!(r.retour || r.priseAilleurs || r.attend || r.heurePrise));
   const [parJour, setParJour] = useState(r.jours.some((j) => j.arrivee || j.sortie)); // ouvert seulement si un jour a deja son heure a lui
   return (
     <div className="rp-rdv">
@@ -33,12 +32,8 @@ function Rdv({ famille, r, changer, supprimer, connues }) {
       )}
       <Adresse id={"rl" + r.id} label={r.type === "ecole" ? "Adresse de l'école ou du Gan" : "Adresse de l'activité"} valeur={r.lieu} changer={(v) => set("lieu", v)} connues={connues} />
       <div className="rp-vacances">
-        <label className="case"><input type="checkbox" checked={r.depose} onChange={(e) => set("depose", e.target.checked)} /><span>Je le dépose</span></label>
-        <label className="case"><input type="checkbox" checked={r.recupere} onChange={(e) => set("recupere", e.target.checked)} /><span>Je le récupère</span></label>
-      </div>
-      <div className="rp-vacances">
-        {r.depose && <label>Commence à <input type="time" value={r.heureArrivee} onChange={(e) => set("heureArrivee", e.target.value)} /></label>}
-        {r.recupere && <label>Finit à <input type="time" value={r.heureSortie} onChange={(e) => set("heureSortie", e.target.value)} /></label>}
+        <label>Commence à <input type="time" value={r.heureArrivee} onChange={(e) => set("heureArrivee", e.target.value)} /></label>
+        <label>Finit à <input type="time" value={r.heureSortie} onChange={(e) => set("heureSortie", e.target.value)} /></label>
       </div>
       <fieldset className="champ">
         <legend>Quels jours ?</legend>
@@ -55,38 +50,10 @@ function Rdv({ famille, r, changer, supprimer, connues }) {
           {JOURS.map((nom, w) => (r.jours[w].actif ? (
             <div className="rp-jour" key={w}>
               <span className="rp-nom">{nom}</span>
-              {r.depose && <input type="time" aria-label={`Commence le ${nom.toLowerCase()}`} value={arriveeDuJour(r, w)} onChange={(e) => setJour(w, "arrivee", e.target.value)} />}
-              {r.recupere && <input type="time" aria-label={`Finit le ${nom.toLowerCase()}`} value={sortieDuJour(r, w)} onChange={(e) => setJour(w, "sortie", e.target.value)} />}
+              {<input type="time" aria-label={`Commence le ${nom.toLowerCase()}`} value={arriveeDuJour(r, w)} onChange={(e) => setJour(w, "arrivee", e.target.value)} />}
+              {<input type="time" aria-label={`Finit le ${nom.toLowerCase()}`} value={sortieDuJour(r, w)} onChange={(e) => setJour(w, "sortie", e.target.value)} />}
             </div>
           ) : null))}
-        </div>
-      )}
-      <button type="button" className="rp-waze" onClick={() => setPlus(!plus)}>{plus ? "Moins de détails" : "Plus de détails (où je le ramène, il m'attend ailleurs…)"}</button>
-      {plus && (
-        <div className="rp-correction">
-          {r.depose && (
-            <div className="champ">
-              <label htmlFor={"rp" + r.id}>Je le prends à la maison à partir de (facultatif)</label>
-              <input id={"rp" + r.id} type="time" value={r.heurePrise} onChange={(e) => set("heurePrise", e.target.value)} />
-            </div>
-          )}
-          {r.recupere && (
-            <>
-              <Adresse id={"rr" + r.id} label="Où je le ramène (vide = son domicile)" valeur={r.retour} changer={(v) => set("retour", v)} connues={connues} />
-              <Adresse id={"ra" + r.id} label="Il m'attend ailleurs qu'ici (chez une amie…), facultatif" valeur={r.priseAilleurs} changer={(v) => set("priseAilleurs", v)} connues={connues} />
-              {r.priseAilleurs && (
-                <fieldset className="champ">
-                  <legend>Quels jours il m'attend là-bas ? (les autres jours, je le prends sur place)</legend>
-                  <div className="choix rp-six">
-                    {JOURS.map((nom, w) => (r.jours[w].actif ? (
-                      <button key={w} type="button" className={r.joursAilleurs[w] ? "actif" : ""} aria-pressed={r.joursAilleurs[w]} aria-label={nom} onClick={() => set("joursAilleurs", r.joursAilleurs.map((x, k) => (k === w ? !x : x)))}>{nom.slice(0, 3)}</button>
-                    ) : <span key={w} />))}
-                  </div>
-                </fieldset>
-              )}
-              <label className="case"><input type="checkbox" checked={r.attend} onChange={(e) => set("attend", e.target.checked)} /><span>Là-bas, il peut m'attendre (pas de retard maximum)</span></label>
-            </>
-          )}
         </div>
       )}
       <button type="button" className="dr-secondaire" onClick={supprimer}>Supprimer {r.type === "ecole" ? "l'école" : "cette activité"}</button>
@@ -172,7 +139,7 @@ export default function Familles({ familles, changer, connues, voit }) {
     <>
       <section className="tdb-bloc">
         <h2>Familles et enfants</h2>
-        <p className="tdb-note">Une fiche par enfant : école, activités, jours et heures. Ma tournée scolaire se construit toute seule à partir de ces fiches.</p>
+        <p className="tdb-note">Une fiche par enfant : son agenda (école, activités, jours et heures). Ensuite, dans « Tournée scolaire », je choisis les trajets que je fais.</p>
         {doublons.length > 0 && (
           <div className="rp-correction">
             <p className="rp-alerte">⚠️ Doublons possibles : fusionne-les, sinon leurs trajets comptent deux fois.</p>

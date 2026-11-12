@@ -9,7 +9,8 @@ import { JOURS, trajetVide, manqueTrajet, heureTrajet, evaluerJour, adressesConn
 import { bilanMois } from "./pricing/ramassagePlanning.js";
 import { useTournee, useDurees, enregistrerTournee } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
-import { trajetsDesFamilles, doublonsTrajets } from "./pricing/familles.js";
+import { trajetsDesChoix, lireChoix, doublonsTrajets } from "./pricing/familles.js";
+import MesTrajets from "./MesTrajets.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
@@ -135,7 +136,8 @@ export default function TourneeScolaire() {
   }, [base, modifie]);
 
   const trajets = brouillon ? brouillon.trajets : []; // trajets saisis a la main
-  const desFiches = useMemo(() => trajetsDesFamilles(repertoire.familles), [repertoire.familles]); // trajets venus des fiches enfants
+  const choix = useMemo(() => lireChoix(brouillon ? brouillon.choix : []), [brouillon]); // trajets que j'ai choisis a partir des fiches
+  const desFiches = useMemo(() => trajetsDesChoix(repertoire.familles, choix), [repertoire.familles, choix]);
   const tous = useMemo(() => [...desFiches, ...trajets], [desFiches, trajets]);
   const durees = useDurees(tous, brouillon ? brouillon.domicile : null);
 
@@ -175,10 +177,15 @@ export default function TourneeScolaire() {
       setMessage("Effacement impossible pour l'instant. Vérifie ta connexion et réessaie.");
     }
   };
-  const depart = !base.donnees.existe && repertoire.familles.length === 0;
+  const depart = repertoire.familles.length === 0;
   const lieux = fusionnerLieux(repertoire.lieux, brouillon.lieux); // Repertoire + noms donnes ici
   const connues = adressesConnues(brouillon.domicile, tous, lieux);
   const nomLieu = (adresse) => nomDuLieu(adresse, brouillon.domicile, lieux);
+  // Endroits proposes pour « ou je le recupere ce jour-la » : mes lieux nommes et le domicile de chaque famille
+  const lieuxChoix = [
+    ...connues.filter((c) => !c.sansNom),
+    ...repertoire.familles.filter((f) => cleLieu(f.domicile) && !connues.some((c) => !c.sansNom && cleLieu(c.adresse) === cleLieu(f.domicile))).map((f) => ({ nom: `Chez ${f.nom || "la famille"}`, adresse: f.domicile })),
+  ];
   const nommer = (adresse, nom) => changer({ ...brouillon, lieux: nommerLieu(brouillon.lieux, adresse, nom) });
   const journee = evaluerJour(tous, jour, durees.duree, TARIFS, { du: aujourdhui(), au: "", domicile: brouillon.domicile });
   const [annee, mois] = aujourdhui().split("-").map(Number);
@@ -191,7 +198,7 @@ export default function TourneeScolaire() {
         <h1>Tournée scolaire</h1>
         <p className="tdb-sous">Mes trajets d'école de chaque jour. Le Devis rapide s'en sert pour me dire si je peux accepter un ramassage en plus.</p>
       </div>
-      {depart && <p className="tdb-note rp-alerte">Ta tournée est vide. Remplis les fiches de tes enfants dans le Répertoire (« Familles et enfants ») : elle se construira toute seule.</p>}
+      {depart && <p className="tdb-note rp-alerte">Commence par les fiches des enfants dans le Répertoire (« Familles et enfants »). Ensuite, ici, tu choisis les trajets que tu fais.</p>}
 
       <div className="formulaire dr-formulaire">
         <div className="bloc">
@@ -236,20 +243,11 @@ export default function TourneeScolaire() {
         </section>
       )}
 
-      <section className="tdb-bloc">
-        <h2>Trajets venus du Répertoire</h2>
-        {desFiches.length === 0 && <p className="tdb-note">Aucun pour l'instant. Remplis les fiches dans Répertoire → Familles et enfants.</p>}
-        <ul className="rp-detail">
-          {desFiches.map((r) => (
-            <li key={r.id}><span>{r.nom}</span><b>{manqueTrajet(r) ? "à compléter" : `${nomLieu(r.de) || "?"} → ${nomLieu(r.a) || "?"}`}</b></li>
-          ))}
-        </ul>
-        <p className="tdb-note">Pour les modifier, ouvre la fiche de l'enfant dans le Répertoire.</p>
-      </section>
+      <MesTrajets familles={repertoire.familles} choix={choix} lieux={lieuxChoix} changer={(suite) => changer({ ...brouillon, choix: suite })} />
 
       <section className="tdb-bloc">
-        <h2>Trajets ajoutés à la main</h2>
-        <p className="tdb-note">Pour un trajet qui n'est dans aucune fiche.</p>
+        <h2>Autres trajets (sans fiche)</h2>
+        <p className="tdb-note">Seulement pour un trajet d'un enfant qui n'a pas de fiche dans le Répertoire.</p>
         {doublonsTrajets(trajets, desFiches).length > 0 && (
           <p className="rp-alerte">⚠️ En double avec une fiche du Répertoire (mêmes adresses) : {doublonsTrajets(trajets, desFiches).map((r) => r.nom || "trajet sans nom").join(", ")}. Supprime-les ici, sinon ils comptent deux fois.</p>
         )}
@@ -259,7 +257,7 @@ export default function TourneeScolaire() {
           <Trajet key={r.id} r={r} ouvert={trajetOuvert === r.id} ouvrir={(oui) => setTrajetOuvert((actuel) => (oui ? r.id : actuel === r.id ? "" : actuel))} connues={connues} nomLieu={nomLieu} nommer={nommer} domicile={brouillon.domicile} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
         ))}
       </div>
-      <button type="button" className="dr-secondaire rp-large" onClick={() => changer({ ...brouillon, trajets: [...trajets, trajetVide()] })}>+ Ajouter un trajet (école, activité, basket…)</button>
+      <button type="button" className="dr-secondaire rp-large" onClick={() => changer({ ...brouillon, trajets: [...trajets, trajetVide()] })}>+ Ajouter un trajet sans fiche</button>
       {trajets.length > 0 && !effacer && <button type="button" className="dr-secondaire rp-large" onClick={() => setEffacer(true)}>Tout effacer : remettre à zéro les {trajets.length} trajets ajoutés à la main</button>}
       {effacer && (
         <div className="rp-correction rp-large">

@@ -189,7 +189,8 @@ export function lireTournee(json) {
     .map((l) => ({ nom: String((l && l.nom) || "").slice(0, 40), adresse: adresseLue(l && l.adresse) }))
     .filter((l) => l.nom.trim() && cleLieu(l.adresse))
     .slice(0, 60);
-  return { trajets: lireTrajets(o.trajets), forfaits, vacances, lieux, domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
+  // choix : trajets choisis par Rebecca a partir des fiches enfants (liste brute, nettoyee par pricing/familles.js)
+  return { trajets: lireTrajets(o.trajets), forfaits, vacances, lieux, choix: Array.isArray(o.choix) ? o.choix : [], domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
 }
 
 // Le trajet compte-t-il ce jour de semaine, sur la periode [du ; au] regardee ? (dates vides = toujours)

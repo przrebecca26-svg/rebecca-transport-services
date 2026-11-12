@@ -12,6 +12,8 @@ import * as R from "../src/pricing/repertoire.js";
 const lieu = (label, n) => ({ label, lat: 32.3 + n / 100, lon: 34.85 });
 const [MAISON, ECOLE, AMIE, GAN, GYMNASE, TRAVAIL] = ["Maison", "École A", "Chez l'amie", "Gan", "Gymnase", "Bureau"].map((x, n) => lieu(x + ", Netanya", n));
 const duree = () => 4;
+const NOMS = new Map([[MAISON, "maison"], [ECOLE, "ecole"], [AMIE, "amie"], [GAN, "gan"], [GYMNASE, "gymnase"], [TRAVAIL, "travail"]].map(([l, n]) => [To.cleLieu(l), n]));
+const cleDe = (l) => NOMS.get(To.cleLieu(l));
 const T = JSON.parse(JSON.stringify(TARIFS));
 const jours = (actifs, plus = {}) => To.JOURS.map((_, w) => ({ actif: actifs.includes(w), arrivee: "", sortie: "", ...(plus[w] || {}) }));
 
@@ -170,4 +172,67 @@ test("fusion : peu importe l'ordre, rien n'est perdu ; identifiants inconnus = r
   const f2 = F.fusionnerDoublon([a, b], "b", "a")[0];
   egal([f1.nom, f1.telephone, f1.enfants.length, f2.nom, f2.telephone, f2.enfants.length], ["Alexia Dahan", "0541112233", 2, "Alexia Dahan", "0541112233", 2]);
   egal(F.fusionnerDoublon([a, b], "a", "zzz"), [a, b]);
+});
+
+section("Mes trajets : c'est moi qui choisis (14h45)");
+
+test("rien n'entre dans la tournee sans choix ; un choix propose l'agenda tout coche", () => {
+  egal(F.trajetsDesChoix([MOI, AMIE_F], []), []);
+  const c = F.choixPour(MOI, MOI.enfants[0], MOI.enfants[0].rdv[0], "aller");
+  egal(c.jours.map((j) => (j.actif ? 1 : 0)).join(""), "111110");
+  egal(F.titreChoix([MOI], c), "Dana · École · Aller");
+  const t = F.trajetsDesChoix([MOI], [c]);
+  egal(t.map((r) => [r.nom, r.type, r.de, r.a, To.heureTrajet(r, 0)]), [["Dana · École (aller)", "matin", MAISON, ECOLE, "08:00"]]);
+  egal(To.manqueTrajet(t[0]), "");
+});
+
+test("je decoche un jour, je change une heure : seul ce choix change, l'agenda reste", () => {
+  const c = F.choixPour(MOI, MOI.enfants[0], MOI.enfants[0].rdv[0], "aller");
+  c.jours[2].actif = false;
+  c.jours[0].heure = "07:45";
+  const t = F.trajetsDesChoix([MOI], [c])[0];
+  egal([t.jours.map((j) => (j.actif ? 1 : 0)).join(""), To.heureTrajet(t, 0), To.heureTrajet(t, 1)], ["110110", "07:45", "08:00"]);
+  egal(MOI.enfants[0].rdv[0].heureArrivee, "08:00");
+});
+
+test("retour : le dimanche je la recupere chez l'amie a 14h15, les autres jours a l'ecole a l'heure de l'agenda", () => {
+  const c = F.choixPour(MOI, MOI.enfants[0], MOI.enfants[0].rdv[0], "retour");
+  c.jours[0] = { actif: true, heure: "14:15", lieu: AMIE };
+  const t = F.trajetsDesChoix([MOI], [c]);
+  egal(t.map((r) => [r.nom, r.de, r.peutAttendre, r.jours.map((j) => (j.actif ? 1 : 0)).join("")]), [
+    ["Dana · École (retour, m'attend ailleurs)", AMIE, true, "100000"],
+    ["Dana · École (retour)", ECOLE, false, "011110"],
+  ]);
+  egal([To.heureTrajet(t[0], 0), To.heureTrajet(t[1], 1), To.heureTrajet(t[1], 4)], ["14:15", "13:30", "12:00"]);
+  vrai(t.every((r) => To.manqueTrajet(r) === ""));
+});
+
+test("la journee se calcule avec les trajets choisis : elle est prise chez l'amie quand je depose ses filles", () => {
+  const c1 = F.choixPour(MOI, MOI.enfants[0], MOI.enfants[0].rdv[0], "retour");
+  c1.jours[0] = { actif: true, heure: "14:15", lieu: AMIE };
+  const amies = AMIE_F.enfants.map((e) => F.choixPour(AMIE_F, e, e.rdv[0], "retour"));
+  const j = To.evaluerJour(F.trajetsDesChoix([MOI, AMIE_F], [c1, ...amies]), 0, duree, T, { domicile: MAISON });
+  egal(j.statut, "possible");
+  const a = j.arrets.filter((x) => x.trajet).map((x) => `${x.sorte} ${cleDe(x.lieu)}`);
+  egal(a, ["prise gan", "depose amie", "prise amie", "depose maison"].map((x) => x));
+});
+
+test("fiche supprimee du repertoire : son choix ne donne plus de trajet ; lecture de la base", () => {
+  const c = F.choixPour(AMIE_F, AMIE_F.enfants[0], AMIE_F.enfants[0].rdv[0], "aller");
+  egal(F.trajetsDesChoix([MOI], [c]), []);
+  egal(F.titreChoix([MOI], c), "Fiche supprimée du Répertoire");
+  const relu = F.lireChoix(JSON.parse(JSON.stringify([c, null, { famille: "x" }, { ...c, sens: "bizarre", jours: [{ actif: true, heure: "25:99", lieu: AMIE }] }])));
+  egal(relu.length, 2);
+  egal(relu[0], JSON.parse(JSON.stringify(c)));
+  egal([relu[1].sens, relu[1].jours[0], relu[1].jours[5].actif], ["aller", { actif: true, heure: "", lieu: AMIE }, false]);
+  egal(To.lireTournee(JSON.stringify({ trajets: [], choix: [c] })).choix.length, 1);
+  egal(To.lireTournee("").choix, []);
+});
+
+test("devis accepte : les trajets de la cliente sont choisis d'office", () => {
+  const plan = { ...P.planVide(), domicile: TRAVAIL, ecole: ECOLE, enfants: [{ ...P.enfantVide(), prenom: "Noa", sens: "deux", heureMatin: "07:15", heureSortie: "14:15" }] };
+  const f = F.familleDuDevis(plan, "Mme Cohen");
+  const choix = F.choixDeLaFamille(f);
+  egal(choix.map((c) => c.sens), ["aller", "retour"]);
+  egal(F.trajetsDesChoix([f], choix).map((r) => [r.nom, To.manqueTrajet(r)]), [["Noa · École (aller)", ""], ["Noa · École (retour)", ""]]);
 });

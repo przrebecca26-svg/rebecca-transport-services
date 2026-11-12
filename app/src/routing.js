@@ -7,14 +7,51 @@ const OSRM = "https://router.project-osrm.org/route/v1/driving/";
 // Zone de recherche : Israel (ouest, sud, est, nord)
 const BBOX = "34.2,29.4,35.9,33.4";
 
-export async function chercherAdresses(texte, signal) {
-  const q = (texte || "").trim();
-  if (q.length < 3) return [];
-  const url = `${PHOTON}?q=${encodeURIComponent(q)}&limit=6&lat=32.32&lon=34.85&bbox=${BBOX}`;
+// Netanya : les adresses proches passent en premier (12 nov. 2026 : « School uziel netanya » ne proposait que
+// des ecoles Uziel d'autres villes).
+const CENTRE = { lat: 32.32, lon: 34.85 };
+const RAYON_PROCHE_KM = 12;
+const MOTS_GENERIQUES = /(^|\s)(school|ecole|école|college|collège|lycee|lycée|gan|בית ספר|ביה"ס|בי"ס|גן)(?=\s|$)/gi;
+
+export const distanceKm = (a, b) => {
+  const r = Math.PI / 180;
+  const x = (b.lon - a.lon) * r * Math.cos(((a.lat + b.lat) / 2) * r);
+  const y = (b.lat - a.lat) * r;
+  return Math.sqrt(x * x + y * y) * 6371;
+};
+
+// Adresses proches de Netanya d'abord (dans l'ordre trouve), puis les autres ; sans doublon ; 8 au maximum
+export function classerAdresses(liste) {
+  const vues = new Set();
+  const uniques = liste.filter((a) => a && a.label && !vues.has(a.label) && vues.add(a.label));
+  const proche = (a) => distanceKm(CENTRE, a) <= RAYON_PROCHE_KM;
+  return [...uniques.filter(proche), ...uniques.filter((a) => !proche(a))].slice(0, 8);
+}
+
+async function photon(q, signal) {
+  const url = `${PHOTON}?q=${encodeURIComponent(q)}&limit=15&lat=${CENTRE.lat}&lon=${CENTRE.lon}&bbox=${BBOX}`;
   const rep = await fetch(url, { signal });
   if (!rep.ok) throw new Error("Recherche d'adresse indisponible");
   const data = await rep.json();
   return (data.features || []).map(versAdresse).filter((a) => a.label);
+}
+
+export async function chercherAdresses(texte, signal) {
+  const q = (texte || "").trim();
+  if (q.length < 3) return [];
+  let liste = await photon(q, signal);
+  // Rien pres de Netanya : on reessaie sans les mots « ecole », « school », « gan »... (le nom de la rue suffit souvent)
+  if (!liste.some((a) => distanceKm(CENTRE, a) <= RAYON_PROCHE_KM)) {
+    const court = q.replace(MOTS_GENERIQUES, " ").replace(/\s+/g, " ").trim();
+    if (court.length >= 3 && court !== q) {
+      try {
+        liste = [...liste, ...(await photon(court, signal))];
+      } catch (e) {
+        if (e && e.name === "AbortError") throw e;
+      }
+    }
+  }
+  return classerAdresses(liste);
 }
 
 // Une reponse Photon -> { label, lat, lon }

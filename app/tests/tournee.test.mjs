@@ -198,3 +198,13 @@ test("le domicile compte dans les lieux et se relit depuis la base", () => {
   egal(To.lireTournee(JSON.stringify({ trajets: [], domicile: MAISON })).domicile, MAISON);
   egal(To.lireTournee(JSON.stringify({ trajets: [] })).domicile, null);
 });
+
+section("Recherche d'adresse : Netanya d'abord");
+
+{
+  const { classerAdresses, distanceKm } = await import("../src/routing.js");
+  const ramatGan = { label: "École Uziel, Ramat Gan", lat: 32.07, lon: 34.82 };
+  const netanya = { label: "Uziel, Netanya", lat: 32.31, lon: 34.86 };
+  test("classement", () => egal(classerAdresses([ramatGan, netanya, ramatGan]).map((a) => a.label), ["Uziel, Netanya", "École Uziel, Ramat Gan"]));
+  test("distance Netanya - Ramat Gan autour de 27 km", () => vrai(Math.abs(distanceKm(ramatGan, netanya) - 27) < 3));
+}

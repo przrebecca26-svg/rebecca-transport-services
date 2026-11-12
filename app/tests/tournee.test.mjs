@@ -249,3 +249,32 @@ test("devis : toutes les ecoles differentes, l'ecole du haut n'est plus demandee
   egal(P.manquePlan(p), "");
   egal(P.ecolesDuPlan(p).length, 2);
 });
+
+section("Tournee : mes lieux par leur nom");
+
+test("je nomme une adresse une fois, elle est proposee par son nom ensuite", () => {
+  let lieux = To.nommerLieu([], ECOLE, "École Ouziel");
+  lieux = To.nommerLieu(lieux, GAN, "Gan");
+  egal(To.nomDuLieu(ECOLE, MAISON, lieux), "École Ouziel");
+  egal(To.nomDuLieu(MAISON, MAISON, lieux), "Maison");
+  egal(To.nomDuLieu(AMIE, MAISON, lieux), "");
+  egal(To.adressesConnues(MAISON, TOURNEE, lieux).map((x) => [x.nom, !!x.sansNom]), [["Maison", false], ["École Ouziel", false], ["Gan", false], ["Chez l'amie", true]]);
+});
+
+test("changer ou retirer un nom", () => {
+  let lieux = To.nommerLieu([], ECOLE, "Ecole");
+  lieux = To.nommerLieu(lieux, ECOLE, "École Ouziel");
+  egal(lieux.map((l) => l.nom), ["École Ouziel"]);
+  egal(To.nommerLieu(lieux, ECOLE, " "), []);
+  egal(To.nommerLieu(lieux, { label: "tapé sans choisir" }, "X"), lieux);
+});
+
+test("le deroule de la journee affiche le nom du lieu ; les lieux se relisent depuis la base", () => {
+  const lieux = To.nommerLieu([], GAN, "Gan des petites");
+  const r = To.evaluerJour(TOURNEE, 0, duree, T);
+  const arret = r.arrets.find((x) => x.trajet && x.trajet.id === "f3" && x.sorte === "prise");
+  egal(To.texteArret(arret, (a) => To.nomDuLieu(a, MAISON, lieux)).lieu, "Gan des petites");
+  egal(To.texteArret(arret).lieu, "Gan");
+  const doc = To.lireTournee(JSON.stringify({ trajets: [], lieux: [...lieux, { nom: "", adresse: ECOLE }, { nom: "Sans adresse" }] }));
+  egal(doc.lieux, lieux);
+});

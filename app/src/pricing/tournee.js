@@ -73,11 +73,32 @@ export const tourneeDepart = () => [
 
 export const heureTrajet = (r, w) => (r.jours[w] && r.jours[w].heure) || r.heure || "";
 
-// Adresses deja saisies (domicile + tous les trajets) : proposees en un geste pour ne jamais retaper une adresse
-export function adressesConnues(domicile, trajets) {
+// MES LIEUX : Rebecca donne un nom a chaque adresse (Ecole Ouziel, Basket, Gan, Chez Alexia...). Ensuite elle ne
+// voit plus que ces noms : pour choisir une adresse en un geste, et dans le deroule de sa journee.
+// lieux = [{ nom, adresse }] enregistres dans sa base privee. Le domicile s'appelle toujours « Maison ».
+export function nomDuLieu(adresse, domicile, lieux = []) {
+  const cle = cleLieu(adresse);
+  if (!cle) return "";
+  if (cle === cleLieu(domicile)) return "Maison";
+  const l = lieux.find((x) => cleLieu(x.adresse) === cle);
+  return l ? l.nom : "";
+}
+
+// Donne ou change le nom d'une adresse (nom vide = on retire le nom)
+export function nommerLieu(lieux, adresse, nom) {
+  const cle = cleLieu(adresse);
+  if (!cle) return lieux;
+  const propre = String(nom || "").slice(0, 40);
+  const autres = lieux.filter((x) => cleLieu(x.adresse) !== cle);
+  return propre.trim() ? [...autres, { nom: propre, adresse }] : autres;
+}
+
+// Adresses a proposer en un geste : la maison, les lieux nommes, puis les adresses des trajets pas encore nommees
+export function adressesConnues(domicile, trajets, lieux = []) {
   const vues = new Map();
   if (cleLieu(domicile)) vues.set(cleLieu(domicile), { nom: "Maison", adresse: domicile });
-  for (const r of trajets) for (const x of [r.de, r.a]) if (cleLieu(x) && !vues.has(cleLieu(x))) vues.set(cleLieu(x), { nom: lieuCourt(x), adresse: x });
+  for (const l of lieux) if (cleLieu(l.adresse) && l.nom.trim() && !vues.has(cleLieu(l.adresse))) vues.set(cleLieu(l.adresse), { nom: l.nom.trim(), adresse: l.adresse });
+  for (const r of trajets) for (const x of [r.de, r.a]) if (cleLieu(x) && !vues.has(cleLieu(x))) vues.set(cleLieu(x), { nom: lieuCourt(x), adresse: x, sansNom: true });
   return [...vues.values()];
 }
 
@@ -164,7 +185,11 @@ export function lireTournee(json) {
     .filter((v) => v && dateOk(v.du))
     .slice(0, 40)
     .map((v) => ({ nom: String(v.nom || "").slice(0, 40), du: v.du, au: dateOk(v.au) && v.au >= v.du ? v.au : v.du }));
-  return { trajets: lireTrajets(o.trajets), forfaits, vacances, domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
+  const lieux = (Array.isArray(o.lieux) ? o.lieux : [])
+    .map((l) => ({ nom: String((l && l.nom) || "").slice(0, 40), adresse: adresseLue(l && l.adresse) }))
+    .filter((l) => l.nom.trim() && cleLieu(l.adresse))
+    .slice(0, 60);
+  return { trajets: lireTrajets(o.trajets), forfaits, vacances, lieux, domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
 }
 
 // Le trajet compte-t-il ce jour de semaine, sur la periode [du ; au] regardee ? (dates vides = toujours)
@@ -433,7 +458,7 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
 }
 
 // Texte d'un arret pour l'affichage : « 14h00  Récupérer Noa (sortie) — Gan »
-export function texteArret(x) {
+export function texteArret(x, nomLieu = null) {
   const nom = x.trajet.nom || "trajet";
   const retard = x.sorte === "prise" && x.sortie && x.retard > 0 ? ` (${Math.round(x.retard)} min après la sortie)` : "";
   // Marge : minutes d'avance sur l'heure prevue (sortie d'ecole, heure de prise, heure limite d'arrivee)
@@ -441,7 +466,7 @@ export function texteArret(x) {
   if (x.sorte === "prise" && !x.souple && x.tot != null && x.debut >= x.arrivee && !x.retard) avance = x.debut - x.arrivee;
   if (x.sorte === "depose" && x.limite != null && x.arrivee <= x.limite) avance = x.limite - x.arrivee;
   const marge = avance == null ? "" : avance < 1 ? "juste à l'heure" : `${Math.round(avance)} min d'avance`;
-  return { heure: enHeure(x.sorte === "prise" ? x.debut : x.arrivee), texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${nom}`, lieu: lieuCourt(x.lieu), retard, marge };
+  return { heure: enHeure(x.sorte === "prise" ? x.debut : x.arrivee), texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${nom}`, lieu: (nomLieu && nomLieu(x.lieu)) || lieuCourt(x.lieu), retard, marge };
 }
 
 // Reponse pour un devis : chaque jour de semaine concerne, tournee fixe + trajets de la cliente

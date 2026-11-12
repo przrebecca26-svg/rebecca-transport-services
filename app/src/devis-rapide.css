@@ -62,7 +62,12 @@
 .theme-sombre .rp-waze { flex: none; align-self: center; padding: 8px 10px; font: 700 13px var(--g-titre); color: var(--g-rose); border: 1px solid var(--g-bord); border-radius: 10px; text-decoration: none; }
 
 /* Adresses deja saisies + bouton choisi bien lisible (12 nov. 2026, 12h17) */
-.theme-sombre .rp-adresses { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -8px; }
+.theme-sombre .rp-adresses { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .theme-sombre .rp-adresses button { min-height: 40px; padding: 6px 14px; font: 600 14px var(--g-sans); color: var(--g-rose); background: transparent; border: 1px solid var(--g-bord); border-radius: 999px; cursor: pointer; }
 .theme-sombre .devis-rapide .choix button { background: #100e10; color: var(--g-texte); border: 1px solid var(--g-bord); }
 .theme-sombre .devis-rapide .choix button.actif { background: var(--g-rose); border-color: var(--g-rose); color: #080709; font-weight: 800; }
+.theme-sombre .rp-lieux { display: grid; gap: 10px; }
+.theme-sombre .rp-lieux:empty { display: none; }
+.theme-sombre .rp-lieu-nom { margin: 0; color: var(--g-texte-2); font-size: 14px; }
+.theme-sombre .rp-lieu-nom b { color: var(--g-rose); }
+.theme-sombre .rp-adresses button.sans-nom { color: var(--g-texte-2); border-style: dashed; }

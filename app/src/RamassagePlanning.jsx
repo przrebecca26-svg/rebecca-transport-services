@@ -11,7 +11,8 @@ import { useFermetures } from "./fermetures.js";
 import { JOURS, PERIODES, SENS, MAX_ENFANTS, planVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel } from "./pricing/ramassagePlanning.js";
 import JourneeTournee from "./components/JourneeTournee.jsx";
 import { aujourdhui } from "./profil.js";
-import { evaluerDevis, ajouterALaTournee } from "./pricing/tournee.js";
+import MesLieux from "./components/MesLieux.jsx";
+import { evaluerDevis, ajouterALaTournee, adressesConnues, nomDuLieu } from "./pricing/tournee.js";
 import { useTournee, useDurees, enregistrerTournee, PASTILLES } from "./tourneeBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
@@ -27,7 +28,7 @@ const jourDeLaDate = (date) => {
   return new Date(Date.UTC(a, m - 1, j, 12)).getUTCDay();
 };
 
-function Enfant({ enfant, index, periode, jourUnique, changer }) {
+function Enfant({ enfant, index, periode, jourUnique, changer, connues }) {
   const set = (cle, valeur) => changer({ ...enfant, [cle]: valeur });
   const setJour = (w, cle, valeur) => changer({ ...enfant, jours: enfant.jours.map((j, k) => (k === w ? { ...j, [cle]: valeur } : j)) });
   const avecSortie = enfant.sens !== "matin";
@@ -55,7 +56,10 @@ function Enfant({ enfant, index, periode, jourUnique, changer }) {
         </label>
       </div>
       {enfant.autreEcole && (
+        <>
         <Champ champ={{ name: "ecole" + index, label: "Adresse de son école", type: "adresse", required: true }} valeurs={{ ["ecole" + index]: enfant.ecole }} onChange={(_, valeur) => set("ecole", valeur)} />
+          <MesLieux id={"le-" + index} connues={connues} valeur={enfant.ecole} choisir={(x) => set("ecole", x)} />
+        </>
       )}
       {avecMatin && (
         <div className="champ">
@@ -172,6 +176,10 @@ export default function RamassagePlanning({ retour, aller }) {
     }
   };
 
+  // Mes lieux deja nommes dans la tournee (ecoles, Gan...) : proposes pour l'ecole, sans retaper l'adresse
+  const connues = adressesConnues(null, [], base.donnees.lieux);
+  const nomLieu = (adresse) => nomDuLieu(adresse, base.donnees.domicile, base.donnees.lieux);
+
   const copier = async () => {
     try {
       await navigator.clipboard.writeText(message);
@@ -216,7 +224,10 @@ export default function RamassagePlanning({ retour, aller }) {
             </fieldset>
           )}
           {!plan.enfants.every((e) => e.autreEcole) && (
-            <Champ champ={plan.enfants.some((e) => e.autreEcole) ? { ...CHAMP_ECOLE, label: "Adresse de l'école (enfants sans autre école)" } : CHAMP_ECOLE} valeurs={plan} onChange={changer} />
+            <>
+              <Champ champ={plan.enfants.some((e) => e.autreEcole) ? { ...CHAMP_ECOLE, label: "Adresse de l'école (enfants sans autre école)" } : CHAMP_ECOLE} valeurs={plan} onChange={changer} />
+              <MesLieux id="le-haut" connues={connues} valeur={plan.ecole} choisir={(x) => changer("ecole", x)} />
+            </>
           )}
           <fieldset className="champ">
             <legend>Devis pour</legend>
@@ -254,7 +265,7 @@ export default function RamassagePlanning({ retour, aller }) {
         </div>
 
         {plan.enfants.map((e, i) => (
-          <Enfant key={i} enfant={e} index={i} periode={plan.periode} jourUnique={jourUnique} changer={(n) => changerEnfant(i, n)} />
+          <Enfant key={i} enfant={e} index={i} periode={plan.periode} jourUnique={jourUnique} changer={(n) => changerEnfant(i, n)} connues={connues} />
         ))}
 
         <div className="bloc">
@@ -294,7 +305,7 @@ export default function RamassagePlanning({ retour, aller }) {
           {durees.statut === "erreur" && <p className="rp-alerte">Temps de route indisponibles pour l'instant. Réessaie dans un moment.</p>}
           {base.donnees.trajets.length === 0 && <p className="tdb-note">Ta tournée scolaire est vide : remplis-la dans la rubrique « Tournée scolaire » pour que la réponse en tienne compte.</p>}
           {faisable.jours.map((j) => (
-            <JourneeTournee key={j.w} titre={j.jour} jour={j} nouveaux={faisable.nouveaux.map((r) => r.id)} />
+            <JourneeTournee key={j.w} titre={j.jour} jour={j} nouveaux={faisable.nouveaux.map((r) => r.id)} nomLieu={nomLieu} />
           ))}
           <p className="tdb-note">Pour toi seulement. En rose : les enfants de ce devis. Rien n'est bloqué, c'est toi qui décides.</p>
           <div className="dr-actions">

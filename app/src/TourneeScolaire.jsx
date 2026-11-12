@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import Champ from "./components/Champ.jsx";
 import JourneeTournee from "./components/JourneeTournee.jsx";
+import MesLieux from "./components/MesLieux.jsx";
 import { useFermetures } from "./fermetures.js";
 import { aujourdhui } from "./profil.js";
 import { TARIFS } from "./pricing/config.js";
-import { JOURS, trajetVide, tourneeDepart, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, separerTrajet, cleLieu } from "./pricing/tournee.js";
+import { JOURS, trajetVide, tourneeDepart, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, separerTrajet, cleLieu, nomDuLieu, nommerLieu } from "./pricing/tournee.js";
 import { bilanMois } from "./pricing/ramassagePlanning.js";
 import { useTournee, useDurees, enregistrerTournee } from "./tourneeBase.js";
 import "./client-commun.css";
@@ -18,25 +19,7 @@ const TYPES = [
   { v: "sortie", l: "Récupérer (sortie, fin d'activité)" },
 ];
 
-// Adresses deja saisies, a toucher pour ne pas les retaper
-function MesAdresses({ connues, valeur, choisir }) {
-  const autres = connues.filter((c) => cleLieu(c.adresse) !== cleLieu(valeur));
-  if (autres.length === 0) return null;
-  return (
-    <div className="rp-adresses" role="group" aria-label="Mes adresses déjà saisies">
-      {autres.map((c) => (
-        <button key={cleLieu(c.adresse)} type="button" onClick={() => choisir(c.adresse)}>{c.nom}</button>
-      ))}
-    </div>
-  );
-}
-const jourCourt = (d) => {
-  const [a, m, j] = d.split("-").map(Number);
-  return new Date(Date.UTC(a, m - 1, j, 12)).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-};
-const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-
-function Trajet({ r, changer, supprimer, connues, creerRetour, separer }) {
+function Trajet({ r, changer, supprimer, connues, creerRetour, separer, nomLieu, nommer }) {
   const set = (cle, valeur) => changer({ ...r, [cle]: valeur });
   const setJour = (w, cle, valeur) => changer({ ...r, jours: r.jours.map((j, k) => (k === w ? { ...j, [cle]: valeur } : j)) });
   const manque = manqueTrajet(r);
@@ -45,7 +28,7 @@ function Trajet({ r, changer, supprimer, connues, creerRetour, separer }) {
     <details className="bloc rp-enfant rp-trajet">
       <summary>
         <h3>{r.nom || "Trajet sans nom"}</h3>
-        <span className={manque ? "rp-alerte" : "tdb-note"}>{manque ? `À compléter : ${manque}` : `${matin ? "Déposer" : "Récupérer"} · ${r.places} enfant${r.places > 1 ? "s" : ""} · ${r.jours.filter((j) => j.actif).length} jour(s)${r.client ? " · cliente" : ""}`}</span>
+        <span className={manque ? "rp-alerte" : "tdb-note"}>{manque ? `À compléter : ${manque}` : `${nomLieu(r.de) || "?"} → ${nomLieu(r.a) || "?"} · ${r.places} enfant${r.places > 1 ? "s" : ""} · ${r.jours.filter((j) => j.actif).length} jour(s)${r.client ? " · cliente" : ""}`}</span>
       </summary>
       <div className="champ">
         <label htmlFor={"tn-" + r.id}>Qui ? (prénoms)</label>
@@ -71,9 +54,9 @@ function Trajet({ r, changer, supprimer, connues, creerRetour, separer }) {
         </div>
       </fieldset>
       <Champ champ={{ name: "de" + r.id, label: matin ? "Où je prends les enfants" : "Où je récupère les enfants (école, Gan, activité…)", type: "adresse" }} valeurs={{ ["de" + r.id]: r.de }} onChange={(_, v) => set("de", v)} />
-      <MesAdresses connues={connues} valeur={r.de} choisir={(x) => set("de", x)} />
+      <MesLieux id={"ld-" + r.id} connues={connues} valeur={r.de} choisir={(x) => set("de", x)} nom={nomLieu(r.de)} maison={nomLieu(r.de) === "Maison"} nommer={(n) => nommer(r.de, n)} />
       <Champ champ={{ name: "a" + r.id, label: matin ? "Où je les dépose (école, Gan, activité…)" : "Où je les dépose", type: "adresse" }} valeurs={{ ["a" + r.id]: r.a }} onChange={(_, v) => set("a", v)} />
-      <MesAdresses connues={connues} valeur={r.a} choisir={(x) => set("a", x)} />
+      <MesLieux id={"la-" + r.id} connues={connues} valeur={r.a} choisir={(x) => set("a", x)} nom={nomLieu(r.a)} maison={nomLieu(r.a) === "Maison"} nommer={(n) => nommer(r.a, n)} />
       {matin && (
         <div className="champ">
           <label htmlFor={"tp-" + r.id}>Je les prends à partir de (facultatif)</label>
@@ -157,7 +140,9 @@ export default function TourneeScolaire() {
   };
 
   const depart = !base.donnees.existe;
-  const connues = adressesConnues(brouillon.domicile, trajets);
+  const connues = adressesConnues(brouillon.domicile, trajets, brouillon.lieux);
+  const nomLieu = (adresse) => nomDuLieu(adresse, brouillon.domicile, brouillon.lieux);
+  const nommer = (adresse, nom) => changer({ ...brouillon, lieux: nommerLieu(brouillon.lieux, adresse, nom) });
   const journee = evaluerJour(trajets, jour, durees.duree, TARIFS, { du: aujourdhui(), au: "", domicile: brouillon.domicile });
   const [annee, mois] = aujourdhui().split("-").map(Number);
   const moisSuivant = mois === 12 ? [annee + 1, 1] : [annee, mois + 1];
@@ -185,7 +170,7 @@ export default function TourneeScolaire() {
           ))}
         </div>
         {durees.statut === "erreur" && <p className="rp-alerte">Temps de route indisponibles pour l'instant. Réessaie dans un moment.</p>}
-        <JourneeTournee titre={JOURS[jour]} jour={journee} ouvert />
+        <JourneeTournee titre={JOURS[jour]} jour={journee} ouvert nomLieu={nomLieu} />
         <p className="tdb-note">Compté : temps de route + {regles.margeRouteMinutes} min de marge à chaque déplacement, {regles.arretMinutes} min par arrêt, {regles.retardMaxMinutes} min de retard au maximum à une sortie, {regles.places} places, retour à la maison s'il reste au moins {regles.retourMaisonMinutes} min de libre. Le bouton Waze de chaque arrêt donne le temps réel du moment. Modifiable dans Réglages → Tarifs.</p>
       </section>
 
@@ -216,7 +201,7 @@ export default function TourneeScolaire() {
 
       <div className="formulaire dr-formulaire">
         {trajets.map((r) => (
-          <Trajet key={r.id} r={r} connues={connues} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
+          <Trajet key={r.id} r={r} connues={connues} nomLieu={nomLieu} nommer={nommer} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />
         ))}
       </div>
       <button type="button" className="dr-secondaire rp-large" onClick={() => changer({ ...brouillon, trajets: [...trajets, trajetVide()] })}>+ Ajouter un trajet (école, activité, basket…)</button>

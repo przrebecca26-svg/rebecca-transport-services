@@ -2,24 +2,14 @@ import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase.js";
-import { ecouterCatalogue, ecouterPhotos } from "../catalogueClient.js";
+import { ecouterCatalogue, ecouterGalerieActivite, ecouterGalerieArticle, ecouterPrincipales } from "../catalogueClient.js";
 import Galerie from "./Galerie.jsx";
 import { CATALOGUE_DEPART, libellePrix } from "../pricing/catalogue.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
-import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
 
-// Visuels d'illustration (retries le 11 nov. 2026 : chaque image a ete controlee une par une).
-// Un article sans visuel fiable n'a PAS d'image ici. Les vraies photos ajoutees par Rebecca dans
-// Reglages > Catalogue > Modifier passent toujours avant ces visuels.
-const E = (n) => "/epoxy/" + n + ".jpg";
-const PHOTOS = VISUELS.epoxy;
-// Visuel propre a une variante (le nom de la variante doit etre exactement celui du catalogue)
-const VARIANT_PHOTOS = {
-  "Cendrier": { "Petit": E("01_Cendrier_Petit"), "Moyen": E("02_Cendrier_Moyen"), "Grand": E("03_Cendrier_Grand") },
-  "Boîte de rangement": { "Petite": E("09_Boite_Rangement_Moyenne"), "Moyenne": E("08_Boite_Rangement_Petite"), "Grande": E("10_Boite_Rangement_Grande") },
-  "Plateau": { "Petit": E("14_Plateau_Petit"), "Grand": E("13_Boite_Rangement_Maquillage"), "Grand rond": E("15_Plateau_Grand") },
-};
+// 12 nov. 2026 (20h26) : plus aucune image du site pour Epoxy. Chaque article a la photo principale choisie par
+// Rebecca (Reglages > Catalogue) et sa galerie (jusqu'a 30 photos), chargee quand la cliente ouvre l'article.
 
 export default function CatalogueEpoxy({ onRetour }) {
   const [articles, setArticles] = useState([]);
@@ -27,9 +17,10 @@ export default function CatalogueEpoxy({ onRetour }) {
   const [variante, setVariante] = useState(null);
   const [client, setClient] = useState({ nom: "", telephone: "", quantite: 1, message: "" });
   const [envoi, setEnvoi] = useState({ enCours: false, ok: false, erreur: "" });
-  const [photos, setPhotos] = useState({});
+  const [principales, setPrincipales] = useState({});
   const [galerie, setGalerie] = useState([]);
-  useEffect(() => ecouterPhotos("epoxy", (par, g) => { setPhotos(par); setGalerie(g); }), []);
+  const [galerieArticle, setGalerieArticle] = useState([]);
+  useEffect(() => ecouterGalerieActivite("epoxy", setGalerie), []);
   const [user, setUser] = useState(null);
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
 
@@ -37,14 +28,18 @@ export default function CatalogueEpoxy({ onRetour }) {
   useEffect(() => ecouterCatalogue("epoxy", (liste) => setArticles(liste)), []);
 
   const categories = [...new Set(articles.map((p) => p.categorie))];
+  const idsArticles = articles.map((p) => p.id).join("|");
+  useEffect(() => ecouterPrincipales(idsArticles ? idsArticles.split("|") : [], setPrincipales), [idsArticles]);
+  const idSelection = selection && selection.id;
+  useEffect(() => {
+    setGalerieArticle([]);
+    return idSelection ? ecouterGalerieArticle(idSelection, setGalerieArticle) : undefined;
+  }, [idSelection]);
 
-  // Photo d'un article : la vraie photo de l'admin d'abord, puis le visuel de la variante, puis le visuel de l'article
-  const photoDe = (p, v) => {
-    if (!p) return null;
-    if (p.id && photos[p.id] && photos[p.id][0]) return photos[p.id][0];
-    if (v && VARIANT_PHOTOS[p.nom] && VARIANT_PHOTOS[p.nom][v.nom]) return VARIANT_PHOTOS[p.nom][v.nom];
-    return PHOTOS[p.nom] || null;
-  };
+  // Photo d'un article : sa photo principale (choisie par Rebecca), sinon aucune image
+  const photoDe = (p) => (p && p.id && principales[p.id] ? principales[p.id].image : null);
+  // Autres photos de l'article ouvert : anciennes photos rangees avec la principale, puis la galerie
+  const autresPhotos = (p) => [...((p && principales[p.id] && principales[p.id].autres) || []), ...galerieArticle.map((x) => x.donnees)];
 
   const prixEffectif = () => {
     if (selection?.typePrix === "devis") return null;
@@ -119,10 +114,10 @@ export default function CatalogueEpoxy({ onRetour }) {
       <section className="catalogue-nails">
         <button className="lien" onClick={() => { setSelection(null); setVariante(null); }}>← Changer d'article</button>
         <h2>Commander : {selection.nom}</h2>
-        {photoDe(selection, variante) && <img src={photoDe(selection, variante)} alt={selection.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
-        {selection.id && photos[selection.id] && photos[selection.id].length > 1 && (
+        {photoDe(selection) && <img src={photoDe(selection)} alt={selection.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
+        {autresPhotos(selection).length > 0 && (
           <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
-            {photos[selection.id].slice(1).map((src, i) => <img key={i} src={src} alt="" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flex: "none" }} />)}
+            {autresPhotos(selection).map((src, i) => <img key={i} src={src} alt="" loading="lazy" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, flex: "none" }} />)}
           </div>
         )}
         <p>{libellePrix(selection) || "Prix sur demande"}</p>

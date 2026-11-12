@@ -5,7 +5,7 @@
 // le site affiche la liste de depart du code. Un prix prive (seances RegenX) n'est jamais affiche.
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { CATALOGUE_DEPART } from "./pricing/catalogue.js";
+import { CATALOGUE_DEPART, GALERIE_ARTICLE } from "./pricing/catalogue.js";
 
 const trier = (liste) => [...liste].sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999) || String(a.nom).localeCompare(String(b.nom)));
 
@@ -36,6 +36,7 @@ export function ecouterPhotos(activite, surPhotos) {
     query(collection(db, "photosCatalogue"), where("prestationId", ">=", activite + "-"), where("prestationId", "<=", activite + "-")),
     (s) => {
       const par = {};
+      const suite = {};
       const galerie = [];
       s.docs
         .map((d) => d.data())
@@ -43,11 +44,74 @@ export function ecouterPhotos(activite, surPhotos) {
         .forEach((x) => {
           if (!x.prestationId || !x.donnees) return;
           if (x.prestationId === idGalerie(activite)) return galerie.push({ donnees: x.donnees, legende: x.legende || "" });
+          if (x.prestationId.endsWith(GALERIE_ARTICLE)) {
+            const id = x.prestationId.slice(0, -GALERIE_ARTICLE.length);
+            (suite[id] = suite[id] || []).push(x.donnees);
+            return;
+          }
           if (!par[x.prestationId]) par[x.prestationId] = [];
           par[x.prestationId].push(x.donnees);
         });
+      // Photo principale d'abord, puis la galerie de l'article
+      Object.entries(suite).forEach(([id, liste]) => (par[id] = [...(par[id] || []), ...liste]));
       surPhotos(par, galerie);
     },
     () => surPhotos({}, [])
+  );
+}
+
+// ---------- Photos legeres (12 nov. 2026, Boutique Epoxy : jusqu'a 30 photos par article) ----------
+// Photos principales seulement (une par article), par paquets de 30 identifiants : la page s'ouvre vite
+// meme avec beaucoup de photos. surPrincipales({ idArticle: { image, autres: [image...] } }).
+export function ecouterPrincipales(ids, surPrincipales) {
+  const liste = [...new Set((ids || []).filter(Boolean))];
+  if (!liste.length) {
+    surPrincipales({});
+    return () => {};
+  }
+  const paquets = [];
+  for (let i = 0; i < liste.length; i += 30) paquets.push(liste.slice(i, i + 30));
+  const parPaquet = paquets.map(() => ({}));
+  const publier = () => surPrincipales(Object.assign({}, ...parPaquet));
+  const arrets = paquets.map((ids30, k) =>
+    onSnapshot(
+      query(collection(db, "photosCatalogue"), where("prestationId", "in", ids30)),
+      (s) => {
+        const par = {};
+        s.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+          .forEach((x) => {
+            if (!x.donnees) return;
+            if (!par[x.prestationId]) par[x.prestationId] = { image: x.donnees, photoId: x.id, autres: [] };
+            else par[x.prestationId].autres.push(x.donnees);
+          });
+        parPaquet[k] = par;
+        publier();
+      },
+      () => {
+        parPaquet[k] = {};
+        publier();
+      }
+    )
+  );
+  return () => arrets.forEach((a) => a());
+}
+
+// Galerie d'UN article (chargee a l'ouverture de l'article) : surGalerie([{ id, donnees, legende, ordre }])
+export function ecouterGalerieArticle(idArticle, surGalerie) {
+  return onSnapshot(
+    query(collection(db, "photosCatalogue"), where("prestationId", "==", idArticle + GALERIE_ARTICLE)),
+    (s) => surGalerie(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.ordre || 0) - (b.ordre || 0))),
+    () => surGalerie([])
+  );
+}
+
+// Galerie d'une activite seule (ex. « epoxy-galerie »)
+export function ecouterGalerieActivite(activite, surGalerie) {
+  return onSnapshot(
+    query(collection(db, "photosCatalogue"), where("prestationId", "==", idGalerie(activite))),
+    (s) => surGalerie(s.docs.map((d) => d.data()).sort((a, b) => (a.ordre || 0) - (b.ordre || 0)).map((x) => ({ donnees: x.donnees, legende: x.legende || "" }))),
+    () => surGalerie([])
   );
 }

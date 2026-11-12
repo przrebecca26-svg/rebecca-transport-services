@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
+import { ecouterPrincipales } from "./catalogueClient.js";
 import { db } from "./firebase.js";
 import { appliquerTarifsBase } from "./fermetures.js";
 import {
   ACTIVITES_CATALOGUE,
   CATALOGUE_DEPART,
+  GALERIE_ARTICLE,
   CATEGORIES_EPOXY,
   JOURS,
   PHOTO,
@@ -146,7 +148,7 @@ function reduirePhoto(fichier) {
   });
 }
 
-function PhotosArticle({ prestationId, visuel, max = PHOTO.maxParArticle, galerie = false }) {
+function PhotosArticle({ prestationId, visuel, max = PHOTO.maxParArticle, galerie = false, article = false }) {
   const [photos, setPhotos] = useState([]);
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -226,7 +228,7 @@ function PhotosArticle({ prestationId, visuel, max = PHOTO.maxParArticle, galeri
   };
   return (
     <div className="rg-photos">
-      <p className="tb-note">Photos ({photos.length}/{max}) : réduites automatiquement. {galerie ? "Tu peux en choisir plusieurs d'un coup. Description facultative (ex. Avant / après, sourcils)." : "Description facultative (dimensions, couleurs…)."}</p>
+      <p className="tb-note">Photos ({photos.length}/{max}) : réduites automatiquement. Tu peux en choisir plusieurs d'un coup. {article ? "Elles s'affichent quand la cliente ouvre l'article. Description facultative (dimensions, couleurs…)." : galerie ? "Description facultative (ex. Avant / après, sourcils)." : "Description facultative (dimensions, couleurs…)."}</p>
       {photos.length === 0 && visuel && (
         <div className="rg-photo">
           <img src={visuel} alt="Image affichée actuellement sur le site" />
@@ -252,6 +254,100 @@ function PhotosArticle({ prestationId, visuel, max = PHOTO.maxParArticle, galeri
         </label>
       )}
       <Message m={message} />
+    </div>
+  );
+}
+
+/* ---------- Photos d'un article (12 nov. 2026, 20h25) : DEUX endroits ----------
+   1) la photo principale (une seule : carte de l'article sur le site) ;
+   2) la galerie de l'article (jusqu'a 30 photos), visible quand la cliente ouvre l'article. */
+function PhotosDeLArticle({ prestationId, visuel }) {
+  const [principales, setPrincipales] = useState([]); // documents rangés sous l'identifiant de l'article
+  const [message, setMessage] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  useEffect(
+    () =>
+      onSnapshot(
+        query(collection(db, "photosCatalogue"), where("prestationId", "==", prestationId)),
+        (s) => setPrincipales(s.docs.map((x) => ({ id: x.id, ...x.data() })).sort((a, b) => (a.ordre || 0) - (b.ordre || 0))),
+        () => setMessage({ erreur: true, texte: "Photos illisibles pour l'instant (connexion ou règles Firebase)." })
+      ),
+    [prestationId]
+  );
+  const principale = principales[0] || null;
+  const anciennes = principales.slice(1); // photos ajoutées avant le 12 nov. au même endroit que la principale
+
+  const changerPrincipale = async (e) => {
+    const fichier = (e.target.files || [])[0];
+    e.target.value = "";
+    if (!fichier) return;
+    setEnCours(true);
+    setMessage(null);
+    try {
+      const v = validerPhoto({ donnees: await reduirePhoto(fichier) });
+      if (v.erreur) throw new Error(v.erreur);
+      await addDoc(collection(db, "photosCatalogue"), { prestationId, ...v.photo, ordre: -1000 + Math.floor(Date.now() / 1000) % 1000, creeLe: serverTimestamp() });
+      if (principale) await deleteDoc(doc(db, "photosCatalogue", principale.id));
+      setMessage({ texte: "Photo principale enregistrée." });
+    } catch (err) {
+      setMessage({ erreur: true, texte: err && err.message && err.message.length > 12 ? err.message : "Ajout impossible pour l'instant (connexion ou règles Firebase)." });
+    }
+    setEnCours(false);
+  };
+  const retirerPrincipale = async () => {
+    if (!principale || !confirm("Retirer la photo principale ?")) return;
+    try {
+      await deleteDoc(doc(db, "photosCatalogue", principale.id));
+    } catch {
+      setMessage({ erreur: true, texte: "Suppression impossible." });
+    }
+  };
+  // Anciennes photos rangées au mauvais endroit : elles passent dans la galerie de l'article
+  const rangerAnciennes = async () => {
+    setEnCours(true);
+    try {
+      let ordre = Date.now() % 100000;
+      for (const p of anciennes) {
+        await addDoc(collection(db, "photosCatalogue"), { prestationId: prestationId + GALERIE_ARTICLE, donnees: p.donnees, legende: p.legende || "", ordre: ordre++, creeLe: serverTimestamp() });
+        await deleteDoc(doc(db, "photosCatalogue", p.id));
+      }
+      setMessage({ texte: "Anciennes photos rangées dans la galerie." });
+    } catch {
+      setMessage({ erreur: true, texte: "Rangement impossible pour l'instant." });
+    }
+    setEnCours(false);
+  };
+
+  return (
+    <div className="rg-photos">
+      <h4>1. Photo principale</h4>
+      <p className="tb-note">Une seule photo : celle de la carte de l'article sur le site.</p>
+      {principale ? (
+        <div className="rg-photo">
+          <img src={principale.donnees} alt="Photo principale" />
+          <button type="button" className="tb-bouton tb-danger" onClick={retirerPrincipale}>Retirer la photo principale</button>
+        </div>
+      ) : visuel ? (
+        <div className="rg-photo">
+          <img src={visuel} alt="Image du site" />
+          <p className="tb-note">Image du site affichée pour l'instant. Elle est remplacée dès que tu choisis ta photo principale.</p>
+        </div>
+      ) : (
+        <p className="tb-note">Pas encore de photo principale.</p>
+      )}
+      <label className="tb-bouton rg-ajout-photo">
+        {enCours ? "Envoi en cours…" : principale ? "Changer la photo principale" : "+ Choisir la photo principale"}
+        <input type="file" accept="image/*" hidden disabled={enCours} onChange={changerPrincipale} />
+      </label>
+      {anciennes.length > 0 && (
+        <div className="tb-bloc">
+          <p className="tb-note">{anciennes.length} ancienne(s) photo(s) rangée(s) avec la principale.</p>
+          <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={rangerAnciennes}>Les ranger dans la galerie de l'article</button>
+        </div>
+      )}
+      <Message m={message} />
+      <h4>2. Galerie de l'article</h4>
+      <PhotosArticle prestationId={prestationId + GALERIE_ARTICLE} max={PHOTO.maxGalerieArticle} galerie article />
     </div>
   );
 }
@@ -332,7 +428,7 @@ function FichePrestation({ f: depart, existe, onFermer }) {
           {f.variantes.length < 6 && <button type="button" className="tb-retour aj-lien" onClick={() => ch("variantes", [...f.variantes, { nom: "", prix: "" }])}>+ Ajouter une variante</button>}
         </>
       )}
-      {cree && f.id ? <PhotosArticle prestationId={f.id} visuel={visuelDe(f.activite, depart.nom)} /> : <p className="tb-note">Touche « Enregistrer » : la fiche reste ouverte et tu peux ajouter les photos aussitôt.</p>}
+      {cree && f.id ? <PhotosDeLArticle prestationId={f.id} visuel={visuelDe(f.activite, depart.nom)} /> : <p className="tb-note">Touche « Enregistrer » : la fiche reste ouverte et tu peux ajouter les photos aussitôt.</p>}
       <label className="rg-case"><input type="checkbox" checked={f.option} onChange={(e) => ch("option", e.target.checked)} /> Option (s'ajoute à une prestation)</label>
       <label className="rg-case"><input type="checkbox" checked={f.publiee} onChange={(e) => ch("publiee", e.target.checked)} /> Publiée (visible des clientes quand l'activité est ouverte)</label>
       <Message m={message} />
@@ -355,28 +451,8 @@ function Catalogue() {
   const [message, setMessage] = useState(null);
   const [fichesActivites, setFichesActivites] = useState([]);
   useEffect(() => onSnapshot(collection(db, "activites"), (s) => setFichesActivites(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {}), []);
-  // Vraies photos deja ajoutees, par prestation (premiere photo + nombre), pour les voir dans la liste
+  // Photo principale de chaque prestation de l'activite affichee (requete legere, 12 nov. 2026)
   const [photosPar, setPhotosPar] = useState({});
-  useEffect(
-    () =>
-      onSnapshot(
-        collection(db, "photosCatalogue"),
-        (s) => {
-          const par = {};
-          s.docs
-            .map((x) => x.data())
-            .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-            .forEach((x) => {
-              if (!x.prestationId || !x.donnees) return;
-              if (!par[x.prestationId]) par[x.prestationId] = { premiere: x.donnees, nombre: 0 };
-              par[x.prestationId].nombre += 1;
-            });
-          setPhotosPar(par);
-        },
-        () => {}
-      ),
-    []
-  );
   const ajust = (activitesEffectives(fichesActivites).find((a) => a.id === activite) || {}).ajustementPourcent || 0;
 
   useEffect(
@@ -404,6 +480,29 @@ function Catalogue() {
   const source = !enBase ? CATALOGUE_DEPART : [...actifs, ...manquantsDepart];
   const items = useMemo(() => source.filter((x) => x.activite === activite).sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999) || String(a.nom).localeCompare(String(b.nom))), [source, activite]);
   const categories = [...new Set(items.map((x) => x.categorie))];
+  const idsItems = items.map((x) => x.id).join("|");
+  useEffect(() => ecouterPrincipales(idsItems ? idsItems.split("|") : [], setPhotosPar), [idsItems]);
+
+  // 12 nov. 2026 (20h26) : retirer d'un coup toutes les photos des articles d'une activite (pas la galerie de l'activite)
+  const [retrait, setRetrait] = useState(false);
+  const retirerToutesPhotos = async () => {
+    if (!confirm("Retirer TOUTES les photos des articles de " + NOMS_ACTIVITE[activite] + " (photos principales et galeries) ? La galerie générale de l'activité ne change pas.")) return;
+    if (!confirm("Sûre ? Les photos retirées ne peuvent pas revenir.")) return;
+    setRetrait(true);
+    try {
+      const s = await getDocs(query(collection(db, "photosCatalogue"), where("prestationId", ">=", activite + "-"), where("prestationId", "<=", activite + "-" + String.fromCharCode(0xf8ff))));
+      const cibles = s.docs.filter((d) => d.data().prestationId !== activite + "-galerie");
+      for (let i = 0; i < cibles.length; i += 400) {
+        const lot = writeBatch(db);
+        cibles.slice(i, i + 400).forEach((d) => lot.delete(d.ref));
+        await lot.commit();
+      }
+      setMessage({ texte: cibles.length + " photo(s) retirée(s). Tu peux maintenant mettre les tiennes, article par article." });
+    } catch {
+      setMessage({ erreur: true, texte: "Retrait impossible pour l'instant (connexion ou règles Firebase)." });
+    }
+    setRetrait(false);
+  };
 
   // Prestations de la liste de depart absentes de la base (ni meme identifiant, ni meme nom dans l'activite)
   const manquantsBase = manquantsDepart;
@@ -468,6 +567,9 @@ function Catalogue() {
       )}
       <Message m={message} />
       {enBase && <button className="tb-bouton tb-pad" onClick={() => setEdition({ f: vide(activite), existe: false })}>{activite === "epoxy" ? "+ Ajouter un article" : "+ Ajouter une prestation"}</button>}
+      {enBase && (
+        <button type="button" className="tb-bouton tb-danger tb-pad" disabled={retrait} onClick={retirerToutesPhotos}>{retrait ? "Retrait en cours…" : "Retirer toutes les photos des articles " + NOMS_ACTIVITE[activite]}</button>
+      )}
       {activite === "epoxy" && items.length === 0 && <p className="tb-note tb-pad">Aucun article pour l'instant. Ajoute tes créations une par une (nom, descriptif, prix ou variantes, délai).</p>}
       {ajust !== 0 && <p className="fi-alerte tb-pad">Ajustement en cours : {ajust > 0 ? "+" : ""}{ajust} % sur tous les prix de {NOMS_ACTIVITE[activite]} (prix de base conservés). Pour revenir aux prix de base : Activités → {NOMS_ACTIVITE[activite]} → 0.</p>}
       {activite === "regenx" && <p className="tb-note tb-pad">Les prix RegenX ne sont jamais affichés aux clientes : saisis-les ici, ils restent privés.</p>}
@@ -485,7 +587,7 @@ function Catalogue() {
             <div key={x.id} className="tb-carte" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "8px 10px" }}>
               {(() => {
                 const vraies = photosPar[x.id];
-                const image = (vraies && vraies.premiere) || visuelDe(x.activite, x.nom);
+                const image = (vraies && vraies.image) || visuelDe(x.activite, x.nom);
                 return image
                   ? <img src={image} alt="" width={48} height={48} style={{ borderRadius: 8, objectFit: "cover", flex: "none" }} />
                   : <span aria-hidden="true" style={{ width: 48, height: 48, borderRadius: 8, border: "1px dashed #6b5a5e", flex: "none" }} />;
@@ -498,7 +600,7 @@ function Catalogue() {
                 <span className="tb-quand">
                   {x.dureeMinutes ? libelleDuree(x.dureeMinutes) : x.delaiFabrication || ""}
                   {x.option ? " · option" : ""} · {x.publiee ? "publiée" : "non publiée"}
-                  {" · "}{photosPar[x.id] ? photosPar[x.id].nombre + (photosPar[x.id].nombre > 1 ? " photos" : " photo") : visuelDe(x.activite, x.nom) ? "image du site" : "pas de photo"}
+                  {" · "}{photosPar[x.id] ? "photo principale ✓" : visuelDe(x.activite, x.nom) ? "image du site" : "pas de photo principale"}
                 </span>
               </div>
               <div style={{ display: "flex", gap: 8, width: "100%", justifyContent: "flex-end" }}>

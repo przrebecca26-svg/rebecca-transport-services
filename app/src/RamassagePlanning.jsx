@@ -156,9 +156,9 @@ export default function RamassagePlanning({ retour, aller }) {
   const [cliente, setCliente] = useState("");
   const [ajoutTournee, setAjoutTournee] = useState("");
   const tousTrajets = useMemo(() => (pret ? [...base.donnees.trajets, ...evaluerDevis([], plan, () => 0).nouveaux] : []), [pret, plan, base.donnees.trajets]);
-  const durees = useDurees(tousTrajets);
+  const durees = useDurees(tousTrajets, base.donnees.domicile);
   const faisable = useMemo(
-    () => (pret && !base.refuse ? evaluerDevis(base.donnees.trajets, plan, durees.duree) : null),
+    () => (pret && !base.refuse ? evaluerDevis(base.donnees.trajets, plan, durees.duree, undefined, base.donnees.domicile) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pret, plan, base, durees.statut, reglages]
   );

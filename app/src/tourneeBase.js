@@ -24,11 +24,11 @@ export function useTournee() {
   return etat;
 }
 
-export const enregistrerTournee = ({ trajets, forfaits, vacances }) => setDoc(REF(), { json: JSON.stringify({ trajets, forfaits, vacances }), majLe: serverTimestamp() });
+export const enregistrerTournee = ({ trajets, forfaits, vacances, domicile }) => setDoc(REF(), { json: JSON.stringify({ trajets, forfaits, vacances, domicile: domicile || null }), majLe: serverTimestamp() });
 
 // Temps de route entre tous les lieux des trajets (un seul appel). Renvoie { duree(cleA, cleB), statut }.
-export function useDurees(trajets) {
-  const lieux = useMemo(() => lieuxDesTrajets(trajets), [trajets]);
+export function useDurees(trajets, domicile = null) {
+  const lieux = useMemo(() => lieuxDesTrajets(trajets, domicile), [trajets, domicile]);
   const cle = lieux.map(cleLieu).join("|");
   const [etat, setEtat] = useState({ cle: "", table: {}, statut: "vide" });
   useEffect(() => {

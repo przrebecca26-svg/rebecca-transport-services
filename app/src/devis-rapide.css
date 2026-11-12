@@ -57,3 +57,6 @@
 .theme-sombre .rp-enregistrer { position: sticky; bottom: 0; padding: 10px 0 14px; background: var(--g-fond); }
 .theme-sombre .rp-enregistrer .tdb-bouton { width: 100%; margin-top: 0; }
 .theme-sombre .rp-enregistrer .tdb-bouton:disabled { opacity: 0.5; }
+.theme-sombre .rp-arrets li.maison { color: var(--g-texte-2); }
+.theme-sombre .rp-arrets li span { flex: 1; min-width: 0; }
+.theme-sombre .rp-waze { flex: none; align-self: center; padding: 8px 10px; font: 700 13px var(--g-titre); color: var(--g-rose); border: 1px solid var(--g-bord); border-radius: 10px; text-decoration: none; }

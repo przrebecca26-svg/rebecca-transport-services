@@ -8,6 +8,9 @@
 // - temps comptes (Reglages -> Tarifs) : temps de route reel + marge de route a chaque deplacement + temps d'arret
 //   pour faire monter ou descendre les enfants ; retard maximum accepte a une sortie d'ecole ; places dans la voiture ;
 // - reponse par jour : possible, serre (un peu de retard a une sortie) ou impossible (avec l'arret qui coince).
+// - avec le domicile de Rebecca (enregistre dans sa base privee) : chaque moment de la journee part de la maison et
+//   y revient ; entre deux moments, retour a la maison seulement s'il reste assez de temps libre (30 min), sinon
+//   elle enchaine directement ; le meilleur ordre est celui qui fait le moins de route, maison comprise ;
 // Rien n'est bloque : c'est Rebecca qui decide. Les noms et adresses des enfants ne sont JAMAIS ecrits dans le
 // programme (le code est public) : ils sont enregistres dans la base privee de Rebecca (document admin/tournee).
 
@@ -129,7 +132,7 @@ export function lireTournee(json) {
     .filter((v) => v && dateOk(v.du))
     .slice(0, 40)
     .map((v) => ({ nom: String(v.nom || "").slice(0, 40), du: v.du, au: dateOk(v.au) && v.au >= v.du ? v.au : v.du }));
-  return { trajets: lireTrajets(o.trajets), forfaits, vacances, existe: Array.isArray(o.trajets) };
+  return { trajets: lireTrajets(o.trajets), forfaits, vacances, domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
 }
 
 // Le trajet compte-t-il ce jour de semaine, sur la periode [du ; au] regardee ? (dates vides = toujours)
@@ -169,8 +172,9 @@ export function trajetsDuDevis(plan) {
 /* ---------- Les lieux et les temps de route ---------- */
 
 // Lieux differents de tous les trajets complets (pour demander les temps de route en une seule fois)
-export function lieuxDesTrajets(trajets) {
+export function lieuxDesTrajets(trajets, domicile = null) {
   const vus = new Map();
+  if (cleLieu(domicile)) vus.set(cleLieu(domicile), domicile);
   for (const r of trajets) {
     if (manqueTrajet(r)) continue;
     for (const a of [r.de, r.a]) if (!vus.has(cleLieu(a))) vus.set(cleLieu(a), a);
@@ -208,7 +212,7 @@ function arretsDuTrajet(r, w) {
 }
 
 // Deroule un ordre d'arrets et renvoie les heures, les retards et ce qui coince
-function derouler(ordre, duree, regles, tots = null) {
+function derouler(ordre, duree, regles, tots = null, maison = "") {
   let t = 0;
   let violation = 0;
   let retard = 0;
@@ -241,7 +245,14 @@ function derouler(ordre, duree, regles, tots = null) {
     lignes.push(ligne);
     avant = cle;
   }
-  return { lignes, violation, retard, conduite, fin: t };
+  if (!maison || lignes.length === 0) return { lignes, violation, retard, conduite, fin: t };
+  // Depart de la maison et retour a la maison : comptes dans la route (pas d'aller-retour pour rien)
+  const aller = cleLieu(ordre[0].lieu) === maison ? 0 : duree(maison, cleLieu(ordre[0].lieu));
+  const retour = avant === maison ? 0 : duree(avant, maison);
+  if (aller == null || retour == null) return null;
+  const departMaison = lignes[0].arrivee - (aller ? aller + regles.margeRouteMinutes : 0);
+  const retourMaison = t + (retour ? retour + regles.margeRouteMinutes : 0);
+  return { lignes, violation, retard, conduite: conduite + aller + retour, fin: retourMaison, departMaison, retourMaison };
 }
 
 // Le meilleur ordre : d'abord rien qui coince, puis le moins de retard, puis le moins de route, puis fini le plus tot
@@ -255,11 +266,11 @@ const meilleur = (a, b) => {
 
 // Meilleur ordre des arrets d'un groupe de trajets (tous les ordres possibles, la prise toujours avant la depose,
 // jamais plus d'enfants que de places)
-function meilleurOrdre(trajets, w, duree, regles) {
+function meilleurOrdre(trajets, w, duree, regles, maison = "") {
   const paires = trajets.map((r) => arretsDuTrajet(r, w));
   // Point de depart : les trajets l'un apres l'autre, dans l'ordre des heures (toujours faisable pour les places)
   const simple = [...paires].sort((a, b) => (a[0].tot ?? 0) - (b[0].tot ?? 0)).flat();
-  const depart = derouler(simple, duree, regles);
+  const depart = derouler(simple, duree, regles, null, maison);
   if (!depart) return null;
   let best = { ...depart, ordre: simple };
   let essais = 0;
@@ -268,7 +279,7 @@ function meilleurOrdre(trajets, w, duree, regles) {
   const explorer = (charge) => {
     if (essais++ > MAX_ESSAIS) return;
     if (ordre.length === paires.length * 2) {
-      const r = derouler(ordre, duree, regles);
+      const r = derouler(ordre, duree, regles, null, maison);
       if (r && meilleur(r, best)) best = { ...r, ordre: [...ordre] };
       return;
     }
@@ -298,13 +309,13 @@ function meilleurOrdre(trajets, w, duree, regles) {
     let bon = s.tot;
     for (let essai = s.tot + 1; essai <= s.tot + FENETRE_MATIN; essai++) {
       tots.set(s, essai);
-      const r = derouler(best.ordre, duree, regles, tots);
+      const r = derouler(best.ordre, duree, regles, tots, maison);
       if (!r || r.violation > best.violation || r.retard > best.retard) break;
       bon = essai;
     }
     tots.set(s, bon);
   }
-  const fin = derouler(best.ordre, duree, regles, tots);
+  const fin = derouler(best.ordre, duree, regles, tots, maison);
   return fin ? { ...fin, complet: essais <= MAX_ESSAIS } : best;
 }
 
@@ -340,31 +351,41 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
     else groupes.push([r]);
   }
 
+  const maison = cleLieu(periode.domicile);
   const arrets = [];
   let violation = 0;
   let retard = 0;
+  let avant = null; // moment precedent de la journee
   for (const g of groupes) {
-    const r = meilleurOrdre(g, w, duree, regles);
+    const r = meilleurOrdre(g, w, duree, regles, maison);
     if (!r) return { statut: "inconnu", arrets: [], probleme: "Temps de route pas encore calculés.", retard: 0, incomplets };
-    if (arrets.length) arrets.push({ pause: true });
-    arrets.push(...r.lignes);
     violation += r.violation;
     retard += r.retard;
-  }
-  // Deux groupes qui se suivent : a-t-on le temps d'aller de la fin du premier au debut du second ?
-  const vrais = arrets.filter((x) => !x.pause);
-  for (let k = 1; k < vrais.length; k++) {
-    const a = vrais[k - 1];
-    const b = vrais[k];
-    if (arrets[arrets.indexOf(b) - 1] && arrets[arrets.indexOf(b) - 1].pause) {
+    const libre = avant && maison ? r.departMaison - avant.retourMaison : null;
+    const passeMaison = !avant || (maison && libre >= regles.retourMaisonMinutes);
+    if (avant && !passeMaison) {
+      // J'enchaine sans rentrer : ai-je le temps d'aller de la fin du premier moment au debut du second ?
+      const a = avant.lignes[avant.lignes.length - 1];
+      const b = r.lignes[0];
       const route = cleLieu(a.lieu) === cleLieu(b.lieu) ? 0 : duree(cleLieu(a.lieu), cleLieu(b.lieu));
-      if (route != null && a.depart + route + regles.margeRouteMinutes > b.debut) {
-        const manque = Math.round(a.depart + route + regles.margeRouteMinutes - b.debut);
+      const arrivee = route == null ? null : a.depart + (route ? route + regles.margeRouteMinutes : 0);
+      if (arrivee != null && arrivee > b.debut) {
+        const manque = Math.round(arrivee - b.debut);
         b.depassement = Math.max(b.depassement, manque);
         violation += manque;
       }
+      arrets.push({ pause: true, texte: maison ? "J'enchaîne sans rentrer à la maison" : "Libre", minutes: arrivee == null ? null : Math.max(0, Math.round(b.debut - arrivee)) });
     }
+    if (avant && passeMaison && maison) {
+      arrets.push({ maison: "retour", heure: avant.retourMaison });
+      arrets.push({ pause: true, texte: "Libre à la maison", minutes: Math.round(libre) });
+    }
+    if (passeMaison && maison) arrets.push({ maison: "depart", heure: r.departMaison });
+    arrets.push(...r.lignes);
+    avant = r;
   }
+  if (avant && maison) arrets.push({ maison: "retour", heure: avant.retourMaison });
+  const vrais = arrets.filter((x) => x.trajet);
 
   const pire = vrais.filter((x) => x.depassement > 0).sort((a, b) => b.depassement - a.depassement)[0];
   let probleme = "";
@@ -383,12 +404,17 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
 export function texteArret(x) {
   const nom = x.trajet.nom || "trajet";
   const retard = x.sorte === "prise" && x.sortie && x.retard > 0 ? ` (${Math.round(x.retard)} min après la sortie)` : "";
-  return { heure: enHeure(x.sorte === "prise" ? x.debut : x.arrivee), texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${nom}`, lieu: lieuCourt(x.lieu), retard };
+  // Marge : minutes d'avance sur l'heure prevue (sortie d'ecole, heure de prise, heure limite d'arrivee)
+  let avance = null;
+  if (x.sorte === "prise" && !x.souple && x.tot != null && x.debut >= x.arrivee && !x.retard) avance = x.debut - x.arrivee;
+  if (x.sorte === "depose" && x.limite != null && x.arrivee <= x.limite) avance = x.limite - x.arrivee;
+  const marge = avance == null ? "" : avance < 1 ? "juste à l'heure" : `${Math.round(avance)} min d'avance`;
+  return { heure: enHeure(x.sorte === "prise" ? x.debut : x.arrivee), texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${nom}`, lieu: lieuCourt(x.lieu), retard, marge };
 }
 
 // Reponse pour un devis : chaque jour de semaine concerne, tournee fixe + trajets de la cliente
-export function evaluerDevis(tournee, plan, duree, t = TARIFS) {
-  const periode = periodeDuPlan(plan);
+export function evaluerDevis(tournee, plan, duree, t = TARIFS, domicile = null) {
+  const periode = { ...periodeDuPlan(plan), domicile };
   const nouveaux = trajetsDuDevis(plan);
   const jours = [];
   const dejaCalcule = new Map(); // deux jours avec exactement les memes trajets et les memes heures = meme reponse

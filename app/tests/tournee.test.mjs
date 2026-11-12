@@ -33,7 +33,7 @@ const TOURNEE = [
   To.trajetVide({ id: "f3", nom: "Les 2 filles (sortie)", type: "sortie", places: 2, de: GAN, a: AMIE, heure: "14:00", jours: tous() }),
   To.trajetVide({ id: "f4", nom: "Ma fille (chez l'amie)", type: "sortie", de: AMIE, a: MAISON, heure: "13:45", peutAttendre: true, jours: tous() }),
 ];
-const heures = (r) => r.arrets.filter((x) => !x.pause).map((x) => `${To.texteArret(x).heure} ${x.sorte} ${x.trajet.id}`);
+const heures = (r) => r.arrets.filter((x) => x.trajet).map((x) => `${To.texteArret(x).heure} ${x.sorte} ${x.trajet.id}`);
 
 section("Ma tournee scolaire");
 
@@ -70,7 +70,7 @@ test("deux enfants d'une cliente a 14h15 : possible, avec les petites deja dans 
   const r = To.evaluerDevis(TOURNEE, devis({ enfants: [enfant({ prenom: "Noa", heureSortie: "14:15" }), enfant({ prenom: "Liel", heureSortie: "14:15" })] }), duree, T);
   egal(r.statut, "possible");
   egal(r.jours.length, 6);
-  const j = r.jours[0].arrets.filter((x) => !x.pause);
+  const j = r.jours[0].arrets.filter((x) => x.trajet);
   vrai(j.findIndex((x) => x.trajet.id === "devis-s0" && x.sorte === "prise") < j.findIndex((x) => x.trajet.id === "f3" && x.sorte === "depose"), heures(r.jours[0]).join(" / "));
 });
 
@@ -90,7 +90,7 @@ test("trop d'enfants en meme temps : l'ordre change pour ne jamais depasser 4 pl
   const r = To.evaluerDevis(TOURNEE, devis({ enfants: [enfant({ heureSortie: "14:15" }), enfant({ heureSortie: "14:15" }), enfant({ heureSortie: "14:15" })] }), duree, T);
   let charge = 0;
   let max = 0;
-  for (const x of r.jours[0].arrets.filter((a) => !a.pause && a.debut > 600)) {
+  for (const x of r.jours[0].arrets.filter((a) => a.trajet && a.debut > 600)) {
     charge += x.sorte === "prise" ? x.trajet.places : -x.trajet.places;
     max = Math.max(max, charge);
   }
@@ -99,7 +99,7 @@ test("trop d'enfants en meme temps : l'ordre change pour ne jamais depasser 4 pl
 
 test("4 enfants d'une cliente a la meme heure = un seul arret de 4 places, fait a part des autres enfants", () => {
   const r = To.evaluerDevis(TOURNEE, devis({ enfants: [1, 2, 3, 4].map(() => enfant({ heureSortie: "15:00" })) }), duree, T);
-  const prise = r.jours[0].arrets.find((x) => !x.pause && x.sorte === "prise" && x.trajet.places === 4);
+  const prise = r.jours[0].arrets.find((x) => x.trajet && x.sorte === "prise" && x.trajet.places === 4);
   vrai(!!prise && r.statut === "possible", r.statut + " " + r.jours[0].probleme);
 });
 
@@ -162,4 +162,39 @@ test("table des durees a partir de la matrice", () => {
   egal(lieux.length, 4);
   const table = To.tableDurees(lieux, lieux.map((_, i) => lieux.map((__, j) => (i === j ? 0 : 3))));
   egal(table[`${To.cleLieu(MAISON)}>${To.cleLieu(ECOLE)}`], 3);
+});
+
+section("Tournee : depart et retour a la maison");
+
+const AVEC = { domicile: MAISON };
+const fil = (r) => r.arrets.map((x) => (x.maison ? `${To.enHeure(x.heure)} ${x.maison}` : x.pause ? `pause ${x.minutes}` : `${To.texteArret(x).heure} ${x.sorte} ${x.trajet.id}`));
+
+test("matin : je pars de la maison, je rentre apres le Gan, libre a la maison jusqu'a la sortie", () => {
+  const r = To.evaluerJour(TOURNEE, 0, duree, T, AVEC);
+  egal(r.statut, "possible");
+  egal(fil(r).slice(0, 7), ["07h46 depart", "07h46 prise f1", "08h00 depose f1", "08h15 prise f2", "08h29 depose f2", "08h43 retour", "pause 308"]);
+  vrai(fil(r)[7] === "13h51 depart" && fil(r)[fil(r).length - 1] === "14h33 retour", fil(r).join(" / "));
+});
+
+test("moins de 30 min de libre entre deux moments : j'enchaine sans rentrer", () => {
+  const t = [
+    To.trajetVide({ id: "a", nom: "A", de: GAN, a: AMIE, heure: "12:00", jours: tous() }),
+    To.trajetVide({ id: "b", nom: "B", de: ECOLE_B, a: CLIENTE, heure: "13:05", jours: tous() }),
+  ];
+  const f = fil(To.evaluerJour(t, 0, duree, T, AVEC));
+  vrai(f.filter((x) => /depart/.test(x)).length === 1 && f.some((x) => /^pause/.test(x)), f.join(" / "));
+  const t2 = t.map((r) => (r.id === "b" ? { ...r, heure: "14:30" } : r));
+  egal(fil(To.evaluerJour(t2, 0, duree, T, AVEC)).filter((x) => /depart/.test(x)).length, 2);
+});
+
+test("marge affichee a chaque arret", () => {
+  const r = To.evaluerJour(TOURNEE, 0, duree, T, AVEC);
+  const m = r.arrets.filter((x) => x.trajet).map((x) => To.texteArret(x).marge);
+  egal(m.slice(0, 4), ["", "juste à l'heure", "3 min d'avance", "1 min d'avance"]);
+});
+
+test("le domicile compte dans les lieux et se relit depuis la base", () => {
+  egal(To.lieuxDesTrajets([], MAISON).length, 1);
+  egal(To.lireTournee(JSON.stringify({ trajets: [], domicile: MAISON })).domicile, MAISON);
+  egal(To.lireTournee(JSON.stringify({ trajets: [] })).domicile, null);
 });

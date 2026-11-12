@@ -385,6 +385,7 @@ export const TARIFS_EDITABLES = [
   { chemin: "tournee.arretMinutes", label: "Tournée : temps d'arrêt (monter ou descendre)", unite: "min", groupe: "Ramassage scolaire" },
   { chemin: "tournee.retardMaxMinutes", label: "Tournée : retard maximum à une sortie d'école", unite: "min", groupe: "Ramassage scolaire" },
   { chemin: "tournee.places", label: "Tournée : places pour les enfants dans la voiture", unite: "", groupe: "Ramassage scolaire" },
+  { chemin: "tournee.retourMaisonMinutes", label: "Tournée : je rentre à la maison s'il reste au moins", unite: "min", groupe: "Ramassage scolaire" },
   { chemin: "carburant.prixLitre", label: "Prix du litre d'essence", unite: "₪", decimales: true, groupe: "Calcul du prix" },
   { chemin: "tempsParHeure", label: "Valeur de mon heure de travail", unite: "₪", groupe: "Calcul du prix" },
 ];

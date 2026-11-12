@@ -176,7 +176,8 @@ export const TARIFS = {
   ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionMois: 0.15, reductionPlusieursEnfants: 0.2 },
   // Ma tournee scolaire (12 nov. 2026) : marge de route a chaque deplacement (petit probleme sur la route), temps
   // d'arret pour faire monter ou descendre les enfants, retard maximum accepte a une sortie d'ecole, places passagers.
-  tournee: { margeRouteMinutes: 5, arretMinutes: 5, retardMaxMinutes: 10, places: 4 },
+  // retourMaisonMinutes : entre deux moments de la journee, retour a la maison seulement s'il reste au moins ce temps libre.
+  tournee: { margeRouteMinutes: 5, arretMinutes: 5, retardMaxMinutes: 10, places: 4, retourMaisonMinutes: 30 },
 
   // Hatan & Kala : 220 minimum ; hors Netanya = trajet + prestation mariage
   hatanKala: { base: 220, decoration: 150, prestationHorsNetanya: 70 },

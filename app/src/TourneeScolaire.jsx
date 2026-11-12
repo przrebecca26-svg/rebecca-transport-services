@@ -105,7 +105,7 @@ export default function TourneeScolaire() {
   }, [base, modifie]);
 
   const trajets = brouillon ? brouillon.trajets : [];
-  const durees = useDurees(trajets);
+  const durees = useDurees(trajets, brouillon ? brouillon.domicile : null);
 
   if (!base.pret || !brouillon) return <p className="tdb-note tb-pad">Chargement de la tournée…</p>;
   if (base.refuse) return <p className="tdb-note tb-pad">La tournée scolaire est réservée à Rebecca.</p>;
@@ -127,7 +127,7 @@ export default function TourneeScolaire() {
   };
 
   const depart = !base.donnees.existe;
-  const journee = evaluerJour(trajets, jour, durees.duree, TARIFS, { du: aujourdhui(), au: "" });
+  const journee = evaluerJour(trajets, jour, durees.duree, TARIFS, { du: aujourdhui(), au: "", domicile: brouillon.domicile });
   const [annee, mois] = aujourdhui().split("-").map(Number);
   const moisSuivant = mois === 12 ? [annee + 1, 1] : [annee, mois + 1];
   const regles = TARIFS.tournee;
@@ -140,6 +140,12 @@ export default function TourneeScolaire() {
       </div>
       {depart && <p className="tdb-note rp-alerte">Voici ta tournée de départ avec tes heures. Ouvre chaque trajet pour mettre les prénoms et choisir les adresses, puis enregistre.</p>}
 
+      <div className="formulaire dr-formulaire">
+        <div className="bloc">
+          <Champ champ={{ name: "domicile", label: "Mon domicile (départ et retour de mes tournées)", type: "adresse", indice: "Enregistré dans ta base privée, jamais visible par les clientes." }} valeurs={{ domicile: brouillon.domicile }} onChange={(_, v) => changer({ ...brouillon, domicile: v })} />
+        </div>
+      </div>
+
       <section className="tdb-bloc">
         <h2>Ma journée</h2>
         <div className="choix rp-six">
@@ -149,7 +155,7 @@ export default function TourneeScolaire() {
         </div>
         {durees.statut === "erreur" && <p className="rp-alerte">Temps de route indisponibles pour l'instant. Réessaie dans un moment.</p>}
         <JourneeTournee titre={JOURS[jour]} jour={journee} ouvert />
-        <p className="tdb-note">Compté : temps de route + {regles.margeRouteMinutes} min de marge à chaque déplacement, {regles.arretMinutes} min par arrêt, {regles.retardMaxMinutes} min de retard au maximum à une sortie, {regles.places} places. Modifiable dans Réglages → Tarifs.</p>
+        <p className="tdb-note">Compté : temps de route + {regles.margeRouteMinutes} min de marge à chaque déplacement, {regles.arretMinutes} min par arrêt, {regles.retardMaxMinutes} min de retard au maximum à une sortie, {regles.places} places, retour à la maison s'il reste au moins {regles.retourMaisonMinutes} min de libre. Le bouton Waze de chaque arrêt donne le temps réel du moment. Modifiable dans Réglages → Tarifs.</p>
       </section>
 
       {brouillon.forfaits.length > 0 && (

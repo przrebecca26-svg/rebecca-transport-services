@@ -697,7 +697,10 @@ export function messageMission(m, nomMembre = "") {
    Le deroule d'une journee de tournee devient une liste d'etapes datees (minutes) a meler aux courses du jour :
    { min, genre: "maison" | "partir" | "arret" | "libre" | "pause", heure, texte, lieu, marge, adresse, jusqua, minutes } */
 // Prendre ou deposer un enfant A LA MAISON n'est pas une etape a part : « Partir de la maison avec Shyrel ».
-const nomCourt = (x) => String(x.trajet.nom || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+// « Joy · École (aller) + Liel · École (aller) » -> « Joy et Liel » (le lieu est deja ecrit a cote)
+const prenom = (n) => String(n || "").replace(/\s*\([^)]*\)\s*$/, "").split(" · ")[0].split(" - enfant")[0].trim();
+const nomsCourts = (nom) => [...new Set(String(nom || "").split(" + ").map(prenom).filter(Boolean))].join(" et ");
+const nomCourt = (x) => nomsCourts(x.trajet.nom);
 export function filTournee(jour, nomLieu = null, domicile = null) {
   const sortie = [];
   let dernier = 0;
@@ -734,7 +737,8 @@ export function filTournee(jour, nomLieu = null, domicile = null) {
     const a = texteArret(x, nomLieu);
     const min = x.sorte === "prise" ? x.debut : x.arrivee;
     if (x.partir != null) sortie.push({ min: x.partir, genre: "partir", heure: enHeure(x.partir), texte: `Partir pour ${a.lieu}` });
-    sortie.push({ min, genre: "arret", heure: a.heure, texte: a.texte + a.retard, lieu: a.lieu, marge: a.marge, adresse: x.lieu, coince: x.depassement > 0, ids: x.trajet.ids || [x.trajet.id], type: x.trajet.type, sorte: x.sorte });
+    const qui = nomsCourts(x.trajet.nom) || x.trajet.nom || "trajet";
+    sortie.push({ min, genre: "arret", heure: a.heure, texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${qui}${a.retard}`, lieu: a.lieu, marge: a.marge, adresse: x.lieu, coince: x.depassement > 0, ids: x.trajet.ids || [x.trajet.id], type: x.trajet.type, sorte: x.sorte });
     dernier = x.depart != null ? x.depart : min;
   }
   return sortie;

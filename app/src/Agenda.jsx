@@ -553,7 +553,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
         )
       )}
       {fermetures.length === 0 && lignes.length === 0 && !calcul && <p className="ag-libre">Libre</p>}
-      {journee && jour >= aujourdhui && <AjoutTache date={jour} journee={journee} />}
+      {journee && <AjoutTache date={jour} journee={journee} />}
     </div>
   );
 }
@@ -748,9 +748,9 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>
 
-      {vue === "jour" && <JourListe fil={maJournee.fil(ref)} journee={tourneeOk ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
+      {vue === "jour" && <JourListe fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
-      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre fil={maJournee.fil(j)} journee={tourneeOk ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
+      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
 
       {vue === "mois" && (
         <>

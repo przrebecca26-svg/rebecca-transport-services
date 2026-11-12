@@ -449,6 +449,15 @@ test("fil du basket : partir de la maison, deposer, libre, partir, recuperer, re
   const f = To.filTournee(j, null, MAISON);
   egal(f.map((e) => e.genre), ["maison", "arret", "libre", "partir", "arret", "maison"]);
   egal([f[0].texte, f[5].texte], ["Partir de la maison avec Ma fille", "De retour à la maison avec Ma fille"]);
+});
+test("fil : noms raccourcis (« Joy · École (aller) + Liel · École (aller) » -> « Joy et Liel »)", () => {
+  const deux = [To.trajetVide({ id: "j1", nom: "Joy · École (aller)", type: "matin", de: AMIE, a: GAN, heurePrise: "08:15", heure: "08:30", jours: tous() }), To.trajetVide({ id: "j2", nom: "Liel · École (aller)", type: "matin", de: AMIE, a: GAN, heurePrise: "08:15", heure: "08:30", jours: tous() })];
+  const f = To.filTournee(To.journeeDeLaDate(deux, "2026-11-15", [], duree, MAISON, T), null, MAISON).filter((e) => e.genre === "arret");
+  egal(f.map((e) => e.texte), ["Prendre Joy et Liel", "Déposer Joy et Liel"]);
+  egal(f[0].ids, ["j1", "j2"]);
+});
+test("fil du basket : temps libre de 17h50 a 18h40, dans l'ordre des heures", () => {
+  const f = To.filTournee(To.journeeDeLaDate(ACTIVITE, "2026-11-11", [], duree, MAISON, T), null, MAISON);
   const libre = f.find((e) => e.genre === "libre");
   egal([libre.heure, libre.jusqua], ["17h50", "18h40"]);
   vrai(f.every((e, i) => i === 0 || e.min >= f[i - 1].min), "dans l'ordre des heures");

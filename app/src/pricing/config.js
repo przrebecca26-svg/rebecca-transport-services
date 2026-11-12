@@ -171,7 +171,9 @@ export const TARIFS = {
 
   // Ramassage scolaire : prix d'un trajet = prix par trajet de la grille B ; forfait semaine = reduction selon le nombre de jours
   // (de la plus forte a la plus faible). Exemple : 3 jours = -10 %, 5 jours ou plus = -15 %.
-  ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }] },
+  // Devis a plusieurs enfants (12 nov. 2026, regle de Rebecca) : un jour = prix normal ; forfait au mois = reductionMois ;
+  // plusieurs enfants en forfait (semaine ou mois) = reductionPlusieursEnfants.
+  ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionMois: 0.15, reductionPlusieursEnfants: 0.2 },
 
   // Hatan & Kala : 220 minimum ; hors Netanya = trajet + prestation mariage
   hatanKala: { base: 220, decoration: 150, prestationHorsNetanya: 70 },

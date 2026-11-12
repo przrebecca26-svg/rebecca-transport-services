@@ -5,6 +5,7 @@ import Champ from "./components/Champ.jsx";
 import Devis from "./components/Devis.jsx";
 import IconeService from "./components/IconeService.jsx";
 import AjoutManuel from "./AjoutManuel.jsx";
+import RamassagePlanning from "./RamassagePlanning.jsx";
 import { SERVICES, FORMULAIRES, CHAMPS_CLIENT, valeursInitiales, champsVisibles, trajetACalculer, besoinDistance, versDemande } from "./services.js";
 import { calculerTrajet } from "./routing.js";
 import { calculer } from "./pricing/engine.js";
@@ -135,6 +136,8 @@ function Formulaire({ service, retour, aller }) {
 
 export default function SimulateurDevis({ aller }) {
   const [service, setService] = useState(null);
+  // Ramassage scolaire : devis a plusieurs enfants, horaires par jour, semaine ou mois (12 nov. 2026)
+  if (service === "ramassage") return <RamassagePlanning retour={() => setService(null)} aller={aller} />;
   if (service) return <Formulaire key={service} service={service} retour={() => setService(null)} aller={aller} />;
   return (
     <div className="tdb">

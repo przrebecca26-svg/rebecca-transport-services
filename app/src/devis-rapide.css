@@ -15,3 +15,20 @@
 .theme-sombre .devis .total { color: var(--g-texte); }
 .theme-sombre .devis .detail li { border-top-color: rgba(185, 120, 112, 0.3); }
 .theme-sombre .devis.bloque { background: rgba(216, 90, 104, 0.12); color: var(--g-texte); border: 1px solid var(--g-alerte); }
+
+/* RAMASSAGE SCOLAIRE A PLUSIEURS ENFANTS (12 nov. 2026) */
+.theme-sombre .rp-trois { grid-template-columns: repeat(3, 1fr); }
+.theme-sombre .rp-enfant h3 { margin: 0; color: var(--g-rose); font: 800 18px var(--g-titre); }
+.theme-sombre .rp-jours { display: grid; gap: 6px; }
+.theme-sombre .rp-jour { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 4px 0; border-top: 1px solid rgba(185, 120, 112, 0.3); }
+.theme-sombre .rp-jour .case { flex: 1; min-width: 0; }
+.theme-sombre .rp-jour .rp-nom { flex: 1; font-weight: 600; }
+.theme-sombre .rp-jour input[type="time"] { width: 128px; flex: none; min-height: 44px; text-align: center; }
+.theme-sombre .rp-jour.inactif { opacity: 0.55; }
+.theme-sombre .rp-vacances { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.theme-sombre .rp-vacances label { display: grid; gap: 4px; font-weight: 600; font-size: 14px; min-width: 0; }
+.theme-sombre .rp-vacances input { min-width: 0; width: 100%; }
+.theme-sombre .rp-detail { list-style: none; margin: 8px 0 0; padding: 0; }
+.theme-sombre .rp-detail li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid rgba(185, 120, 112, 0.3); color: var(--g-texte); }
+.theme-sombre .rp-detail li b { text-align: right; }
+.theme-sombre .rp-alerte { color: var(--g-rose); }

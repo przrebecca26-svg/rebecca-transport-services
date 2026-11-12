@@ -444,16 +444,22 @@ function calculerMiseADisposition(d, t) {
 
 /* ---------- Ramassage scolaire ---------- */
 
+// Prix d'UN trajet domicile <-> ecole (meme regle pour le site et pour le devis a plusieurs enfants)
+export function prixTrajetRamassage(d, t = TARIFS) {
+  const plancher = plancherGrille(d.zoneDepart, d.zoneArrivee, t);
+  const horsAxe = !plancher.zone && !estLocal(d, plancher, t);
+  const intraNetanya = d.zoneDepart === "netanya" && d.zoneArrivee === "netanya" && d.aller.km <= t.netanyaPlafond.kmMax;
+  const plafond = intraNetanya ? t.netanyaPlafond.prix : Infinity;
+  const formule = arrondiSup(prixFormule(d.aller.km, d.aller.minutes, t), t.arrondi);
+  return { parTrajet: Math.min(Math.max(formule, plancher.prixParTrajetAR), plafond), horsAxe };
+}
+
 function calculerRamassage(d, t) {
   if (!d.aller || !(d.aller.km > 0) || !(d.aller.minutes > 0)) return erreur("Distance du trajet manquante.");
   const lignes = [];
   const aConfirmer = [];
-  const plancher = plancherGrille(d.zoneDepart, d.zoneArrivee, t);
-  if (!plancher.zone && !estLocal(d, plancher, t)) aConfirmer.push("Trajet hors axe Netanya : prix à confirmer par Rebecca.");
-  const intraNetanya = d.zoneDepart === "netanya" && d.zoneArrivee === "netanya" && d.aller.km <= t.netanyaPlafond.kmMax;
-  const plafond = intraNetanya ? t.netanyaPlafond.prix : Infinity;
-  const formule = arrondiSup(prixFormule(d.aller.km, d.aller.minutes, t), t.arrondi);
-  const parTrajet = Math.min(Math.max(formule, plancher.prixParTrajetAR), plafond);
+  const { parTrajet, horsAxe } = prixTrajetRamassage(d, t);
+  if (horsAxe) aConfirmer.push("Trajet hors axe Netanya : prix à confirmer par Rebecca.");
   const trajets = d.trajets === 2 ? 2 : 1;
   const hebdo = d.frequence === "semaine";
   const jours = hebdo ? (d.joursSemaine || []).length : 1;

@@ -379,6 +379,8 @@ export const TARIFS_EDITABLES = [
   { chemin: "demenagement.parEtageSansAscenseur", label: "Déménagement : par étage sans ascenseur", unite: "₪", groupe: "Hatan & Kala et déménagement" },
   { chemin: "ramassage.reductions.0.pourcentage", label: "Ramassage : réduction 5 jours ou plus", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
   { chemin: "ramassage.reductions.1.pourcentage", label: "Ramassage : réduction 3 jours ou plus", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
+  { chemin: "ramassage.reductionMois", label: "Ramassage : réduction forfait au mois", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
+  { chemin: "ramassage.reductionPlusieursEnfants", label: "Ramassage : réduction plusieurs enfants (forfait)", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
   { chemin: "carburant.prixLitre", label: "Prix du litre d'essence", unite: "₪", decimales: true, groupe: "Calcul du prix" },
   { chemin: "tempsParHeure", label: "Valeur de mon heure de travail", unite: "₪", groupe: "Calcul du prix" },
 ];

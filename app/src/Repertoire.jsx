@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Champ from "./components/Champ.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
+import Familles from "./Familles.jsx";
 import { lienWazePoint, lienWhatsApp } from "./pricing/navigation.js";
 import { TYPES_LIEU, lieuVide, manqueLieu, cleAdresse, adressesClients, corriger } from "./pricing/repertoire.js";
 import { useRepertoire, enregistrerRepertoire, enregistrerCleGoogle } from "./repertoireBase.js";
@@ -80,6 +81,7 @@ export default function Repertoire() {
   const rep = useRepertoire();
   const [lieux, setLieux] = useState(null);
   const [corrections, setCorrections] = useState([]);
+  const [familles, setFamilles] = useState([]);
   const [enCorrection, setEnCorrection] = useState(""); // "cle|nom" de l'adresse en cours de correction
   const [modifie, setModifie] = useState(false);
   const [message, setMessage] = useState("");
@@ -90,6 +92,7 @@ export default function Repertoire() {
     if (!modifie) {
       setLieux(rep.lieux);
       setCorrections(rep.corrections);
+      setFamilles(rep.familles);
     }
   }, [rep, modifie]);
 
@@ -104,7 +107,7 @@ export default function Repertoire() {
     const pb = lieux.map(manqueLieu).find(Boolean);
     if (pb) return setMessage(pb);
     try {
-      await enregistrerRepertoire(lieux, corrections);
+      await enregistrerRepertoire(lieux, corrections, familles);
       setModifie(false);
       setLieuOuvert("");
       setEnCorrection("");
@@ -132,6 +135,8 @@ export default function Repertoire() {
         <p className="tdb-sous">Mes adresses habituelles et celles de mes clientes. Partout où je tape une adresse, j'écris le nom et elle se remplit.</p>
       </div>
       <input className="dr-tel rp-large" type="search" placeholder="Chercher un nom (Alexia, Carrefour, école…)" value={texte} onChange={(e) => setTexte(e.target.value)} />
+
+      <Familles familles={familles} connues={lieuxConnus} voit={voit} changer={(suite) => { setFamilles(suite); setModifie(true); setMessage(""); }} />
 
       <section className="tdb-bloc">
         <h2>Mes lieux</h2>

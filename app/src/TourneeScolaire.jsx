@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Champ from "./components/Champ.jsx";
 import JourneeTournee from "./components/JourneeTournee.jsx";
 import ChoixLieu, { NomLieu } from "./components/MesLieux.jsx";
 import { useFermetures } from "./fermetures.js";
 import { aujourdhui } from "./profil.js";
 import { TARIFS } from "./pricing/config.js";
-import { JOURS, trajetVide, tourneeDepart, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, separerTrajet, cleLieu, nomDuLieu, nommerLieu } from "./pricing/tournee.js";
+import { JOURS, trajetVide, manqueTrajet, heureTrajet, evaluerJour, adressesConnues, trajetRetour, separerTrajet, cleLieu, nomDuLieu, nommerLieu } from "./pricing/tournee.js";
 import { bilanMois } from "./pricing/ramassagePlanning.js";
 import { useTournee, useDurees, enregistrerTournee } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
+import { trajetsDesFamilles } from "./pricing/familles.js";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
@@ -129,11 +130,13 @@ export default function TourneeScolaire() {
   // La base arrive (ou change ailleurs) : on la reprend tant que rien n'est en cours de modification
   useEffect(() => {
     if (!base.pret || modifie) return;
-    setBrouillon(base.donnees.existe ? base.donnees : { ...base.donnees, trajets: tourneeDepart() });
+    setBrouillon(base.donnees);
   }, [base, modifie]);
 
-  const trajets = brouillon ? brouillon.trajets : [];
-  const durees = useDurees(trajets, brouillon ? brouillon.domicile : null);
+  const trajets = brouillon ? brouillon.trajets : []; // trajets saisis a la main
+  const desFiches = useMemo(() => trajetsDesFamilles(repertoire.familles), [repertoire.familles]); // trajets venus des fiches enfants
+  const tous = useMemo(() => [...desFiches, ...trajets], [desFiches, trajets]);
+  const durees = useDurees(tous, brouillon ? brouillon.domicile : null);
 
   if (!base.pret || !brouillon) return <p className="tdb-note tb-pad">Chargement de la tournée…</p>;
   if (base.refuse) return <p className="tdb-note tb-pad">La tournée scolaire est réservée à Rebecca.</p>;
@@ -157,12 +160,12 @@ export default function TourneeScolaire() {
     }
   };
 
-  const depart = !base.donnees.existe;
+  const depart = !base.donnees.existe && repertoire.familles.length === 0;
   const lieux = fusionnerLieux(repertoire.lieux, brouillon.lieux); // Repertoire + noms donnes ici
-  const connues = adressesConnues(brouillon.domicile, trajets, lieux);
+  const connues = adressesConnues(brouillon.domicile, tous, lieux);
   const nomLieu = (adresse) => nomDuLieu(adresse, brouillon.domicile, lieux);
   const nommer = (adresse, nom) => changer({ ...brouillon, lieux: nommerLieu(brouillon.lieux, adresse, nom) });
-  const journee = evaluerJour(trajets, jour, durees.duree, TARIFS, { du: aujourdhui(), au: "", domicile: brouillon.domicile });
+  const journee = evaluerJour(tous, jour, durees.duree, TARIFS, { du: aujourdhui(), au: "", domicile: brouillon.domicile });
   const [annee, mois] = aujourdhui().split("-").map(Number);
   const moisSuivant = mois === 12 ? [annee + 1, 1] : [annee, mois + 1];
   const regles = TARIFS.tournee;
@@ -173,7 +176,7 @@ export default function TourneeScolaire() {
         <h1>Tournée scolaire</h1>
         <p className="tdb-sous">Mes trajets d'école de chaque jour. Le Devis rapide s'en sert pour me dire si je peux accepter un ramassage en plus.</p>
       </div>
-      {depart && <p className="tdb-note rp-alerte">Voici ta tournée de départ avec tes heures. Ouvre chaque trajet pour mettre les prénoms et choisir les adresses, puis enregistre.</p>}
+      {depart && <p className="tdb-note rp-alerte">Ta tournée est vide. Remplis les fiches de tes enfants dans le Répertoire (« Familles et enfants ») : elle se construira toute seule.</p>}
 
       <div className="formulaire dr-formulaire">
         <div className="bloc">
@@ -218,6 +221,21 @@ export default function TourneeScolaire() {
         </section>
       )}
 
+      <section className="tdb-bloc">
+        <h2>Trajets venus du Répertoire</h2>
+        {desFiches.length === 0 && <p className="tdb-note">Aucun pour l'instant. Remplis les fiches dans Répertoire → Familles et enfants.</p>}
+        <ul className="rp-detail">
+          {desFiches.map((r) => (
+            <li key={r.id}><span>{r.nom}</span><b>{manqueTrajet(r) ? "à compléter" : `${nomLieu(r.de) || "?"} → ${nomLieu(r.a) || "?"}`}</b></li>
+          ))}
+        </ul>
+        <p className="tdb-note">Pour les modifier, ouvre la fiche de l'enfant dans le Répertoire.</p>
+      </section>
+
+      <section className="tdb-bloc">
+        <h2>Trajets ajoutés à la main</h2>
+        <p className="tdb-note">Pour un trajet qui n'est dans aucune fiche.</p>
+      </section>
       <div className="formulaire dr-formulaire">
         {trajets.map((r) => (
           <Trajet key={r.id} r={r} ouvert={trajetOuvert === r.id} ouvrir={(oui) => setTrajetOuvert((actuel) => (oui ? r.id : actuel === r.id ? "" : actuel))} connues={connues} nomLieu={nomLieu} nommer={nommer} domicile={brouillon.domicile} separer={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? separerTrajet(x) : [x])) })} creerRetour={() => changer({ ...brouillon, trajets: trajets.flatMap((x) => (x.id === r.id ? [x, trajetRetour(x)] : [x])) })} changer={(n) => changerTrajet(r.id, n)} supprimer={() => changer({ ...brouillon, trajets: trajets.filter((x) => x.id !== r.id) })} />

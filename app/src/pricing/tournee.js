@@ -489,8 +489,10 @@ export function evaluerDevis(tournee, plan, duree, t = TARIFS, domicile = null) 
 
 // La cliente accepte : ses trajets s'ajoutent a la tournee (avec leurs dates), sans doublon si on clique deux fois.
 // Forfait au mois : il est aussi garde (devis + distances) pour comparer chaque mois le prix reel au prix complet.
-export function ajouterALaTournee(doc, plan, routes, nomCliente, aujourdhui = "") {
+export function ajouterALaTournee(doc, plan, routes, nomCliente, aujourdhui = "", { sansTrajets = false } = {}) {
   const nom = String(nomCliente || "").trim().slice(0, 60);
+  // sansTrajets : les trajets viennent de la fiche de la famille (Repertoire) ; on ne garde ici que le forfait au mois
+  if (sansTrajets) return plan.periode === "mois" ? { ...doc, forfaits: [...doc.forfaits, { id: nouvelId(), nom: nom || "Cliente", plan, routes, creeLe: aujourdhui }] } : doc;
   const nouveaux = trajetsDuDevis(plan).map((r) => ({ ...r, id: nouvelId(), nom: nom ? `${r.nom} - ${nom}` : r.nom }));
   const signature = (r) => [r.nom, r.type, cleLieu(r.de), cleLieu(r.a), r.du, r.au, r.jours.map((j, w) => (j.actif ? heureTrajet(r, w) || r.heurePrise : "-")).join("|")].join("#");
   const deja = new Set(doc.trajets.map(signature));

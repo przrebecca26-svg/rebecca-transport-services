@@ -33,8 +33,11 @@ function contenu(json) {
   }
   if (Array.isArray(o)) o = { lieux: o };
   if (!o || typeof o !== "object") o = {};
-  return { lieux: Array.isArray(o.lieux) ? o.lieux : [], corrections: Array.isArray(o.corrections) ? o.corrections : [] };
+  return { lieux: Array.isArray(o.lieux) ? o.lieux : [], corrections: Array.isArray(o.corrections) ? o.corrections : [], familles: Array.isArray(o.familles) ? o.familles : [] };
 }
+
+// Familles et enfants (fiches) : liste brute du document ; elle est nettoyee par pricing/familles.js
+export const famillesBrutes = (json) => contenu(json).familles;
 
 // CORRECTIONS (12 nov. 2026) : une adresse venue du compte d'une cliente est fausse ou incomplete (« Uziel » sans
 // rue) : Rebecca la corrige ou la masque DANS SON REPERTOIRE, sans toucher au compte de la cliente.
@@ -123,14 +126,14 @@ export function adressesClients(clients = [], corrections = []) {
 
 /* ---------- Le repertoire en memoire (rempli par l'espace prive seulement ; vide sur le site des clientes) ---------- */
 
-let courant = { lieux: [], clients: [], corrections: [], bruts: [] };
+let courant = { lieux: [], clients: [], corrections: [], bruts: [], familles: [] };
 let version = 0;
 const abonnes = new Set();
 
 // lieux / corrections : document du repertoire ; bruts : comptes des clientes (les adresses sont recalculees avec
 // les corrections) ; clients : liste deja prete (tests)
-export function definirRepertoire({ lieux, clients, corrections, bruts }) {
-  const suite = { lieux: lieux || courant.lieux, corrections: corrections || courant.corrections, bruts: bruts || courant.bruts };
+export function definirRepertoire({ lieux, clients, corrections, bruts, familles }) {
+  const suite = { lieux: lieux || courant.lieux, corrections: corrections || courant.corrections, bruts: bruts || courant.bruts, familles: familles || courant.familles };
   courant = { ...suite, clients: clients || (bruts || corrections ? adressesClients(suite.bruts, suite.corrections) : courant.clients) };
   version++;
   abonnes.forEach((f) => f(version));
@@ -163,6 +166,17 @@ export function chercherRepertoire(texte, max = 5, source = courant) {
   const trouves = [];
   for (const l of source.lieux) {
     if (sansAccent(l.nom).includes(q) || sansAccent(l.note).includes(q)) trouves.push({ titre: l.nom, sous: l.adresse.label, adresse: l.adresse });
+  }
+  for (const f of source.familles || []) {
+    if (f.domicile && sansAccent(f.nom).includes(q)) trouves.push({ titre: `${f.nom} · Domicile`, sous: f.domicile.label, adresse: f.domicile });
+    for (const x of f.adresses || []) {
+      if (sansAccent(f.nom).includes(q) || sansAccent(x.nom).includes(q)) trouves.push({ titre: `${f.nom} · ${x.nom || "Adresse"}`, sous: x.adresse.label, adresse: x.adresse });
+    }
+    for (const e of f.enfants) {
+      for (const r of e.rdv) {
+        if (r.lieu && (sansAccent(e.prenom).includes(q) || sansAccent(f.nom).includes(q) || sansAccent(r.nom).includes(q))) trouves.push({ titre: `${e.prenom || "Enfant"} · ${r.nom || (r.type === "ecole" ? "École" : "Activité")}`, sous: r.lieu.label, adresse: r.lieu });
+      }
+    }
   }
   for (const c of source.clients) {
     const nomOk = sansAccent(c.nom).includes(q);

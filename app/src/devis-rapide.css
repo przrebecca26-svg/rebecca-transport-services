@@ -84,3 +84,10 @@
 .theme-sombre .rp-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
 .theme-sombre .rp-boutons .rp-waze { background: transparent; cursor: pointer; }
 .theme-sombre .rp-correction { flex: 1 1 100%; display: grid; gap: 10px; padding: 10px; border: 1px solid var(--g-bord); border-radius: 14px; }
+
+/* FAMILLES ET ENFANTS (12 nov. 2026) */
+.theme-sombre .rp-fiche-enfant { display: grid; gap: 14px; padding: 14px; border: 1px solid var(--g-bord); border-radius: 16px; }
+.theme-sombre .rp-rdv { display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid rgba(185, 120, 112, 0.3); }
+.theme-sombre .rp-rdv .rp-type { margin: 0; }
+.theme-sombre .rp-rdv .rp-jour input[type="time"] { width: 104px; }
+.theme-sombre .rp-rdv > .rp-waze { background: transparent; cursor: pointer; justify-self: start; }

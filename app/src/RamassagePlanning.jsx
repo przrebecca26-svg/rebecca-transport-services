@@ -15,7 +15,8 @@ import ChoixLieu from "./components/MesLieux.jsx";
 import { evaluerDevis, ajouterALaTournee, adressesConnues, nomDuLieu } from "./pricing/tournee.js";
 import { useTournee, useDurees, enregistrerTournee, PASTILLES } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
-import { useRepertoire } from "./repertoireBase.js";
+import { trajetsDesFamilles, familleDuDevis } from "./pricing/familles.js";
+import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
 
@@ -162,24 +163,29 @@ export default function RamassagePlanning({ retour, aller }) {
   const base = useTournee();
   const [cliente, setCliente] = useState("");
   const [ajoutTournee, setAjoutTournee] = useState("");
-  const tousTrajets = useMemo(() => (pret ? [...base.donnees.trajets, ...evaluerDevis([], plan, () => 0).nouveaux] : []), [pret, plan, base.donnees.trajets]);
+  const repertoire = useRepertoire();
+  // Ma tournee = trajets des fiches enfants (Repertoire) + trajets saisis a la main
+  const maTournee = useMemo(() => [...trajetsDesFamilles(repertoire.familles), ...base.donnees.trajets], [repertoire.familles, base.donnees.trajets]);
+  const tousTrajets = useMemo(() => (pret ? [...maTournee, ...evaluerDevis([], plan, () => 0).nouveaux] : []), [pret, plan, maTournee]);
   const durees = useDurees(tousTrajets, base.donnees.domicile);
   const faisable = useMemo(
-    () => (pret && !base.refuse ? evaluerDevis(base.donnees.trajets, plan, durees.duree, undefined, base.donnees.domicile) : null),
+    () => (pret && !base.refuse ? evaluerDevis(maTournee, plan, durees.duree, undefined, base.donnees.domicile) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pret, plan, base, durees.statut, reglages]
+    [pret, plan, maTournee, base, durees.statut, reglages]
   );
+  // La cliente accepte : sa famille et ses enfants deviennent des fiches du Repertoire (la tournee suit toute seule) ;
+  // un forfait au mois est aussi garde pour comparer chaque mois le prix reel au prix complet.
   const ajouterTournee = async () => {
     try {
-      await enregistrerTournee(ajouterALaTournee(base.donnees, plan, routes, cliente, aujourdhui()));
-      setAjoutTournee("C'est ajouté à ta tournée scolaire.");
+      await enregistrerRepertoire(repertoire.lieux, repertoire.corrections, [...repertoire.familles, familleDuDevis(plan, cliente)]);
+      if (plan.periode === "mois") await enregistrerTournee(ajouterALaTournee(base.donnees, plan, routes, cliente, aujourdhui(), { sansTrajets: true }));
+      setAjoutTournee("C'est ajouté : la fiche de la famille est dans ton Répertoire et ses trajets dans ta tournée.");
     } catch {
       setAjoutTournee("Ajout impossible pour l'instant. Vérifie ta connexion et réessaie.");
     }
   };
 
   // Mes lieux deja nommes dans la tournee (ecoles, Gan...) : proposes pour l'ecole, sans retaper l'adresse
-  const repertoire = useRepertoire();
   const lieux = fusionnerLieux(repertoire.lieux, base.donnees.lieux);
   const connues = adressesConnues(null, [], lieux);
   const nomLieu = (adresse) => nomDuLieu(adresse, base.donnees.domicile, lieux);
@@ -307,7 +313,7 @@ export default function RamassagePlanning({ retour, aller }) {
           <h2>Est-ce que je peux accepter ?</h2>
           <p className="rp-reponse">{PASTILLES[faisable.statut].signe} {faisable.statut === "possible" ? "Oui, ça rentre dans ma tournée." : faisable.statut === "serre" ? "Oui, mais c'est serré certains jours." : faisable.statut === "impossible" ? "Non, pas tous les jours tel quel." : "Calcul des temps de route en cours…"}</p>
           {durees.statut === "erreur" && <p className="rp-alerte">Temps de route indisponibles pour l'instant. Réessaie dans un moment.</p>}
-          {base.donnees.trajets.length === 0 && <p className="tdb-note">Ta tournée scolaire est vide : remplis-la dans la rubrique « Tournée scolaire » pour que la réponse en tienne compte.</p>}
+          {maTournee.length === 0 && <p className="tdb-note">Ta tournée scolaire est vide : remplis les fiches de tes enfants dans le Répertoire pour que la réponse en tienne compte.</p>}
           {faisable.jours.map((j) => (
             <JourneeTournee key={j.w} titre={j.jour} jour={j} nouveaux={faisable.nouveaux.map((r) => r.id)} nomLieu={nomLieu} />
           ))}

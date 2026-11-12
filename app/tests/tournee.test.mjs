@@ -303,3 +303,24 @@ section("Waze : le point exact");
     egal(avecNumero(rue, "דולב 12א").label, "Nahal Dolev 12א, Neot Shaked, Netanya");
   });
 }
+
+section("Devis en attente");
+
+test("un devis garde se retrouve, se remplace quand on le modifie, se supprime", () => {
+  const doc = To.lireTournee("");
+  egal(doc.devis, []);
+  const p1 = devis({ enfants: [enfant({ prenom: "Noa", heureSortie: "14:15" })] });
+  const r1 = To.garderDevis(doc, { nom: " Mme Cohen ", plan: p1, routes: { km: 2, minutes: 5 }, total: 285, creeLe: "2026-11-12" });
+  egal([r1.doc.devis.length, r1.doc.devis[0].nom, r1.doc.devis[0].total], [1, "Mme Cohen", 285]);
+  const r2 = To.garderDevis(r1.doc, { id: r1.id, nom: "Mme Cohen", plan: { ...p1, periode: "mois" }, total: 1220, creeLe: "2026-11-13" });
+  egal([r2.doc.devis.length, r2.doc.devis[0].plan.periode, r2.doc.devis[0].total], [1, "mois", 1220]);
+  const r3 = To.garderDevis(r2.doc, { nom: "", plan: p1, total: null });
+  egal(r3.doc.devis.map((d) => d.nom), ["Cliente", "Mme Cohen"]);
+  egal(To.retirerDevis(r3.doc, r1.id).devis.map((d) => d.nom), ["Cliente"]);
+});
+
+test("les devis en attente se relisent depuis la base ; contenu abime ignore", () => {
+  const p1 = devis({ enfants: [enfant({ heureSortie: "14:15" })] });
+  const relu = To.lireTournee(JSON.stringify({ trajets: [], devis: [{ id: "d1", nom: "A", creeLe: "2026-11-12", total: 285, plan: p1, routes: {} }, { nom: "sans plan" }, null] }));
+  egal(relu.devis.map((d) => [d.id, d.nom, d.total, d.plan.enfants.length]), [["d1", "A", 285, 1]]);
+});

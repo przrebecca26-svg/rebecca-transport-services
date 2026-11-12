@@ -168,6 +168,25 @@ export function lireTrajets(liste) {
     }));
 }
 
+// DEVIS EN ATTENTE (12 nov. 2026, 15h11) : un devis de ramassage prepare par Rebecca est garde tant que la cliente
+// n'a pas repondu, pour le retrouver, le rouvrir, le modifier ou le supprimer.
+// devis = { id, nom (cliente), creeLe, total, plan, routes }
+export function lireDevis(liste) {
+  if (!Array.isArray(liste)) return [];
+  return liste
+    .filter((d) => d && typeof d === "object" && d.plan && Array.isArray(d.plan.enfants))
+    .slice(0, 60)
+    .map((d) => ({ id: String(d.id || nouvelId()).slice(0, 40), nom: String(d.nom || "").slice(0, 60), creeLe: dateOk(d.creeLe), total: Number.isFinite(Number(d.total)) ? Number(d.total) : null, plan: d.plan, routes: d.routes && typeof d.routes === "object" ? d.routes : {} }));
+}
+
+// Garde un devis (meme identifiant = il est remplace : on a rouvert puis modifie le meme devis)
+export function garderDevis(doc, { id, nom, plan, routes, total, creeLe }) {
+  const devis = { id: id || nouvelId(), nom: String(nom || "").trim().slice(0, 60) || "Cliente", creeLe: creeLe || "", total: total == null ? null : total, plan, routes: routes || {} };
+  const autres = (doc.devis || []).filter((d) => d.id !== devis.id);
+  return { doc: { ...doc, devis: [devis, ...autres] }, id: devis.id };
+}
+export const retirerDevis = (doc, id) => ({ ...doc, devis: (doc.devis || []).filter((d) => d.id !== id) });
+
 export function lireTournee(json) {
   let o;
   try {
@@ -190,7 +209,7 @@ export function lireTournee(json) {
     .filter((l) => l.nom.trim() && cleLieu(l.adresse))
     .slice(0, 60);
   // choix : trajets choisis par Rebecca a partir des fiches enfants (liste brute, nettoyee par pricing/familles.js)
-  return { trajets: lireTrajets(o.trajets), forfaits, vacances, lieux, choix: Array.isArray(o.choix) ? o.choix : [], domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
+  return { trajets: lireTrajets(o.trajets), forfaits, vacances, lieux, devis: lireDevis(o.devis), choix: Array.isArray(o.choix) ? o.choix : [], domicile: adresseLue(o.domicile), existe: Array.isArray(o.trajets) };
 }
 
 // Le trajet compte-t-il ce jour de semaine, sur la periode [du ; au] regardee ? (dates vides = toujours)

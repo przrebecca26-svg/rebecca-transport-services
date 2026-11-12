@@ -132,3 +132,60 @@ export function validerVehicule(f) {
     },
   };
 }
+
+/* ---------- Transfert AVEC ACCEPTATION (12 nov. 2026, 18h40, Rebecca) ----------
+   « Quand on se transfere une course, une notification pour qu'il accepte ou que je l'accepte. »
+   « Tant qu'il n'a pas accepte, la course reste chez moi. » Notification = message WhatsApp + rubrique
+   « A accepter » avec compteur dans l'appli (pas de notification telephone : offre Firebase payante).
+   Champs sur la demande : proposeA, proposePar, proposeLeMs ; dernierRefus = { par, leMs } pour prevenir l'envoyeur. */
+const ouverte = (d) => d && !["terminee", "annulee", "refusee"].includes(d.statut);
+
+// Proposer SA course a l'autre (elle reste chez soi jusqu'a la reponse)
+export function proposer(d, versId, deId, quandMs) {
+  if (!d) return { erreur: "Course introuvable." };
+  if (!ouverte(d)) return { erreur: "Course terminée ou fermée : elle ne change plus de main." };
+  if (!versId || versId === attribueA(d)) return { erreur: "", maj: null };
+  if (deId !== attribueA(d) && deId !== ADMIN_ID) return { erreur: "Seule la personne qui a la course peut la proposer." };
+  return { erreur: "", maj: { proposeA: versId, proposePar: deId, proposeLeMs: quandMs || 0, dernierRefus: null } };
+}
+
+// Accepter : la course passe chez moi (planning, finances), vehicule a rechoisir
+export function accepterProposition(d, moi, quandMs) {
+  if (!d || d.proposeA !== moi) return { erreur: "Cette course ne t'est pas proposée." };
+  if (!ouverte(d)) return { erreur: "Course terminée ou fermée.", maj: { proposeA: null, proposePar: null, proposeLeMs: null } };
+  return {
+    erreur: "",
+    maj: { attribueA: moi, vehicule: null, proposeA: null, proposePar: null, proposeLeMs: null, dernierRefus: null },
+    trace: { de: attribueA(d), vers: moi, leMs: quandMs || 0 },
+  };
+}
+
+// Refuser : la course reste chez celui qui l'a proposee, il le voit dans « A accepter »
+export function refuserProposition(d, moi, quandMs) {
+  if (!d || d.proposeA !== moi) return { erreur: "Cette course ne t'est pas proposée." };
+  return { erreur: "", maj: { proposeA: null, proposePar: null, proposeLeMs: null, dernierRefus: { par: moi, pour: d.proposePar || attribueA(d), leMs: quandMs || 0 } } };
+}
+
+// L'envoyeur reprend sa proposition, ou efface l'avis de refus
+export const annulerProposition = () => ({ proposeA: null, proposePar: null, proposeLeMs: null });
+export const effacerRefus = () => ({ dernierRefus: null });
+
+// Ce que je dois traiter : courses qu'on me propose, refus de mes propositions, mes propositions en attente
+export function transfertsPour(demandes = [], moi) {
+  const ouvertes = demandes.filter(ouverte);
+  return {
+    aAccepter: ouvertes.filter((d) => d.proposeA === moi),
+    refus: demandes.filter((d) => d.dernierRefus && d.dernierRefus.pour === moi),
+    enAttente: ouvertes.filter((d) => d.proposeA && d.proposePar === moi),
+  };
+}
+export const nombreATraiter = (demandes = [], moi) => {
+  const t = transfertsPour(demandes, moi);
+  return t.aAccepter.length + t.refus.length;
+};
+
+export function messageProposition(d, deNom, versNom) {
+  return messageTransfert(d, deNom, versNom)
+    .replace("je te passe une course 🚗", "je te propose une course 🚗")
+    .replace("Tout est dans l'espace Rebecca Services, rubrique Demandes.", "Accepte-la ou refuse-la dans l'espace Rebecca Services, rubrique « À accepter ».");
+}

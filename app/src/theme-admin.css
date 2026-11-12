@@ -190,3 +190,10 @@
 .admin-email { display: grid; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--g-bord, #5a3b37); }
 .admin-email input { min-height: 48px; padding: 10px 12px; font: 16px var(--g-sans, sans-serif); border-radius: 12px; border: 1px solid var(--g-bord, #5a3b37); background: #100e10; color: var(--g-texte, #f8f3f1); }
 .admin-lien { background: transparent; border: 0; color: var(--g-rose, #f1aeb7); text-decoration: underline; font-size: 14px; cursor: pointer; }
+
+/* Courses proposees a accepter (12 nov. 2026) */
+.tr-compteur { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: #f1aeb7; color: #080709; font-weight: 800; font-size: 13px; text-align: center; }
+.tr-bandeau { display: block; width: 100%; margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid #f1aeb7; background: rgba(241, 174, 183, 0.12); color: #f8f3f1; font-weight: 700; text-align: left; font-size: 15px; }
+.tr-carte { margin: 8px 0; }
+.tr-titre { margin: 0 0 4px; }
+.tr-page h3 { margin: 16px 0 4px; }

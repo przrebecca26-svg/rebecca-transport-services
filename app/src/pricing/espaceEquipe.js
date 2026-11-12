@@ -80,7 +80,7 @@ export function roleDe({ estAdmin, fiche, demande }) {
 // il a « Mes finances » a la place, et ses Reglages a lui (modes de transport, telephone, son plafond).
 // Rebecca, 9 nov. 2026 (16h42) : il a tout le menu sauf « Equipe » et « Finances », chaque rubrique selon SON compte.
 // 12 nov. 2026 : il a aussi tout le « Repertoire » (decision de Rebecca).
-const RUBRIQUES_EQUIPE = ["tableau", "devis", "activites", "demandes", "agenda", "repertoire", "clients", "mesfinances", "statistiques", "rapports", "reglages"];
+const RUBRIQUES_EQUIPE = ["tableau", "devis", "activites", "demandes", "transferts", "agenda", "repertoire", "clients", "mesfinances", "statistiques", "rapports", "reglages"];
 export function rubriquesPour(role) {
   if (role === "admin") return null; // toutes
   if (role === "equipe") return RUBRIQUES_EQUIPE;

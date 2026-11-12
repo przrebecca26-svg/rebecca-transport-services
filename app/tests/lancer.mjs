@@ -8,6 +8,7 @@ await import("./tableauBord.test.mjs");
 await import("./devisRapide.test.mjs");
 await import("./espaceEquipe.test.mjs");
 await import("./quiFait.test.mjs");
+await import("./transferts.test.mjs");
 await import("./reverser.test.mjs");
 await import("./catalogue.test.mjs");
 await import("./rendezvous.test.mjs");

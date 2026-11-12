@@ -11,6 +11,7 @@ import RamassageScolaire from "./RamassageScolaire.jsx";
 import Repertoire from "./Repertoire.jsx";
 import { useChargerRepertoire } from "./repertoireBase.js";
 import Demandes from "./Demandes.jsx";
+import Transferts, { useTransfertsATraiter } from "./Transferts.jsx";
 import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
 import Agenda from "./Agenda.jsx";
 import Clients from "./Clients.jsx";
@@ -99,6 +100,7 @@ const RUBRIQUES = [
   { id: "ramassage", label: "Ramassage scolaire", adminOnly: true }, // 12 nov. 2026 : devis (rapides et du site) et tournee, a part
   { id: "activites", label: "Activités" },
   { id: "demandes", label: "Demandes et missions" },
+  { id: "transferts", label: "À accepter" }, // 12 nov. 2026 : courses proposees entre Rebecca et Jeremy
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true },
   { id: "agenda", label: "Calendrier" },
   { id: "repertoire", label: "Répertoire" }, // 12 nov. 2026 : mes lieux et les adresses des clientes (Rebecca et son equipe)
@@ -254,6 +256,9 @@ export default function Admin() {
   // Espace de Rebecca (tout) ou d'un coequipier actif (ses activites, sans les finances de Rebecca)
   // v15 : un coequipier ne lit que les demandes du coursier et du transport (jamais la beaute)
   definirEquipier(role === "equipe");
+  // 12 nov. 2026 : courses proposees a accepter (compteur du menu + bandeau en haut de chaque page)
+  const moiId = role === "equipe" && equipe.fiche ? equipe.fiche.id : ADMIN_ID;
+  const aTraiter = useTransfertsATraiter(role === "admin" || role === "equipe", moiId);
   if (role === "admin" || role === "equipe") {
     const membre = role === "equipe" ? equipe.fiche : null;
     const moi = membre ? membre.id : ADMIN_ID;
@@ -269,6 +274,7 @@ export default function Admin() {
     else if (onglet === "repertoire") contenu = <Repertoire />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
     else if (onglet === "commandes-epoxy" && estAdmin) contenu = <CommandesEpoxy onRetour={() => setOnglet("demandes")} />;
+    else if (onglet === "transferts") contenu = <Transferts {...props} />;
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;
     else if (onglet === "agenda") contenu = <Agenda {...props} />;
     else if (onglet === "equipe") contenu = <EquipeAdmin />;
@@ -301,6 +307,7 @@ export default function Admin() {
             <button key={r.id} className={"ts-lien" + (onglet === r.id ? " actif" : "")} aria-current={onglet === r.id ? "page" : undefined} onClick={() => aller(r.id)}>
               <span className="ts-point" />
               {r.label}
+              {r.id === "transferts" && aTraiter > 0 && <span className="tr-compteur">{aTraiter}</span>}
             </button>
           ))}
           <div className="ts-pied">
@@ -308,7 +315,14 @@ export default function Admin() {
             <button className="ts-lien" onClick={deconnecter}>Se déconnecter</button>
           </div>
         </nav>
-        <main className="ts-contenu">{contenu}</main>
+        <main className="ts-contenu">
+          {aTraiter > 0 && onglet !== "transferts" && (
+            <button type="button" className="tr-bandeau" onClick={() => aller("transferts")}>
+              🔔 {aTraiter === 1 ? "1 course à accepter ou une réponse à voir" : `${aTraiter} courses à accepter ou réponses à voir`} · Voir
+            </button>
+          )}
+          {contenu}
+        </main>
       </div>
       </EquipeContexte.Provider>
     );

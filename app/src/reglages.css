@@ -28,3 +28,6 @@
 .rg-creneau { padding: 0.35rem 0.6rem; border-radius: 999px; border: 1px solid #B97870; font-size: 0.85rem; }
 .rg-creneau.gris { opacity: 0.35; text-decoration: line-through; border-style: dashed; }
 .rg-principale { margin: 0; color: #f1aeb7; font-weight: 700; }
+/* Variantes d'un article : nom, prix, bouton supprimer (12 nov. 2026) */
+.rg-variante { display: grid; grid-template-columns: 1fr 1fr 44px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.rg-variante-x { height: 44px; border-radius: 12px; border: 1px solid #d85a68; background: transparent; color: #d85a68; font-size: 18px; font-weight: 700; }

@@ -420,11 +420,13 @@ function FichePrestation({ f: depart, existe, onFermer }) {
           <label className="pm-champ">Délai de fabrication<input value={f.delaiFabrication} maxLength={40} onChange={(e) => ch("delaiFabrication", e.target.value)} /></label>
           <p className="tb-note">Variantes (ex. Petit / Grand, Époxy / Bougie) : chacune son prix.</p>
           {f.variantes.map((v, i) => (
-            <div key={i} className="fi-deux">
+            <div key={i} className="rg-variante">
               <input className="am-champ" value={v.nom} placeholder="Nom" maxLength={40} onChange={(e) => variante(i, "nom", e.target.value)} />
               <input className="am-champ" inputMode="decimal" value={v.prix} placeholder="Prix ₪" onChange={(e) => variante(i, "prix", e.target.value)} />
+              <button type="button" className="rg-variante-x" aria-label={"Supprimer la variante " + (v.nom || i + 1)} onClick={() => ch("variantes", f.variantes.filter((_, j) => j !== i))}>✕</button>
             </div>
           ))}
+          {f.variantes.length === 0 && <p className="tb-note">Pas de variante : l'article a un seul prix (champ « Prix » ci-dessus).</p>}
           {f.variantes.length < 6 && <button type="button" className="tb-retour aj-lien" onClick={() => ch("variantes", [...f.variantes, { nom: "", prix: "" }])}>+ Ajouter une variante</button>}
         </>
       )}

@@ -121,7 +121,8 @@ export default function TourneeScolaire() {
   const [brouillon, setBrouillon] = useState(null); // null = pas encore charge
   const [modifie, setModifie] = useState(false);
   const [message, setMessage] = useState("");
-  const [trajetOuvert, setTrajetOuvert] = useState(""); // un seul trajet ouvert a la fois, avec sa fleche de retour
+  const [trajetOuvert, setTrajetOuvert] = useState("");
+  const [effacer, setEffacer] = useState(false); // « Tout effacer » demande une confirmation // un seul trajet ouvert a la fois, avec sa fleche de retour
   const [jour, setJour] = useState(() => {
     const w = new Date().getDay();
     return w === 6 ? 0 : w;
@@ -160,6 +161,20 @@ export default function TourneeScolaire() {
     }
   };
 
+  // Remise a zero des trajets ajoutes a la main (le domicile, les vacances, les forfaits et les fiches du Repertoire restent)
+  const toutEffacer = async () => {
+    const suite = { ...brouillon, trajets: [] };
+    try {
+      await enregistrerTournee(suite);
+      setBrouillon(suite);
+      setModifie(false);
+      setEffacer(false);
+      setTrajetOuvert("");
+      setMessage("Tous les trajets ajoutés à la main sont effacés.");
+    } catch {
+      setMessage("Effacement impossible pour l'instant. Vérifie ta connexion et réessaie.");
+    }
+  };
   const depart = !base.donnees.existe && repertoire.familles.length === 0;
   const lieux = fusionnerLieux(repertoire.lieux, brouillon.lieux); // Repertoire + noms donnes ici
   const connues = adressesConnues(brouillon.domicile, tous, lieux);
@@ -242,6 +257,14 @@ export default function TourneeScolaire() {
         ))}
       </div>
       <button type="button" className="dr-secondaire rp-large" onClick={() => changer({ ...brouillon, trajets: [...trajets, trajetVide()] })}>+ Ajouter un trajet (école, activité, basket…)</button>
+      {trajets.length > 0 && !effacer && <button type="button" className="dr-secondaire rp-large" onClick={() => setEffacer(true)}>Tout effacer : remettre à zéro les {trajets.length} trajets ajoutés à la main</button>}
+      {effacer && (
+        <div className="rp-correction rp-large">
+          <p className="rp-alerte">Effacer les {trajets.length} trajets ajoutés à la main ? Ton domicile, les vacances et les fiches du Répertoire ne sont pas touchés.</p>
+          <button type="button" className="tdb-bouton" onClick={toutEffacer}>Oui, tout effacer</button>
+          <button type="button" className="dr-secondaire" onClick={() => setEffacer(false)}>Non, je garde</button>
+        </div>
+      )}
 
       <section className="tdb-bloc">
         <h2>Vacances scolaires</h2>

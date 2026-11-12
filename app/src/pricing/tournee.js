@@ -833,6 +833,13 @@ export function ajouterTache(jours, date, { titre, debut, fin, lieu = null }) {
   const t = { id: nouvelId(), titre: String(titre || "").trim().slice(0, 80) || "Tâche", debut, fin, lieu: lieu || null };
   return propre(jours, date, { ...j, taches: [...j.taches, t].sort((a, b) => (a.debut < b.debut ? -1 : 1)) });
 }
+// Modifier une tache (quoi, heures, adresse) : elle garde sa place, son creneau bloque suit les nouvelles heures
+export function modifierTache(jours, date, id, { titre, debut, fin, lieu = null }) {
+  if (!HEURE_OK.test(debut || "") || !HEURE_OK.test(fin || "") || fin <= debut) return jours;
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  const taches = j.taches.map((x) => (x.id === id ? { ...x, titre: String(titre || "").trim().slice(0, 80) || "Tâche", debut, fin, lieu: lieu || null } : x));
+  return propre(jours, date, { ...j, taches: taches.sort((a, b) => (a.debut < b.debut ? -1 : 1)) });
+}
 export function retirerTache(jours, date, id) {
   const j = { ...jourVide(), ...(jours[date] || {}) };
   return propre(jours, date, { ...j, taches: j.taches.filter((x) => x.id !== id) });

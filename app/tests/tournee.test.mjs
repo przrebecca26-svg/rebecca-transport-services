@@ -507,3 +507,13 @@ test("lecture du document : dates et heures invalides ignorees", () => {
   egal(To.lireJours('{"x":{"retires":["a"]},"2026-11-12":{"retires":["a"],"heures":{"b":"25:00"},"taches":[]}}'), { "2026-11-12": { retires: ["a"], heures: {}, taches: [] } });
   egal(To.lireJours("pas du json"), {});
 });
+test("modifier une tache : nouvelles heures, nouveau creneau bloque", () => {
+  let jours = To.ajouterTache({}, VENDREDI, { titre: "Docteur", debut: "11:00", fin: "12:00" });
+  const id = To.tachesDuJour(jours, VENDREDI)[0].id;
+  jours = To.modifierTache(jours, VENDREDI, id, { titre: "Docteur Cohen", debut: "11:30", fin: "12:30" });
+  const t = To.tachesDuJour(jours, VENDREDI)[0];
+  egal([t.titre, t.debut, t.fin, t.id], ["Docteur Cohen", "11:30", "12:30", id]);
+  const c = To.creneauxParDate(TOURNEE, [], duree, MAISON, T, "2026-11-12", jours)[VENDREDI];
+  vrai(c.some((x) => x.debut === "11:30" && x.fin === "12:30"));
+  egal(To.modifierTache(jours, VENDREDI, id, { titre: "x", debut: "13:00", fin: "12:00" }), jours);
+});

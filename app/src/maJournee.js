@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { TARIFS } from "./pricing/config.js";
 import { vacancesDuJour } from "./pricing/calendrier.js";
-import { ajouterTache, changerHeureCeJour, enMin, filTournee, journeeDeLaDate, journeeNormale, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
+import { ajouterTache, changerHeureCeJour, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { enregistrerJours, useDurees, useJoursTournee, useTournee } from "./tourneeBase.js";
@@ -55,5 +55,6 @@ export function useMaJournee(actif) {
     normale: (date) => sauver(journeeNormale(jours, date)),
     ajouterTache: (date, tache) => sauver(ajouterTache(jours, date, tache)),
     retirerTache: (date, id) => sauver(retirerTache(jours, date, id)),
+    modifierTache: (date, id, tache) => sauver(modifierTache(jours, date, id, tache)),
   };
 }

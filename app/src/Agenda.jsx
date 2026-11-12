@@ -442,6 +442,7 @@ function Etape({ e, date, journee }) {
       )}
       {ouvert && e.genre === "tache" && (
         <div className="ag-etape-actions">
+          <FormTache date={date} journee={journee} initial={e.tache} onFin={() => setOuvert(false)} />
           <div className="tb-actions">
             <button type="button" className="tb-bouton ag-danger" onClick={() => faire(() => journee.retirerTache(date, e.tache.id))}>Supprimer cette tâche</button>
           </div>
@@ -452,46 +453,50 @@ function Etape({ e, date, journee }) {
   );
 }
 
-// « + Ajouter une tâche » : une course perso, un rendez-vous... qui bloque ce creneau (les clientes voient seulement
-// que c'est indisponible)
-function AjoutTache({ date, journee }) {
-  const [ouvert, setOuvert] = useState(false);
-  const [f, setF] = useState({ titre: "", debut: "", fin: "", lieu: null });
+// Formulaire d'une tache : ajout (« + Ajouter une tâche ») ou modification (initial = la tache a modifier)
+function FormTache({ date, journee, initial = null, onFin }) {
+  const [f, setF] = useState(initial ? { titre: initial.titre, debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null } : { titre: "", debut: "", fin: "", lieu: null });
   const [message, setMessage] = useState("");
-  if (!ouvert) return <button type="button" className="tb-bouton tb-clair ag-ajout" onClick={() => setOuvert(true)}>+ Ajouter une tâche</button>;
   const ok = f.titre.trim() && f.debut && f.fin && f.fin > f.debut;
   const valider = async () => {
     setMessage("");
     try {
-      await journee.ajouterTache(date, f);
-      setF({ titre: "", debut: "", fin: "", lieu: null });
-      setOuvert(false);
+      if (initial) await journee.modifierTache(date, initial.id, f);
+      else await journee.ajouterTache(date, f);
+      onFin();
     } catch {
       setMessage("Enregistrement impossible. Vérifie la connexion.");
     }
   };
   return (
     <div className="ag-tache-form">
-      <h4>Nouvelle tâche · {libelleJour(date)}</h4>
+      <h4>{initial ? "Modifier la tâche" : `Nouvelle tâche · ${libelleJour(date)}`}</h4>
       <label className="ag-champ">Quoi
-        <input type="text" maxLength={80} placeholder="Course chez Carrefour, rendez-vous…" value={f.titre} onChange={(x) => setF({ ...f, titre: x.target.value })} />
+        <input type="text" maxLength={80} placeholder="Docteur, courses Carrefour…" value={f.titre} onChange={(x) => setF({ ...f, titre: x.target.value })} />
       </label>
       <div className="ag-heures">
         <label className="ag-champ">De <input type="time" value={f.debut} onChange={(x) => setF({ ...f, debut: x.target.value })} /></label>
         <label className="ag-champ">À <input type="time" value={f.fin} onChange={(x) => setF({ ...f, fin: x.target.value })} /></label>
       </div>
       <div className="ag-champ">Adresse (facultatif)
-        <AddressField id={"tache-" + date} valeur={f.lieu} position={false} onChange={(v) => setF({ ...f, lieu: v })} />
+        <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position={false} onChange={(v) => setF({ ...f, lieu: v })} />
       </div>
       {f.debut && f.fin && f.fin <= f.debut && <p className="fm-erreur">L'heure de fin doit être après l'heure de début.</p>}
-      <p className="tb-note">Ce créneau sera bloqué sur le site (les clientes voient seulement qu'il est indisponible).</p>
+      <p className="tb-note">Ce créneau est bloqué sur le site (les clientes voient seulement qu'il est indisponible).</p>
       <div className="tb-actions">
-        <button type="button" className="tb-bouton" disabled={!ok} onClick={valider}>Ajouter et bloquer le créneau</button>
-        <button type="button" className="tb-bouton tb-clair" onClick={() => setOuvert(false)}>Annuler</button>
+        <button type="button" className="tb-bouton" disabled={!ok} onClick={valider}>{initial ? "Enregistrer les changements" : "Ajouter et bloquer le créneau"}</button>
+        <button type="button" className="tb-bouton tb-clair" onClick={onFin}>Annuler</button>
       </div>
       {message && <p className="fm-erreur" role="alert">{message}</p>}
     </div>
   );
+}
+
+// « + Ajouter une tâche » : une course perso, un rendez-vous... qui bloque ce creneau
+function AjoutTache({ date, journee }) {
+  const [ouvert, setOuvert] = useState(false);
+  if (!ouvert) return <button type="button" className="tb-bouton tb-clair ag-ajout" onClick={() => setOuvert(true)}>+ Ajouter une tâche</button>;
+  return <FormTache date={date} journee={journee} onFin={() => setOuvert(false)} />;
 }
 
 // Trajets retires ce jour-la, avec « Remettre », et « Remettre la journee normale »

@@ -94,6 +94,11 @@ service cloud.firestore {
         && (activitePublique(activiteDe(nom)) || compteAutorise(activiteDe(nom)));
     }
 
+    // v15 : services que gere un coequipier (coursier et transport ; jamais la beaute, Epoxy ni Digital)
+    function serviceEquipe(nom) {
+      return nom in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"];
+    }
+
     // v13 : la demande de rendez-vous verrouille son creneau DANS la meme operation.
     // Le quart d'heure de debut (ex. « 1115 ») doit etre libre avant, et pris apres.
     function creneauVerrouille(d) {
@@ -433,10 +438,10 @@ service cloud.firestore {
     match /demandes/{id} {
       allow create: if demandeValide() || (gestion() && demandeManuelleValide());
       allow read: if estAdmin()
-        || (estMembre() && resource.data["service"] in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"]);
+        || (estMembre() && serviceEquipe(resource.data["service"]));
       allow update: if estAdmin()
         || (estMembre()
-          && resource.data["service"] in ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "ramassage", "attente"]
+          && serviceEquipe(resource.data["service"])
           && request.resource.data["service"] == resource.data["service"]);
       allow delete: if estAdmin();
     }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Champ from "./components/Champ.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
 import { lienWazePoint, lienWhatsApp } from "./pricing/navigation.js";
-import { TYPES_LIEU, lieuVide, manqueLieu, cleAdresse } from "./pricing/repertoire.js";
+import { TYPES_LIEU, lieuVide, manqueLieu, cleAdresse, adressesClients, corriger } from "./pricing/repertoire.js";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
@@ -47,12 +47,17 @@ function Lieu({ l, changer, supprimer, connues }) {
 export default function Repertoire() {
   const rep = useRepertoire();
   const [lieux, setLieux] = useState(null);
+  const [corrections, setCorrections] = useState([]);
+  const [enCorrection, setEnCorrection] = useState(""); // "cle|nom" de l'adresse en cours de correction
   const [modifie, setModifie] = useState(false);
   const [message, setMessage] = useState("");
   const [texte, setTexte] = useState("");
 
   useEffect(() => {
-    if (!modifie) setLieux(rep.lieux);
+    if (!modifie) {
+      setLieux(rep.lieux);
+      setCorrections(rep.corrections);
+    }
   }, [rep, modifie]);
 
   if (!lieux) return <p className="tdb-note tb-pad">Chargement du répertoire…</p>;
@@ -66,7 +71,7 @@ export default function Repertoire() {
     const pb = lieux.map(manqueLieu).find(Boolean);
     if (pb) return setMessage(pb);
     try {
-      await enregistrerRepertoire(lieux);
+      await enregistrerRepertoire(lieux, corrections);
       setModifie(false);
       setMessage("C'est enregistré.");
     } catch {
@@ -77,7 +82,13 @@ export default function Repertoire() {
   const dejaLieu = (a) => !!cleAdresse(a) && lieux.some((l) => cleAdresse(l.adresse) === cleAdresse(a));
   const q = sansAccent(texte.trim());
   const voit = (...mots) => !q || mots.some((m) => sansAccent(m).includes(q));
-  const clientes = rep.clients.filter((c) => voit(c.nom, c.telephone, ...c.adresses.map((a) => a.nom)));
+  const changerCorrections = (suite) => {
+    setCorrections(suite);
+    setModifie(true);
+    setMessage("");
+  };
+  const lieuxConnus = lieux.filter((x) => x.nom.trim() && cleAdresse(x.adresse)).map((x) => ({ id: x.id, nom: x.nom, adresse: x.adresse }));
+  const clientes = adressesClients(rep.bruts, corrections).filter((c) => voit(c.nom, c.telephone, ...c.adresses.map((a) => a.nom)));
 
   return (
     <div className="tdb devis-rapide">
@@ -99,7 +110,7 @@ export default function Repertoire() {
             <div key={t.v}>
               <p className="rp-type">{t.l}</p>
               {duType.map((l) => (
-                <Lieu key={l.id} l={l} connues={lieux.filter((x) => x.nom.trim() && cleAdresse(x.adresse)).map((x) => ({ id: x.id, nom: x.nom, adresse: x.adresse }))} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
+                <Lieu key={l.id} l={l} connues={lieuxConnus} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
               ))}
             </div>
           );
@@ -115,17 +126,36 @@ export default function Repertoire() {
           <details className="rp-journee" key={c.cle}>
             <summary><span>{c.nom}</span><b>{c.adresses.length} adresse{c.adresses.length > 1 ? "s" : ""}</b></summary>
             {c.telephone && <p className="tdb-note"><a className="rp-waze" href={lienWhatsApp(c.telephone)} target="_blank" rel="noopener noreferrer">WhatsApp {c.telephone}</a></p>}
-            <ol className="rp-arrets">
-              {c.adresses.map((a, k) => (
-                <li key={k}>
-                  <span>{a.nom} <small>{a.adresse.label}</small></span>
-                  <a className="rp-waze" href={waze(a.adresse)} target="_blank" rel="noopener noreferrer">Waze</a>
-                  {cleAdresse(a.adresse) && !dejaLieu(a.adresse) && (
-                    <button type="button" className="rp-waze" onClick={() => changer([...lieux, { ...lieuVide(), nom: `${c.nom} · ${a.nom}`.slice(0, 40), type: "famille", adresse: a.adresse }])}>+ Mes lieux</button>
-                  )}
-                </li>
-              ))}
+            <ol className="rp-arrets rp-adresses-cliente">
+              {c.adresses.map((a, k) => {
+                const id = `${c.cle}|${a.nom}`;
+                return (
+                  <li key={k}>
+                    <span>{a.nom} <small>{a.adresse.label}{a.corrigee ? " · corrigée par moi" : ""}</small></span>
+                    <div className="rp-boutons">
+                      <a className="rp-waze" href={waze(a.adresse)} target="_blank" rel="noopener noreferrer">Waze</a>
+                      <button type="button" className="rp-waze" onClick={() => setEnCorrection(enCorrection === id ? "" : id)}>Corriger</button>
+                      <button type="button" className="rp-waze" onClick={() => changerCorrections(corriger(corrections, c.cle, a.nom, { masquee: true }))}>Masquer</button>
+                      {cleAdresse(a.adresse) && !dejaLieu(a.adresse) && (
+                        <button type="button" className="rp-waze" onClick={() => changer([...lieux, { ...lieuVide(), nom: `${c.nom} · ${a.nom}`.slice(0, 40), type: "famille", adresse: a.adresse }])}>+ Mes lieux</button>
+                      )}
+                    </div>
+                    {enCorrection === id && (
+                      <div className="rp-correction">
+                        <ChoixLieu id={"cc-" + k + c.cle} connues={lieuxConnus} valeur={a.adresse} choisir={(x) => changerCorrections(corriger(corrections, c.cle, a.nom, { adresse: x }))} />
+                        <Champ champ={{ name: "corr", label: "La bonne adresse", type: "adresse", indice: "Seulement dans mon répertoire : le compte de la cliente n'est pas modifié." }} valeurs={{ corr: a.corrigee ? a.adresse : null }} onChange={(_, v) => changerCorrections(corriger(corrections, c.cle, a.nom, { adresse: v }))} />
+                        {a.corrigee && <button type="button" className="dr-secondaire" onClick={() => changerCorrections(corriger(corrections, c.cle, a.nom))}>Revenir à l'adresse du compte ({a.origine.label})</button>}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
+            {c.masquees.length > 0 && (
+              <p className="tdb-note">Masquées : {c.masquees.map((m) => (
+                <button key={m.nom} type="button" className="rp-waze" onClick={() => changerCorrections(corriger(corrections, c.cle, m.nom))}>Réafficher {m.nom}</button>
+              ))}</p>
+            )}
           </details>
         ))}
       </section>

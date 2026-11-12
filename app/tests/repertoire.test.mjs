@@ -77,3 +77,39 @@ test("distance a la maison affichee dans les suggestions (espace prive)", () => 
   egal(R.maisonDuRepertoire({ lieux: [...LIEUX, maison], clients: [] }), maison.adresse);
   egal([R.texteDistance(0.02), R.texteDistance(0.42), R.texteDistance(2.46), R.texteDistance(27.3)], ["à 50 m de la maison", "à 400 m de la maison", "à 2,5 km de la maison", "à 27 km de la maison"]);
 });
+
+section("Repertoire : corriger ou masquer une adresse venue d'un compte");
+
+const COMPTES = [{ id: "u1", prenom: "Dana", nom: "Levi", telephone: "0541112233", adresse: "Rue Herzl 10, Netanya", enfants: [{ prenom: "Noa", adresse: "Rue Herzl 10, Netanya", ecole: "Uziel" }] }];
+const BONNE = A("École Uziel, rue de l'École 1, Netanya", 7);
+
+test("l'ecole n'est qu'un nom (« Uziel ») : je mets la bonne adresse, le compte n'est pas touche", () => {
+  const corrections = R.corriger([], "u1", "École de Noa", { adresse: BONNE });
+  const c = R.adressesClients(COMPTES, corrections)[0];
+  egal(c.adresses.map((a) => [a.nom, a.adresse.label, !!a.corrigee]), [["Domicile", "Rue Herzl 10, Netanya", false], ["École de Noa", BONNE.label, true]]);
+  egal(c.adresses[1].origine, { label: "Uziel" });
+  egal(COMPTES[0].enfants[0].ecole, "Uziel");
+  egal(R.adressesClients(COMPTES, R.corriger(corrections, "u1", "École de Noa"))[0].adresses[1].adresse, { label: "Uziel" });
+});
+
+test("masquer une adresse, puis la reafficher", () => {
+  const corrections = R.corriger([], "u1", "École de Noa", { masquee: true });
+  const c = R.adressesClients(COMPTES, corrections)[0];
+  egal([c.adresses.length, c.masquees.map((m) => m.nom)], [1, ["École de Noa"]]);
+  egal(R.corriger(corrections, "u1", "École de Noa"), []);
+});
+
+test("corrections enregistrees avec les lieux ; ancienne forme (liste seule) toujours lue", () => {
+  const corrections = [...R.corriger([], "u1", "École de Noa", { adresse: BONNE }), ...R.corriger([], "u1", "Domicile", { masquee: true })];
+  const json = JSON.stringify({ lieux: LIEUX, corrections: [...corrections, { cle: "", nom: "abime" }, { cle: "u9", nom: "sans adresse" }] });
+  egal(R.lireRepertoire(json), LIEUX);
+  egal(R.lireCorrections(json), corrections);
+  egal(R.lireRepertoire(JSON.stringify(LIEUX)), LIEUX);
+  egal(R.lireCorrections(JSON.stringify(LIEUX)), []);
+});
+
+test("la recherche par nom utilise l'adresse corrigee", () => {
+  R.definirRepertoire({ lieux: [], bruts: COMPTES, corrections: R.corriger([], "u1", "École de Noa", { adresse: BONNE }) });
+  egal(R.chercherRepertoire("noa").map((x) => x.sous), [BONNE.label]);
+  R.definirRepertoire({ lieux: [], bruts: [], corrections: [] });
+});

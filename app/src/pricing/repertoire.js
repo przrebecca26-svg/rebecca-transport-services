@@ -23,15 +23,40 @@ let compteur = 0;
 export const nouvelIdLieu = () => `l${Date.now().toString(36)}${(compteur++).toString(36)}`;
 export const lieuVide = () => ({ id: nouvelIdLieu(), nom: "", type: "autre", adresse: null, note: "" });
 
+// Contenu du document : { lieux: [...], corrections: [...] } (ancienne forme : la liste des lieux seule)
+function contenu(json) {
+  let o;
+  try {
+    o = JSON.parse(json || "{}");
+  } catch {
+    o = {};
+  }
+  if (Array.isArray(o)) o = { lieux: o };
+  if (!o || typeof o !== "object") o = {};
+  return { lieux: Array.isArray(o.lieux) ? o.lieux : [], corrections: Array.isArray(o.corrections) ? o.corrections : [] };
+}
+
+// CORRECTIONS (12 nov. 2026) : une adresse venue du compte d'une cliente est fausse ou incomplete (« Uziel » sans
+// rue) : Rebecca la corrige ou la masque DANS SON REPERTOIRE, sans toucher au compte de la cliente.
+// correction = { cle (cliente), nom (de l'adresse), adresse (la bonne) } ou { cle, nom, masquee: true }
+export function lireCorrections(json) {
+  return contenu(json)
+    .corrections.filter((c) => c && typeof c === "object" && c.cle && c.nom)
+    .slice(0, 500)
+    .map((c) => ({ cle: String(c.cle).slice(0, 80), nom: String(c.nom).slice(0, 60), ...(c.masquee === true ? { masquee: true } : { adresse: adresseLue(c.adresse) }) }))
+    .filter((c) => c.masquee || c.adresse);
+}
+
+// Pose, change ou retire une correction (adresse = null et masquee = false : on revient a l'adresse du compte)
+export function corriger(corrections, cle, nom, { adresse = null, masquee = false } = {}) {
+  const autres = corrections.filter((c) => !(c.cle === cle && c.nom === nom));
+  if (masquee) return [...autres, { cle, nom, masquee: true }];
+  return adresse && String(adresse.label || "").trim() ? [...autres, { cle, nom, adresse }] : autres;
+}
+
 // Nettoie ce qui vient de la base (champ json)
 export function lireRepertoire(json) {
-  let liste;
-  try {
-    liste = JSON.parse(json || "[]");
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(liste)) return [];
+  const liste = contenu(json).lieux;
   return liste
     .filter((l) => l && typeof l === "object")
     .slice(0, 300)
@@ -68,13 +93,20 @@ export function fusionnerLieux(repertoire, lieuxTournee = []) {
 
 // Clientes avec leurs adresses, a partir de leurs comptes (collection clients) :
 // domicile, adresses favorites, et pour chaque enfant son domicile et le nom de son ecole.
-export function adressesClients(clients = []) {
+export function adressesClients(clients = [], corrections = []) {
   return clients
-    .map((c) => {
+    .map((c0) => {
+      const c = c0;
       const adresses = [];
+      const masquees = [];
       const ajouter = (nom, adresse) => {
         const a = typeof adresse === "string" ? (adresse.trim() ? { label: adresse.trim() } : null) : adresseLue(adresse);
-        if (a && !adresses.some((x) => x.adresse.label === a.label)) adresses.push({ nom, adresse: a });
+        if (!a) return;
+        const c = corrections.find((x) => x.cle === c0.id && x.nom === nom);
+        if (c && c.masquee) return masquees.push({ nom, adresse: a });
+        if (c) return adresses.push({ nom, adresse: c.adresse, corrigee: true, origine: a });
+        if (!adresses.some((x) => x.adresse.label === a.label)) adresses.push({ nom, adresse: a });
+        return undefined;
       };
       ajouter("Domicile", c.adresse);
       for (const a of Array.isArray(c.adresses) ? c.adresses : []) ajouter(String((a && a.nom) || "Adresse").slice(0, 30), a);
@@ -83,20 +115,23 @@ export function adressesClients(clients = []) {
         ajouter(`Domicile de ${e.prenom || "l'enfant"}`, e.adresse);
         if (e.ecole) ajouter(`École de ${e.prenom || "l'enfant"}`, e.ecole);
       }
-      return { cle: c.id, nom: [c.prenom, c.nom].filter(Boolean).join(" ").trim() || "Cliente", telephone: c.telephone || "", adresses };
+      return { cle: c.id, nom: [c.prenom, c.nom].filter(Boolean).join(" ").trim() || "Cliente", telephone: c.telephone || "", adresses, masquees };
     })
-    .filter((c) => c.adresses.length > 0)
+    .filter((c) => c.adresses.length > 0 || c.masquees.length > 0)
     .sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
 }
 
 /* ---------- Le repertoire en memoire (rempli par l'espace prive seulement ; vide sur le site des clientes) ---------- */
 
-let courant = { lieux: [], clients: [] };
+let courant = { lieux: [], clients: [], corrections: [], bruts: [] };
 let version = 0;
 const abonnes = new Set();
 
-export function definirRepertoire({ lieux, clients }) {
-  courant = { lieux: lieux || courant.lieux, clients: clients || courant.clients };
+// lieux / corrections : document du repertoire ; bruts : comptes des clientes (les adresses sont recalculees avec
+// les corrections) ; clients : liste deja prete (tests)
+export function definirRepertoire({ lieux, clients, corrections, bruts }) {
+  const suite = { lieux: lieux || courant.lieux, corrections: corrections || courant.corrections, bruts: bruts || courant.bruts };
+  courant = { ...suite, clients: clients || (bruts || corrections ? adressesClients(suite.bruts, suite.corrections) : courant.clients) };
   version++;
   abonnes.forEach((f) => f(version));
 }

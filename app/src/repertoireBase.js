@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { DOC_REPERTOIRE, abonnerRepertoire, adressesClients, definirRepertoire, lireRepertoire, repertoireCourant, versionRepertoire } from "./pricing/repertoire.js";
+import { DOC_REPERTOIRE, abonnerRepertoire, definirRepertoire, lireCorrections, lireRepertoire, repertoireCourant, versionRepertoire } from "./pricing/repertoire.js";
 
 // REPERTOIRE - lecture et enregistrement (12 nov. 2026). Espace prive seulement.
 // Mes lieux : document clientsAdmin/_repertoire (prive : Rebecca et son equipe, jamais les clientes).
@@ -11,8 +11,8 @@ import { DOC_REPERTOIRE, abonnerRepertoire, adressesClients, definirRepertoire, 
 export function useChargerRepertoire(actif) {
   useEffect(() => {
     if (!actif) return undefined;
-    const a = onSnapshot(doc(db, "clientsAdmin", DOC_REPERTOIRE), (s) => definirRepertoire({ lieux: lireRepertoire(s.exists() ? s.data().json : "") }), () => {});
-    const b = onSnapshot(collection(db, "clients"), (s) => definirRepertoire({ clients: adressesClients(s.docs.map((x) => ({ id: x.id, ...x.data() }))) }), () => {});
+    const a = onSnapshot(doc(db, "clientsAdmin", DOC_REPERTOIRE), (s) => definirRepertoire({ lieux: lireRepertoire(s.exists() ? s.data().json : ""), corrections: lireCorrections(s.exists() ? s.data().json : "") }), () => {});
+    const b = onSnapshot(collection(db, "clients"), (s) => definirRepertoire({ bruts: s.docs.map((x) => ({ id: x.id, ...x.data() })) }), () => {});
     return () => {
       a();
       b();
@@ -27,4 +27,5 @@ export function useRepertoire() {
   return repertoireCourant();
 }
 
-export const enregistrerRepertoire = (lieux) => setDoc(doc(db, "clientsAdmin", DOC_REPERTOIRE), { json: JSON.stringify(lieux), majLe: serverTimestamp() });
+// corrections non fournies = on garde celles deja enregistrees
+export const enregistrerRepertoire = (lieux, corrections = repertoireCourant().corrections) => setDoc(doc(db, "clientsAdmin", DOC_REPERTOIRE), { json: JSON.stringify({ lieux, corrections }), majLe: serverTimestamp() });

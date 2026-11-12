@@ -79,3 +79,8 @@
 .suggestions li button small { display: block; opacity: 0.75; font-size: 13px; }
 .theme-sombre .rp-choix-lieu select { width: 100%; }
 .theme-sombre .rp-trajet .rp-type { margin: 6px 0 -6px; }
+.theme-sombre .rp-adresses-cliente li { flex-wrap: wrap; padding: 8px 0; border-top: 1px solid rgba(185, 120, 112, 0.2); }
+.theme-sombre .rp-adresses-cliente li > span { flex: 1 1 100%; }
+.theme-sombre .rp-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
+.theme-sombre .rp-boutons .rp-waze { background: transparent; cursor: pointer; }
+.theme-sombre .rp-correction { flex: 1 1 100%; display: grid; gap: 10px; padding: 10px; border: 1px solid var(--g-bord); border-radius: 14px; }

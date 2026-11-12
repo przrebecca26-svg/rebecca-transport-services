@@ -14,6 +14,8 @@ const plan = (plus = {}) => ({ ...P.planVide(), domicile: A.netanya, ecole: A.ne
 const T = JSON.parse(JSON.stringify(TARIFS));
 T.calendrier.creneauxPersonnels = [];
 T.calendrier.fermeturesExceptionnelles = [];
+const VACANCES = T.ramassage.vacancesScolaires;
+T.ramassage.vacancesScolaires = []; // les tests ci-dessous choisissent eux-memes leurs vacances
 const calc = (p) => P.calculerPlan(p, ROUTE, T);
 
 section("Ramassage a plusieurs enfants");
@@ -202,4 +204,33 @@ test("forfait accepte : vacances retirees = ce que je dois encaisser a la place 
 test("forfait accepte : fete du calendrier retiree toute seule (Pessah, avril 2027)", () => {
   const b = P.bilanMois(FORFAIT, 2027, 4, [], T);
   vrai(b.retires.some((x) => /Pessah/.test(x.motif)) && b.reel < b.complet, JSON.stringify(b));
+});
+
+section("Ramassage : calendrier des vacances scolaires 2026-2027");
+
+const AVEC_VACANCES = JSON.parse(JSON.stringify(T));
+AVEC_VACANCES.ramassage.vacancesScolaires = VACANCES;
+
+test("le calendrier est dans les reglages (Hanoucca du 6 au 12 decembre 2026)", () => {
+  egal(VACANCES.length, 8);
+  egal(VACANCES.find((v) => v.nom === "Hanoucca"), { nom: "Hanoucca", du: "2026-12-06", au: "2026-12-12" });
+});
+
+test("devis au mois avec date : Hanoucca retiree toute seule, avec son nom", () => {
+  const r = P.calculerPlan(plan({ periode: "mois", enfants: [enfant({ heureSortie: "12:00" })] }), ROUTE, AVEC_VACANCES);
+  egal([r.details.nbTrajets, r.details.retires.length, r.details.retires[0].motif], [20, 6, "Hanoucca"]);
+});
+
+test("forfait accepte : decembre 2026 et avril 2027 (Pessah) plus bas que le mois complet", () => {
+  const dec = P.bilanMois(FORFAIT, 2026, 12, [], AVEC_VACANCES);
+  const avr = P.bilanMois(FORFAIT, 2027, 4, [], AVEC_VACANCES);
+  egal([dec.jours, dec.retires.length], [21, 6]);
+  egal(avr.jours, 12);
+  vrai(avr.reel < dec.reel && dec.reel < dec.complet);
+});
+
+test("aout 2027 : vacances d'ete, rien a encaisser", () => egal(P.bilanMois(FORFAIT, 2027, 8, [], AVEC_VACANCES).reel, 0));
+
+test("devis sans date : toujours le mois complet, sans vacances", () => {
+  egal(P.calculerPlan(plan({ periode: "mois", date: "", enfants: [enfant({ heureSortie: "12:00" })] }), ROUTE, AVEC_VACANCES).details.jours, 27);
 });

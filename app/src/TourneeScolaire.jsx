@@ -30,6 +30,10 @@ function MesAdresses({ connues, valeur, choisir }) {
     </div>
   );
 }
+const jourCourt = (d) => {
+  const [a, m, j] = d.split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, j, 12)).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+};
 const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
 function Trajet({ r, changer, supprimer, connues, creerRetour }) {
@@ -209,7 +213,13 @@ export default function TourneeScolaire() {
 
       <section className="tdb-bloc">
         <h2>Vacances scolaires</h2>
-        <p className="tdb-note">Chabbat et fêtes sont déjà connus. Note ici les vacances : elles sont retirées du prix réel des forfaits au mois.</p>
+        <p className="tdb-note">Chabbat, fêtes et vacances ci-dessous sont déjà connus : ils sont retirés des devis avec une date et du prix réel des forfaits au mois. À vérifier avec chaque école.</p>
+        <ul className="rp-detail">
+          {(TARIFS.ramassage.vacancesScolaires || []).filter((v) => v.au >= aujourdhui()).map((v) => (
+            <li key={v.du}><span>{v.nom}</span><b>{v.du === v.au ? jourCourt(v.du) : `${jourCourt(v.du)} au ${jourCourt(v.au)}`}</b></li>
+          ))}
+        </ul>
+        <p className="tdb-note">Ajoute ici d'autres jours sans école (grève, journée pédagogique, vacances d'une école en particulier).</p>
         {brouillon.vacances.map((v, k) => (
           <div className="rp-vacance" key={k}>
             <input type="text" aria-label="Nom des vacances" placeholder="Hanouka, Pessah…" maxLength={40} value={v.nom} onChange={(e) => changer({ ...brouillon, vacances: brouillon.vacances.map((x, i) => (i === k ? { ...x, nom: e.target.value } : x)) })} />

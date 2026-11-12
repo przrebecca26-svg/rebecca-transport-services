@@ -173,7 +173,21 @@ export const TARIFS = {
   // (de la plus forte a la plus faible). Exemple : 3 jours = -10 %, 5 jours ou plus = -15 %.
   // Devis a plusieurs enfants (12 nov. 2026, regle de Rebecca) : un jour = prix normal ; forfait au mois = reductionMois ;
   // plusieurs enfants en forfait (semaine ou mois) = reductionPlusieursEnfants.
-  ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionMois: 0.15, reductionPlusieursEnfants: 0.2 },
+  ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionMois: 0.15, reductionPlusieursEnfants: 0.2,
+    // Vacances scolaires en Israel, annee 2026-2027 (calendrier transmis par Rebecca le 12 nov. 2026, a verifier
+    // avec chaque ecole). Retirees des devis dates et du prix reel des forfaits au mois, comme Chabbat et les fetes.
+    // Ete : gan et primaire (college et lycee finissent le 20 juin). Yom HaZikaron (11 mai, cours jusqu'a 12h) : non retire.
+    vacancesScolaires: [
+      { nom: "Roch Hachana", du: "2026-09-11", au: "2026-09-13" },
+      { nom: "Yom Kippour et Souccot", du: "2026-09-20", au: "2026-10-03" },
+      { nom: "Hanoucca", du: "2026-12-06", au: "2026-12-12" },
+      { nom: "Pourim", du: "2027-03-23", au: "2027-03-24" },
+      { nom: "Pessah", du: "2027-04-13", au: "2027-04-28" },
+      { nom: "Yom HaAtsmaout", du: "2027-05-12", au: "2027-05-12" },
+      { nom: "Chavouot", du: "2027-06-10", au: "2027-06-11" },
+      { nom: "Vacances d'été", du: "2027-07-01", au: "2027-08-31" },
+    ],
+  },
   // Ma tournee scolaire (12 nov. 2026) : marge de route a chaque deplacement (petit probleme sur la route), temps
   // d'arret pour faire monter ou descendre les enfants, retard maximum accepte a une sortie d'ecole, places passagers.
   // retourMaisonMinutes : entre deux moments de la journee, retour a la maison seulement s'il reste au moins ce temps libre.

@@ -189,7 +189,7 @@ export function joursDuPlan(plan, options = {}) {
   return liste;
 }
 
-const dansUnePlage = (date, plages) => plages.some((v) => DATE_OK.test(v.du || "") && date >= v.du && date <= (DATE_OK.test(v.au || "") ? v.au : v.du));
+const plageDe = (date, plages) => plages.find((v) => DATE_OK.test(v.du || "") && date >= v.du && date <= (DATE_OK.test(v.au || "") ? v.au : v.du));
 
 // Tous les trajets de la periode. Un trajet = { date, w, sens: "matin" | "sortie", heure, ecole, enfants: [index] }.
 // Deux enfants de la meme ecole au meme moment = un seul trajet. Chabbat, fetes et jours sans ecole : non comptes.
@@ -198,14 +198,16 @@ export function trajetsPlan(plan, t = TARIFS, options = {}) {
   const trajets = new Map();
   const retires = []; // { date, motif }
   const jourUnique = plan.periode === "jour" && !options.du;
-  const plages = [{ du: plan.sansEcoleDu, au: plan.sansEcoleAu }, ...(options.vacances || [])];
+  // Jours sans ecole : ceux du devis, ceux notes par Rebecca, et le calendrier des vacances scolaires
+  const plages = [{ du: plan.sansEcoleDu, au: plan.sansEcoleAu }, ...(options.vacances || []), ...(t.ramassage.vacancesScolaires || [])];
   for (const jour of joursDuPlan(plan, options)) {
     const prevus = prevusDuJour(plan, jour.w, jourUnique);
     if (prevus.length === 0) continue;
     if (jour.date) {
       const sacre = nomsJourSacre(jour.date, t);
-      if (sacre.length || dansUnePlage(jour.date, plages)) {
-        retires.push({ date: jour.date, motif: sacre.length ? sacre.join(", ") : "Pas d'école" });
+      const vacances = plageDe(jour.date, plages);
+      if (sacre.length || vacances) {
+        retires.push({ date: jour.date, motif: vacances && vacances.nom ? vacances.nom : sacre.length ? sacre.join(", ") : "Pas d'école" });
         continue;
       }
     }
@@ -264,7 +266,7 @@ export function calculerPlan(plan, routes, t = TARIFS, options = {}) {
   const aConfirmer = [];
   if (horsAxe) aConfirmer.push("Trajet hors axe Netanya : prix à confirmer par Rebecca.");
   if (sansDate && plan.periode === "mois") aConfirmer.push("Prix d'un mois complet (le plus long, sans fête ni vacances).");
-  else if (plan.periode !== "jour" && !sansDate) aConfirmer.push("Chabbat, fêtes et jours sans école ne sont pas comptés.");
+  else if (plan.periode !== "jour" && !sansDate) aConfirmer.push("Chabbat, fêtes et vacances scolaires ne sont pas comptés.");
 
   // Pour Rebecca seulement : ses propres creneaux deja pris (ecole de sa fille, fermetures...)
   const conflits = [];
@@ -362,7 +364,7 @@ export function messagePlan(plan, resultat) {
     for (const g of x.groupes) lignes.push(`${g.nombre} trajet${g.nombre > 1 ? "s" : ""} x ${g.prix} ₪ = ${nombreFr(g.nombre * g.prix)} ₪`);
     if (x.reduction) lignes.push(`Réduction ${plan.periode === "jour" ? "" : "forfait "}${String(x.reduction).replace(".", ",")} % : -${nombreFr(x.economie)} ₪`);
     lignes.push(`Total : ${nombreFr(resultat.total)} ₪${x.reduction ? ` (soit ${String(x.parTrajetNet).replace(".", ",")} ₪ par trajet)` : ""}`);
-    if (plan.periode !== "jour" && !x.sansDate) lignes.push("", "Chabbat, fêtes et jours sans école ne sont pas comptés.");
+    if (plan.periode !== "jour" && !x.sansDate) lignes.push("", "Chabbat, fêtes et vacances scolaires ne sont pas comptés.");
   }
   lignes.push("", "Pouvez-vous me confirmer les adresses exactes et les horaires ?", "", "Rebecca Services", "Votre temps est précieux, je vous aide à en profiter. 🌸");
   return lignes.join("\n");

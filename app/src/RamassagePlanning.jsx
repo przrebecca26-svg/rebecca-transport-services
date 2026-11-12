@@ -213,7 +213,7 @@ export default function RamassagePlanning({ retour, aller }) {
               ))}
             </div>
             {plan.periode === "semaine" && <span className="aide">Coche les jours de chaque enfant (1, 3, 5 jours…).</span>}
-            {plan.periode === "mois" && plan.date && <span className="aide">Un mois à partir du premier jour. Chabbat et fêtes sont retirés automatiquement.</span>}
+            {plan.periode === "mois" && plan.date && <span className="aide">Un mois à partir du premier jour. Chabbat, fêtes et vacances scolaires sont retirés automatiquement.</span>}
           </fieldset>
           <div className="champ">
             <label htmlFor="rp-date">{plan.periode === "jour" ? "Date *" : "Premier jour (facultatif)"}</label>
@@ -223,7 +223,7 @@ export default function RamassagePlanning({ retour, aller }) {
           </div>
           {plan.periode !== "jour" && plan.date && (
             <fieldset className="champ">
-              <legend>Jours sans école dans la période (vacances), facultatif</legend>
+              <legend>Autres jours sans école dans la période, facultatif</legend>
               <div className="rp-vacances">
                 <label>Du <input type="date" value={plan.sansEcoleDu} onChange={(e) => changer("sansEcoleDu", e.target.value)} /></label>
                 <label>Au <input type="date" value={plan.sansEcoleAu} min={plan.sansEcoleDu || undefined} onChange={(e) => changer("sansEcoleAu", e.target.value)} /></label>

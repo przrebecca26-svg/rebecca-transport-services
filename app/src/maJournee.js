@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { TARIFS } from "./pricing/config.js";
@@ -61,10 +61,19 @@ export function useMaJournee(actif) {
     if (!cle) return "";
     const heure = new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" });
     await sauver(validerEtape(jours, date, cle, heure));
+    return assurerForfaits(date, e);
+  };
+  // Le forfait de la journee pour une etape cochee (une seule course par famille et par jour)
+  const assurerForfaits = async (date, e) => {
     const notes = [];
     for (const id of compteDansForfait(e) ? famillesDeLEtape(e, tousEtAjouts) : []) {
       const f = familleDe(id);
-      if (!f || !lireForfait(f.forfaitJour)) continue;
+      if (!f) continue;
+      if (!lireForfait(f.forfaitJour)) {
+        // 13 nov. 2026, 12h56 : sans forfait dans la fiche, rien ne partait et rien ne le disait
+        if (f.categorie !== "moi") notes.push(`Pas de forfait à la journée dans la fiche de ${f.nom || "cette famille"} : mets le montant dans Répertoire → Fiche → Enfants, « Forfait à la journée ».`);
+        continue;
+      }
       if (telephoneFamille(f).length < 3) {
         notes.push(`Ajoute le téléphone de ${f.nom || "la famille"} dans sa fiche (Répertoire) pour que son forfait parte dans Finances.`);
         continue;
@@ -79,6 +88,24 @@ export function useMaJournee(actif) {
     }
     return notes.join(" ");
   };
+  // Rattrapage (13 nov. 2026, 12h56) : une sortie deja cochee aujourd'hui ou hier dont la journee n'est pas encore
+  // comptee (forfait ajoute apres coup, connexion coupee...) est comptee toute seule a l'ouverture du Calendrier.
+  const rattrapes = useRef(new Set());
+  useEffect(() => {
+    if (!actif || etat !== "ok") return;
+    const auj = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+    const hier = new Date(Date.now() - 86400000).toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+    for (const date of [hier, auj]) {
+      const faits = (jours[date] || {}).faits || {};
+      for (const e of fil(date)) {
+        if (!compteDansForfait(e) || !faits[cleEtape(e)]) continue;
+        const cleR = date + "|" + cleEtape(e) + "|" + famillesDeLEtape(e, tousEtAjouts).map((id) => lireForfait((familleDe(id) || {}).forfaitJour)).join(",");
+        if (rattrapes.current.has(cleR)) continue;
+        rattrapes.current.add(cleR);
+        assurerForfaits(date, e).catch(() => rattrapes.current.delete(cleR));
+      }
+    }
+  }); // eslint-disable-line react-hooks/exhaustive-deps
   // Course pour un compte (gg...) : le prix est note quand elle est faite, et ce qu'il a paye (facultatif)
   const compteDe = (e) => (e && e.genre === "tache" && e.tache && e.tache.compte ? comptes.comptes.find((c) => c.id === e.tache.compte) || null : null);
   const courseFaite = async (date, e, { prix, paye = 0, moyen = TARIFS.moyensPaiement[0] }) => {

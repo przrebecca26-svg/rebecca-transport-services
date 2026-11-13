@@ -12,7 +12,7 @@ const REF = () => doc(db, "admin", "comptes");
 
 export function useComptes() {
   const [etat, setEtat] = useState({ pret: false, comptes: [], amorce: false, amorce2: false });
-  useEffect(() => onSnapshot(REF(), (s) => setEtat({ pret: true, comptes: lireComptes(s.exists() ? s.data().json : "[]"), amorce: s.exists() && s.data().amorce === true, amorce2: s.exists() && s.data().amorce2 === true }), () => setEtat({ pret: true, comptes: [], amorce: true, amorce2: true })), []);
+  useEffect(() => onSnapshot(REF(), (s) => setEtat({ pret: true, comptes: lireComptes(s.exists() ? s.data().json : "[]"), amorce: s.exists() && s.data().amorce === true, amorce2: s.exists() && s.data().amorce2 === true, forfaitAlexia: s.exists() && s.data().forfaitAlexia === true }), () => setEtat({ pret: true, comptes: [], amorce: true, amorce2: true, forfaitAlexia: true })), []);
   return etat;
 }
 export const enregistrerComptes = (comptes) => setDoc(REF(), { json: JSON.stringify(comptes), majLe: serverTimestamp() }, { merge: true });
@@ -70,7 +70,9 @@ async function corrigerDetteDepart(comptes) {
 }
 
 export default function SyncComptes() {
-  const { pret, comptes, amorce, amorce2 } = useComptes();
+  const { pret, comptes, amorce, amorce2, forfaitAlexia } = useComptes();
+  const etatForfait = { fait: !!forfaitAlexia };
+  const rep = useRepertoire();
   const correction = useRef(false);
   useEffect(() => {
     if (!pret || !amorce || amorce2 || correction.current) return;
@@ -79,7 +81,20 @@ export default function SyncComptes() {
       correction.current = false;
     });
   }, [pret, amorce, amorce2, comptes]);
-  const rep = useRepertoire();
+  // 12h56 : le forfait de 70 ₪ par jour d'Alexia (dit par Rebecca le 13 nov. a 08h11) n'avait pas ete mis dans sa
+  // fiche -> une fois : la famille d'Alexia recoit forfaitJour 70 si elle n'a encore aucun forfait.
+  const forfaitPose = useRef(false);
+  useEffect(() => {
+    if (!pret || etatForfait.fait || forfaitPose.current || !rep.charge) return;
+    const fam = rep.familles.find((f) => /alexia/i.test(f.nom || ""));
+    forfaitPose.current = true;
+    const suite = fam && !fam.forfaitJour ? rep.familles.map((f) => (f.id === fam.id ? { ...f, forfaitJour: 70 } : f)) : null;
+    (suite ? enregistrerRepertoire(rep.lieux, rep.corrections, suite) : Promise.resolve())
+      .then(() => setDoc(REF(), { forfaitAlexia: true }, { merge: true }))
+      .catch(() => {
+        forfaitPose.current = false;
+      });
+  }, [pret, etatForfait.fait, rep.charge, rep.familles]); // eslint-disable-line react-hooks/exhaustive-deps
   const amorcage = useRef(false);
   useEffect(() => {
     if (!pret || amorce || amorcage.current || !rep.charge) return;

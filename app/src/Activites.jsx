@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
-import { ACTIVITES_TB, indicateurs, repartitionServices, serieCA, tuiles } from "./pricing/tableauBord.js";
+import { ACTIVITES_TB, activiteDe, indicateurs, repartitionServices, serieCA, tuiles } from "./pricing/tableauBord.js";
+import ChiffresDetail from "./components/ChiffresDetail.jsx";
 import PeriodeTB, { periodeTB } from "./PeriodeTB.jsx";
 import TuileActivite from "./components/TuileActivite.jsx";
 import { chiffresDuMembre, tuileVisible } from "./pricing/espaceEquipe.js";
@@ -47,7 +48,7 @@ function Graphique({ donnees }) {
   );
 }
 
-function TableauActivite({ activite, demandes, mouvements, retour }) {
+function TableauActivite({ activite, demandes, mouvements, retour, aller = null, peutSupprimer = false }) {
   const [type, setType] = useState("mois");
   const periode = periodeTB(type);
   const c = indicateurs({ activite: activite.id, demandes, mouvements, periode });
@@ -61,12 +62,7 @@ function TableauActivite({ activite, demandes, mouvements, retour }) {
         <p className="tdb-sous">Tableau de bord de l'activité</p>
       </div>
       <PeriodeTB type={type} changer={setType} />
-      <div className="tdb-grille">
-        <div className="tdb-chiffre"><span>Chiffre d'affaires réalisé</span><b>{shekels(c.caRealise)}</b></div>
-        <div className="tdb-chiffre"><span>Prestations terminées</span><b>{c.prestationsTerminees}</b></div>
-        <div className="tdb-chiffre"><span>Encaissé</span><b>{shekels(c.encaisse)}</b></div>
-        <div className="tdb-chiffre"><span>Demandes reçues</span><b>{c.demandesRecues}</b></div>
-      </div>
+      <ChiffresDetail chiffres={c} demandes={demandes.filter((d) => activiteDe(d.service) === activite.id)} mouvements={mouvements} periode={periode} aller={aller} peutSupprimer={peutSupprimer} />
       <p className="tdb-note">Pourboires (à part) : {shekels(c.pourboires)} · Prix moyen : {c.prestationsTerminees ? shekels(c.prixMoyen) : "—"} · Km estimés : {c.kmEstimes} km</p>
 
       <section className="tdb-bloc">
@@ -88,7 +84,7 @@ function TableauActivite({ activite, demandes, mouvements, retour }) {
   );
 }
 
-export default function Activites({ cible, membre = null }) {
+export default function Activites({ cible, membre = null, aller = null }) {
   const [demandes, setDemandes] = useState(null);
   const [mouvements, setMouvements] = useState([]);
   const [ouverte, setOuverte] = useState(cible || null);
@@ -113,7 +109,7 @@ export default function Activites({ cible, membre = null }) {
   }, [sesDemandes, sesMouvements, type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const act = ACTIVITES_TB.find((a) => a.id === ouverte && a.etat === "active" && (!membre || tuileVisible(membre, a.id)));
-  if (act && demandes) return <TableauActivite activite={act} demandes={sesDemandes} mouvements={sesMouvements} retour={() => setOuverte(null)} />;
+  if (act && demandes) return <TableauActivite activite={act} demandes={sesDemandes} mouvements={sesMouvements} retour={() => setOuverte(null)} aller={aller} peutSupprimer={!membre} />;
 
   return (
     <div className="tdb">

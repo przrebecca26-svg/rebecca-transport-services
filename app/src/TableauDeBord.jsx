@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
-import { dateCreation, indicateurs, tuiles } from "./pricing/tableauBord.js";
+import { indicateurs, tuiles } from "./pricing/tableauBord.js";
 import { PERIODES_TB, periodeTB } from "./PeriodeTB.jsx";
 import PeriodeTB from "./PeriodeTB.jsx";
 import TuileActivite from "./components/TuileActivite.jsx";
-import DetailCourses from "./components/DetailCourses.jsx";
+import ChiffresDetail from "./components/ChiffresDetail.jsx";
 import Aujourdhui from "./Aujourdhui.jsx";
 import { chiffresDuMembre, tuileVisible } from "./pricing/espaceEquipe.js";
 
@@ -60,19 +60,6 @@ export default function TableauDeBord({ aller, membre = null }) {
     return [...liste, wolt];
   }, [demandes, mouvements, type, vue, autres]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 13 nov. 2026, 09h43 : chaque chiffre se touche et montre ses courses (ouvrir, supprimer une course de test)
-  const [detail, setDetail] = useState("");
-  const listeDetail = useMemo(() => {
-    const base = (vue ? (detail === "recues" ? vue.visibles : vue.siennes) : demandes) || [];
-    const dansP = (d) => !!d && d >= periode.debut && d <= periode.fin;
-    if (detail === "faites" || detail === "faites2") return base.filter((d) => d.statut === "terminee" && dansP(d.date));
-    if (detail === "encaisse") {
-      const ids = new Set((vue ? vue.mouvements : mouvements).filter((m) => dansP(m.date) && (m.kind === "paiement" || m.kind === "correction" || m.kind === "remboursement_effectue")).map((m) => m.resId));
-      return base.filter((d) => ids.has(d.id));
-    }
-    if (detail === "recues") return base.filter((d) => dansP(dateCreation(d)));
-    return [];
-  }, [detail, demandes, mouvements, vue, type]); // eslint-disable-line react-hooks/exhaustive-deps
   const val = (x, argent) => (chiffres ? (argent ? shekels(x) : String(x)) : "…");
 
   return (
@@ -83,27 +70,15 @@ export default function TableauDeBord({ aller, membre = null }) {
       </div>
       <PeriodeTB type={type} changer={setType} />
       {erreur && <p className="tdb-erreur" role="alert">{erreur}</p>}
-      <div className="tdb-grille">
-        {[
-          ["faites", "Chiffre d'affaires réalisé", val(chiffres && chiffres.caRealise, true)],
-          ["faites2", "Prestations terminées", val(chiffres && chiffres.prestationsTerminees)],
-          ["encaisse", "Encaissé", val(chiffres && chiffres.encaisse, true)],
-          ["recues", "Demandes reçues", val(chiffres && chiffres.demandesRecues)],
-        ].map(([id, nom, v]) => (
-          <button key={id} type="button" className={"tdb-chiffre tdb-cliquable" + (detail === id ? " ouvert" : "")} onClick={() => setDetail(detail === id ? "" : id)} aria-expanded={detail === id}>
-            <span>{nom}</span><b>{v}</b>
-          </button>
-        ))}
-      </div>
-      {detail && demandes && (
-        <DetailCourses
-          demandes={listeDetail}
-          mouvements={vue ? vue.mouvements : mouvements}
-          aller={aller}
-          peutSupprimer={!membre}
-          vide="Rien sur cette période."
-        />
-      )}
+      <ChiffresDetail
+        chiffres={chiffres}
+        demandes={(vue ? vue.siennes : demandes) || []}
+        recues={vue ? vue.visibles : null}
+        mouvements={vue ? vue.mouvements : mouvements}
+        periode={periode}
+        aller={aller}
+        peutSupprimer={!membre}
+      />
       <p className="tdb-note">{PERIODES_TB.find((p) => p.id === type).titre} · hors pourboires · {membre ? "tes courses (demandes reçues : tes services)" : "Services coursier et Transport privé"}</p>
 
       <div className="tdb-titre-ligne">

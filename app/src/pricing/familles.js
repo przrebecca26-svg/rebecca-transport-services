@@ -12,6 +12,7 @@
 import { JOURS, trajetVide } from "./tournee.js";
 import { ecoleDe, heureDuJour, finDuMois } from "./ramassagePlanning.js";
 import { ajouterJours } from "./calendrier.js";
+import { lireForfait } from "./forfaitJour.js";
 
 const HEURE_OK = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
@@ -42,7 +43,8 @@ export const rdvVide = (type = "ecole") => ({
 // age : "enfant" (mineur) ou "adulte" (18 ans et plus) - 12 nov. 2026, 22h52 : une case sur chaque fiche
 export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", rdv: [rdvVide("ecole")] });
 // nom2 / telephone2 : l'autre parent (facultatif)
-export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", enfants: [enfantFicheVide()] });
+// forfaitJour : prix a la journee de cette famille (ex. Alexia 70 ₪), 0 = pas de forfait (13 nov. 2026)
+export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", forfaitJour: 0, enfants: [enfantFicheVide()] });
 
 // Nettoie ce qui vient de la base
 export function lireFamilles(liste) {
@@ -63,6 +65,7 @@ export function lireFamilles(liste) {
         .slice(0, 20),
       du: date(f.du),
       au: date(f.au),
+      forfaitJour: lireForfait(f.forfaitJour),
       enfants: (Array.isArray(f.enfants) ? f.enfants : [])
         .filter((e) => e && typeof e === "object")
         .slice(0, 8)
@@ -369,7 +372,7 @@ export function trajetsDesChoix(familles, choix) {
     if (!x) continue;
     const { f, e, r } = x;
     const qui = `${String(e.prenom || "").trim() || "Enfant"} · ${nomRdv(r)}`;
-    const base = { places: 1, du: f.du, au: f.au, client: true, choix: c.id };
+    const base = { places: 1, du: f.du, au: f.au, client: true, choix: c.id, famille: f.id };
     if (c.sens === "aller") {
       liste.push(trajetVide({ ...base, id: `choix-${c.id}`, nom: `${qui} (aller)`, type: "matin", de: f.domicile, a: r.lieu, heurePrise: r.heurePrise, heure: "", jours: c.jours.map((j, w) => ({ actif: j.actif, heure: j.actif ? heureChoix(r, c, w) : "" })) }));
       continue;

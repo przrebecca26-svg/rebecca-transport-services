@@ -14,7 +14,7 @@ import AddressField from "./components/AddressField.jsx";
 import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache } from "./pricing/familles.js";
-import { TYPES_TACHE, iconeTache } from "./pricing/tournee.js";
+import { TYPES_TACHE, etapeValidable, iconeTache } from "./pricing/tournee.js";
 import { ajouterJours, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
 // Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
@@ -396,19 +396,34 @@ function Mission({ m, pourTous }) {
 
 // Une etape de ma journee (tournee scolaire ou tache) : heure, quoi faire, ou, Waze, et « Modifier »
 // Modifier = CE JOUR SEULEMENT : changer l'heure ou retirer le trajet ; la tournee de chaque semaine ne bouge pas.
-function Etape({ e, date, journee }) {
+// « ✓ Fait » (13 nov. 2026) : valide = maJournee pour aujourd'hui et hier seulement ; recocher = annuler.
+function Etape({ e, date, journee, valide = null }) {
   const [ouvert, setOuvert] = useState(false);
   const [heure, setHeure] = useState("");
   const [message, setMessage] = useState("");
+  const [info, setInfo] = useState("");
+  const [enCours, setEnCours] = useState(false);
   if (e.genre === "libre" || e.genre === "pause") {
     return (
       <li className={"ag-etape " + e.genre}>
-        <b>{e.heure}</b>
+        <b>{e.heure}</b>{" "}
         <span>{e.texte}{e.jusqua ? ` jusqu'à ${e.jusqua}` : e.minutes != null ? ` (${e.minutes} min)` : ""}</span>
       </li>
     );
   }
   const modifiable = journee && (e.genre === "arret" || e.genre === "tache");
+  const fait = valide && etapeValidable(e) ? valide.faitA(date, e) : "";
+  const cocher = async () => {
+    setMessage("");
+    setInfo("");
+    setEnCours(true);
+    try {
+      setInfo(await (fait ? valide.annuler(date, e) : valide.valider(date, e)));
+    } catch {
+      setMessage("Enregistrement impossible. Vérifie la connexion.");
+    }
+    setEnCours(false);
+  };
   const faire = async (action) => {
     setMessage("");
     try {
@@ -419,7 +434,7 @@ function Etape({ e, date, journee }) {
     }
   };
   return (
-    <li className={"ag-etape " + e.genre + (e.coince ? " coince" : "")}>
+    <li className={"ag-etape " + e.genre + (e.coince ? " coince" : "") + (fait ? " fait" : "")}>
       <div className="ag-etape-ligne">
         <b>{e.heure}</b>
         <span>
@@ -432,9 +447,18 @@ function Etape({ e, date, journee }) {
           {e.genre === "arret" && journee && journee.heureChangee(date, e.ids) && <small className="ag-etape-modif"> · heure changée ce jour</small>}
           {e.alerte && <small className="ag-etape-alerte">{e.alerte}</small>}
         </span>
-        {e.adresse && <a className="ag-waze" href={lienWazePoint(e.adresse)} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${e.lieu || "l'adresse"} dans Waze`}>Waze</a>}
-        {modifiable && <button type="button" className="ag-modifier" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert}>{ouvert ? "Fermer" : "Modifier"}</button>}
       </div>
+      <div className="ag-etape-boutons">
+        {e.adresse && <a className="ag-waze" href={lienWazePoint(e.adresse)} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${e.lieu || "l'adresse"} dans Waze`}>Waze</a>}
+        {modifiable && !fait && <button type="button" className="ag-modifier" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert}>{ouvert ? "Fermer" : "Modifier"}</button>}
+        {valide && etapeValidable(e) && (
+          <button type="button" className={"ag-fait" + (fait ? " oui" : "")} onClick={cocher} disabled={enCours} aria-pressed={!!fait} aria-label={fait ? "Annuler : pas encore fait" : "Marquer comme fait"}>
+            {fait ? `✓ Fait ${fait.replace(":", "h")}` : "✓ Fait"}
+          </button>
+        )}
+      </div>
+      {info && <p className="ag-fait-info">{info}</p>}
+      {!ouvert && message && <p className="fm-erreur" role="alert">{message}</p>}
       {ouvert && e.genre === "arret" && (
         <div className="ag-etape-actions">
           <p className="tb-note">Ce jour seulement : ta tournée des autres semaines ne change pas.</p>
@@ -685,11 +709,11 @@ const enMinutes = (h) => {
 // Une journee : fermetures (Chabbat, fetes...), puis UN SEUL FIL dans l'ordre des heures :
 // ma tournee (etapes reelles), mes courses et rendez-vous, les missions confiees.
 // fil = etapes de ma tournee (vide si pas de tournee) ; tourneeOk = la tournee remplace les « Creneau deja reserve »
-function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false, journee = null, equipier = false }) {
+function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false, journee = null, valide = null, equipier = false }) {
   // Les creneaux personnels sont ceux de Rebecca (sa tournee) : jamais dans l'agenda d'un coequipier (12 nov. 2026)
   const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
-    ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} />, etape: true })),
+    ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} />, etape: true })),
     ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id, rendu: <Evenement d={d} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);
@@ -920,7 +944,7 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>
 
-      {vue === "jour" && <JourListe equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
+      {vue === "jour" && <JourListe equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} valide={tourneeOk && ref <= aujourdhui && ref >= ajouterJours(aujourdhui, -1) ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
       {vue === "semaine" && jours.map((j) => <JourListe key={j} titre equipier={moi !== ADMIN_ID} fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
 

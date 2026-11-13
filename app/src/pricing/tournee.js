@@ -777,16 +777,18 @@ export function lireJours(json) {
       .filter((x) => x && HEURE_OK.test(x.debut) && HEURE_OK.test(x.fin) && x.fin > x.debut)
       .slice(0, 30)
       .map((x) => ({ id: String(x.id || nouvelId()).slice(0, 40), titre: String(x.titre || "").slice(0, 80) || "Tâche", debut: x.debut, fin: x.fin, lieu: adresseLue(x.lieu), ...detailsTache(x) }));
-    if (retires.length || Object.keys(heures).length || taches.length) sortie[date] = { retires, heures, taches };
+    const faits = {};
+    for (const [cle, h] of Object.entries(v.faits && typeof v.faits === "object" ? v.faits : {}).slice(0, 60)) if (HEURE_OK.test(h)) faits[String(cle).slice(0, 200)] = h;
+    if (retires.length || Object.keys(heures).length || taches.length || Object.keys(faits).length) sortie[date] = { retires, heures, taches, faits };
   }
   return sortie;
 }
 
-const jourVide = () => ({ retires: [], heures: {}, taches: [] });
+const jourVide = () => ({ retires: [], heures: {}, taches: [], faits: {} });
 const propre = (jours, date, j) => {
   const suite = { ...jours };
   j = { ...jourVide(), ...j };
-  if (j.retires.length || Object.keys(j.heures).length || j.taches.length) suite[date] = j;
+  if (j.retires.length || Object.keys(j.heures).length || j.taches.length || Object.keys(j.faits).length) suite[date] = j;
   else delete suite[date];
   return suite;
 };
@@ -823,7 +825,30 @@ export function changerHeureCeJour(jours, date, ids, heure) {
   return propre(jours, date, { ...j, heures });
 }
 // « Remettre la journee normale » : les trajets reviennent comme chaque semaine ; mes taches du jour restent
-export const journeeNormale = (jours, date) => propre(jours, date, { ...jourVide(), taches: ((jours || {})[date] || {}).taches || [] });
+export const journeeNormale = (jours, date) => propre(jours, date, { ...jourVide(), taches: ((jours || {})[date] || {}).taches || [], faits: ((jours || {})[date] || {}).faits || {} });
+
+/* ---------- « ✓ Fait » : valider une etape de ma journee (13 nov. 2026, 08h04) ----------
+   Rebecca : « en plus de Waze et Modifier, valider la course que je coche ». Pour CE jour seulement :
+   faits = { cle de l'etape: "HH:MM" (heure ou elle a coche) }. Recocher = annuler. */
+export function cleEtape(e) {
+  if (!e) return "";
+  if (e.genre === "tache" && e.tache && e.tache.id) return "t:" + e.tache.id;
+  if (e.genre === "arret" && Array.isArray(e.ids) && e.ids.length) return "a:" + [...e.ids].sort().join("+") + ":" + (e.sorte || "");
+  return "";
+}
+export const etapeValidable = (e) => !!cleEtape(e);
+export const faitA = (jours, date, cle) => (((jours || {})[date] || {}).faits || {})[cle] || "";
+export function validerEtape(jours, date, cle, heure) {
+  if (!DATE_OK.test(date || "") || !cle || !HEURE_OK.test(heure || "")) return jours;
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  return propre(jours, date, { ...j, faits: { ...j.faits, [cle]: heure } });
+}
+export function annulerEtape(jours, date, cle) {
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  const faits = { ...j.faits };
+  delete faits[cle];
+  return propre(jours, date, { ...j, faits });
+}
 
 // TACHES DU JOUR (12 nov. 2026, 16h29) : « rajouter une tache si j'ai une course a faire, et bloquer un creneau ».
 // tache = { id, titre, debut, fin, lieu } ; elle bloque ce creneau sur le site (sans titre ni lieu : c'est public)

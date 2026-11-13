@@ -504,7 +504,7 @@ test("tache mal remplie (fin avant debut) : refusee ; journee normale garde les 
   egal([jours[JEUDI].retires.length, jours[JEUDI].taches.length], [0, 1]);
 });
 test("lecture du document : dates et heures invalides ignorees", () => {
-  egal(To.lireJours('{"x":{"retires":["a"]},"2026-11-12":{"retires":["a"],"heures":{"b":"25:00"},"taches":[]}}'), { "2026-11-12": { retires: ["a"], heures: {}, taches: [] } });
+  egal(To.lireJours('{"x":{"retires":["a"]},"2026-11-12":{"retires":["a"],"heures":{"b":"25:00"},"taches":[]}}'), { "2026-11-12": { retires: ["a"], heures: {}, taches: [], faits: {} } });
   egal(To.lireJours("pas du json"), {});
 });
 test("modifier une tache : nouvelles heures, nouveau creneau bloque", () => {

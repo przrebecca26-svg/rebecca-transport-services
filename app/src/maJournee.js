@@ -1,7 +1,10 @@
 import { useMemo } from "react";
+import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { db } from "./firebase.js";
+import { courseForfait, famillesDeLEtape, familleEncoreFaite, idForfait, lireForfait, telephoneFamille } from "./pricing/forfaitJour.js";
 import { TARIFS } from "./pricing/config.js";
 import { vacancesDuJour } from "./pricing/calendrier.js";
-import { ajouterTache, changerHeureCeJour, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
+import { ajouterTache, annulerEtape, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { enregistrerJours, useDurees, useJoursTournee, useTournee } from "./tourneeBase.js";
@@ -43,11 +46,64 @@ export function useMaJournee(actif) {
   };
   const heureChangee = (date, ids) => ids.some((id) => ((jours[date] || {}).heures || {})[id]);
   const sauver = (suite) => enregistrerJours(suite);
+
+  // « ✓ Fait » (13 nov. 2026) : cocher une etape pour CE jour. Si la famille a un forfait a la journee (Alexia 70 ₪),
+  // la journee part dans Finances une seule fois (course terminee, reste a encaisser tant qu'elle n'a pas paye).
+  // Renvoie un petit message a afficher sous l'etape (ou "").
+  const familleDe = (id) => repertoire.familles.find((f) => f.id === id) || null;
+  const valider = async (date, e) => {
+    const cle = cleEtape(e);
+    if (!cle) return "";
+    const heure = new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" });
+    await sauver(validerEtape(jours, date, cle, heure));
+    const notes = [];
+    for (const id of famillesDeLEtape(e, tous)) {
+      const f = familleDe(id);
+      if (!f || !lireForfait(f.forfaitJour)) continue;
+      if (telephoneFamille(f).length < 3) {
+        notes.push(`Ajoute le téléphone de ${f.nom || "la famille"} dans sa fiche (Répertoire) pour que son forfait parte dans Finances.`);
+        continue;
+      }
+      const ref = doc(db, "demandes", idForfait(id, date));
+      if ((await getDoc(ref)).exists()) continue; // deja comptee aujourd'hui (un autre trajet coche)
+      const premier = fil(date).find((x) => famillesDeLEtape(x, tous).includes(id));
+      const course = courseForfait(f, date, premier && premier.heure ? premier.heure.replace("h", ":") : "");
+      if (!course) continue;
+      await setDoc(ref, { ...course, creeLe: serverTimestamp(), majLe: serverTimestamp() });
+      notes.push(`Journée de ${f.nom} comptée dans Finances : ${course.prixFinal} ₪ à encaisser.`);
+    }
+    return notes.join(" ");
+  };
+  const annuler = async (date, e) => {
+    const cle = cleEtape(e);
+    if (!cle) return "";
+    const suite = annulerEtape(jours, date, cle);
+    await sauver(suite);
+    const faits = ((suite[date] || {}).faits) || {};
+    const etapes = fil(date);
+    const notes = [];
+    for (const id of famillesDeLEtape(e, tous)) {
+      if (familleEncoreFaite(id, etapes, faits, tous, cleEtape)) continue;
+      const ref = doc(db, "demandes", idForfait(id, date));
+      if (!(await getDoc(ref)).exists()) continue;
+      const payes = await getDocs(query(collection(db, "mouvements"), where("resId", "==", ref.id)));
+      if (!payes.empty) {
+        notes.push("Un paiement est déjà enregistré pour cette journée : elle reste dans Finances.");
+        continue;
+      }
+      await deleteDoc(ref);
+      notes.push(`Journée de ${(familleDe(id) || {}).nom || "la famille"} retirée de Finances.`);
+    }
+    return notes.join(" ");
+  };
   return {
     etat,
     fil,
     retires,
     heureChangee,
+    faitA: (date, e) => faitA(jours, date, cleEtape(e)),
+    valider,
+    annuler,
     modifie: (date) => !!(jours[date] && ((jours[date].retires || []).length || Object.keys(jours[date].heures || {}).length)),
     retirer: (date, ids) => sauver(retirerCeJour(jours, date, ids)),
     remettre: (date, ids) => sauver(remettreCeJour(jours, date, ids)),

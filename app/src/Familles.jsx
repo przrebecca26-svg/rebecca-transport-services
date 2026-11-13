@@ -110,6 +110,11 @@ function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
           <label>Au <input type="date" value={f.au} min={f.du || undefined} onChange={(e) => set("au", e.target.value)} /></label>
         </div>
       </fieldset>
+      <div className="champ">
+        <label htmlFor={"fj" + f.id}>Forfait à la journée (₪), facultatif</label>
+        <input id={"fj" + f.id} type="text" inputMode="numeric" maxLength={5} placeholder="Ex. 70" value={f.forfaitJour || ""} onChange={(e) => set("forfaitJour", Number(e.target.value.replace(/[^0-9]/g, "")) || 0)} />
+        <p className="tdb-note">Quand tu coches « ✓ Fait » sur un trajet de cette famille dans ton Calendrier, la journée part dans Finances (à encaisser), une seule fois par jour même s'il y a plusieurs trajets. Le téléphone ci-dessus est obligatoire pour ça.</p>
+      </div>
 
       {f.enfants.map((e) => (
         <div className="rp-fiche-enfant" key={e.id}>

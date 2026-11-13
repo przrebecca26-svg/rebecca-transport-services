@@ -73,3 +73,13 @@
 .ag-nouvel-enfant { margin: 8px 0; padding: 10px; border-radius: 10px; background: rgba(185, 120, 112, 0.08); }
 .ag-age { margin: 8px 0; border: 0; padding: 0; }
 .ag-age .choix { grid-template-columns: 1fr 1fr; }
+
+/* « ✓ Fait » sur chaque etape de ma journee (13 nov. 2026) : boutons sous le texte, etape faite en gris barre */
+.ag-etape-boutons { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px 62px; }
+.ag-etape-boutons:empty { display: none; }
+.ag-fait { flex: none; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--g-succes, #239b68); background: transparent; color: var(--g-succes, #239b68); font-size: 13px; font-weight: 700; }
+.ag-fait.oui { background: var(--g-succes, #239b68); color: #fff; }
+.ag-fait:disabled { opacity: 0.6; }
+.ag-etape.fait .ag-etape-ligne > span { text-decoration: line-through; opacity: 0.5; }
+.ag-etape.fait .ag-etape-ligne > b { opacity: 0.5; }
+.ag-fait-info { margin: 4px 0 0 62px; font-size: 13px; color: var(--g-succes, #239b68); }

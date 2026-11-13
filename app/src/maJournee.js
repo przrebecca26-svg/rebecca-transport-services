@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { courseForfait, famillesDeLEtape, familleEncoreFaite, idForfait, lireForfait, telephoneFamille } from "./pricing/forfaitJour.js";
+import { compteDansForfait, courseForfait, famillesDeLEtape, familleEncoreFaite, idForfait, lireForfait, telephoneFamille } from "./pricing/forfaitJour.js";
 import { TARIFS } from "./pricing/config.js";
 import { vacancesDuJour } from "./pricing/calendrier.js";
-import { ajouterTache, annulerEtape, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
+import { ajoutsDesJours, ajouterTrajetCeJour, ajouterTache, annulerEtape, estPonctuel, retirerAjout, trajetPonctuel, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { enregistrerJours, useDurees, useJoursTournee, useTournee } from "./tourneeBase.js";
@@ -23,17 +23,19 @@ export function useMaJournee(actif) {
   const repertoire = useRepertoire();
   const d = base.donnees;
   const tous = useMemo(() => (actif ? [...trajetsDesChoix(repertoire.familles, lireChoix(d.choix)), ...d.trajets] : []), [actif, repertoire.familles, d.choix, d.trajets]);
-  const durees = useDurees(tous, d.domicile);
+  const ajouts = useMemo(() => ajoutsDesJours(jours), [jours]);
+  const durees = useDurees(useMemo(() => [...tous, ...ajouts], [tous, ajouts]), d.domicile);
+  const tousEtAjouts = useMemo(() => [...tous, ...ajouts], [tous, ajouts]);
   const lieux = useMemo(() => fusionnerLieux(repertoire.lieux, d.lieux), [repertoire.lieux, d.lieux]);
   const utilisee = actif && base.pret && !base.refuse;
-  const etat = !utilisee ? "sans" : tous.length === 0 || durees.statut === "ok" ? "ok" : durees.statut === "erreur" ? "sans" : "calcul";
+  const etat = !utilisee ? "sans" : tousEtAjouts.length === 0 || durees.statut === "ok" ? "ok" : durees.statut === "erreur" ? "sans" : "calcul";
   const nomLieu = (a) => nomDuLieu(a, d.domicile, lieux);
 
   // Etapes de la tournee + mes taches du jour, dans l'ordre des heures
   const fil = (date) => {
     if (etat !== "ok") return [];
     const taches = tachesDuJour(jours, date).map((x) => ({ min: enMin(x.debut), genre: "tache", heure: x.debut.replace(":", "h"), jusqua: x.fin.replace(":", "h"), texte: x.titre, tache: x, adresse: x.lieu, lieu: x.lieu ? nomLieu(x.lieu) || String(x.lieu.label).split(",")[0] : "" }));
-    if (vacancesDuJour(date) || !tous.length) return taches;
+    if (vacancesDuJour(date) || !(tous.length || ((jours[date] || {}).ajouts || []).length)) return taches;
     const j = journeeDeLaDate(tous, date, d.transferts, durees.duree, d.domicile, TARIFS, jours);
     if (!j || j.statut === "inconnu") return taches;
     const etapes = filTournee(j, nomLieu, d.domicile).map((e) => ({ ...e, alerte: e.genre === "arret" && e.coince ? j.probleme : "" }));
@@ -57,7 +59,7 @@ export function useMaJournee(actif) {
     const heure = new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" });
     await sauver(validerEtape(jours, date, cle, heure));
     const notes = [];
-    for (const id of famillesDeLEtape(e, tous)) {
+    for (const id of compteDansForfait(e) ? famillesDeLEtape(e, tousEtAjouts) : []) {
       const f = familleDe(id);
       if (!f || !lireForfait(f.forfaitJour)) continue;
       if (telephoneFamille(f).length < 3) {
@@ -66,7 +68,7 @@ export function useMaJournee(actif) {
       }
       const ref = doc(db, "demandes", idForfait(id, date));
       if ((await getDoc(ref)).exists()) continue; // deja comptee aujourd'hui (un autre trajet coche)
-      const premier = fil(date).find((x) => famillesDeLEtape(x, tous).includes(id));
+      const premier = fil(date).find((x) => compteDansForfait(x) && famillesDeLEtape(x, tousEtAjouts).includes(id));
       const course = courseForfait(f, date, premier && premier.heure ? premier.heure.replace("h", ":") : "");
       if (!course) continue;
       await setDoc(ref, { ...course, creeLe: serverTimestamp(), majLe: serverTimestamp() });
@@ -82,8 +84,8 @@ export function useMaJournee(actif) {
     const faits = ((suite[date] || {}).faits) || {};
     const etapes = fil(date);
     const notes = [];
-    for (const id of famillesDeLEtape(e, tous)) {
-      if (familleEncoreFaite(id, etapes, faits, tous, cleEtape)) continue;
+    for (const id of compteDansForfait(e) ? famillesDeLEtape(e, tousEtAjouts) : []) {
+      if (familleEncoreFaite(id, etapes, faits, tousEtAjouts, cleEtape)) continue;
       const ref = doc(db, "demandes", idForfait(id, date));
       if (!(await getDoc(ref)).exists()) continue;
       const payes = await getDocs(query(collection(db, "mouvements"), where("resId", "==", ref.id)));
@@ -105,7 +107,18 @@ export function useMaJournee(actif) {
     valider,
     annuler,
     modifie: (date) => !!(jours[date] && ((jours[date].retires || []).length || Object.keys(jours[date].heures || {}).length)),
-    retirer: (date, ids) => sauver(retirerCeJour(jours, date, ids)),
+    // Un ramassage ponctuel (ajoute pour ce jour) s'efface ; un trajet de la tournee est seulement retire ce jour-la
+    retirer: (date, ids) => {
+      let suite = retirerAjout(jours, date, ids.filter(estPonctuel));
+      const autres = ids.filter((x) => !estPonctuel(x));
+      if (autres.length) suite = retirerCeJour(suite, date, autres);
+      return sauver(suite);
+    },
+    ajouterRamassage: (date, infos) => {
+      const r = trajetPonctuel({ date, ...infos });
+      if (!r) return Promise.reject(new Error("incomplet"));
+      return sauver(ajouterTrajetCeJour(jours, date, r));
+    },
     remettre: (date, ids) => sauver(remettreCeJour(jours, date, ids)),
     changerHeure: (date, ids, heure) => sauver(changerHeureCeJour(jours, date, ids, heure)),
     normale: (date) => sauver(journeeNormale(jours, date)),

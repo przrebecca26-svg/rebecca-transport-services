@@ -4,7 +4,7 @@ import { TARIFS } from "./config.js";
 // Rebecca : « Alexia a un prix particulier : un forfait a la journee, 70 ₪. Au depart je recuperais seulement les
 // filles a 14h ; j'ai rajoute le matin sans augmenter le prix. Des fois elle me paye le jour meme, des fois apres. »
 // -> Dans la fiche de la famille (Repertoire) : « Forfait a la journee (₪) ».
-// -> Quand Rebecca coche « ✓ Fait » sur un trajet de cette famille, UNE course « Ramassage scolaire » est enregistree
+// -> Quand Rebecca coche « ✓ Fait » sur un trajet de SORTIE de cette famille (14h ; le matin est un bonus), UNE course « Ramassage scolaire » est enregistree
 //    pour cette date (terminee, prix = forfait) : elle compte dans Finances et dans « reste a payer » de la cliente,
 //    une seule fois par jour meme s'il y a plusieurs trajets (matin + 14h).
 // -> Le paiement s'enregistre a part (le jour meme ou plus tard), comme pour toutes les courses.
@@ -65,8 +65,12 @@ export function courseForfait(f, date, heure) {
   };
 }
 
+// 13 nov. 2026, 08h30 : « c'est quand je les recupere a 14h que j'encaisse 70 ; le matin c'est un bonus (sur ma route).
+// Si je ne fais pas 14h, elle ne me paye pas. » -> seul un trajet de SORTIE (recuperer apres l'ecole) compte la journee.
+export const compteDansForfait = (e) => !!e && ((e.genre === "arret" && e.type === "sortie") || (e.genre === "tache" && !!e.tache && e.tache.type === "ramassage"));
+
 // Apres avoir decoche une etape : la famille a-t-elle encore un trajet coche ce jour-la ?
 // fil = etapes du jour ; faits = { cle: heure } apres le changement ; cle(e) = cleEtape
 export function familleEncoreFaite(familleId, fil, faits, tous, cle) {
-  return fil.some((e) => faits[cle(e)] && famillesDeLEtape(e, tous).includes(familleId));
+  return fil.some((e) => compteDansForfait(e) && faits[cle(e)] && famillesDeLEtape(e, tous).includes(familleId));
 }

@@ -13,7 +13,7 @@ import { useMaJournee } from "./maJournee.js";
 import AddressField from "./components/AddressField.jsx";
 import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
-import { listeEnfants, ajouterEnfantDepuisTache } from "./pricing/familles.js";
+import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
 import { TYPES_TACHE, etapeValidable, iconeTache } from "./pricing/tournee.js";
 import { ajouterJours, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
@@ -509,7 +509,7 @@ function FormTache({ date, journee, initial = null, onFin }) {
   const [f, setF] = useState(
     initial
       ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, enfant: choixInitial }
-      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "" }
+      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null }
   );
   const [nouvel, setNouvel] = useState(NOUVEL_ENFANT);
   const [message, setMessage] = useState("");
@@ -518,10 +518,22 @@ function FormTache({ date, journee, initial = null, onFin }) {
   const setN = (cle, v) => setNouvel((x) => ({ ...x, [cle]: v }));
   const choisi = enfants.find((e) => e.famille + "|" + e.enfant === f.enfant) || null;
   const estNouvel = f.type === "ramassage" && f.enfant === "nouveau";
+  // 13 nov. 2026, 08h30 : un NOUVEAU ramassage n'est pas un creneau mais une heure (recuperer / deposer) et deux
+  // adresses ; il devient un vrai trajet de ma journee, place au bon endroit avec le temps de route.
+  const ponctuel = f.type === "ramassage" && !initial;
+  const remplir = (enfant, sens) => {
+    const [famille, id] = String(enfant || "").split("|");
+    const p = preRemplirRamassage(rep.familles, { famille, enfant: id }, date, sens);
+    return p ? { heure: p.heure, de: p.de, a: p.a } : {};
+  };
 
   // Choisir un enfant connu : son ecole et son heure de sortie remplissent l'adresse et les heures (modifiables)
   const choisirEnfant = (v) => {
     const e = enfants.find((x) => x.famille + "|" + x.enfant === v);
+    if (ponctuel) {
+      setF((x) => ({ ...x, enfant: v, ...remplir(v, x.sens) }));
+      return;
+    }
     setF((x) => ({
       ...x,
       enfant: v,
@@ -538,7 +550,9 @@ function FormTache({ date, journee, initial = null, onFin }) {
         ? nouvel.prenom.trim() && (nouvel.famille || nouvel.parent.trim())
         : !!choisi
       : f.quoi.trim();
-  const ok = !!f.type && heuresOk && quiOk && !enCours;
+  const adresseOk = (x) => !!(x && typeof x.lat === "number" && typeof x.lon === "number");
+  const ponctuelOk = /^\d{2}:\d{2}$/.test(f.heure || "") && adresseOk(f.de) && adresseOk(f.a);
+  const ok = !!f.type && (ponctuel ? ponctuelOk : heuresOk) && quiOk && !enCours;
 
   const valider = async () => {
     setMessage("");
@@ -557,6 +571,12 @@ function FormTache({ date, journee, initial = null, onFin }) {
           ref = res.ref;
           prenom = nouvel.prenom.trim();
           lieu = lieu || nouvel.ecole;
+        }
+        if (ponctuel) {
+          await journee.ajouterRamassage(date, { sens: f.sens, heure: f.heure, de: f.de, a: f.a, nom: `${prenom} · ${f.sens === "deposer" ? "aller" : "retour"}`, famille: ref ? ref.famille : "" });
+          onFin();
+          setEnCours(false);
+          return;
         }
         tache = { type: "ramassage", titre: "Ramassage · " + prenom, pour: prenom, age: estNouvel ? nouvel.age : choisi ? choisi.age : "enfant", enfant: ref, debut: f.debut, fin: f.fin, lieu };
       } else {
@@ -629,11 +649,11 @@ function FormTache({ date, journee, initial = null, onFin }) {
                 </>
               )}
               <div className="ag-champ">École ou Gan
-                <AddressField id={"tache-ecole-" + date} valeur={nouvel.ecole} position={false} onChange={(v) => { setN("ecole", v); set("lieu", v); }} />
+                <AddressField id={"tache-ecole-" + date} valeur={nouvel.ecole} position={false} onChange={(v) => { setN("ecole", v); setF((y) => ({ ...y, lieu: v, ...(y.sens === "deposer" ? { a: v } : { de: v }) })); }} />
               </div>
               <div className="ag-heures">
-                <label className="ag-champ">Entre à <input type="time" value={nouvel.entree} onChange={(x) => setN("entree", x.target.value)} /></label>
-                <label className="ag-champ">Sort à <input type="time" value={nouvel.sortie} onChange={(x) => { setN("sortie", x.target.value); setF((y) => ({ ...y, debut: y.debut || decaler(x.target.value, -15), fin: y.fin || decaler(x.target.value, 15) })); }} /></label>
+                <label className="ag-champ">Entre à <input type="time" value={nouvel.entree} onChange={(x) => { setN("entree", x.target.value); if (f.sens === "deposer") set("heure", x.target.value); }} /></label>
+                <label className="ag-champ">Sort à <input type="time" value={nouvel.sortie} onChange={(x) => { setN("sortie", x.target.value); setF((y) => ({ ...y, ...(y.sens !== "deposer" ? { heure: x.target.value } : {}), debut: y.debut || decaler(x.target.value, -15), fin: y.fin || decaler(x.target.value, 15) })); }} /></label>
               </div>
             </div>
           )}
@@ -652,7 +672,32 @@ function FormTache({ date, journee, initial = null, onFin }) {
         </>
       )}
 
-      {f.type && (
+      {ponctuel && (f.enfant || estNouvel) && (
+        <>
+          <fieldset className="champ">
+            <legend>3. Je dois</legend>
+            <div className="choix" role="radiogroup" aria-label="Récupérer ou déposer">
+              {[["recuperer", "Le récupérer"], ["deposer", "Le déposer"]].map(([v, l]) => (
+                <button key={v} type="button" role="radio" aria-checked={f.sens === v} className={f.sens === v ? "actif" : ""} onClick={() => setF((x) => ({ ...x, sens: v, ...(estNouvel ? { heure: v === "deposer" ? nouvel.entree : nouvel.sortie, de: v === "deposer" ? x.a : x.de, a: v === "deposer" ? x.de : x.a } : remplir(x.enfant, v)) }))}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <label className="ag-champ">{f.sens === "deposer" ? "Arriver au plus tard à" : "Heure de sortie (je le récupère à)"}
+            <input type="time" value={f.heure} onChange={(x) => set("heure", x.target.value)} />
+          </label>
+          <div className="ag-champ">Où je le prends
+            <AddressField id={"rp-de-" + date} valeur={f.de} position={false} onChange={(v) => set("de", v)} />
+          </div>
+          <div className="ag-champ">Où je le dépose
+            <AddressField id={"rp-a-" + date} valeur={f.a} position={false} onChange={(v) => set("a", v)} />
+          </div>
+          <p className="tb-note">Il se place tout seul au bon endroit de ta journée, avec le temps de route, pour aujourd'hui seulement. Le site bloque ce moment comme tes autres trajets.</p>
+        </>
+      )}
+
+      {f.type && !ponctuel && (
         <>
           <div className="ag-heures">
             <label className="ag-champ">De <input type="time" value={f.debut} onChange={(x) => set("debut", x.target.value)} /></label>
@@ -668,7 +713,7 @@ function FormTache({ date, journee, initial = null, onFin }) {
         </>
       )}
       <div className="tb-actions">
-        <button type="button" className="tb-bouton" disabled={!ok} onClick={valider}>{enCours ? "Enregistrement…" : initial ? "Enregistrer les changements" : "Ajouter et bloquer le créneau"}</button>
+        <button type="button" className="tb-bouton" disabled={!ok} onClick={valider}>{enCours ? "Enregistrement…" : initial ? "Enregistrer les changements" : ponctuel ? "Ajouter à ma journée" : "Ajouter et bloquer le créneau"}</button>
         <button type="button" className="tb-bouton tb-clair" onClick={onFin}>Annuler</button>
       </div>
       {message && <p className="fm-erreur" role="alert">{message}</p>}

@@ -3,7 +3,7 @@ import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { lireCreneaux, lireVacancesAjoutees, appliquerVacancesAjoutees, lireCreneauxDates, appliquerCreneauxDates } from "./fermetures.js";
 import { TARIFS } from "./pricing/config.js";
-import { creneauxDeLaTournee, creneauxAEnregistrer, memesCreneaux, creneauxParDate } from "./pricing/tournee.js";
+import { ajoutsDesJours, creneauxDeLaTournee, creneauxAEnregistrer, memesCreneaux, creneauxParDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { useTournee, useDurees, useJoursTournee } from "./tourneeBase.js";
 import { useRepertoire } from "./repertoireBase.js";
@@ -44,7 +44,9 @@ export default function SyncTournee() {
   useEffect(() => onSnapshot(doc(db, "reglages", "creneaux"), (x) => { actuels.current = (x.exists() && lireCreneaux(x.data().json)) || []; }, () => {}), []);
 
   const tous = useMemo(() => [...trajetsDesChoix(repertoire.familles, lireChoix(base.donnees.choix)), ...base.donnees.trajets], [repertoire.familles, base.donnees.choix, base.donnees.trajets]);
-  const durees = useDurees(tous, base.donnees.domicile);
+  // + les ramassages ponctuels ajoutes depuis le Calendrier (13 nov. 2026) : leurs adresses ont besoin de temps de route
+  const avecAjouts = useMemo(() => [...tous, ...ajoutsDesJours(joursModifies)], [tous, joursModifies]);
+  const durees = useDurees(avecAjouts, base.donnees.domicile);
   // Tant que la tournee n'a jamais ete utilisee, on ne touche pas aux creneaux fixes d'avant
   const utilisee = base.pret && !base.refuse && (base.donnees.existe || tous.length > 0);
   const voulus = utilisee && (durees.statut === "ok" || tous.length === 0) ? creneauxDeLaTournee(tous, durees.duree, base.donnees.domicile, TARIFS, aujourdhui()) : null;

@@ -110,6 +110,22 @@ export function listeEnfants(familles) {
   return liste.sort((a, b) => a.prenom.localeCompare(b.prenom, "fr"));
 }
 
+// Ramassage ponctuel d'un enfant du Repertoire pour UNE date (13 nov. 2026) : heure et adresses tirees de sa fiche.
+// sens "recuperer" : heure de sortie de l'ecole ce jour-la, de l'ecole (ou la ou il m'attend) vers chez lui ;
+// sens "deposer" : heure d'arrivee a l'ecole ce jour-la, de chez lui vers l'ecole. Tout reste modifiable.
+export function preRemplirRamassage(familles, ref, date, sens = "recuperer") {
+  const f = (familles || []).find((x) => x.id === (ref && ref.famille));
+  const e = f && f.enfants.find((x) => x.id === ref.enfant);
+  if (!f || !e) return null;
+  const r = (e.rdv || []).find((x) => x.type === "ecole") || (e.rdv || [])[0] || null;
+  const w = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const prenom = String(e.prenom || "").trim() || "Enfant";
+  if (!r) return { heure: "", de: sens === "deposer" ? f.domicile : null, a: sens === "deposer" ? null : f.domicile, nom: prenom, famille: f.id };
+  if (sens === "deposer") return { heure: arriveeDuJour(r, w), de: f.domicile, a: r.lieu, nom: `${prenom} · ${nomRdv(r)} (aller)`, famille: f.id };
+  const ailleurs = r.priseAilleurs && r.joursAilleurs[w] !== false ? r.priseAilleurs : null;
+  return { heure: sortieDuJour(r, w), de: ailleurs || r.lieu, a: r.retour || f.domicile, nom: `${prenom} · ${nomRdv(r)} (retour)`, famille: f.id };
+}
+
 // Nouvel enfant saisi depuis le Calendrier : il rejoint la famille choisie (famille = id) ou une nouvelle famille.
 // n = { famille, parent, telephone, parent2, telephone2, prenom, age, ecole (adresse), entree, sortie, jours: [w...] }
 // Renvoie { familles, ref: { famille, enfant } } ; null si le prenom manque (ou le nom du parent pour une nouvelle famille)

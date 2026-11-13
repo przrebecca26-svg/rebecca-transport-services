@@ -779,16 +779,17 @@ export function lireJours(json) {
       .map((x) => ({ id: String(x.id || nouvelId()).slice(0, 40), titre: String(x.titre || "").slice(0, 80) || "Tâche", debut: x.debut, fin: x.fin, lieu: adresseLue(x.lieu), ...detailsTache(x) }));
     const faits = {};
     for (const [cle, h] of Object.entries(v.faits && typeof v.faits === "object" ? v.faits : {}).slice(0, 60)) if (HEURE_OK.test(h)) faits[String(cle).slice(0, 200)] = h;
-    if (retires.length || Object.keys(heures).length || taches.length || Object.keys(faits).length) sortie[date] = { retires, heures, taches, faits };
+    const ajouts = lireAjouts(v.ajouts);
+    if (retires.length || Object.keys(heures).length || taches.length || Object.keys(faits).length || ajouts.length) sortie[date] = { retires, heures, taches, faits, ajouts };
   }
   return sortie;
 }
 
-const jourVide = () => ({ retires: [], heures: {}, taches: [], faits: {} });
+const jourVide = () => ({ retires: [], heures: {}, taches: [], faits: {}, ajouts: [] });
 const propre = (jours, date, j) => {
   const suite = { ...jours };
   j = { ...jourVide(), ...j };
-  if (j.retires.length || Object.keys(j.heures).length || j.taches.length || Object.keys(j.faits).length) suite[date] = j;
+  if (j.retires.length || Object.keys(j.heures).length || j.taches.length || Object.keys(j.faits).length || j.ajouts.length) suite[date] = j;
   else delete suite[date];
   return suite;
 };
@@ -798,7 +799,7 @@ export function appliquerJour(trajets, date, jours = {}) {
   const j = (jours || {})[date];
   if (!j) return trajets;
   const w = jourDe(date);
-  return trajets
+  return [...trajets, ...(j.ajouts || []).filter((r) => !manqueTrajet(r))]
     .filter((r) => !j.retires.includes(r.id))
     .map((r) => {
       const h = j.heures[r.id];
@@ -825,7 +826,51 @@ export function changerHeureCeJour(jours, date, ids, heure) {
   return propre(jours, date, { ...j, heures });
 }
 // « Remettre la journee normale » : les trajets reviennent comme chaque semaine ; mes taches du jour restent
-export const journeeNormale = (jours, date) => propre(jours, date, { ...jourVide(), taches: ((jours || {})[date] || {}).taches || [], faits: ((jours || {})[date] || {}).faits || {} });
+export const journeeNormale = (jours, date) => {
+  const j = (jours || {})[date] || {};
+  return propre(jours, date, { ...jourVide(), taches: j.taches || [], faits: j.faits || {}, ajouts: j.ajouts || [] });
+};
+
+/* ---------- Ramassage ponctuel (13 nov. 2026, 08h30) ----------
+   Rebecca : « un ramassage scolaire, c'est pas un creneau, c'est une heure a laquelle je dois recuperer. Si l'enfant
+   est dans mon repertoire, ses adresses et son heure se mettent toutes seules ; sinon je marque ou je le prends et
+   ou je le depose. Et ca se met au bon endroit dans ma journee. »
+   -> un VRAI trajet de la tournee pour CE jour seulement (jours[date].ajouts) : calcule avec les temps de route,
+   place dans le fil, Waze, Modifier, ✓ Fait, creneau bloque sur le site comme les autres trajets.
+   sens : "recuperer" (sortie : heure de sortie) ou "deposer" (matin : arriver au plus tard a). */
+function lireAjouts(liste) {
+  const bruts = (Array.isArray(liste) ? liste : []).filter((r) => r && typeof r === "object").slice(0, 20);
+  return lireTrajets(bruts).map((r, i) => ({ ...r, id: /^p/.test(r.id) ? r.id : "p" + r.id, ...(bruts[i].famille ? { famille: String(bruts[i].famille).slice(0, 40) } : {}) }));
+}
+export function trajetPonctuel({ date, sens, heure, de, a, nom, famille = "" }) {
+  if (!DATE_OK.test(date || "") || !HEURE_OK.test(heure || "") || !adresseOk(de) || !adresseOk(a)) return null;
+  const w = jourDe(date);
+  const r = trajetVide({
+    id: "p" + nouvelId(),
+    nom: String(nom || "Enfant").slice(0, 60),
+    type: sens === "deposer" ? "matin" : "sortie",
+    de,
+    a,
+    jours: JOURS.map((_, i) => ({ actif: i === w, heure: i === w ? heure : "" })),
+    du: date,
+    au: date,
+    client: true,
+  });
+  return famille ? { ...r, famille: String(famille).slice(0, 40) } : r;
+}
+export const ajoutsDesJours = (jours) => Object.values(jours || {}).flatMap((j) => (j && j.ajouts) || []);
+export const estPonctuel = (id) => /^p/.test(String(id || ""));
+export function ajouterTrajetCeJour(jours, date, trajet) {
+  if (!trajet || manqueTrajet(trajet)) return jours;
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  return propre(jours, date, { ...j, ajouts: [...j.ajouts, trajet] });
+}
+export function retirerAjout(jours, date, ids) {
+  const j = { ...jourVide(), ...(jours[date] || {}) };
+  const heures = { ...j.heures };
+  for (const id of ids) delete heures[id];
+  return propre(jours, date, { ...j, ajouts: j.ajouts.filter((r) => !ids.includes(r.id)), heures });
+}
 
 /* ---------- « ✓ Fait » : valider une etape de ma journee (13 nov. 2026, 08h04) ----------
    Rebecca : « en plus de Waze et Modifier, valider la course que je coche ». Pour CE jour seulement :

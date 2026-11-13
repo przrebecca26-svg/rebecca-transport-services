@@ -64,7 +64,7 @@ function Rdv({ famille, r, changer, supprimer, connues }) {
   );
 }
 
-function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
+export function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
   const set = (cle, valeur) => changer({ ...f, [cle]: valeur });
   const setEnfant = (id, e) => set("enfants", f.enfants.map((x) => (x.id === id ? e : x)));
   const nb = f.enfants.length;

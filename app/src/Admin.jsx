@@ -274,7 +274,7 @@ export default function Admin() {
     if (onglet === "tableau") contenu = <TableauDeBord {...props} membre={membre} />;
     else if (onglet === "devis") contenu = <SimulateurDevis {...props} />;
     else if (onglet === "ramassage" && estAdmin) contenu = <RamassageScolaire {...props} />;
-    else if (onglet === "repertoire") contenu = <Repertoire />;
+    else if (onglet === "repertoire") contenu = <Repertoire aller={aller} />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
     else if (onglet === "commandes-epoxy" && estAdmin) contenu = <CommandesEpoxy onRetour={() => setOnglet("demandes")} />;
     else if (onglet === "transferts") contenu = <Transferts {...props} />;

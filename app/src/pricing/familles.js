@@ -44,7 +44,7 @@ export const rdvVide = (type = "ecole") => ({
 export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", rdv: [rdvVide("ecole")] });
 // nom2 / telephone2 : l'autre parent (facultatif)
 // forfaitJour : prix a la journee de cette famille (ex. Alexia 70 ₪), 0 = pas de forfait (13 nov. 2026)
-export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", forfaitJour: 0, enfants: [enfantFicheVide()] });
+export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", forfaitJour: 0, categorie: "clientes", membres: [], enfants: [enfantFicheVide()] });
 
 // Nettoie ce qui vient de la base
 export function lireFamilles(liste) {
@@ -66,6 +66,12 @@ export function lireFamilles(liste) {
       du: date(f.du),
       au: date(f.au),
       forfaitJour: lireForfait(f.forfaitJour),
+      // 13 nov. 2026 : categorie du Repertoire (moi, famille et amis, clientes) et autres membres (mari, mere, niece...)
+      categorie: ["moi", "proches", "clientes"].includes(f.categorie) ? f.categorie : /\bmoi\b/i.test(String(f.nom || "")) ? "moi" : "clientes",
+      membres: (Array.isArray(f.membres) ? f.membres : [])
+        .filter((m) => m && typeof m === "object" && String(m.nom || "").trim())
+        .slice(0, 20)
+        .map((m) => ({ id: String(m.id || nouvelIdFiche()).slice(0, 40), nom: String(m.nom).slice(0, 60), lien: String(m.lien || "").slice(0, 30), telephone: String(m.telephone || "").slice(0, 20), age: m.age === "enfant" ? "enfant" : "adulte" })),
       enfants: (Array.isArray(f.enfants) ? f.enfants : [])
         .filter((e) => e && typeof e === "object")
         .slice(0, 8)
@@ -326,6 +332,7 @@ export function fusionnerDeuxFamilles(x, y) {
     du: g.du || p.du,
     au: g.au || p.au,
     enfants: fusionnerEnfants([...g.enfants, ...p.enfants]),
+    membres: [...(g.membres || []), ...(p.membres || []).filter((m) => !(g.membres || []).some((n) => n.nom.toLowerCase() === m.nom.toLowerCase()))],
   };
 }
 

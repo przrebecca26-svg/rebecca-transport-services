@@ -9,6 +9,7 @@ import { ADMIN_ID, lignesDe, syntheseMembre } from "./pricing/equipe.js";
 import { argentDe, champOperateur, lignesAReverser, parVehicule, soldesDe, validerReversement } from "./pricing/reverser.js";
 import { libelleType, nomDe, vehiculesEffectifs } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
+import MonMoisVue from "./MonMoisVue.jsx";
 import EssenceVue, { enregistrerEssence, useEssence } from "./EssenceVue.jsx";
 import { kmWolt } from "./pricing/essence.js";
 import "./paiements.css";
@@ -33,6 +34,7 @@ const jourCourt = (d) => {
 };
 
 const VUES = [
+  { id: "monmois", label: "Mon mois", rebecca: true }, // 13 nov. 2026 : ce que je gagne vraiment par mois
   { id: "annee", label: "Année" },
   { id: "reverser", label: "À reverser", equipe: true },
   { id: "bilan", label: "Bilan", rebecca: true },
@@ -554,7 +556,7 @@ export default function Finances({ membre = null }) {
   const estRebecca = !membre;
   const moi = membre ? membre.id : ADMIN_ID;
   const enEquipe = (membres || []).length > 1;
-  const [vue, setVue] = useState("annee");
+  const [vue, setVue] = useState(estRebecca ? "monmois" : "annee");
   const [personne, setPersonne] = useState(moi); // Rebecca : son id, celui d'un membre ou "tous"
   const [reglages, setReglages] = useState({ plafondOsek: PLAFOND_DEFAUT, plafondVerifie: false });
   const { donnees, pret, lectureImpossible } = useDonnees(moi, estRebecca);
@@ -579,7 +581,7 @@ export default function Finances({ membre = null }) {
   const mesVehicules = useMemo(() => vehiculesEffectifs(vehicules).filter((v) => v.actif !== false && (v.proprietaire === moi || (v.partageAvec || []).includes(moi))), [vehicules, moi]);
   const vues = VUES.filter((v) => (!v.equipe || enEquipe) && (!v.rebecca || estRebecca));
   const choixPersonne = estRebecca && enEquipe && (vue === "annee" || vue === "bilan");
-  const besoinDonnees = vue === "annee" || vue === "wolt" || vue === "reverser" || vue === "essence";
+  const besoinDonnees = vue === "annee" || vue === "wolt" || vue === "reverser" || vue === "essence" || vue === "monmois";
 
   return (
     <>
@@ -606,6 +608,7 @@ export default function Finances({ membre = null }) {
       {vue === "annee" && pret && <Annee donnees={donnees} reglages={reglagesPersonne} personne={estRebecca && enEquipe ? personne : moi} membres={membres} vehicules={vehicules} enEquipe={enEquipe} />}
       {vue === "reverser" && pret && <AReverser donnees={donnees} moi={moi} membres={membres} />}
       {vue === "wolt" && pret && <AutresRevenus lignes={donnees.autresRevenus} moi={moi} />}
+      {vue === "monmois" && pret && estRebecca && <MonMoisVue donnees={donnees} />}
       {vue === "essence" && pret && estRebecca && <EssenceVue demandes={donnees.demandes} autresRevenus={donnees.autresRevenus} />}
     </>
   );

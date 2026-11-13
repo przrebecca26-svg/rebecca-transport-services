@@ -1,4 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "./firebase.js";
+import { refDemandes } from "./accesDemandes.js";
+import { construireFiches } from "./pricing/clients.js";
+import { CATEGORIES, entreesRepertoire, filtrerEntrees, libelleCategorie } from "./pricing/fichesRepertoire.js";
+import { familleVide } from "./pricing/familles.js";
+import { ADMIN_ID } from "./pricing/equipe.js";
+import { useEquipeContexte } from "./equipeContexte.jsx";
+import FicheRepertoire from "./FicheRepertoire.jsx";
 import Champ from "./components/Champ.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
 import Familles from "./Familles.jsx";
@@ -78,8 +87,42 @@ function RechercheGoogle() {
   );
 }
 
-export default function Repertoire() {
+// Fiches clientes du site (comme la rubrique Clients) + categories des clientes sans famille (document prive)
+const COLLECTIONS = ["clients", "demandes", "clientsAdmin", "autorisations", "recharges", "mouvements"];
+function useFichesClientes() {
+  const [donnees, setDonnees] = useState({});
+  const [categories, setCategories] = useState({});
+  useEffect(() => {
+    const arrets = COLLECTIONS.map((nom) =>
+      onSnapshot(nom === "demandes" ? refDemandes() : collection(db, nom), (s) => setDonnees((a) => ({ ...a, [nom]: s.docs.map((x) => ({ id: x.id, ...x.data() })) })), () => setDonnees((a) => ({ ...a, [nom]: [] })))
+    );
+    arrets.push(onSnapshot(doc(db, "admin", "categoriesClients"), (s) => {
+      try {
+        setCategories(s.exists() ? JSON.parse(s.data().json || "{}") || {} : {});
+      } catch {
+        setCategories({});
+      }
+    }, () => {}));
+    return () => arrets.forEach((a) => a());
+  }, []);
+  const pret = COLLECTIONS.every((n) => Array.isArray(donnees[n]));
+  const fiches = useMemo(() => {
+    if (!pret) return [];
+    const admins = Object.fromEntries(donnees.clientsAdmin.map((x) => [x.id, x]));
+    const transport = new Set(donnees.autorisations.filter((a) => a.activite === "transport" && a.actif === true).map((a) => a.uid || String(a.id).split("__")[0]));
+    return construireFiches({ clients: donnees.clients, demandes: donnees.demandes, admins, transport, recharges: donnees.recharges, mouvements: donnees.mouvements });
+  }, [pret, donnees]);
+  const changerCategorie = (cle, v) => setDoc(doc(db, "admin", "categoriesClients"), { json: JSON.stringify({ ...categories, [cle]: v }), majLe: serverTimestamp() });
+  return { pret, fiches, categories, changerCategorie, demandes: donnees.demandes || [], mouvements: donnees.mouvements || [] };
+}
+
+export default function Repertoire({ aller = null }) {
   const rep = useRepertoire();
+  const { moi } = useEquipeContexte();
+  const estAdmin = moi === ADMIN_ID;
+  const fc = useFichesClientes();
+  const [ficheOuverte, setFicheOuverte] = useState(null); // cle d'une entree, ou { nouvelle: famille }
+  const [categorie, setCategorie] = useState("tous");
   const [lieux, setLieux] = useState(null);
   const [corrections, setCorrections] = useState([]);
   const [familles, setFamilles] = useState([]);
@@ -98,6 +141,31 @@ export default function Repertoire() {
   }, [rep, modifie]);
 
   if (!lieux) return <p className="tdb-note tb-pad">Chargement du répertoire…</p>;
+
+  // 13 nov. 2026 : tout le monde dans un seul Repertoire (moi, famille et amis, clientes), chacun avec sa Fiche
+  const entrees = entreesRepertoire(rep.familles, fc.fiches, fc.categories);
+  const lieuxConnus0 = lieux.filter((x) => x.nom.trim() && cleAdresse(x.adresse)).map((x) => ({ id: x.id, nom: x.nom, adresse: x.adresse }));
+  if (ficheOuverte) {
+    const entree = ficheOuverte.nouvelle
+      ? { cle: "fam:" + ficheOuverte.nouvelle.id, type: "famille", nom: "Nouvelle fiche", telephone: "", categorie: ficheOuverte.nouvelle.categorie, famille: ficheOuverte.nouvelle, clients: [] }
+      : entrees.find((x) => x.cle === ficheOuverte);
+    if (entree) {
+      return (
+        <FicheRepertoire
+          key={entree.cle}
+          entree={entree}
+          demandes={fc.demandes}
+          mouvements={fc.mouvements}
+          estAdmin={estAdmin}
+          categorie={entree.categorie}
+          changerCategorie={(v) => fc.changerCategorie(entree.cle, v).catch(() => {})}
+          retour={() => setFicheOuverte(null)}
+          ouvrirFicheCliente={aller ? (cle) => aller("clients", cle) : null}
+          connues={lieuxConnus0}
+        />
+      );
+    }
+  }
 
   const changer = (suite) => {
     setLieux(suite);
@@ -137,7 +205,32 @@ export default function Repertoire() {
       </div>
       <input className="dr-tel rp-large" type="search" placeholder="Chercher un nom (Alexia, Carrefour, école…)" value={texte} onChange={(e) => setTexte(e.target.value)} />
 
-      <Familles familles={familles} connues={lieuxConnus} voit={voit} changer={(suite) => { setFamilles(suite); setModifie(true); setMessage(""); }} />
+      <div className="tb-filtres" role="tablist" aria-label="Catégories">
+        {[{ v: "tous", l: "Tous" }, ...CATEGORIES].map((c) => (
+          <button key={c.v} role="tab" aria-selected={categorie === c.v} className={"tb-filtre" + (categorie === c.v ? " actif" : "")} onClick={() => setCategorie(c.v)}>
+            {c.l} <span>{c.v === "tous" ? entrees.length : entrees.filter((x) => x.categorie === c.v).length}</span>
+          </button>
+        ))}
+      </div>
+      <section className="tdb-bloc">
+        {!fc.pret && <p className="tdb-note">Chargement des clientes du site…</p>}
+        {filtrerEntrees(entrees, categorie, texte).map((x) => (
+          <div key={x.cle} className="rp-forfait">
+            <span>
+              <strong>{x.nom}</strong>
+              <small> · {x.telephone || "pas de téléphone"} · {libelleCategorie(x.categorie)}</small>
+            </span>
+            <button type="button" className="tdb-bouton" onClick={() => setFicheOuverte(x.cle)}>Fiche</button>
+          </div>
+        ))}
+        <button type="button" className="dr-secondaire rp-large" onClick={() => setFicheOuverte({ nouvelle: { ...familleVide(), enfants: [], categorie: categorie === "tous" ? "clientes" : categorie } })}>+ Nouvelle fiche</button>
+      </section>
+      {(estAdmin || familles.length > 0) && (
+        <details className="tdb-bloc">
+          <summary>Toutes les familles et enfants (doublons, fusion)</summary>
+          <Familles familles={familles} connues={lieuxConnus} voit={voit} changer={(suite) => { setFamilles(suite); setModifie(true); setMessage(""); }} />
+        </details>
+      )}
 
       <section className="tdb-bloc">
         <h2>Mes lieux</h2>
@@ -160,7 +253,7 @@ export default function Repertoire() {
       <button type="button" className="dr-secondaire rp-large" onClick={() => { const nouveau = lieuVide(); setTexte(""); setLieuOuvert(nouveau.id); changer([...lieux, nouveau]); }}>+ Ajouter un lieu</button>
 
       <section className="tdb-bloc">
-        <h2>Mes clientes</h2>
+        <h2>Adresses de mes clientes</h2>
         <p className="tdb-note">Leurs adresses viennent de leurs comptes et se mettent à jour toutes seules.</p>
         {clientes.length === 0 && <p className="tdb-note">Aucune cliente avec une adresse enregistrée{q ? " pour cette recherche" : ""}.</p>}
         {clientes.map((c) => (

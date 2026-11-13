@@ -82,7 +82,7 @@ export default function ComptesEntreNous() {
 
 const LIGNE_VIDE = { type: "paye", montant: "", libelle: "", moyen: TARIFS.moyensPaiement[0], date: "" };
 
-function Compte({ c, comptes, demandes, mouvements, sauver, familles, retour, message }) {
+export function Compte({ c, comptes, demandes, mouvements, sauver, familles, retour, message }) {
   const [l, setL] = useState(null);
   const [fiche, setFiche] = useState(null);
   const [erreur, setErreur] = useState("");
@@ -113,7 +113,7 @@ function Compte({ c, comptes, demandes, mouvements, sauver, familles, retour, me
 
   return (
     <section className="tb-pad">
-      <button type="button" className="tdb-retour" onClick={retour}>← Tous les comptes</button>
+      {retour && <button type="button" className="tdb-retour" onClick={retour}>← Tous les comptes</button>}
       <h3>{c.nom}{c.telephone ? ` · ${c.telephone}` : ""}</h3>
       <p className={s > 0 ? "fm-erreur" : "tdb-note"} style={{ fontSize: 18, fontWeight: 700 }}>{phraseSolde(c.nom, s)}</p>
 

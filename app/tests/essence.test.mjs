@@ -39,3 +39,19 @@ test("70 ₪ faits non payés : reste à encaisser, pas encaissé ; troc à part
   const r = encaisseAnnee({ annee: 2026, demandes, mouvements, depenses: [{ date: "2026-11-01", montant: 20 }], autresRevenus: [{ debut: "2026-11-02", revenu: 300 }] });
   egal([r.totaux.encaisse, r.totaux.troc, r.totaux.reste, r.totaux.total, r.totaux.beneficeEncaisse], [100, 50, 70, 220, 380]);
 });
+
+import { monMois } from "../src/pricing/monMois.js";
+section("Mon mois : ce que je gagne vraiment");
+test("encaissé par activité + Wolt − essence de travail − dépenses", () => {
+  const demandes = [
+    { id: "r", service: "ramassage", statut: "terminee", date: "2026-11-13", prixFinal: 70 },
+    { id: "l", service: "livraison", statut: "terminee", date: "2026-11-10", prixFinal: 60, kmEstime: 10 },
+    { id: "n", service: "nails", statut: "terminee", date: "2026-11-11", prixFinal: 100 },
+  ];
+  const mouvements = [{ kind: "paiement", resId: "r", date: "2026-11-13", montant: 70 }, { kind: "paiement", resId: "l", date: "2026-11-10", montant: 60 }];
+  const essence = { pleins: [{ id: "p", date: "2026-11-02", montant: 500, litres: 0, compteur: 0 }], woltKm: {}, tourneeKmJour: 0 };
+  const r = monMois("2026-11", { demandes, mouvements, depenses: [{ date: "2026-11-05", categorie: "Péages", montant: 20 }], autresRevenus: [{ id: "w", debut: "2026-11-03", revenu: 400 }], essence });
+  egal([r.gagne.ramassage, r.gagne.coursier, r.gagne.beaute, r.wolt, r.totalGagne, r.resteAEncaisser], [70, 60, 0, 400, 530, 100]);
+  vrai(r.essenceTravail > 0 && r.essenceTravail < 500);
+  egal(r.beneficeReel, Math.round((530 - 20 - r.essenceTravail) * 100) / 100);
+});

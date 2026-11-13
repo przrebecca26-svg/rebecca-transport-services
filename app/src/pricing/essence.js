@@ -9,6 +9,8 @@
 
 import { TARIFS, carburantParKm } from "./config.js";
 import { vacancesDuJour } from "./calendrier.js";
+import { cleLieu, kmDuJour } from "./tournee.js";
+import { extremites } from "./enchainement.js";
 
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 const cents = (x) => Math.round(x * 100) / 100;
@@ -56,14 +58,16 @@ export function kmCompteur(pleins, mois) {
 }
 
 // demandes : courses terminees de Rebecca ; wolt : lignes Wolt de Rebecca { id, debut, livraisons, revenu }
-export function essenceDuMois(mois, essence, demandes = [], wolt = [], t = TARIFS) {
+// reel (13 nov. 2026, 09h36) : km calcules sur les vraies adresses { kmTournee, kmCourses } (voir kmDuMoisReel) ;
+// absent = estimation (km des courses x 2 et km de tournee par jour notes par Rebecca)
+export function essenceDuMois(mois, essence, demandes = [], wolt = [], t = TARIFS, reel = null) {
   const pleins = essence.pleins.filter((p) => moisDe(p.date) === mois);
   const total = cents(pleins.reduce((s, p) => s + p.montant, 0));
   const litres = cents(pleins.reduce((s, p) => s + (p.litres || 0), 0));
   const courses = demandes.filter((d) => d.statut === "terminee" && moisDe(d.date) === mois && (!d.realisePar || d.realisePar === "rebecca"));
-  const kmCourses = cents(courses.reduce((s, d) => s + 2 * (Number(d.kmEstime) || 0), 0)); // aller + retour
+  const kmCourses = reel ? cents(reel.kmCourses) : cents(courses.reduce((s, d) => s + 2 * (Number(d.kmEstime) || 0), 0)); // aller + retour
   const jours = joursEcole(mois, t);
-  const kmTournee = cents(essence.tourneeKmJour * jours);
+  const kmTournee = reel ? cents(reel.kmTournee) : cents(essence.tourneeKmJour * jours);
   const lignesWolt = wolt.filter((l) => moisDe(l.debut) === mois);
   const kmWolt = cents(lignesWolt.reduce((s, l) => s + (essence.woltKm[l.id] || 0), 0));
   const livraisonsWolt = lignesWolt.reduce((s, l) => s + (Number(l.livraisons) || 0), 0);
@@ -107,6 +111,7 @@ export function essenceDuMois(mois, essence, demandes = [], wolt = [], t = TARIF
     essencePerso: total > 0 ? cents(Math.max(0, total - rs - w)) : 0,
     kmPerso: kmTotal > 0 ? cents(Math.max(0, kmTotal - kmRS - kmWolt)) : null,
     gainWoltNet: cents(gainsWolt - w),
+    kmCalcules: !!reel,
   };
 }
 
@@ -118,3 +123,28 @@ export const kmWolt = (e, id, km) => {
   else delete woltKm[id];
   return { ...e, woltKm };
 };
+
+/* ---------- Km reels du mois (13 nov. 2026, 09h36) ----------
+   Tournee : chaque jour passe du mois, les vrais arrets de la journee (depart et retour a la maison compris).
+   Courses : maison -> recuperation -> livraison -> maison, pour chaque course terminee de Rebecca.
+   km(cleA, cleB) = distance routiere ; journee(date) = journee calculee de la tournee (ou null). */
+export function kmDuMoisReel({ mois, jusqua, journee, domicile, courses = [], km }) {
+  let kmTournee = 0;
+  for (let j = 1; j <= 31; j++) {
+    const date = `${mois}-${String(j).padStart(2, "0")}`;
+    if (date > jusqua || Number.isNaN(new Date(`${date}T12:00:00Z`).getTime()) || new Date(`${date}T12:00:00Z`).toISOString().slice(0, 7) !== mois) continue;
+    kmTournee += kmDuJour(journee(date), domicile, km);
+  }
+  const d0 = cleLieu(domicile);
+  let kmCourses = 0;
+  for (const d of courses) {
+    if (d.statut !== "terminee" || String(d.date).slice(0, 7) !== mois || (d.realisePar && d.realisePar !== "rebecca")) continue;
+    if (d.service === "ramassage" && d.details && d.details.forfait) continue; // deja dans la tournee
+    const e = extremites(d);
+    const a = cleLieu(e.debut);
+    const b = cleLieu(e.fin);
+    const trajet = Number(d.kmEstime) || (a && b ? km(a, b) || 0 : 0);
+    kmCourses += trajet + (d0 && a ? km(d0, a) || 0 : 0) + (d0 && b ? km(b, d0) || 0 : 0);
+  }
+  return { kmTournee: cents(kmTournee), kmCourses: cents(kmCourses) };
+}

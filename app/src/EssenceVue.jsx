@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { ajouterPlein, essenceDuMois, lireEssence, retirerPlein } from "./pricing/essence.js";
+import { useKmReel } from "./kmReel.js";
+import { TARIFS } from "./pricing/config.js";
 
 // MON ESSENCE (13 nov. 2026) - Finances -> Essence (Rebecca seule). Document prive admin/essence.
 // Tous les pleins, et chaque mois : travail Rebecca Services, travail Wolt, perso.
@@ -27,11 +29,11 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
   const e = useEssence();
   const [mois, setMois] = useState(aujourdhui().slice(0, 7));
   const [form, setForm] = useState(null);
-  const [tournee, setTournee] = useState(null);
   const [erreur, setErreur] = useState("");
+  const reel = useKmReel(mois, demandes);
   if (!e) return <p className="admin-texte tb-pad">Chargement…</p>;
   const wolt = autresRevenus.filter((l) => !l.operateur && /wolt/i.test(l.source || "Wolt"));
-  const s = essenceDuMois(mois, e, demandes, wolt);
+  const s = essenceDuMois(mois, e, demandes, wolt, TARIFS, reel);
   const sauver = async (suite) => {
     setErreur("");
     try {
@@ -55,7 +57,7 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
         </div>
         <p className="bl-gros"><span>Essence payée</span><strong>{shekels(s.total)}</strong></p>
         <p className="tb-note">{s.nbPleins} plein{s.nbPleins > 1 ? "s" : ""}{s.litres ? ` · ${s.litres} L` : ""}{s.kmTotal ? ` · ${km(s.kmTotal)} roulés (compteur)` : ""}</p>
-        <p>🚗 <strong>Rebecca Services</strong> : {shekels(s.essenceRS)}{pct(s.essenceRS)} · {km(s.kmRS)} <small>(courses {km(s.kmCourses)} + tournée {km(s.kmTournee)} sur {s.joursEcole} jours d'école)</small></p>
+        <p>🚗 <strong>Rebecca Services</strong> : {shekels(s.essenceRS)}{pct(s.essenceRS)} · {km(s.kmRS)} <small>(courses {km(s.kmCourses)} + tournée {km(s.kmTournee)}{s.kmCalcules ? ", calculés sur tes vraies adresses" : ", calcul en cours…"})</small></p>
         <p>🛵 <strong>Wolt</strong> : {shekels(s.essenceWolt)}{pct(s.essenceWolt)} · {km(s.kmWolt)} · {s.livraisonsWolt} livraisons · gagné {shekels(s.gainsWolt)} → <strong>{shekels(s.gainWoltNet)}</strong> après essence</p>
         <p>🏠 <strong>Perso</strong> : {shekels(s.essencePerso)}{pct(s.essencePerso)}{s.kmPerso != null ? ` · ${km(s.kmPerso)}` : ""}</p>
         <p className="tb-note">Ces pleins ne sont pas comptés dans tes dépenses : ils ne changent pas ton bénéfice. {s.kmTotal ? "La part de chacun suit les km roulés." : "Note le compteur à chaque plein pour une répartition au km près ; sinon c'est km × consommation de ta voiture."} La part déductible aux impôts, c'est le comptable qui la fixe.</p>
@@ -87,18 +89,6 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
         ))}
       </div>
 
-      <div className="tb-bloc">
-        <h4>Ma tournée scolaire</h4>
-        <p className="tb-note">Km de ta tournée par jour d'école (matin + après-midi). Actuellement : {e.tourneeKmJour ? km(e.tourneeKmJour) : "pas encore renseigné"}.</p>
-        {tournee === null ? (
-          <button type="button" className="tb-bouton tb-clair" onClick={() => setTournee(String(e.tourneeKmJour || ""))}>Modifier</button>
-        ) : (
-          <div className="tb-actions">
-            <input inputMode="decimal" value={tournee} onChange={(x) => setTournee(x.target.value.replace(/[^0-9.,]/g, ""))} aria-label="Km par jour" />
-            <button type="button" className="tb-bouton" onClick={async () => (await sauver({ ...e, tourneeKmJour: Number(String(tournee).replace(",", ".")) || 0 })) && setTournee(null)}>Enregistrer</button>
-          </div>
-        )}
-      </div>
       {erreur && <p className="fm-erreur tb-pad" role="alert">{erreur}</p>}
     </section>
   );

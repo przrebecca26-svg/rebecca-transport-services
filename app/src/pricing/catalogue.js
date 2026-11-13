@@ -138,7 +138,7 @@ export const CATALOGUE_DEPART = [
   p("hair", "Soirée", "Coiffure soirée", 450, 60),
   p("hair", "Soirée", "Chignon soirée élaboré", 550, 90),
   p("hair", "Mariée", "Coiffure mariée, jour J", 1200, 150, { acomptePourcent: 40 }),
-  p("hair", "Mariée", "Essai coiffure mariée (facultatif)", 500, 60),
+  p("hair", "Mariée", "Essai coiffure mariée (facultatif)", 500, 60, { acomptePourcent: 40 }), // 13 nov. 2026 : 40 % comme le jour J
   // Prestige Slim & Lift (aucun code promo sur une cure ; cures payables en 4 fois maximum)
   p("slim", "Bilan", "Bilan personnalisé (facultatif)", 150, 60),
   p("slim", "Radiofréquence", "Radiofréquence visage ou cou", 250, 45),

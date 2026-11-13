@@ -18,6 +18,7 @@ import { soldeCredit } from "./pricing/credit.js";
 import { MOYEN_CREDIT, champOperateur, faitPar, recuPar } from "./pricing/reverser.js";
 import { nomDe } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
+import { reglesAcompte } from "./pricing/acomptes.js";
 import "./paiements.css";
 
 // Paiements, annulations et remboursements d'une course (espace prive de Rebecca).
@@ -117,8 +118,20 @@ export default function PaiementsCourse({ d }) {
         .sort((a, b) => String(a.date).localeCompare(String(b.date))),
     [mouvements]
   );
+  // 13 nov. 2026 : l'acompte suit la prestation et l'activite (mariee 40 %, diagnostic RegenX 30 ₪...), plus toujours 20 %
+  const [regl, setRegl] = useState({ activites: [], catalogue: [] });
+  useEffect(() => {
+    const a = onSnapshot(collection(db, "activites"), (s) => setRegl((x) => ({ ...x, activites: s.docs.map((y) => ({ id: y.id, ...y.data() })) })), () => {});
+    const c = onSnapshot(collection(db, "catalogue"), (s) => setRegl((x) => ({ ...x, catalogue: s.docs.map((y) => ({ id: y.id, ...y.data() })) })), () => {});
+    return () => {
+      a();
+      c();
+    };
+  }, []);
+  const acompteRegles = reglesAcompte(d, regl);
+  const reglages = { ...REGLAGES_PAR_DEFAUT, acomptePourcent: acompteRegles.acomptePourcent, acompteMinimum: acompteRegles.acompteMinimum };
   const res = { id: d.id, date: d.date, prixConvenu: prix, statut: d.statut };
-  const sit = useMemo(() => situationCourse(res, mouvements || []), [d.id, d.date, d.statut, prix, mouvements]);
+  const sit = useMemo(() => situationCourse(res, mouvements || [], reglages), [d.id, d.date, d.statut, prix, mouvements, acompteRegles.libelle]);
   const annulation = useMemo(() => annulationDe(mouvements || [], d.id), [mouvements, d.id]);
   const remb = useMemo(() => etatRemboursement(annulation, mouvements || []), [annulation, mouvements]);
   const calcul = useMemo(
@@ -313,7 +326,7 @@ export default function PaiementsCourse({ d }) {
           </li>
           {d.statut === "acceptee" && sit.acompte != null && (
             <li>
-              <span>Acompte ({REGLAGES_PAR_DEFAUT.acomptePourcent} %)</span>
+              <span>Acompte ({acompteRegles.libelle})</span>
               <strong>
                 {euros(sit.acompte)} {sit.acompteRecu ? "✓ reçu" : "à recevoir"}
               </strong>

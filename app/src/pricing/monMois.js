@@ -26,7 +26,7 @@ export function groupeDe(service) {
   return "autre";
 }
 
-export function monMois(mois, { demandes = [], mouvements = [], depenses = [], autresRevenus = [], essence = null }) {
+export function monMois(mois, { demandes = [], mouvements = [], depenses = [], autresRevenus = [], essence = null, reel = null }) {
   const parId = new Map(demandes.map((d) => [d.id, d]));
   const gagne = Object.fromEntries(GROUPES.map((g) => [g.id, 0]));
   let troc = 0;
@@ -47,7 +47,7 @@ export function monMois(mois, { demandes = [], mouvements = [], depenses = [], a
   const parCat = {};
   for (const x of dep) parCat[x.categorie || "Autres frais"] = cents((parCat[x.categorie || "Autres frais"] || 0) + nb(x.montant));
   const totalDep = dep.reduce((s, x) => s + nb(x.montant), 0);
-  const ess = essence ? essenceDuMois(mois, essence, demandes, autresRevenus.filter((r) => !r.operateur)) : null;
+  const ess = essence ? essenceDuMois(mois, essence, demandes, autresRevenus.filter((r) => !r.operateur), undefined, reel) : null;
   const essenceTravail = ess ? ess.essenceRS + ess.essenceWolt : 0;
   const totalGagne = Object.values(gagne).reduce((s, v) => s + v, 0) + wolt;
   for (const k of Object.keys(gagne)) gagne[k] = cents(gagne[k]);

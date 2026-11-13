@@ -58,3 +58,13 @@ test("enfant sans planning : relu sans école ni trajet", () => {
   const f = lireFamilles([{ id: "f", nom: "A", enfants: [{ ...enfantSansPlanning(), prenom: "Noa", ageAnnees: 4, ageNote: 2026 }] }]);
   egal([f[0].enfants[0].rdv.length, f[0].enfants[0].ageAnnees], [0, 4]);
 });
+
+import { reglesAcompte } from "../src/pricing/acomptes.js";
+section("Acompte de chaque demande");
+test("mariée jour J et essai : 40 % ; diagnostic RegenX : 30 ₪ ; Nails : 20 % ; activité réglée à 30 %", () => {
+  egal(reglesAcompte({ service: "hair", details: { prestation: "Coiffure mariée, jour J" } }).acomptePourcent, 40);
+  egal(reglesAcompte({ service: "hair", details: { prestation: "Essai coiffure mariée (facultatif)" } }).acomptePourcent, 40);
+  egal(reglesAcompte({ service: "regenx", details: { prestation: "Diagnostic (obligatoire)" } }).libelle, "30 ₪");
+  egal(reglesAcompte({ service: "nails", details: { prestation: "Semi-permanent (VSP)" } }).acomptePourcent, 20);
+  egal(reglesAcompte({ service: "livraison" }, { activites: [{ id: "coursier", acomptePourcent: 30, acompteMin: 10 }] }).acomptePourcent, 30);
+});

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { GROUPES, monMois } from "./pricing/monMois.js";
 import { useEssence } from "./EssenceVue.jsx";
+import { useKmReel } from "./kmReel.js";
 
 // MON MOIS (13 nov. 2026) - Finances, premier onglet : ce que je gagne vraiment, mois par mois, en un coup d'oeil.
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
@@ -24,7 +25,8 @@ function Ligne({ nom, valeur, fort, neg }) {
 export default function MonMoisVue({ donnees, aller }) {
   const essence = useEssence();
   const [mois, setMois] = useState(aujourdhui().slice(0, 7));
-  const r = monMois(mois, { ...donnees, essence });
+  const reel = useKmReel(mois, donnees.demandes);
+  const r = monMois(mois, { ...donnees, essence, reel });
   const e = r.essence;
   return (
     <section className="tb-liste fi">
@@ -56,7 +58,7 @@ export default function MonMoisVue({ donnees, aller }) {
         <h3>Mes dépenses · {shekels(r.essenceTravail + r.totalDepenses)}</h3>
         <ul className="pm-resume">
           <Ligne nom="Essence de travail" valeur={"- " + shekels(r.essenceTravail)} />
-          {e && e.total > 0 && <li className="bl-sous"><span>Rebecca Services {shekels(e.essenceRS)} · Wolt {shekels(e.essenceWolt)}</span><strong /></li>}
+          {e && e.total > 0 && <li className="bl-sous"><span>Rebecca Services {shekels(e.essenceRS)} ({Math.round(e.kmRS)} km) · Wolt {shekels(e.essenceWolt)} ({Math.round(e.kmWolt)} km)</span><strong /></li>}
           {Object.entries(r.depenses).map(([c, v]) => <Ligne key={c} nom={c} valeur={"- " + shekels(v)} />)}
         </ul>
         {e && e.total > 0 ? (

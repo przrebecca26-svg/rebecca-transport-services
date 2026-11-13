@@ -55,3 +55,24 @@ test("encaissé par activité + Wolt − essence de travail − dépenses", () =
   vrai(r.essenceTravail > 0 && r.essenceTravail < 500);
   egal(r.beneficeReel, Math.round((530 - 20 - r.essenceTravail) * 100) / 100);
 });
+
+import { kmDuMoisReel } from "../src/pricing/essence.js";
+import * as To from "../src/pricing/tournee.js";
+section("Km calculés sur les vraies adresses");
+const L = (label, n) => ({ label, lat: 32.3 + n / 100, lon: 34.85 });
+const MAISON = L("Maison", 0), ECOLE = L("École", 1), GAN = L("Gan", 2), CLIENT = L("Client", 3);
+const kmFn = (a, b) => Math.abs(Number(a.split(",")[0]) - Number(b.split(",")[0])) * 100; // 1 km par centième
+test("journée : maison -> école -> gan -> maison", () => {
+  const jour = { arrets: [{ maison: "depart" }, { trajet: {}, lieu: ECOLE }, { pause: true }, { trajet: {}, lieu: GAN }, { maison: "retour" }] };
+  egal(Math.round(To.kmDuJour(jour, MAISON, kmFn)), 4);
+});
+test("mois : tournée des jours passés + courses maison -> récupération -> livraison -> maison", () => {
+  const jour = { arrets: [{ maison: "depart" }, { trajet: {}, lieu: ECOLE }, { maison: "retour" }] };
+  const courses = [
+    { statut: "terminee", date: "2026-11-05", service: "livraison", details: { recuperation: ECOLE, livraison: CLIENT }, kmEstime: 2 },
+    { statut: "terminee", date: "2026-11-05", service: "ramassage", details: { forfait: "Forfait à la journée" } },
+  ];
+  const r = kmDuMoisReel({ mois: "2026-11", jusqua: "2026-11-03", journee: (d) => (d <= "2026-11-03" ? jour : null), domicile: MAISON, courses, km: kmFn });
+  egal(Math.round(r.kmTournee), 6); // 3 jours x 2 km
+  egal(Math.round(r.kmCourses), 6); // 1 (maison->école) + 2 (course) + 3 (client->maison)
+});

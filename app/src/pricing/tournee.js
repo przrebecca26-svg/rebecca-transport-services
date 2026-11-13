@@ -937,3 +937,20 @@ export function retirerTache(jours, date, id) {
 export const tachesDuJour = (jours, date) => ((jours || {})[date] || {}).taches || [];
 // Garde seulement les dates a partir d'hier (le document ne grossit pas)
 export const joursAVenir = (jours, depuis) => Object.fromEntries(Object.entries(jours).filter(([d]) => d >= depuis));
+
+/* ---------- Km de ma journee (13 nov. 2026, 09h36) ----------
+   Rebecca : « je ne peux pas calculer les km ; tu sais ou je recupere, ou je depose, et que je pars de la maison :
+   ca devrait calculer les km parcourus et les mettre dans les statistiques ». Km = somme des trajets entre les
+   arrets de la journee, maison comprise (depart et retour). km(cleA, cleB) = distance routiere, null si inconnue. */
+export function kmDuJour(jour, domicile, km) {
+  if (!jour || !Array.isArray(jour.arrets)) return 0;
+  let prev = null;
+  let total = 0;
+  for (const x of jour.arrets) {
+    const pos = x.maison ? domicile : x.trajet ? x.lieu : null;
+    if (!adresseOk(pos)) continue;
+    if (prev && cleLieu(prev) !== cleLieu(pos)) total += km(cleLieu(prev), cleLieu(pos)) || 0;
+    prev = pos;
+  }
+  return Math.round(total * 10) / 10;
+}

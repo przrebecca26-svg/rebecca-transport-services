@@ -220,3 +220,15 @@ export async function calculerDurees(points, signal) {
   if (!data.durations) throw new Error("Aucun itinéraire trouvé");
   return data.durations.map((ligne) => ligne.map((s) => (typeof s === "number" ? Math.max(1, Math.round((s / 60) * 1.15)) : null)));
 }
+
+// Distances routieres (km) entre plusieurs points, en UN seul appel : matrice[i][j] = de i vers j (13 nov. 2026)
+export async function calculerKm(points, signal) {
+  if (!points || points.length < 2) return [[0]];
+  const url = `https://router.project-osrm.org/table/v1/driving/${points.map((p) => `${p.lon},${p.lat}`).join(";")}?annotations=distance`;
+  const rep = await fetch(url, { signal });
+  if (!rep.ok) throw new Error("Calcul d'itinéraire indisponible");
+  const data = await rep.json();
+  if (!data.distances) throw new Error("Aucun itinéraire trouvé");
+  return data.distances.map((ligne) => ligne.map((m) => (typeof m === "number" ? Math.round(m / 100) / 10 : null)));
+}
+

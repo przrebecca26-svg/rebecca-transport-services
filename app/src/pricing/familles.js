@@ -58,7 +58,7 @@ export const texteAge = (e) => {
 export const enfantSansPlanning = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", naissance: "", ageAnnees: 0, ageNote: 0, rdv: [] });
 
 // age : "enfant" (mineur) ou "adulte" (18 ans et plus) - 12 nov. 2026, 22h52 : une case sur chaque fiche
-export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", rdv: [rdvVide("ecole")] });
+export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", naissance: "", ageAnnees: 0, ageNote: 0, rdv: [rdvVide("ecole")] });
 // nom2 / telephone2 : l'autre parent (facultatif)
 // forfaitJour : prix a la journee de cette famille (ex. Alexia 70 ₪), 0 = pas de forfait (13 nov. 2026)
 export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", forfaitJour: 0, categorie: "clientes", membres: [], enfants: [enfantFicheVide()] });

@@ -19,7 +19,7 @@ const jours = (actifs, plus = {}) => To.JOURS.map((_, w) => ({ actif: actifs.inc
 
 const MOI = {
   ...F.familleVide(), id: "moi", nom: "Moi", domicile: MAISON, adresses: [{ nom: "Travail", adresse: TRAVAIL }],
-  enfants: [{ id: "e1", prenom: "Dana", age: "enfant", rdv: [
+  enfants: [{ id: "e1", prenom: "Dana", age: "enfant", naissance: "", ageAnnees: 0, ageNote: 0, rdv: [
     { ...F.rdvVide("ecole"), id: "r1", lieu: ECOLE, heureArrivee: "08:00", heureSortie: "13:30", jours: jours([0, 1, 2, 3, 4], { 4: { sortie: "12:00" } }), priseAilleurs: AMIE, attend: true },
     { ...F.rdvVide("activite"), id: "r2", nom: "Basket", lieu: GYMNASE, heureArrivee: "18:00", heureSortie: "19:30", jours: jours([1, 3]) },
   ] }],

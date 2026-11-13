@@ -177,3 +177,36 @@ export function validerAutreRevenu(f) {
   if (detail) ligne.detail = detail;
   return { erreur: "", ligne };
 }
+
+/* ---------- Encaisse / reste a encaisser (13 nov. 2026, 09h07) ----------
+   Rebecca : « Finances, normalement c'est ce que j'ai encaisse ; ce qui n'est pas encore encaisse ne doit pas y
+   apparaitre comme gagne. Mets deux cas, encaisse et reste a encaisser, et un total apres. »
+   - Encaisse = argent recu pour les courses, au mois ou il a ete recu (paiements + corrections - remboursements) ;
+   - Regle en troc = deductions « Deduit : ... » (Comptes entre nous : ses ongles...), pas de l'argent ;
+   - Reste a encaisser = ce qui reste du sur les courses terminees de l'annee ;
+   - Benefice encaisse = encaisse + Wolt - depenses. (Le chiffre d'affaires facture reste affiche a part.) */
+export function encaisseAnnee({ annee, demandes = [], mouvements = [], depenses = [], autresRevenus = [] }) {
+  const mois = Array.from({ length: 12 }, () => ({ encaisse: 0, troc: 0, reste: 0, wolt: 0, depenses: 0, beneficeEncaisse: 0 }));
+  const courses = new Set(demandes.map((d) => d.id));
+  const troc = (m) => m.kind === "correction" && /^Déduit/.test(String(m.motif || ""));
+  const recuPar = {};
+  for (const m of mouvements) {
+    if (!courses.has(m.resId)) continue;
+    const v = m.kind === "paiement" || m.kind === "correction" ? nb(m.montant) : m.kind === "remboursement_effectue" ? -nb(m.montant) : 0;
+    if (m.kind === "paiement" || m.kind === "correction") recuPar[m.resId] = (recuPar[m.resId] || 0) + nb(m.montant);
+    if (!v || anneeDe(m.date) !== annee) continue;
+    mois[moisDe(m.date)][troc(m) ? "troc" : "encaisse"] += v;
+  }
+  for (const d of demandes) {
+    if (d.statut !== "terminee" || anneeDe(d.date) !== annee) continue;
+    mois[moisDe(d.date)].reste += Math.max(0, prixDe(d) - (recuPar[d.id] || 0));
+  }
+  for (const x of depenses) if (anneeDe(x.date) === annee) mois[moisDe(x.date)].depenses += nb(x.montant);
+  for (const r of autresRevenus) if (anneeDe(r.debut) === annee) mois[moisDe(r.debut)].wolt += nb(r.revenu);
+  for (const m of mois) {
+    m.beneficeEncaisse = m.encaisse + m.wolt - m.depenses;
+    for (const k of Object.keys(m)) m[k] = cents(m[k]);
+  }
+  const t = (k) => cents(mois.reduce((s, m) => s + m[k], 0));
+  return { mois, totaux: { encaisse: t("encaisse"), troc: t("troc"), reste: t("reste"), total: cents(t("encaisse") + t("troc") + t("reste")), wolt: t("wolt"), depenses: t("depenses"), beneficeEncaisse: t("beneficeEncaisse") } };
+}

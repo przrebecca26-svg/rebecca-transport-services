@@ -30,3 +30,12 @@ test("tournée : km par jour x jours d'école", () => {
   vrai(s.joursEcole > 10 && s.joursEcole <= 23);
 });
 test("relecture : plein sans montant ignoré", () => egal(E.lireEssence(JSON.stringify({ pleins: [{ date: "2026-11-01", montant: 0 }] })).pleins.length, 0));
+
+import { encaisseAnnee } from "../src/pricing/financesAnnee.js";
+section("Finances : encaissé, reste à encaisser, total");
+test("70 ₪ faits non payés : reste à encaisser, pas encaissé ; troc à part", () => {
+  const demandes = [{ id: "a", statut: "terminee", date: "2026-11-13", prixFinal: 70 }, { id: "b", statut: "terminee", date: "2026-11-12", prixFinal: 100 }, { id: "c", statut: "terminee", date: "2026-11-11", prixFinal: 50 }];
+  const mouvements = [{ kind: "paiement", resId: "b", date: "2026-11-12", montant: 100 }, { kind: "correction", resId: "c", date: "2026-11-11", montant: 50, motif: "Déduit : Mes ongles" }];
+  const r = encaisseAnnee({ annee: 2026, demandes, mouvements, depenses: [{ date: "2026-11-01", montant: 20 }], autresRevenus: [{ debut: "2026-11-02", revenu: 300 }] });
+  egal([r.totaux.encaisse, r.totaux.troc, r.totaux.reste, r.totaux.total, r.totaux.beneficeEncaisse], [100, 50, 70, 220, 380]);
+});

@@ -4,7 +4,7 @@ import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Bilan from "./Bilan.jsx";
 import Depenses from "./Depenses.jsx";
-import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu } from "./pricing/financesAnnee.js";
+import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu } from "./pricing/financesAnnee.js";
 import { ADMIN_ID, lignesDe, syntheseMembre } from "./pricing/equipe.js";
 import { argentDe, champOperateur, lignesAReverser, parVehicule, soldesDe, validerReversement } from "./pricing/reverser.js";
 import { libelleType, nomDe, vehiculesEffectifs } from "./pricing/quiFait.js";
@@ -93,7 +93,10 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
   const argent = useMemo(() => (global || !enEquipe ? null : argentDe(personne, donnees)), [donnees, personne, enEquipe]);
   const nom = global ? "toute l'équipe" : nomDe(membres, personne);
   const t = s.totaux;
-  const moisAffiches = s.mois.map((m, i) => ({ ...m, i })).filter((m) => m.ca || m.wolt || m.depenses);
+  // 13 nov. 2026 : ce qui est vraiment encaisse, ce qui reste a encaisser, et le total
+  const c = useMemo(() => encaisseAnnee({ annee, demandes: courses, mouvements: donnees.mouvements, depenses: global || !enEquipe ? donnees.depenses : lignesDe(donnees.depenses, personne), autresRevenus: global || !enEquipe ? donnees.autresRevenus : lignesDe(donnees.autresRevenus, personne) }), [annee, courses, donnees, personne, global, enEquipe]);
+  const ct = c.totaux;
+  const moisAffiches = s.mois.map((m, i) => ({ ...m, i })).filter((m) => m.ca || m.wolt || m.depenses || c.mois[m.i].encaisse || c.mois[m.i].reste);
 
   return (
     <section className="tb-liste fi">
@@ -134,17 +137,28 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
       <div className="tb-bloc">
         <h3>Résultat {annee}</h3>
         <p className="bl-gros">
-          <span>Bénéfice</span>
-          <strong className={t.benefice < 0 ? "bl-neg" : undefined}>{shekels(t.benefice)}</strong>
+          <span>Bénéfice encaissé</span>
+          <strong className={ct.beneficeEncaisse < 0 ? "bl-neg" : undefined}>{shekels(ct.beneficeEncaisse)}</strong>
         </p>
+        <ul className="pm-resume">
+          <Ligne nom="Encaissé" valeur={shekels(ct.encaisse)} />
+          {ct.troc > 0 && <Ligne nom="Réglé en troc (sans argent)" valeur={shekels(ct.troc)} />}
+          <Ligne nom="Reste à encaisser" valeur={shekels(ct.reste)} classe={ct.reste > 0 ? "bl-neg" : undefined} />
+          <Ligne nom="Total" valeur={shekels(ct.total)} />
+          <Ligne nom="Revenus Wolt et autres" valeur={"+ " + shekels(ct.wolt)} />
+          <Ligne nom="Dépenses" valeur={"- " + shekels(ct.depenses)} />
+        </ul>
+        <p className="tb-note">Bénéfice encaissé = encaissé + Wolt − dépenses. Le reste à encaisser n'y est pas tant que tu ne l'as pas reçu.</p>
+      </div>
+
+      <div className="tb-bloc">
+        <h3>Courses faites {annee} (facturé)</h3>
         <ul className="pm-resume">
           <Ligne nom={"Chiffre d'affaires · " + nom} valeur={shekels(t.caActivites)} />
           {ACTIVITES.map((a) => (
             <Ligne key={a.id} sous nom={a.label} valeur={shekels(t[a.id])} />
           ))}
           {t.autre > 0 && <Ligne sous nom="Autres" valeur={shekels(t.autre)} />}
-          <Ligne nom="Revenus Wolt et autres" valeur={shekels(t.wolt)} />
-          <Ligne nom="Dépenses" valeur={"- " + shekels(t.depenses)} />
         </ul>
         <p className="tb-note">
           {t.courses} course{t.courses > 1 ? "s" : ""} terminée{t.courses > 1 ? "s" : ""}{t.prixMoyen ? ` · prix moyen ${shekels(t.prixMoyen)}` : ""}
@@ -211,9 +225,11 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
                 <li key={m.i}>
                   <div className="tb-ligne">
                     <strong>{NOMS_MOIS[m.i]}</strong>
-                    <strong className={m.benefice < 0 ? "bl-neg" : undefined}>{shekels(m.benefice)}</strong>
+                    <strong className={c.mois[m.i].beneficeEncaisse < 0 ? "bl-neg" : undefined}>{shekels(c.mois[m.i].beneficeEncaisse)}</strong>
                   </div>
                   <small>
+                    Encaissé {shekels(c.mois[m.i].encaisse)}{c.mois[m.i].troc ? ` · troc ${shekels(c.mois[m.i].troc)}` : ""} · reste à encaisser {shekels(c.mois[m.i].reste)}
+                    <br />
                     Coursier {shekels(m.coursier)} · Transport {shekels(m.transport)}
                     {m.annulations ? ` · Annulations ${shekels(m.annulations)}` : ""} · Wolt {shekels(m.wolt)} · Dépenses {shekels(m.depenses)}
                   </small>
@@ -225,7 +241,7 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
                 {moisOuvert ? "Voir seulement les 3 derniers mois" : `Voir les ${moisAffiches.length} mois`}
               </button>
             )}
-            <p className="tb-note">Bénéfice du mois = chiffre d'affaires + Wolt − dépenses.</p>
+            <p className="tb-note">Bénéfice du mois = encaissé + Wolt − dépenses.</p>
           </>
         )}
       </div>

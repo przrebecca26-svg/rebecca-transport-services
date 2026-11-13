@@ -4,7 +4,7 @@ import { Famille } from "./Familles.jsx";
 import { Compte } from "./ComptesEntreNous.jsx";
 import { enregistrerComptes, useComptes } from "./comptesBase.js";
 import { enregistrerRepertoire, useRepertoire } from "./repertoireBase.js";
-import { familleVide } from "./pricing/familles.js";
+import { familleVide, texteAge } from "./pricing/familles.js";
 import { CATEGORIES, LIENS, comptesDeLEntree, demandesDeLEntree, nouveauMembre } from "./pricing/fichesRepertoire.js";
 import { nouvelIdCompte } from "./pricing/comptesEntreNous.js";
 import { encaisseBrut } from "./pricing/comptes.js";
@@ -169,7 +169,7 @@ function Membres({ f, changer }) {
         </div>
       ))}
       <button type="button" className="dr-secondaire" onClick={() => set("membres", [...(f.membres || []), nouveauMembre()])}>+ Ajouter une personne (mari, mère, nièce…)</button>
-      {(f.enfants || []).length > 0 && <p className="tdb-note">Enfants : {f.enfants.map((x) => x.prenom || "sans prénom").join(", ")} (onglet Enfants).</p>}
+      {(f.enfants || []).length > 0 && <p className="tdb-note">Enfants : {f.enfants.map((x) => `${x.prenom || "sans prénom"}${texteAge(x) ? " (" + texteAge(x) + ")" : ""}`).join(", ")} (onglet Enfants).</p>}
     </>
   );
 }

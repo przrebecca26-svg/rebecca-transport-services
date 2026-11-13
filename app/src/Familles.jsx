@@ -3,7 +3,7 @@ import Champ from "./components/Champ.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
 import ChoixAge from "./components/ChoixAge.jsx";
 import { JOURS } from "./pricing/tournee.js";
-import { familleVide, enfantFicheVide, rdvVide, manqueRdv, nomRdv, arriveeDuJour, sortieDuJour, doublonsFamilles, fusionnerDoublon } from "./pricing/familles.js";
+import { ageDe, enfantSansPlanning, familleVide, enfantFicheVide, rdvVide, manqueRdv, nomRdv, arriveeDuJour, sortieDuJour, doublonsFamilles, fusionnerDoublon } from "./pricing/familles.js";
 import { useComptes, useCoursesEtMouvements } from "./comptesBase.js";
 import { phraseSolde, soldeCompte } from "./pricing/comptesEntreNous.js";
 
@@ -126,6 +126,14 @@ export function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
             <input id={"ep" + e.id} type="text" maxLength={40} value={e.prenom} onChange={(x) => setEnfant(e.id, { ...e, prenom: x.target.value })} />
           </div>
           <ChoixAge valeur={e.age || "enfant"} changer={(v) => setEnfant(e.id, { ...e, age: v })} />
+          <div className="rp-vacances">
+            <label>Date de naissance <input type="date" value={e.naissance || ""} onChange={(x) => setEnfant(e.id, { ...e, naissance: x.target.value })} /></label>
+            {!e.naissance && (
+              <label>ou son âge <input type="number" inputMode="numeric" min={0} max={30} style={{ width: 70 }} value={e.ageAnnees ? ageDe(e) : ""} onChange={(x) => setEnfant(e.id, { ...e, ageAnnees: Math.max(0, Math.round(Number(x.target.value) || 0)), ageNote: new Date().getFullYear() })} /> ans</label>
+            )}
+          </div>
+          {(e.naissance || e.ageAnnees > 0) && <p className="tdb-note">{ageDe(e)} ans aujourd'hui{e.naissance ? "" : " (l'âge augmente tout seul chaque année)"}.</p>}
+          {e.rdv.length === 0 && <p className="tdb-note">Sans planning : pas de trajet régulier. Tu peux l'ajouter à ta journée depuis le Calendrier quand tu l'emmènes (Ramassage scolaire).</p>}
           {e.rdv.map((r) => (
             <Rdv key={r.id} famille={f} r={r} connues={connues} changer={(n) => setEnfant(e.id, { ...e, rdv: e.rdv.map((x) => (x.id === r.id ? n : x)) })} supprimer={() => setEnfant(e.id, { ...e, rdv: e.rdv.filter((x) => x.id !== r.id) })} />
           ))}
@@ -137,7 +145,8 @@ export function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
         </div>
       ))}
       <div className="dr-actions">
-        <button type="button" className="dr-secondaire" onClick={() => set("enfants", [...f.enfants, enfantFicheVide()])}>+ Ajouter un enfant</button>
+        <button type="button" className="dr-secondaire" onClick={() => set("enfants", [...f.enfants, enfantFicheVide()])}>+ Ajouter un enfant (avec son école)</button>
+        <button type="button" className="dr-secondaire" onClick={() => set("enfants", [...f.enfants, enfantSansPlanning()])}>+ Ajouter un enfant sans planning</button>
         <button type="button" className="dr-secondaire" onClick={supprimer}>Supprimer cette famille</button>
       </div>
       <button type="button" className="tdb-bouton" onClick={() => ouvrir(false)}>← Retour au répertoire</button>

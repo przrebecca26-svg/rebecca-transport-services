@@ -40,6 +40,23 @@ export const rdvVide = (type = "ecole") => ({
   joursAilleurs: JOURS.map(() => true), // les jours ou il m'attend la-bas (les autres jours : je le prends sur place)
   attend: false, // il peut m'attendre sans limite
 });
+// Age du jour : exact avec la date de naissance ; sinon l'age donne + les annees passees depuis. null = inconnu.
+export function ageDe(e, aujourdhui = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" })) {
+  if (e && /^\d{4}-\d{2}-\d{2}$/.test(e.naissance || "")) {
+    let a = Number(aujourdhui.slice(0, 4)) - Number(e.naissance.slice(0, 4));
+    if (aujourdhui.slice(5) < e.naissance.slice(5)) a--;
+    return Math.max(0, a);
+  }
+  if (e && e.ageAnnees > 0) return e.ageAnnees + Math.max(0, Number(aujourdhui.slice(0, 4)) - (e.ageNote || Number(aujourdhui.slice(0, 4))));
+  return null;
+}
+export const texteAge = (e) => {
+  const a = ageDe(e);
+  return a == null ? "" : `${a} an${a > 1 ? "s" : ""}`;
+};
+// Enfant sans planning (pas de trajet regulier, ex. emmene de temps en temps a une activite)
+export const enfantSansPlanning = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", naissance: "", ageAnnees: 0, ageNote: 0, rdv: [] });
+
 // age : "enfant" (mineur) ou "adulte" (18 ans et plus) - 12 nov. 2026, 22h52 : une case sur chaque fiche
 export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", rdv: [rdvVide("ecole")] });
 // nom2 / telephone2 : l'autre parent (facultatif)
@@ -79,6 +96,10 @@ export function lireFamilles(liste) {
           id: String(e.id || nouvelIdFiche()).slice(0, 40),
           prenom: String(e.prenom || "").slice(0, 40),
           age: e.age === "adulte" ? "adulte" : "enfant",
+          // 13 nov. 2026 : date de naissance si je l'ai, sinon l'age (note l'annee ou je l'ai donne : il monte tout seul)
+          naissance: date(e.naissance),
+          ageAnnees: Number.isFinite(Number(e.ageAnnees)) && Number(e.ageAnnees) > 0 && Number(e.ageAnnees) < 120 ? Math.round(Number(e.ageAnnees)) : 0,
+          ageNote: Number.isFinite(Number(e.ageNote)) && Number(e.ageNote) > 2000 ? Math.round(Number(e.ageNote)) : 0,
           rdv: (Array.isArray(e.rdv) ? e.rdv : [])
             .filter((r) => r && typeof r === "object")
             .slice(0, 8)

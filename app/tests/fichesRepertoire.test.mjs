@@ -42,3 +42,19 @@ test("historique : numéros de la famille et de ses membres, forfait, comptes", 
   egal(R.demandesDeLEntree(e, demandes, comptes).map((d) => d.id), ["d", "c", "b", "a"]);
   egal(R.comptesDeLEntree(e, comptes).length, 1);
 });
+
+import { ageDe, enfantSansPlanning } from "../src/pricing/familles.js";
+section("Âge des enfants");
+test("date de naissance : âge exact", () => {
+  egal(ageDe({ naissance: "2018-12-01" }, "2026-11-13"), 7);
+  egal(ageDe({ naissance: "2018-11-01" }, "2026-11-13"), 8);
+});
+test("âge donné en 2026 : il monte tout seul", () => {
+  egal(ageDe({ ageAnnees: 6, ageNote: 2026 }, "2026-11-13"), 6);
+  egal(ageDe({ ageAnnees: 6, ageNote: 2026 }, "2028-01-02"), 8);
+  egal(ageDe({}, "2026-11-13"), null);
+});
+test("enfant sans planning : relu sans école ni trajet", () => {
+  const f = lireFamilles([{ id: "f", nom: "A", enfants: [{ ...enfantSansPlanning(), prenom: "Noa", ageAnnees: 4, ageNote: 2026 }] }]);
+  egal([f[0].enfants[0].rdv.length, f[0].enfants[0].ageAnnees], [0, 4]);
+});

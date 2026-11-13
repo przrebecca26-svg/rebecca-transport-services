@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes } from "./accesDemandes.js";
 import { construireFiches } from "./pricing/clients.js";
-import { CATEGORIES, entreesRepertoire, filtrerEntrees, libelleCategorie } from "./pricing/fichesRepertoire.js";
+import { AFFICHAGE, entreesRepertoire, filtrerEntrees, libelleCategorie } from "./pricing/fichesRepertoire.js";
 import { familleVide } from "./pricing/familles.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
@@ -91,18 +91,10 @@ function RechercheGoogle() {
 const COLLECTIONS = ["clients", "demandes", "clientsAdmin", "autorisations", "recharges", "mouvements"];
 function useFichesClientes() {
   const [donnees, setDonnees] = useState({});
-  const [categories, setCategories] = useState({});
   useEffect(() => {
     const arrets = COLLECTIONS.map((nom) =>
       onSnapshot(nom === "demandes" ? refDemandes() : collection(db, nom), (s) => setDonnees((a) => ({ ...a, [nom]: s.docs.map((x) => ({ id: x.id, ...x.data() })) })), () => setDonnees((a) => ({ ...a, [nom]: [] })))
     );
-    arrets.push(onSnapshot(doc(db, "admin", "categoriesClients"), (s) => {
-      try {
-        setCategories(s.exists() ? JSON.parse(s.data().json || "{}") || {} : {});
-      } catch {
-        setCategories({});
-      }
-    }, () => {}));
     return () => arrets.forEach((a) => a());
   }, []);
   const pret = COLLECTIONS.every((n) => Array.isArray(donnees[n]));
@@ -112,7 +104,10 @@ function useFichesClientes() {
     const transport = new Set(donnees.autorisations.filter((a) => a.activite === "transport" && a.actif === true).map((a) => a.uid || String(a.id).split("__")[0]));
     return construireFiches({ clients: donnees.clients, demandes: donnees.demandes, admins, transport, recharges: donnees.recharges, mouvements: donnees.mouvements });
   }, [pret, donnees]);
-  const changerCategorie = (cle, v) => setDoc(doc(db, "admin", "categoriesClients"), { json: JSON.stringify({ ...categories, [cle]: v }), majLe: serverTimestamp() });
+  // Categories partagees (Rebecca et Jeremy) : dans le document du Repertoire
+  const rep = useRepertoire();
+  const categories = rep.categories || {};
+  const changerCategorie = (cle, v) => enregistrerRepertoire(rep.lieux, rep.corrections, rep.familles, { ...categories, [cle]: v });
   return { pret, fiches, categories, changerCategorie, demandes: donnees.demandes || [], mouvements: donnees.mouvements || [] };
 }
 
@@ -157,6 +152,7 @@ export default function Repertoire({ aller = null }) {
           demandes={fc.demandes}
           mouvements={fc.mouvements}
           estAdmin={estAdmin}
+          moi={moi}
           categorie={entree.categorie}
           changerCategorie={(v) => fc.changerCategorie(entree.cle, v).catch(() => {})}
           retour={() => setFicheOuverte(null)}
@@ -206,9 +202,9 @@ export default function Repertoire({ aller = null }) {
       <input className="dr-tel rp-large" type="search" placeholder="Chercher un nom (Alexia, Carrefour, école…)" value={texte} onChange={(e) => setTexte(e.target.value)} />
 
       <div className="tb-filtres" role="tablist" aria-label="Catégories">
-        {[{ v: "tous", l: "Tous" }, ...CATEGORIES].map((c) => (
+        {[{ v: "tous", l: "Tous" }, ...AFFICHAGE].map((c) => (
           <button key={c.v} role="tab" aria-selected={categorie === c.v} className={"tb-filtre" + (categorie === c.v ? " actif" : "")} onClick={() => setCategorie(c.v)}>
-            {c.l} <span>{c.v === "tous" ? entrees.length : entrees.filter((x) => x.categorie === c.v).length}</span>
+            {c.l} <span>{c.v === "tous" ? entrees.length : entrees.filter((x) => x.rang === c.v).length}</span>
           </button>
         ))}
       </div>
@@ -218,12 +214,12 @@ export default function Repertoire({ aller = null }) {
           <div key={x.cle} className="rp-forfait">
             <span>
               <strong>{x.nom}</strong>
-              <small> · {x.telephone || "pas de téléphone"} · {libelleCategorie(x.categorie)}</small>
+              <small> · {x.telephone || "pas de téléphone"} · {libelleCategorie(x.rang)}</small>
             </span>
             <button type="button" className="tdb-bouton" onClick={() => setFicheOuverte(x.cle)}>Fiche</button>
           </div>
         ))}
-        <button type="button" className="dr-secondaire rp-large" onClick={() => setFicheOuverte({ nouvelle: { ...familleVide(), enfants: [], categorie: categorie === "tous" ? "clientes" : categorie } })}>+ Nouvelle fiche</button>
+        <button type="button" className="dr-secondaire rp-large" onClick={() => setFicheOuverte({ nouvelle: { ...familleVide(), enfants: [], categorie: categorie === "moi" || categorie === "proches" ? categorie : "clientes" } })}>+ Nouvelle fiche</button>
       </section>
       {(estAdmin || familles.length > 0) && (
         <details className="tdb-bloc">

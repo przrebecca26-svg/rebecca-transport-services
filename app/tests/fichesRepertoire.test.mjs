@@ -68,3 +68,16 @@ test("mariée jour J et essai : 40 % ; diagnostic RegenX : 30 ₪ ; Nails : 20 %
   egal(reglesAcompte({ service: "nails", details: { prestation: "Semi-permanent (VSP)" } }).acomptePourcent, 20);
   egal(reglesAcompte({ service: "livraison" }, { activites: [{ id: "coursier", acomptePourcent: 30, acompteMin: 10 }] }).acomptePourcent, 30);
 });
+
+section("Clientes avec ou sans compte, et ce que voit Jérémy");
+test("rangées toutes seules : avec compte / sans compte", () => {
+  const f = lireFamilles([{ id: "fz", nom: "Zoé", telephone: "0500000001" }]);
+  const e = R.entreesRepertoire(f, [{ cle: "uidB", nom: "Bella", telephone: "0501111111", avecCompte: true }, { cle: "tel_0502222222", nom: "Sans", telephone: "0502222222", avecCompte: false }]);
+  egal(e.map((x) => [x.nom, x.rang]), [["Bella", "avecCompte"], ["Sans", "sansCompte"], ["Zoé", "sansCompte"]]);
+  egal(R.filtrerEntrees(e, "avecCompte").length, 1);
+});
+test("Jérémy ne voit que ses courses ; Rebecca voit tout", () => {
+  const l = [{ id: "a" }, { id: "b", realisePar: "uidJ" }, { id: "c", attribueA: "uidJ" }];
+  egal(R.pourQui(l, "uidJ", false).map((d) => d.id), ["b", "c"]);
+  egal(R.pourQui(l, "rebecca", true).length, 3);
+});

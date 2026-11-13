@@ -5,7 +5,10 @@ import { Compte } from "./ComptesEntreNous.jsx";
 import { enregistrerComptes, useComptes } from "./comptesBase.js";
 import { enregistrerRepertoire, useRepertoire } from "./repertoireBase.js";
 import { familleVide, texteAge } from "./pricing/familles.js";
-import { CATEGORIES, LIENS, comptesDeLEntree, demandesDeLEntree, nouveauMembre } from "./pricing/fichesRepertoire.js";
+import { CATEGORIES, LIENS, comptesDeLEntree, demandesDeLEntree, faiteParDe, nouveauMembre, pourQui } from "./pricing/fichesRepertoire.js";
+import { ADMIN_ID } from "./pricing/equipe.js";
+import { nomDe } from "./pricing/quiFait.js";
+import { useEquipeContexte } from "./equipeContexte.jsx";
 import { nouvelIdCompte } from "./pricing/comptesEntreNous.js";
 import { encaisseBrut } from "./pricing/comptes.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
@@ -17,14 +20,15 @@ const ONGLETS = [
   { id: "membres", l: "Membres" },
   { id: "enfants", l: "Enfants" },
   { id: "historique", l: "Historique" },
-  { id: "finances", l: "Finances", admin: true },
+  { id: "finances", l: "Finances" },
 ];
 const STATUTS = { terminee: "faite", acceptee: "à venir", "en attente": "en attente", refusee: "refusée", annulee: "annulée" };
 const shekels = (n) => `${(Math.round(Number(n || 0) * 100) / 100).toLocaleString("fr-FR")} ₪`;
 const jj = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(2, 4)}` : "");
 
-export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin, categorie, changerCategorie, retour, ouvrirFicheCliente, connues }) {
+export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin, moi = ADMIN_ID, categorie, changerCategorie, retour, ouvrirFicheCliente, connues }) {
   const rep = useRepertoire();
+  const { membres } = useEquipeContexte();
   const { comptes } = useComptes();
   const [onglet, setOnglet] = useState("membres");
   const [f, setF] = useState(entree.famille);
@@ -51,7 +55,9 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
     changer({ ...familleVide(), nom: entree.nom, telephone: entree.telephone, categorie, enfants: [], domicile: (c && c.profil && c.profil.adresse && typeof c.profil.adresse === "object" ? c.profil.adresse : null) });
   };
   const e = { ...entree, famille: f };
-  const liste = demandesDeLEntree(e, demandes || [], comptes);
+  // 13 nov. 2026, 09h39 : Rebecca voit tout, avec le nom de qui a fait la course ; Jeremy ne voit que les siennes
+  const liste = pourQui(demandesDeLEntree(e, demandes || [], estAdmin ? comptes : []), moi, estAdmin, ADMIN_ID);
+  const qui = (d) => nomDe(membres, faiteParDe(d, ADMIN_ID));
   const onglets = ONGLETS.filter((o) => !o.admin || estAdmin);
 
   return (
@@ -120,7 +126,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
                   <div className="ag-etape-ligne">
                     <b>{jj(d.date)}</b>
                     <span>
-                      {d.serviceTitre || d.service}{d.details && d.details.enfants ? ` · ${d.details.enfants}` : ""}{d.details && d.details.quoi ? ` · ${d.details.quoi}` : ""} · {STATUTS[d.statut] || d.statut}
+                      {estAdmin && <small>[{qui(d)}] </small>}{d.serviceTitre || d.service}{d.details && d.details.enfants ? ` · ${d.details.enfants}` : ""}{d.details && d.details.quoi ? ` · ${d.details.quoi}` : ""} · {STATUTS[d.statut] || d.statut}
                       {typeof prix === "number" && <strong> · {shekels(prix)}</strong>}
                       {d.statut === "terminee" && typeof prix === "number" && <small>{recu >= prix ? " · payée" : ` · reste ${shekels(prix - recu)}`}</small>}
                     </span>
@@ -132,7 +138,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
         </section>
       )}
 
-      {onglet === "finances" && estAdmin && <FinancesFiche e={e} liste={liste} mouvements={mouvements || []} comptes={comptes} familles={rep.familles} />}
+      {onglet === "finances" && <FinancesFiche e={e} liste={liste} mouvements={mouvements || []} comptes={estAdmin ? comptes : []} familles={rep.familles} estAdmin={estAdmin} qui={qui} membres={membres} />}
 
       {f && (
         <div className="rp-enregistrer">
@@ -174,10 +180,24 @@ function Membres({ f, changer }) {
   );
 }
 
-function FinancesFiche({ e, liste, mouvements, comptes, familles }) {
-  const faites = liste.filter((d) => d.statut === "terminee");
+function Totaux({ titre, faites, mouvements }) {
   const total = faites.reduce((s, d) => s + (Number(d.prixFinal) || 0), 0);
   const recu = faites.reduce((s, d) => s + Math.min(Number(d.prixFinal) || 0, encaisseBrut(mouvements, d.id)), 0);
+  return (
+    <>
+      {titre && <p className="rp-type">{titre}</p>}
+      <ul className="pm-resume">
+        <li><span>Courses faites</span><strong>{shekels(total)}</strong></li>
+        <li><span>Encaissé</span><strong>{shekels(recu)}</strong></li>
+        <li><span>Reste à encaisser</span><strong className={total - recu > 0 ? "bl-neg" : undefined}>{shekels(total - recu)}</strong></li>
+      </ul>
+    </>
+  );
+}
+
+function FinancesFiche({ e, liste, mouvements, comptes, familles, estAdmin, qui }) {
+  const faites = liste.filter((d) => d.statut === "terminee");
+  const personnesQuiOntFait = [...new Set(faites.map(qui))];
   const lies = comptesDeLEntree(e, comptes);
   const [message, setMessage] = useState("");
   const sauver = async (suite) => {
@@ -194,17 +214,15 @@ function FinancesFiche({ e, liste, mouvements, comptes, familles }) {
   const sansCompte = personnes.filter((p) => p.nom && !lies.some((c) => c.nom.toLowerCase() === p.nom.toLowerCase()));
   return (
     <section className="tdb-bloc">
-      <ul className="pm-resume">
-        <li><span>Courses faites</span><strong>{shekels(total)}</strong></li>
-        <li><span>Encaissé</span><strong>{shekels(recu)}</strong></li>
-        <li><span>Reste à encaisser</span><strong className={total - recu > 0 ? "bl-neg" : undefined}>{shekels(total - recu)}</strong></li>
-      </ul>
+      <Totaux titre={estAdmin && personnesQuiOntFait.length > 1 ? "Total" : ""} faites={faites} mouvements={mouvements} />
+      {estAdmin && personnesQuiOntFait.length > 1 && personnesQuiOntFait.map((n) => <Totaux key={n} titre={n} faites={faites.filter((d) => qui(d) === n)} mouvements={mouvements} />)}
+      {!estAdmin && <p className="tdb-note">Seulement les courses que tu as faites pour cette cliente.</p>}
       {lies.map((c) => (
         <div key={c.id} className="bloc">
           <Compte c={c} comptes={comptes} demandes={liste} mouvements={mouvements} sauver={sauver} familles={familles} retour={null} message={message} />
         </div>
       ))}
-      {sansCompte.length > 0 && (
+      {estAdmin && sansCompte.length > 0 && (
         <div className="bloc">
           <p className="tdb-note">Comptes entre nous (paiements plus tard, avances, troc, dettes) :</p>
           {sansCompte.map((p) => (

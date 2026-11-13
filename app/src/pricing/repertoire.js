@@ -33,7 +33,14 @@ function contenu(json) {
   }
   if (Array.isArray(o)) o = { lieux: o };
   if (!o || typeof o !== "object") o = {};
-  return { lieux: Array.isArray(o.lieux) ? o.lieux : [], corrections: Array.isArray(o.corrections) ? o.corrections : [], familles: Array.isArray(o.familles) ? o.familles : [] };
+  return { lieux: Array.isArray(o.lieux) ? o.lieux : [], corrections: Array.isArray(o.corrections) ? o.corrections : [], familles: Array.isArray(o.familles) ? o.familles : [], categories: o.categories && typeof o.categories === "object" && !Array.isArray(o.categories) ? o.categories : {} };
+}
+
+// 13 nov. 2026 : categorie choisie pour une cliente du site sans fiche famille (partagee : Rebecca et Jeremy la voient)
+export function lireCategories(json) {
+  const sortie = {};
+  for (const [cle, v] of Object.entries(contenu(json).categories).slice(0, 2000)) if (["moi", "proches", "clientes"].includes(v)) sortie[String(cle).slice(0, 80)] = v;
+  return sortie;
 }
 
 // Familles et enfants (fiches) : liste brute du document ; elle est nettoyee par pricing/familles.js
@@ -126,14 +133,14 @@ export function adressesClients(clients = [], corrections = []) {
 
 /* ---------- Le repertoire en memoire (rempli par l'espace prive seulement ; vide sur le site des clientes) ---------- */
 
-let courant = { lieux: [], clients: [], corrections: [], bruts: [], familles: [] };
+let courant = { lieux: [], clients: [], corrections: [], bruts: [], familles: [], categories: {} };
 let version = 0;
 const abonnes = new Set();
 
 // lieux / corrections : document du repertoire ; bruts : comptes des clientes (les adresses sont recalculees avec
 // les corrections) ; clients : liste deja prete (tests)
-export function definirRepertoire({ lieux, clients, corrections, bruts, familles }) {
-  const suite = { lieux: lieux || courant.lieux, corrections: corrections || courant.corrections, bruts: bruts || courant.bruts, familles: familles || courant.familles };
+export function definirRepertoire({ lieux, clients, corrections, bruts, familles, categories }) {
+  const suite = { lieux: lieux || courant.lieux, corrections: corrections || courant.corrections, bruts: bruts || courant.bruts, familles: familles || courant.familles, categories: categories || courant.categories || {} };
   // charge : le document du repertoire est arrive (avant, on n'enregistre rien : on effacerait mes lieux)
   courant = { ...suite, charge: courant.charge === true || Array.isArray(lieux), clients: clients || (bruts || corrections ? adressesClients(suite.bruts, suite.corrections) : courant.clients) };
   version++;

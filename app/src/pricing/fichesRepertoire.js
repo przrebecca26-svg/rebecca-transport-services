@@ -8,12 +8,21 @@
 
 import { telNormalise } from "./clients.js";
 
+// Categorie choisie (enregistree) : moi, proches, ou clientes (par defaut)
 export const CATEGORIES = [
   { v: "moi", l: "Moi" },
   { v: "proches", l: "Famille et amis" },
-  { v: "clientes", l: "Clientes" },
+  { v: "clientes", l: "Cliente (avec ou sans compte : automatique)" },
 ];
-export const libelleCategorie = (v) => (CATEGORIES.find((c) => c.v === v) || CATEGORIES[2]).l;
+// 13 nov. 2026, 09h39 : a l'affichage, les clientes se rangent toutes seules : avec compte sur le site, ou sans compte
+export const AFFICHAGE = [
+  { v: "moi", l: "Moi" },
+  { v: "proches", l: "Famille et amis" },
+  { v: "avecCompte", l: "Clientes avec compte" },
+  { v: "sansCompte", l: "Clientes sans compte" },
+];
+export const rangDe = (e) => (e.categorie === "moi" || e.categorie === "proches" ? e.categorie : e.clients.some((c) => c.avecCompte) ? "avecCompte" : "sansCompte");
+export const libelleCategorie = (v) => (AFFICHAGE.find((c) => c.v === v) || AFFICHAGE[3]).l;
 
 // Tous les numeros d'une famille (parent, autre parent, membres)
 export const telsFamille = (f) => [f.telephone, f.telephone2, ...(f.membres || []).map((m) => m.telephone)].map(telNormalise).filter((t) => t.length >= 6);
@@ -31,15 +40,16 @@ export function entreesRepertoire(familles = [], fiches = [], categories = {}) {
     if (prises.has(c.cle) || telNormalise(c.telephone).length < 6) continue;
     entrees.push({ cle: c.cle, type: "client", nom: c.nom, telephone: c.telephone, categorie: categories[c.cle] || "clientes", famille: null, clients: [c] });
   }
-  const ordre = { moi: 0, proches: 1, clientes: 2 };
-  return entrees.sort((a, b) => ordre[a.categorie] - ordre[b.categorie] || a.nom.localeCompare(b.nom, "fr"));
+  const ordre = { moi: 0, proches: 1, avecCompte: 2, sansCompte: 3 };
+  for (const e of entrees) e.rang = rangDe(e);
+  return entrees.sort((a, b) => ordre[a.rang] - ordre[b.rang] || a.nom.localeCompare(b.nom, "fr"));
 }
 
 const sansAccent = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 export function filtrerEntrees(entrees, categorie = "tous", texte = "") {
   const q = sansAccent(texte.trim());
   return entrees.filter((e) => {
-    if (categorie !== "tous" && e.categorie !== categorie) return false;
+    if (categorie !== "tous" && (e.rang || rangDe(e)) !== categorie) return false;
     if (!q) return true;
     const mots = [e.nom, e.telephone, telNormalise(e.telephone), ...(e.famille ? [e.famille.nom2, ...(e.famille.membres || []).map((m) => m.nom), ...(e.famille.enfants || []).map((x) => x.prenom)] : [])];
     return mots.some((m) => sansAccent(m).includes(q));
@@ -64,3 +74,7 @@ export function comptesDeLEntree(e, comptes = []) {
 
 export const nouveauMembre = () => ({ id: `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, nom: "", lien: "", telephone: "", age: "adulte" });
 export const LIENS = ["Mari", "Femme", "Mère", "Père", "Fils", "Fille", "Sœur", "Frère", "Nièce", "Neveu", "Grand-mère", "Grand-père", "Amie", "Ami", "Autre"];
+
+// Qui a fait la course (Rebecca ou un coequipier) ; Jeremy ne voit que les siennes, Rebecca voit tout avec le nom
+export const faiteParDe = (d, admin = "rebecca") => (d && (d.realisePar || d.attribueA)) || admin;
+export const pourQui = (liste, moi, estAdmin, admin = "rebecca") => (estAdmin ? liste : liste.filter((d) => faiteParDe(d, admin) === moi));

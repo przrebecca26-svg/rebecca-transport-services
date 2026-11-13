@@ -9,6 +9,7 @@ import { CATEGORIES, LIENS, comptesDeLEntree, demandesDeLEntree, faiteParDe, nou
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { nomDe } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
+import SuiviBeaute from "./SuiviBeaute.jsx";
 import { nouvelIdCompte } from "./pricing/comptesEntreNous.js";
 import { encaisseBrut } from "./pricing/comptes.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
@@ -21,6 +22,7 @@ const ONGLETS = [
   { id: "enfants", l: "Enfants" },
   { id: "historique", l: "Historique" },
   { id: "finances", l: "Finances" },
+  { id: "suivi", l: "Suivi beauté", admin: true }, // 13 nov. 2026 : seances, cures, produits, prochain RDV
 ];
 const STATUTS = { terminee: "faite", acceptee: "à venir", "en attente": "en attente", refusee: "refusée", annulee: "annulée" };
 const shekels = (n) => `${(Math.round(Number(n || 0) * 100) / 100).toLocaleString("fr-FR")} ₪`;
@@ -138,6 +140,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
         </section>
       )}
 
+      {onglet === "suivi" && estAdmin && <SuiviBeaute cle={entree.cle} />}
       {onglet === "finances" && <FinancesFiche e={e} liste={liste} mouvements={mouvements || []} comptes={estAdmin ? comptes : []} familles={rep.familles} estAdmin={estAdmin} qui={qui} membres={membres} />}
 
       {f && (

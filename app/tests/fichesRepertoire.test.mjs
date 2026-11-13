@@ -81,3 +81,21 @@ test("Jérémy ne voit que ses courses ; Rebecca voit tout", () => {
   egal(R.pourQui(l, "uidJ", false).map((d) => d.id), ["b", "c"]);
   egal(R.pourQui(l, "rebecca", true).length, 3);
 });
+
+import * as S from "../src/pricing/suiviBeaute.js";
+section("Suivi beauté de la cliente");
+test("séance : date, prestation, payé ou non, produits, prochain rendez-vous", () => {
+  let s = S.lireSuivi("{}");
+  s = S.ajouterSeance(s, { activite: "regenx", date: "2026-11-13", prestation: "Sourcils", prix: 1000, paye: 600, moyen: "Bit", produits: "Sérum 10 ml", prixProduits: 120, prochainRdv: "2026-11-27", commentaire: "RAS" });
+  const r = S.resumeActivite(s, "regenx", "2026-11-13");
+  egal([r.nb, r.impaye, r.prochain], [1, 520, "2026-11-27"]);
+});
+test("cure Slim 8 séances : acompte puis 4 versements, séances faites et reste", () => {
+  let s = S.ajouterCure(S.lireSuivi("{}"), { activite: "slim", nom: "Anti-cellulite, cure 8 séances", prix: 2700, seances: 8, debut: "2026-11-13" });
+  const c = s.cures[0];
+  s = S.ajouterVersement(s, c.id, { date: "2026-11-10", montant: 540, moyen: "Bit", note: "Acompte 20 %" });
+  s = S.ajouterVersement(s, c.id, { date: "2026-11-13", montant: 540, moyen: "Chèque" });
+  s = S.ajouterSeance(s, { activite: "slim", date: "2026-11-13", prestation: "Séance 1", cure: c.id });
+  const e = S.etatCure(s, s.cures[0]);
+  egal([e.faites, e.restantes, e.paye, e.reste, e.versementsRestants], [1, 7, 1080, 1620, 3]);
+});

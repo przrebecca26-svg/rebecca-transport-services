@@ -12,6 +12,9 @@ import Galerie from "./Galerie.jsx";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
+import AddressField from "./AddressField.jsx";
+import { calculerTrajet } from "../routing.js";
+import { NETANYA, fraisDeplacement, pourMariee } from "../pricing/deplacementMariee.js";
 
 // Photos à ajouter plus tard
 const PHOTOS = VISUELS.hair;
@@ -21,6 +24,17 @@ export default function CatalogueHair({ onRetour }) {
   const [prestations, setPrestations] = useState([]);
   const [activite, setActivite] = useState(null);
   const [selection, setSelection] = useState(null);
+  // 13 nov. 2026 : mariee chez Rebecca ou a domicile ; hors Netanya, frais de deplacement (grille Transport)
+  const [lieu, setLieu] = useState("rebecca");
+  const [adresse, setAdresse] = useState(null);
+  const [route, setRoute] = useState(null);
+  useEffect(() => {
+    setRoute(null);
+    if (!adresse || typeof adresse.lat !== "number") return undefined;
+    const ctrl = new AbortController();
+    calculerTrajet(NETANYA, adresse, ctrl.signal).then(setRoute).catch(() => {});
+    return () => ctrl.abort();
+  }, [adresse]);
   const [date, setDate] = useState("");
   const [heure, setHeure] = useState("");
   const [creneaux, setCreneaux] = useState([]);
@@ -58,10 +72,14 @@ export default function CatalogueHair({ onRetour }) {
     return onSnapshot(doc(db, "agendaJours", idAgenda(date)), (x) => setPrises(x.exists() ? x.data().cells || {} : {}), () => setPrises({}));
   }, [date]);
   const margeRdv = Math.max(0, Number(activite?.margeMinutes) || 0);
+  const mariee = pourMariee(selection);
+  const depl = mariee && lieu === "domicile" ? fraisDeplacement(adresse, route, date, heure) : { statut: "ok", frais: 0, minutes: 0 };
+  const dureeTotale = (selection?.dureeMinutes || 60) + (depl.minutes || 0);
+  const lieuOk = !mariee || lieu === "rebecca" || (depl.statut === "ok" || depl.statut === "devis");
 
   useEffect(() => {
     if (!selection || !date || !activite) return;
-    const duree = selection.dureeMinutes || 60;
+    const duree = dureeTotale;
     const slots = creneauxDuJour({
       activite,
       dureeMinutes: duree,
@@ -72,7 +90,7 @@ export default function CatalogueHair({ onRetour }) {
     setCreneaux(slots);
     // On garde l'heure choisie tant qu'elle reste libre ; sinon on revient au choix du creneau
     setHeure((h) => (slots.some((c) => c.heure === h && c.libre) ? h : ""));
-  }, [selection, date, activite, occupes, prises, margeRdv]);
+  }, [selection, date, activite, occupes, prises, margeRdv, dureeTotale]);
 
   const categories = [...new Set(prestations.map((p) => p.categorie))];
   const photoDe = (p) => {
@@ -87,8 +105,9 @@ export default function CatalogueHair({ onRetour }) {
     }
     setEnvoi({ enCours: true, ok: false, erreur: "" });
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
-    const message = `Bonjour Rebecca,\n\nNouvelle demande Prestige Hair :\n- Prestation : ${p.nom}\n- Date : ${date}\n- Heure : ${heure}\n- Prix : ${libellePrix(p)}${libelleDuree(p) ? "\n- Durée : " + libelleDuree(p) : ""}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nPaiement : ${client.moyenPaiement}\n\nMerci de me confirmer.`;
-    const cellules = cellulesDe(heure, p.dureeMinutes || 60, margeRdv);
+    const txtLieu = mariee ? (lieu === "rebecca" ? "\n- Lieu : chez Rebecca" : `\n- Lieu : à domicile, ${adresse ? adresse.label : "?"}${depl.statut === "ok" && depl.frais ? `\n- Déplacement hors Netanya : ${depl.frais} ₪ (aller-retour)\n- Total : ${(p.prix || 0) + depl.frais} ₪` : depl.statut === "devis" ? "\n- Déplacement : prix à confirmer par Rebecca" : ""}`) : "";
+    const message = `Bonjour Rebecca,\n\nNouvelle demande Prestige Hair :\n- Prestation : ${p.nom}\n- Date : ${date}\n- Heure : ${heure}\n- Prix : ${libellePrix(p)}${libelleDuree(p) ? "\n- Durée : " + libelleDuree(p) : ""}${txtLieu}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nPaiement : ${client.moyenPaiement}\n\nMerci de me confirmer.`;
+    const cellules = cellulesDe(heure, dureeTotale, margeRdv);
     const demande = {
       service: "hair",
       serviceTitre: "Prestige Hair – " + p.nom,
@@ -97,14 +116,14 @@ export default function CatalogueHair({ onRetour }) {
       nom: client.nom.trim(),
       telephone: client.telephone.trim(),
       moyenPaiement: client.moyenPaiement,
-      prixEstime: p.prix || null,
+      prixEstime: p.prix ? p.prix + (depl.statut === "ok" ? depl.frais || 0 : 0) : null,
       surDevis: false,
-      details: { prestation: p.nom, duree: p.dureeMinutes, cellules },
+      details: { prestation: p.nom, duree: dureeTotale, cellules, ...(mariee ? { lieu: lieu === "rebecca" ? "chez Rebecca" : "à domicile", ...(lieu === "domicile" && adresse ? { adresse, fraisDeplacement: depl.statut === "ok" ? depl.frais : null } : {}) } : {}) },
       message,
       statut: "en attente",
       source: "site",
       kmEstime: null,
-      minutesEstimees: p.dureeMinutes || null,
+      minutesEstimees: dureeTotale || null,
       // 13 nov. 2026 : sans compte aussi (le compte verifie ajoute seulement le suivi dans « Mon espace »)
       ...(user && user.emailVerified ? { uid: user.uid } : {}),
     };
@@ -140,6 +159,7 @@ export default function CatalogueHair({ onRetour }) {
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
         <p><strong>{p.nom}</strong> · {date} à {heure}</p>
         <p>{libellePrix(p)}{libelleDuree(p) ? " · " + libelleDuree(p) : ""}</p>
+        {mariee && <p>{lieu === "rebecca" ? "Chez Rebecca" : `À domicile : ${adresse ? adresse.label : ""}`}{depl.frais ? ` · déplacement ${depl.frais} ₪ · total ${(p.prix || 0) + depl.frais} ₪` : ""}</p>}
         <label>Votre nom<br /><input type="text" value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
         <label>Votre téléphone<br /><input type="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} required /></label>
         <label>Moyen de paiement<br />
@@ -171,12 +191,30 @@ export default function CatalogueHair({ onRetour }) {
         )}
         <p>{p.description}</p>
         <p><strong>{libellePrix(p)}</strong>{libelleDuree(p) ? " · " + libelleDuree(p) : ""}</p>
-        <label>
+        {mariee && (
+          <div className="lieu-mariee">
+            <p><strong>Où ?</strong></p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className={lieu === "rebecca" ? "actif" : ""} onClick={() => setLieu("rebecca")}>Chez Rebecca (Netanya)</button>
+              <button type="button" className={lieu === "domicile" ? "actif" : ""} onClick={() => setLieu("domicile")}>À domicile ou dans la salle</button>
+            </div>
+            {lieu === "domicile" && (
+              <>
+                <AddressField id="adresse-mariee" valeur={adresse} onChange={setAdresse} position={false} />
+                {depl.statut === "calcul" && <p><small>Calcul du déplacement…</small></p>}
+                {depl.statut === "ok" && <p>{depl.frais ? <>Déplacement hors Netanya (aller-retour) : <strong>{depl.frais} ₪</strong> · total <strong>{(p.prix || 0) + depl.frais} ₪</strong></> : "À Netanya : pas de frais de déplacement."}</p>}
+                {depl.statut === "devis" && <p><small>Déplacement : prix confirmé par Rebecca.</small></p>}
+              </>
+            )}
+          </div>
+        )}
+        {!lieuOk && <p><small>Indiquez l'adresse pour voir les créneaux.</small></p>}
+        {lieuOk && <label>
           Date
           <br /><input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
-        </label>
+        </label>}
         {envoi.erreur && <p className="erreur">{envoi.erreur}</p>}
-        {date && (
+        {date && lieuOk && (
           <div className="creneaux">
             <p>Créneaux disponibles :</p>
             {creneaux.filter((c) => c.libre).length === 0 && <p>Aucun créneau libre ce jour.</p>}

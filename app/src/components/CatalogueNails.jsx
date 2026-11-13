@@ -12,6 +12,7 @@ import Galerie from "./Galerie.jsx";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { VISUELS } from "../visuels.js";
 import { WHATSAPP } from "../contact.js";
+import { optionsParOngle, texteOptions, totalAvecOptions, MAX_ONGLES } from "../pricing/optionsOngles.js";
 
 // Mapping temporaire des photos générées (remplaçables dans l'admin)
 const PHOTOS = VISUELS.nails;
@@ -21,6 +22,8 @@ export default function CatalogueNails({ onRetour }) {
   const [prestations, setPrestations] = useState([]);
   const [activite, setActivite] = useState(null);
   const [selection, setSelection] = useState(null);
+  // 13 nov. 2026 : options par ongle ajoutees a la prestation (nail art, reparation) : { idOption: nombre d'ongles }
+  const [extras, setExtras] = useState({});
   const [date, setDate] = useState("");
   const [heure, setHeure] = useState("");
   const [creneaux, setCreneaux] = useState([]);
@@ -58,10 +61,14 @@ export default function CatalogueNails({ onRetour }) {
     return onSnapshot(doc(db, "agendaJours", idAgenda(date)), (x) => setPrises(x.exists() ? x.data().cells || {} : {}), () => setPrises({}));
   }, [date]);
   const margeRdv = Math.max(0, Number(activite?.margeMinutes) || 0);
+  const ajuste = (x) => avecAjustement(x, activite?.ajustementPourcent || 0);
+  const options = optionsParOngle(prestations).map(ajuste);
+  const total = selection ? totalAvecOptions(ajuste(selection), selection.option ? [] : options, extras) : null;
+  const dureeTotale = total ? total.minutes : 60;
 
   useEffect(() => {
     if (!selection || !date || !activite) return;
-    const duree = selection.dureeMinutes || 60;
+    const duree = dureeTotale;
     const slots = creneauxDuJour({
       activite,
       dureeMinutes: duree,
@@ -72,7 +79,7 @@ export default function CatalogueNails({ onRetour }) {
     setCreneaux(slots);
     // On garde l'heure choisie tant qu'elle reste libre ; sinon on revient au choix du creneau
     setHeure((h) => (slots.some((c) => c.heure === h && c.libre) ? h : ""));
-  }, [selection, date, activite, occupes, prises, margeRdv]);
+  }, [selection, date, activite, occupes, prises, margeRdv, dureeTotale]);
 
   const categories = [...new Set(prestations.map((p) => p.categorie))];
   const photoDe = (p) => {
@@ -87,8 +94,9 @@ export default function CatalogueNails({ onRetour }) {
     }
     setEnvoi({ enCours: true, ok: false, erreur: "" });
     const p = avecAjustement(selection, activite?.ajustementPourcent || 0);
-    const message = `Bonjour Rebecca,\n\nNouvelle demande Nails Prestige :\n- Prestation : ${p.nom}\n- Date : ${date}\n- Heure : ${heure}\n- Prix : ${libellePrix(p)}${libelleDuree(p) ? "\n- Durée : " + libelleDuree(p) : ""}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nPaiement : ${client.moyenPaiement}\n\nMerci de me confirmer.`;
-    const cellules = cellulesDe(heure, p.dureeMinutes || 60, margeRdv);
+    const opt = total && total.lignes.length ? `\n- En plus : ${texteOptions(total.lignes)}\n- Total estimé : ${total.aPartirDe ? "à partir de " : ""}${total.prix} ₪ · ${total.minutes} min` : "";
+    const message = `Bonjour Rebecca,\n\nNouvelle demande Nails Prestige :\n- Prestation : ${p.nom}\n- Date : ${date}\n- Heure : ${heure}\n- Prix : ${libellePrix(p)}${libelleDuree(p) ? "\n- Durée : " + libelleDuree(p) : ""}${opt}\n\nNom : ${client.nom}\nTéléphone : ${client.telephone}\nPaiement : ${client.moyenPaiement}\n\nMerci de me confirmer.`;
+    const cellules = cellulesDe(heure, dureeTotale, margeRdv);
     const demande = {
       service: "nails",
       serviceTitre: "Nails Prestige – " + p.nom,
@@ -97,14 +105,14 @@ export default function CatalogueNails({ onRetour }) {
       nom: client.nom.trim(),
       telephone: client.telephone.trim(),
       moyenPaiement: client.moyenPaiement,
-      prixEstime: p.prix || null,
+      prixEstime: total && total.lignes.length ? total.prix : p.prix || null,
       surDevis: false,
-      details: { prestation: p.nom, duree: p.dureeMinutes, cellules },
+      details: { prestation: p.nom, duree: dureeTotale, cellules, ...(total && total.lignes.length ? { options: total.lignes.map((l) => ({ nom: l.nom, ongles: l.ongles, prix: l.prix })) } : {}) },
       message,
       statut: "en attente",
       source: "site",
       kmEstime: null,
-      minutesEstimees: p.dureeMinutes || null,
+      minutesEstimees: dureeTotale || null,
       // 13 nov. 2026 : sans compte aussi (le compte verifie ajoute seulement le suivi dans « Mon espace »)
       ...(user && user.emailVerified ? { uid: user.uid } : {}),
     };
@@ -140,6 +148,7 @@ export default function CatalogueNails({ onRetour }) {
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 320, borderRadius: 12, marginBottom: 12 }} />}
         <p><strong>{p.nom}</strong> · {date} à {heure}</p>
         <p>{libellePrix(p)}{libelleDuree(p) ? " · " + libelleDuree(p) : ""}</p>
+        {total && total.lignes.length > 0 && <p>En plus : {texteOptions(total.lignes)}<br /><strong>Total estimé : {total.aPartirDe ? "à partir de " : ""}{total.prix} ₪ · {total.minutes} min</strong></p>}
         <label>Votre nom<br /><input type="text" value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} required /></label>
         <label>Votre téléphone<br /><input type="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} required /></label>
         <label>Moyen de paiement<br />
@@ -161,7 +170,7 @@ export default function CatalogueNails({ onRetour }) {
     const photo = photoDe(p);
     return (
       <section className="catalogue-nails">
-        <button className="lien" onClick={() => setSelection(null)}>← Retour au catalogue</button>
+        <button className="lien" onClick={() => { setSelection(null); setExtras({}); }}>← Retour au catalogue</button>
         <h2>{p.nom}</h2>
         {photo && <img src={photo} alt={p.nom} style={{ width: "100%", maxWidth: 360, borderRadius: 12, margin: "8px 0" }} />}
         {p.id && photos[p.id] && photos[p.id].length > 1 && (
@@ -171,6 +180,26 @@ export default function CatalogueNails({ onRetour }) {
         )}
         <p>{p.description}</p>
         <p><strong>{libellePrix(p)}</strong>{libelleDuree(p) ? " · " + libelleDuree(p) : ""}</p>
+        {!selection.option && options.length > 0 && (
+          <div className="options-ongles">
+            <p><strong>Ajouter (facultatif)</strong></p>
+            {options.map((o) => {
+              const n = Number(extras[o.id]) || 0;
+              const changer = (v) => setExtras((x) => ({ ...x, [o.id]: Math.max(0, Math.min(MAX_ONGLES, v)) }));
+              return (
+                <div key={o.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "6px 0" }}>
+                  <span>{o.nom.replace(/\s*\(par ongle\)\s*$/i, "")}<br /><small>{libellePrix(o)}</small></span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button type="button" aria-label={"Moins d'ongles : " + o.nom} onClick={() => changer(n - 1)} disabled={n <= 0}>−</button>
+                    <span style={{ minWidth: 64, textAlign: "center" }}>{n} ongle{n > 1 ? "s" : ""}</span>
+                    <button type="button" aria-label={"Plus d'ongles : " + o.nom} onClick={() => changer(n + 1)} disabled={n >= MAX_ONGLES}>+</button>
+                  </span>
+                </div>
+              );
+            })}
+            {total && total.lignes.length > 0 && <p><strong>Total estimé : {total.aPartirDe ? "à partir de " : ""}{total.prix} ₪ · {total.minutes} min</strong>{total.aPartirDe ? <><br /><small>Le prix exact du nail art dépend du motif : Rebecca vous le confirme.</small></> : null}</p>}
+          </div>
+        )}
         <label>
           Date
           <br /><input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />

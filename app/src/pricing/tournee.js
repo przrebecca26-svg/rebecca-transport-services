@@ -911,7 +911,9 @@ function detailsTache(x) {
   const type = TYPES_TACHE.some((t) => t.v === x.type) ? x.type : "autre";
   const age = x.age === "adulte" || x.age === "enfant" ? x.age : type === "ramassage" ? "enfant" : "";
   const e = x.enfant && typeof x.enfant === "object" && x.enfant.enfant ? { famille: String(x.enfant.famille || "").slice(0, 40), enfant: String(x.enfant.enfant).slice(0, 40) } : null;
-  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null };
+  // 13 nov. 2026 : une course pour un « compte entre nous » (gg...) : adresse de livraison en plus, prix note a la fin
+  const plus = type === "course" ? { compte: String(x.compte || "").slice(0, 40), livraison: adresseLue(x.livraison) } : {};
+  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null, ...plus };
 }
 export function ajouterTache(jours, date, tache) {
   const { titre, debut, fin, lieu = null } = tache || {};

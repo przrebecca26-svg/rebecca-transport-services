@@ -403,6 +403,7 @@ function Etape({ e, date, journee, valide = null }) {
   const [message, setMessage] = useState("");
   const [info, setInfo] = useState("");
   const [enCours, setEnCours] = useState(false);
+  const [prixCourse, setPrixCourse] = useState(null); // course pour un compte : { prix, paye, moyen }
   if (e.genre === "libre" || e.genre === "pause") {
     return (
       <li className={"ag-etape " + e.genre}>
@@ -413,7 +414,23 @@ function Etape({ e, date, journee, valide = null }) {
   }
   const modifiable = journee && (e.genre === "arret" || e.genre === "tache");
   const fait = valide && etapeValidable(e) ? valide.faitA(date, e) : "";
+  const compte = valide && valide.compteDe ? valide.compteDe(e) : null;
+  const terminerCourse = async () => {
+    setMessage("");
+    setEnCours(true);
+    try {
+      setInfo(await valide.courseFaite(date, e, { prix: Number(String(prixCourse.prix).replace(",", ".")), paye: Number(String(prixCourse.paye || 0).replace(",", ".")), moyen: prixCourse.moyen }));
+      setPrixCourse(null);
+    } catch {
+      setMessage("Enregistrement impossible. Vérifie le prix et la connexion.");
+    }
+    setEnCours(false);
+  };
   const cocher = async () => {
+    if (compte && !fait) {
+      setPrixCourse(prixCourse ? null : { prix: "", paye: "", moyen: "Espèces" });
+      return;
+    }
     setMessage("");
     setInfo("");
     setEnCours(true);
@@ -450,6 +467,7 @@ function Etape({ e, date, journee, valide = null }) {
       </div>
       <div className="ag-etape-boutons">
         {e.adresse && <a className="ag-waze" href={lienWazePoint(e.adresse)} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${e.lieu || "l'adresse"} dans Waze`}>Waze</a>}
+        {e.genre === "tache" && e.tache && e.tache.livraison && <a className="ag-waze" href={lienWazePoint(e.tache.livraison)} target="_blank" rel="noopener noreferrer">Waze livraison</a>}
         {modifiable && !fait && <button type="button" className="ag-modifier" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert}>{ouvert ? "Fermer" : "Modifier"}</button>}
         {valide && etapeValidable(e) && (
           <button type="button" className={"ag-fait" + (fait ? " oui" : "")} onClick={cocher} disabled={enCours} aria-pressed={!!fait} aria-label={fait ? "Annuler : pas encore fait" : "Marquer comme fait"}>
@@ -457,6 +475,24 @@ function Etape({ e, date, journee, valide = null }) {
           </button>
         )}
       </div>
+      {prixCourse && (
+        <div className="ag-etape-actions">
+          <p className="tb-note">Course pour {compte.nom} : note le prix maintenant qu'elle est faite.</p>
+          <label className="ag-champ">Prix de la course (₪)<input type="text" inputMode="decimal" value={prixCourse.prix} onChange={(x) => setPrixCourse({ ...prixCourse, prix: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
+          <label className="ag-champ">Il/elle t'a payé (₪, vide = pas encore)<input type="text" inputMode="decimal" value={prixCourse.paye} onChange={(x) => setPrixCourse({ ...prixCourse, paye: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
+          {Number(String(prixCourse.paye).replace(",", ".")) > 0 && (
+            <label className="ag-champ">Moyen de paiement
+              <select value={prixCourse.moyen} onChange={(x) => setPrixCourse({ ...prixCourse, moyen: x.target.value })}>
+                {["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement"].map((m) => <option key={m}>{m}</option>)}
+              </select>
+            </label>
+          )}
+          <div className="tb-actions">
+            <button type="button" className="tb-bouton" disabled={!(Number(String(prixCourse.prix).replace(",", ".")) > 0) || enCours} onClick={terminerCourse}>{enCours ? "Enregistrement…" : "Course faite"}</button>
+            <button type="button" className="tb-bouton tb-clair" onClick={() => setPrixCourse(null)}>Annuler</button>
+          </div>
+        </div>
+      )}
       {info && <p className="ag-fait-info">{info}</p>}
       {!ouvert && message && <p className="fm-erreur" role="alert">{message}</p>}
       {ouvert && e.genre === "arret" && (
@@ -508,7 +544,7 @@ function FormTache({ date, journee, initial = null, onFin }) {
   const choixInitial = initial && initial.enfant ? initial.enfant.famille + "|" + initial.enfant.enfant : "";
   const [f, setF] = useState(
     initial
-      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, enfant: choixInitial }
+      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, enfant: choixInitial, compte: initial.compte || "", livraison: initial.livraison || null }
       : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null }
   );
   const [nouvel, setNouvel] = useState(NOUVEL_ENFANT);
@@ -580,7 +616,8 @@ function FormTache({ date, journee, initial = null, onFin }) {
         }
         tache = { type: "ramassage", titre: "Ramassage · " + prenom, pour: prenom, age: estNouvel ? nouvel.age : choisi ? choisi.age : "enfant", enfant: ref, debut: f.debut, fin: f.fin, lieu };
       } else {
-        tache = { type: f.type, titre: f.quoi, pour: f.pour, age: f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu };
+        const cpt = f.type === "course" && f.compte ? (journee.comptes || []).find((c) => c.id === f.compte) : null;
+        tache = { type: f.type, titre: f.quoi, pour: cpt ? cpt.nom : f.pour, age: cpt ? "adulte" : f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu, compte: cpt ? cpt.id : "", livraison: f.type === "course" ? f.livraison || null : null };
       }
       if (initial) await journee.modifierTache(date, initial.id, tache);
       else await journee.ajouterTache(date, tache);
@@ -669,6 +706,14 @@ function FormTache({ date, journee, initial = null, onFin }) {
             <input type="text" maxLength={60} placeholder={f.type === "autre" ? "Moi, Shyrel…" : "Prénom de la cliente ou du client"} value={f.pour} onChange={(x) => set("pour", x.target.value)} />
           </label>
           <ChoixAge valeur={f.age} changer={(v) => set("age", v)} />
+          {f.type === "course" && (journee.comptes || []).length > 0 && (
+            <label className="ag-champ">Pour un compte entre nous ? (prix noté à la fin)
+              <select value={f.compte || ""} onChange={(x) => set("compte", x.target.value)}>
+                <option value="">Non</option>
+                {journee.comptes.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+              </select>
+            </label>
+          )}
         </>
       )}
 
@@ -704,8 +749,13 @@ function FormTache({ date, journee, initial = null, onFin }) {
             <label className="ag-champ">À <input type="time" value={f.fin} onChange={(x) => set("fin", x.target.value)} /></label>
           </div>
           {!estNouvel && (
-            <div className="ag-champ">Adresse (facultatif)
+            <div className="ag-champ">{f.type === "course" ? "Adresse de récupération (facultatif)" : "Adresse (facultatif)"}
               <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position={false} onChange={(v) => set("lieu", v)} />
+            </div>
+          )}
+          {f.type === "course" && (
+            <div className="ag-champ">Adresse de livraison (facultatif)
+              <AddressField id={"tache-liv-" + date + (initial ? initial.id : "")} valeur={f.livraison || null} position={false} onChange={(v) => set("livraison", v)} />
             </div>
           )}
           {f.debut && f.fin && f.fin <= f.debut && <p className="fm-erreur">L'heure de fin doit être après l'heure de début.</p>}

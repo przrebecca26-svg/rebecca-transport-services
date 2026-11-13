@@ -19,6 +19,8 @@ import Finances from "./Finances.jsx";
 import ReglagesFondations from "./ReglagesFondations.jsx";
 import SyncCreneaux from "./SyncCreneaux.jsx";
 import SyncTournee from "./SyncTournee.jsx";
+import SyncComptes from "./comptesBase.js";
+import ComptesEntreNous from "./ComptesEntreNous.jsx";
 import Statistiques, { Rapports } from "./Statistiques.jsx";
 import CodesPromo from "./CodesPromo.jsx";
 import Reglages from "./Reglages.jsx";
@@ -107,6 +109,7 @@ const RUBRIQUES = [
   { id: "equipe", label: "Équipe" },
   { id: "clients", label: "Clients et codes promo" },
   { id: "finances", label: "Finances" },
+  { id: "comptes", label: "Comptes entre nous", adminOnly: true }, // 13 nov. 2026 : Alexia, gg... soldes dans les deux sens
   { id: "mesfinances", label: "Mes finances" }, // seulement pour un coequipier (J2) : jamais les finances de Rebecca
   { id: "statistiques", label: "Statistiques" },
   { id: "rapports", label: "Rapports et exports" },
@@ -281,6 +284,7 @@ export default function Admin() {
     else if (onglet === "mesfinances") contenu = <Finances {...props} membre={membre} />; // J4a : seulement les siennes
     else if (onglet === "clients") contenu = <ClientsEtPromos key={"cp" + (cible.sous || "") + (cibleDe("clients") || "")} {...props} cible={cibleDe("clients")} sousOnglet={cible.onglet === "clients" ? cible.sous : null} />;
     else if (onglet === "finances") contenu = <Finances {...props} />;
+    else if (onglet === "comptes" && estAdmin) contenu = <ComptesEntreNous />;
     else if (onglet === "statistiques") contenu = <Statistiques membre={membre} />; // Lot C, C4
     else if (onglet === "rapports") contenu = <Rapports membre={membre} />; // Lot C, C5
     else if (membre) contenu = <><MesReglages key={membre.id} membre={membre} />{vehiculesBloc}</>;
@@ -290,6 +294,7 @@ export default function Admin() {
       <EquipeContexte.Provider value={contexte}>
       {role === "admin" && <SyncCreneaux />}
       {role === "admin" && <SyncTournee />}
+      {role === "admin" && <SyncComptes />}
       <div className="admin admin-tableau theme-sombre">
         <header className="ts-entete">
           <button className="ts-burger" onClick={() => setMenu(true)} aria-label="Ouvrir le menu" aria-expanded={menu}>

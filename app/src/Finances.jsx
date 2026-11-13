@@ -141,14 +141,15 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
           <strong className={ct.beneficeEncaisse < 0 ? "bl-neg" : undefined}>{shekels(ct.beneficeEncaisse)}</strong>
         </p>
         <ul className="pm-resume">
-          <Ligne nom="Encaissé" valeur={shekels(ct.encaisse)} />
+          <Ligne nom="Encaissé" valeur={shekels(ct.encaisse + ct.wolt)} />
+          <Ligne sous nom="Rebecca Services" valeur={shekels(ct.encaisse)} />
+          <Ligne sous nom="Wolt et autres" valeur={shekels(ct.wolt)} />
           {ct.troc > 0 && <Ligne nom="Réglé en troc (sans argent)" valeur={shekels(ct.troc)} />}
           <Ligne nom="Reste à encaisser" valeur={shekels(ct.reste)} classe={ct.reste > 0 ? "bl-neg" : undefined} />
-          <Ligne nom="Total" valeur={shekels(ct.total)} />
-          <Ligne nom="Revenus Wolt et autres" valeur={"+ " + shekels(ct.wolt)} />
+          <Ligne nom="Total" valeur={shekels(ct.total + ct.wolt)} />
           <Ligne nom="Dépenses" valeur={"- " + shekels(ct.depenses)} />
         </ul>
-        <p className="tb-note">Bénéfice encaissé = encaissé + Wolt − dépenses. Le reste à encaisser n'y est pas tant que tu ne l'as pas reçu.</p>
+        <p className="tb-note">Bénéfice encaissé = encaissé (Rebecca Services + Wolt) − dépenses. Le reste à encaisser n'y est pas tant que tu ne l'as pas reçu. Wolt compte aussi dans ton plafond d'osek patur.</p>
       </div>
 
       <div className="tb-bloc">
@@ -228,7 +229,7 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
                     <strong className={c.mois[m.i].beneficeEncaisse < 0 ? "bl-neg" : undefined}>{shekels(c.mois[m.i].beneficeEncaisse)}</strong>
                   </div>
                   <small>
-                    Encaissé {shekels(c.mois[m.i].encaisse)}{c.mois[m.i].troc ? ` · troc ${shekels(c.mois[m.i].troc)}` : ""} · reste à encaisser {shekels(c.mois[m.i].reste)}
+                    Encaissé {shekels(c.mois[m.i].encaisse + c.mois[m.i].wolt)} (dont Wolt {shekels(c.mois[m.i].wolt)}){c.mois[m.i].troc ? ` · troc ${shekels(c.mois[m.i].troc)}` : ""} · reste à encaisser {shekels(c.mois[m.i].reste)}
                     <br />
                     Coursier {shekels(m.coursier)} · Transport {shekels(m.transport)}
                     {m.annulations ? ` · Annulations ${shekels(m.annulations)}` : ""} · Wolt {shekels(m.wolt)} · Dépenses {shekels(m.depenses)}

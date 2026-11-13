@@ -13,7 +13,7 @@
 import { encaisseBrut } from "./comptes.js";
 
 export const TYPES_LIGNE = [
-  { v: "dette", signe: 1, l: "Course faite (me doit)", aide: "Une course faite, même ancienne, ou une dette sans date" },
+  { v: "dette", signe: 1, l: "Il/elle me doit", aide: "Une course pas encore payée ou une ancienne dette : elle entre dans Finances seulement quand il/elle paie" },
   { v: "paye", signe: -1, l: "Il/elle m'a payé", aide: "Le jour même ou plus tard, même plus que le prix" },
   { v: "jedois", signe: -1, l: "Je lui dois", aide: "Troc : ses ongles, un service rendu…" },
   { v: "jepaie", signe: 1, l: "Je lui ai payé", aide: "Je règle ce que je lui devais" },
@@ -86,7 +86,8 @@ export function soldeCompte(c, demandes, mouvements) {
   let s = 0;
   for (const d of coursesDuCompte(c, demandes)) s += resteCourse(d, mouvements);
   for (const l of c.lignes) {
-    if (l.type === "dette" || l.type === "jepaie") s += l.montant;
+    if (l.type === "dette") s += dispo(l); // la partie deja payee est devenue une course payee
+    else if (l.type === "jepaie") s += l.montant;
     else s -= dispo(l); // la partie deja placee sur une course est deja dans le « reste » de la course
   }
   return cents(s);
@@ -98,11 +99,14 @@ export function phraseSolde(nom, solde) {
   return solde > 0 ? `${nom} te doit ${m}` : `Tu dois ${m} à ${nom}`;
 }
 
-// Ce qui est paye ou deduit se place sur les courses encore dues, les plus anciennes d'abord.
-// Renvoie { mouvements: [a enregistrer], comptes: [mis a jour] } ; mouvements vide = rien a faire.
+// Ce qui est paye ou deduit se place sur les courses encore dues, les plus anciennes d'abord, puis sur les dettes.
+// Renvoie { mouvements, courses: [{ id, demande }] a creer, comptes: [mis a jour] } ; rien a faire = listes vides.
 // paye -> paiement (moyen de la ligne) ; jedois -> correction « Deduit : ... » (troc : pas d'argent recu).
+// 13 nov. 2026, 09h04 : une DETTE (« il me doit », ex. 450 ₪ de gg) n'entre dans Finances que quand il paie :
+// la partie payee devient alors une course terminee, a la date du paiement, deja payee.
 export function planAllocation(comptes, demandes, mouvements, moyens = []) {
   const sortie = [];
+  const nouvelles = [];
   const deja = [...(mouvements || [])];
   const suite = comptes.map((c) => {
     const lignes = c.lignes.map((l) => ({ ...l }));
@@ -122,9 +126,29 @@ export function planAllocation(comptes, demandes, mouvements, moyens = []) {
         l.affecte = cents(l.affecte + montant);
       }
     }
+    // Reste : sur les dettes (les plus anciennes d'abord)
+    const dettes = lignes.filter((l) => l.type === "dette").sort((a, b) => a.date.localeCompare(b.date));
+    for (const l of lignes.filter(credit).sort((a, b) => a.date.localeCompare(b.date))) {
+      for (const dt of dettes) {
+        if (dispo(l) <= 0) break;
+        const montant = Math.min(dispo(dt), dispo(l));
+        if (montant <= 0) continue;
+        if (l.type === "paye") {
+          const id = `dette-${dt.id}-${l.id}`.slice(0, 100);
+          const d = courseDuCompte(c, { date: l.date, heure: "12:00", titre: `Paiement de la dette${dt.libelle ? " : " + dt.libelle : ""}`, prix: montant });
+          if (d) {
+            nouvelles.push({ id, demande: d });
+            sortie.push({ kind: "paiement", resId: id, date: l.date, montant, moyen: moyens.includes(l.moyen) ? l.moyen : moyens[0] || "Espèces" });
+          }
+        }
+        // troc (jedois) : la dette baisse, sans argent recu ni course dans Finances
+        dt.affecte = cents(dt.affecte + montant);
+        l.affecte = cents(l.affecte + montant);
+      }
+    }
     return { ...c, lignes };
   });
-  return { mouvements: sortie, comptes: suite };
+  return { mouvements: sortie, courses: nouvelles, comptes: suite };
 }
 
 // Historique d'un compte : courses et lignes, les plus recentes d'abord
@@ -140,7 +164,7 @@ export function historique(c, demandes, mouvements) {
   }));
   const lignes = c.lignes.map((l) => {
     const t = TYPES_LIGNE.find((x) => x.v === l.type);
-    return { cle: "l" + l.id, id: l.id, date: l.date, texte: `${t.l}${l.libelle ? " · " + l.libelle : ""}${l.moyen ? " · " + l.moyen : ""}`, montant: l.montant, signe: t.signe, affecte: l.affecte, ligne: true };
+    return { cle: "l" + l.id, id: l.id, date: l.date, dette: l.type === "dette", texte: `${t.l}${l.libelle ? " · " + l.libelle : ""}${l.moyen ? " · " + l.moyen : ""}`, montant: l.montant, signe: t.signe, affecte: l.affecte, ligne: true };
   });
   return [...courses, ...lignes].sort((a, b) => b.date.localeCompare(a.date));
 }

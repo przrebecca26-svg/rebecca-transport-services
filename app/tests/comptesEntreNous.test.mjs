@@ -37,7 +37,32 @@ test("rien à placer : aucun mouvement (pas de boucle)", () => {
   egal(C.planAllocation(p1.comptes, [journee("j1", "2026-11-13")], p1.mouvements, MOYENS).mouvements, []);
 });
 test("je lui ai payé : le solde remonte", () => egal(C.soldeCompte(C.ajouterLigne(base, "ca", { type: "jepaie", date: "2026-11-13", montant: 20 })[0], [], []), 20));
-test("ancienne dette de gg (course sans numéro, rattachée au compte) : 450", () => {
+test("dette de gg : 450 dus, rien dans Finances tant qu'il n'a pas payé", () => {
+  const comptes = C.ajouterLigne(base, "cg", { type: "dette", date: "2026-11-13", montant: 450, libelle: "Anciennes courses" });
+  egal(C.soldeCompte(comptes[1], [], []), 450);
+  const vide = C.planAllocation(comptes, [], [], MOYENS);
+  egal([vide.mouvements.length, vide.courses.length], [0, 0]);
+});
+test("gg paie 200 : une course payée de 200 entre dans Finances, il doit encore 250", () => {
+  let comptes = C.ajouterLigne(base, "cg", { type: "dette", date: "2026-11-13", montant: 450, libelle: "Anciennes courses" });
+  comptes = C.ajouterLigne(comptes, "cg", { type: "paye", date: "2026-11-20", montant: 200, moyen: "Bit" });
+  const p = C.planAllocation(comptes, [], [], MOYENS);
+  egal(p.courses.length, 1);
+  egal([p.courses[0].demande.prixFinal, p.courses[0].demande.date, p.courses[0].demande.statut], [200, "2026-11-20", "terminee"]);
+  egal([p.mouvements[0].resId, p.mouvements[0].montant, p.mouvements[0].moyen], [p.courses[0].id, 200, "Bit"]);
+  const demandes = [{ ...p.courses[0].demande, id: p.courses[0].id }];
+  egal(C.soldeCompte(p.comptes[1], demandes, p.mouvements), 250);
+  const p2 = C.planAllocation(p.comptes, demandes, p.mouvements, MOYENS);
+  egal([p2.mouvements.length, p2.courses.length], [0, 0]);
+});
+test("troc sur une dette : elle baisse, sans rien dans Finances", () => {
+  let comptes = C.ajouterLigne(base, "ca", { type: "dette", date: "2026-11-13", montant: 100 });
+  comptes = C.ajouterLigne(comptes, "ca", { type: "jedois", date: "2026-11-14", montant: 40, libelle: "Mes ongles" });
+  const p = C.planAllocation(comptes, [], [], MOYENS);
+  egal([p.mouvements.length, p.courses.length], [0, 0]);
+  egal(C.soldeCompte(p.comptes[0], [], []), 60);
+});
+test("course de gg depuis le Calendrier (sans numéro, rattachée au compte)", () => {
   const d = C.courseDuCompte(base[1], { date: "2026-11-13", titre: "Anciennes courses", prix: 450 });
   egal([d.statut, d.source, d.prixFinal, d.telephone, d.details.compte], ["terminee", "manuel", 450, "Sans numéro", "cg"]);
   egal(C.soldeCompte(base[1], [{ ...d, id: "x" }], []), 450);

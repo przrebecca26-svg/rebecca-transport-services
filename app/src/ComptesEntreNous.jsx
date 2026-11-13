@@ -96,7 +96,7 @@ function Compte({ c, comptes, demandes, mouvements, sauver, familles, retour, me
     setEnCours(true);
     const date = l.date || aujourdhui();
     try {
-      if (l.type === "dette" || l.type === "passee") {
+      if (l.type === "passee") {
         // Ancienne dette = une course terminee : elle entre dans Finances (chiffre d'affaires) et se paie comme les autres
         const d = courseDuCompte(c, { date, heure: "12:00", titre: l.libelle.trim() || "Anciennes courses", prix: montant });
         if (!d) throw new Error("montant");
@@ -124,7 +124,7 @@ function Compte({ c, comptes, demandes, mouvements, sauver, familles, retour, me
               <button key={t.v} type="button" role="radio" aria-checked={l.type === t.v} className={l.type === t.v ? "actif" : ""} onClick={() => setL({ ...l, type: t.v })}>{t.l}</button>
             ))}
           </div>
-          <p className="tdb-note">{(CHOIX_SAISIE.find((t) => t.v === l.type) || {}).aide}{l.type === "dette" || l.type === "passee" ? " · entre dans Finances à sa date, comme une course." : l.type === "paye" ? " · part dans Finances (encaissé) sur ses courses dues ; le reste est une avance." : l.type === "jedois" ? " · déduit de ses courses (troc, pas d'argent reçu)." : " · seulement dans ce compte."}</p>
+          <p className="tdb-note">{(CHOIX_SAISIE.find((t) => t.v === l.type) || {}).aide}{l.type === "passee" ? " · entre dans Finances à sa date, comme une course." : l.type === "dette" ? "" : l.type === "paye" ? " · part dans Finances (encaissé) sur ses courses dues ; le reste est une avance." : l.type === "jedois" ? " · déduit de ses courses (troc, pas d'argent reçu)." : " · seulement dans ce compte."}</p>
           <label className="champ">Montant (₪)<input type="text" inputMode="decimal" value={l.montant} onChange={(e) => setL({ ...l, montant: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           {(l.type === "paye" || l.type === "jepaie" || l.type === "passee") && (
             <label className="champ">Moyen de paiement
@@ -154,7 +154,8 @@ function Compte({ c, comptes, demandes, mouvements, sauver, familles, retour, me
               <span>
                 {x.texte} · <strong>{x.signe > 0 ? "+" : "−"}{shekels(x.montant)}</strong>
                 {x.course && <small>{x.reste > 0 ? ` · reste ${shekels(x.reste)}` : " · réglée"}</small>}
-                {x.ligne && x.affecte > 0 && <small> · {shekels(x.affecte)} placés sur ses courses</small>}
+                {x.ligne && x.dette && <small>{x.affecte > 0 ? ` · ${shekels(x.affecte)} payés` : " · pas encore payée (pas dans Finances)"}</small>}
+                {x.ligne && !x.dette && x.affecte > 0 && <small> · {shekels(x.affecte)} placés sur ce qu'il/elle doit</small>}
               </span>
               {x.ligne && ligneSupprimable(c.lignes.find((y) => y.id === x.id) || {}) && (
                 <button type="button" className="ag-modifier" onClick={() => sauver(retirerLigne(comptes, c.id, x.id))}>Supprimer</button>

@@ -4,6 +4,8 @@ import ChoixLieu from "./components/MesLieux.jsx";
 import ChoixAge from "./components/ChoixAge.jsx";
 import { JOURS } from "./pricing/tournee.js";
 import { familleVide, enfantFicheVide, rdvVide, manqueRdv, nomRdv, arriveeDuJour, sortieDuJour, doublonsFamilles, fusionnerDoublon } from "./pricing/familles.js";
+import { useComptes, useCoursesEtMouvements } from "./comptesBase.js";
+import { phraseSolde, soldeCompte } from "./pricing/comptesEntreNous.js";
 
 // FAMILLES ET ENFANTS (12 nov. 2026) : dans le Repertoire, la fiche de chaque enfant (ecole, activites, jours,
 // heures). La tournee scolaire se construit toute seule a partir de ces fiches.
@@ -73,6 +75,7 @@ function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
         <span className="tdb-note">{nb} enfant{nb > 1 ? "s" : ""} : {f.enfants.map((e) => e.prenom || "sans prénom").join(", ")}</span>
       </summary>
       <button type="button" className="tdb-retour" onClick={() => ouvrir(false)}>← Retour au répertoire</button>
+      {ouvert && <ComptesLies familleId={f.id} />}
       <div className="champ">
         <label htmlFor={"fn" + f.id}>Nom du parent (moi, Alexia, une cliente…)</label>
         <input id={"fn" + f.id} type="text" maxLength={60} value={f.nom} onChange={(e) => set("nom", e.target.value)} />
@@ -179,3 +182,22 @@ export default function Familles({ familles, changer, connues, voit }) {
     </>
   );
 }
+
+// 13 nov. 2026, 09h04 : « c'est ou que je vois sa dette ? » -> dans la fiche de la famille, les comptes entre nous lies
+// (Alexia, gg...) avec leur solde ; le detail est dans le menu « Comptes entre nous ».
+function ComptesLies({ familleId }) {
+  const { comptes } = useComptes();
+  const { demandes, mouvements } = useCoursesEtMouvements(true);
+  const lies = comptes.filter((c) => c.famille === familleId);
+  if (!lies.length || !demandes || !mouvements) return null;
+  return (
+    <div className="bloc">
+      <p className="rp-type">Comptes entre nous</p>
+      {lies.map((c) => (
+        <p key={c.id}>{phraseSolde(c.nom, soldeCompte(c, demandes, mouvements))}</p>
+      ))}
+      <p className="tdb-note">Détail, paiements et troc : menu « Comptes entre nous ».</p>
+    </div>
+  );
+}
+

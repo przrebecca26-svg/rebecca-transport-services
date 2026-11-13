@@ -78,8 +78,10 @@ export default function TableauDeBord({ aller, membre = null }) {
         periode={periode}
         aller={aller}
         peutSupprimer={!membre}
+        general
+        wolt={autres.filter((x) => x.debut && x.debut >= periode.debut && x.debut <= periode.fin)}
       />
-      <p className="tdb-note">{PERIODES_TB.find((p) => p.id === type).titre} · hors pourboires · {membre ? "tes courses (demandes reçues : tes services)" : "Services coursier et Transport privé"}</p>
+      <p className="tdb-note">{PERIODES_TB.find((p) => p.id === type).titre} · hors pourboires · {membre ? "tes courses" : "Rebecca Services et Wolt"} · touche un chiffre pour voir le détail</p>
 
       <div className="tdb-titre-ligne">
         <h2>Mes activités</h2>

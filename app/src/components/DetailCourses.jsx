@@ -13,6 +13,25 @@ const jj = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? `${d.slice(8, 10)}/${d.
 export default function DetailCourses({ demandes = [], mouvements = [], aller = null, peutSupprimer = false, vide = "Aucune course." }) {
   const [message, setMessage] = useState("");
   const [aConfirmer, setAConfirmer] = useState("");
+  // 13 nov. 2026, 10h04 : remettre les compteurs a zero apres les tests -> cocher plusieurs courses et tout supprimer
+  const [coches, setCoches] = useState([]);
+  const [toutConfirmer, setToutConfirmer] = useState(false);
+  const basculer = (id) => setCoches((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
+  const supprimerCoches = async () => {
+    setMessage("");
+    let n = 0;
+    for (const id of coches) {
+      try {
+        await deleteDoc(doc(db, "demandes", id));
+        n++;
+      } catch {
+        /* on continue */
+      }
+    }
+    setCoches([]);
+    setToutConfirmer(false);
+    setMessage(n === 1 ? "1 course supprimée." : `${n} courses supprimées.`);
+  };
   const supprimer = async (d) => {
     setMessage("");
     try {
@@ -32,7 +51,8 @@ export default function DetailCourses({ demandes = [], mouvements = [], aller = 
         const recu = encaisseBrut(mouvements, d.id);
         return (
           <div key={d.id} className="rp-forfait tdb-detail-ligne">
-            <span>
+            {peutSupprimer && <input type="checkbox" aria-label="Cocher pour supprimer" checked={coches.includes(d.id)} onChange={() => basculer(d.id)} style={{ width: 22, height: 22, flex: "none" }} />}
+            <span style={{ flex: 1 }}>
               <strong>{jj(d.date)}</strong> · {d.nom || "?"} · {d.serviceTitre || d.service}
               <small>
                 {typeof prix === "number" ? ` · ${shekels(prix)}` : ""} · encaissé {shekels(recu)}
@@ -52,6 +72,18 @@ export default function DetailCourses({ demandes = [], mouvements = [], aller = 
           </div>
         );
       })}
+      {peutSupprimer && triees.length > 1 && (
+        <div className="tb-actions">
+          <button type="button" className="rp-waze" onClick={() => setCoches(coches.length === triees.length ? [] : triees.map((d) => d.id))}>{coches.length === triees.length ? "Tout décocher" : "Tout cocher"}</button>
+          {coches.length > 0 && !toutConfirmer && <button type="button" className="rp-waze" onClick={() => setToutConfirmer(true)}>Supprimer les {coches.length} cochées</button>}
+          {toutConfirmer && (
+            <>
+              <button type="button" className="rp-waze ag-danger" onClick={supprimerCoches}>Oui, supprimer {coches.length} course{coches.length > 1 ? "s" : ""}</button>
+              <button type="button" className="rp-waze" onClick={() => setToutConfirmer(false)}>Non</button>
+            </>
+          )}
+        </div>
+      )}
       {message && <p className="tdb-note" role="status">{message}</p>}
     </div>
   );

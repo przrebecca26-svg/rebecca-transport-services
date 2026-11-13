@@ -9,6 +9,8 @@ import { ADMIN_ID, lignesDe, syntheseMembre } from "./pricing/equipe.js";
 import { argentDe, champOperateur, lignesAReverser, parVehicule, soldesDe, validerReversement } from "./pricing/reverser.js";
 import { libelleType, nomDe, vehiculesEffectifs } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
+import EssenceVue, { enregistrerEssence, useEssence } from "./EssenceVue.jsx";
+import { kmWolt } from "./pricing/essence.js";
 import "./paiements.css";
 import "./finances.css";
 
@@ -36,6 +38,7 @@ const VUES = [
   { id: "bilan", label: "Bilan", rebecca: true },
   { id: "wolt", label: "Wolt" },
   { id: "depenses", label: "Dépenses" },
+  { id: "essence", label: "Essence", rebecca: true }, // 13 nov. 2026 : pleins, travail (Rebecca Services, Wolt) et perso
 ];
 
 const COLLECTIONS = ["demandes", "mouvements", "depenses", "autresRevenus", "avis", "recharges", "creditMouvements", "reversements"];
@@ -231,10 +234,13 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
 }
 
 /* ---------- Vue Wolt (autres revenus) ---------- */
-const formulaireVide = () => ({ source: "Wolt", periode: "semaine", debut: aujourdhui(), fin: finProposee("semaine", aujourdhui()), livraisons: "", revenu: "", pourboire: "", detail: "" });
+const formulaireVide = () => ({ source: "Wolt", periode: "semaine", debut: aujourdhui(), fin: finProposee("semaine", aujourdhui()), livraisons: "", revenu: "", pourboire: "", detail: "", km: "" });
 
 function AutresRevenus({ lignes: toutes, moi }) {
   const lignes = lignesDe(toutes, moi); // chacun son Wolt
+  // 13 nov. 2026 : les km de chaque ligne Wolt (Rebecca) sont gardes dans admin/essence, pour la vue Essence
+  const essence = useEssence();
+  const avecKm = moi === ADMIN_ID && essence;
   const [form, setForm] = useState(null); // null = ferme
   const [edition, setEdition] = useState(null); // id de la ligne modifiee
   const [confirmerSuppression, setConfirmerSuppression] = useState(false);
@@ -252,7 +258,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
     setConfirmerSuppression(false);
     if (l) {
       setEdition(l.id);
-      setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "" });
+      setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "", km: essence && essence.woltKm[l.id] ? String(essence.woltKm[l.id]) : "" });
     } else {
       setEdition(null);
       setForm(formulaireVide());
@@ -279,11 +285,13 @@ function AutresRevenus({ lignes: toutes, moi }) {
     setEnCours(true);
     setErreur("");
     try {
+      let id = edition;
       if (edition) {
         await updateDoc(doc(db, "autresRevenus", edition), { ...v.ligne, ...(v.ligne.detail ? {} : { detail: deleteField() }), majLe: serverTimestamp() });
       } else {
-        await addDoc(collection(db, "autresRevenus"), { ...v.ligne, ...champOperateur(moi), creeLe: serverTimestamp(), majLe: serverTimestamp() });
+        id = (await addDoc(collection(db, "autresRevenus"), { ...v.ligne, ...champOperateur(moi), creeLe: serverTimestamp(), majLe: serverTimestamp() })).id;
       }
+      if (avecKm && (form.km || essence.woltKm[id])) await enregistrerEssence(kmWolt(essence, id, form.km));
       fermer();
     } catch {
       setErreur("Enregistrement impossible. Vérifie la connexion puis réessaie.");
@@ -342,6 +350,12 @@ function AutresRevenus({ lignes: toutes, moi }) {
             Nombre de livraisons
             <input inputMode="numeric" value={form.livraisons} onChange={(e) => changer("livraisons", e.target.value)} placeholder="0" />
           </label>
+          {avecKm && (
+            <label className="pm-champ">
+              Kilomètres parcourus (pour ta vue Essence)
+              <input inputMode="decimal" value={form.km} onChange={(e) => changer("km", e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="0" />
+            </label>
+          )}
           <div className="fi-deux">
             <label className="pm-champ">
               Revenu (₪)
@@ -548,7 +562,7 @@ export default function Finances({ membre = null }) {
   const mesVehicules = useMemo(() => vehiculesEffectifs(vehicules).filter((v) => v.actif !== false && (v.proprietaire === moi || (v.partageAvec || []).includes(moi))), [vehicules, moi]);
   const vues = VUES.filter((v) => (!v.equipe || enEquipe) && (!v.rebecca || estRebecca));
   const choixPersonne = estRebecca && enEquipe && (vue === "annee" || vue === "bilan");
-  const besoinDonnees = vue === "annee" || vue === "wolt" || vue === "reverser";
+  const besoinDonnees = vue === "annee" || vue === "wolt" || vue === "reverser" || vue === "essence";
 
   return (
     <>
@@ -575,6 +589,7 @@ export default function Finances({ membre = null }) {
       {vue === "annee" && pret && <Annee donnees={donnees} reglages={reglagesPersonne} personne={estRebecca && enEquipe ? personne : moi} membres={membres} vehicules={vehicules} enEquipe={enEquipe} />}
       {vue === "reverser" && pret && <AReverser donnees={donnees} moi={moi} membres={membres} />}
       {vue === "wolt" && pret && <AutresRevenus lignes={donnees.autresRevenus} moi={moi} />}
+      {vue === "essence" && pret && estRebecca && <EssenceVue demandes={donnees.demandes} autresRevenus={donnees.autresRevenus} />}
     </>
   );
 }

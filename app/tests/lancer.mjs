@@ -20,6 +20,7 @@ await import("./repertoire.test.mjs");
 await import("./familles.test.mjs");
 await import("./forfaitJour.test.mjs");
 await import("./comptesEntreNous.test.mjs");
+await import("./essence.test.mjs");
 const r = bilan();
 console.log(`Tests reussis : ${r.ok} / ${r.ok + r.echecs.length}`);
 r.echecs.forEach((e) => console.log("ECHEC  " + e));

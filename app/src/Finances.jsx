@@ -551,7 +551,7 @@ function AReverser({ donnees, moi, membres }) {
 }
 
 // membre : fiche du coequipier pour « Mes finances » (null = espace de Rebecca)
-export default function Finances({ membre = null }) {
+export default function Finances({ membre = null, aller = null }) {
   const { membres, vehicules } = useEquipeContexte();
   const estRebecca = !membre;
   const moi = membre ? membre.id : ADMIN_ID;
@@ -608,7 +608,7 @@ export default function Finances({ membre = null }) {
       {vue === "annee" && pret && <Annee donnees={donnees} reglages={reglagesPersonne} personne={estRebecca && enEquipe ? personne : moi} membres={membres} vehicules={vehicules} enEquipe={enEquipe} />}
       {vue === "reverser" && pret && <AReverser donnees={donnees} moi={moi} membres={membres} />}
       {vue === "wolt" && pret && <AutresRevenus lignes={donnees.autresRevenus} moi={moi} />}
-      {vue === "monmois" && pret && estRebecca && <MonMoisVue donnees={donnees} />}
+      {vue === "monmois" && pret && estRebecca && <MonMoisVue donnees={donnees} aller={aller} />}
       {vue === "essence" && pret && estRebecca && <EssenceVue demandes={donnees.demandes} autresRevenus={donnees.autresRevenus} />}
     </>
   );

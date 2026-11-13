@@ -82,10 +82,13 @@ export function essenceDuMois(mois, essence, demandes = [], wolt = [], t = TARIF
     const k = travail > 0 ? travail / (kmRS + kmWolt || 1) : 0;
     rs = (total * kmRS * k) / kmTotal;
     w = (total * kmWolt * k) / kmTotal;
+  } else if (total <= 0) {
+    rs = 0; // pas de plein note ce mois-ci : rien a partager (l'estimation reste visible en km)
+    w = 0;
   } else {
     rs = kmRS * parKm;
     w = kmWolt * parKm;
-    if (total > 0 && rs + w > total) {
+    if (rs + w > total) {
       const k = total / (rs + w);
       rs *= k;
       w *= k;
@@ -147,4 +150,13 @@ export function kmDuMoisReel({ mois, jusqua, journee, domicile, courses = [], km
     kmCourses += trajet + (d0 && a ? km(d0, a) || 0 : 0) + (d0 && b ? km(b, d0) || 0 : 0);
   }
   return { kmTournee: cents(kmTournee), kmCourses: cents(kmCourses) };
+}
+
+// 13 nov. 2026, 09h43 : une depense « Carburant » notee dans Depenses est un plein comme les autres (sinon l'essence
+// comptait deux fois : estimation + depense). Elle rejoint les pleins, et le partage travail / perso s'applique.
+export const estCarburant = (x) => /carburant|essence/i.test(String((x && x.categorie) || ""));
+export function avecCarburant(essence, depenses = []) {
+  if (!essence) return essence;
+  const plus = depenses.filter((x) => !x.operateur && estCarburant(x) && DATE_OK.test(x.date || "") && Number(x.montant) > 0).map((x) => ({ id: "dep-" + x.id, date: x.date, montant: cents(Number(x.montant)), litres: 0, compteur: 0, depense: true }));
+  return { ...essence, pleins: [...essence.pleins, ...plus] };
 }

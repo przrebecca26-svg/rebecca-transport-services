@@ -213,3 +213,13 @@
 .aj-lien { margin: 4px 0 0; }
 .fi-choix { padding-bottom: 0; }
 .tb-attente-module { margin: 14px 16px; }
+
+/* Detail d'un chiffre (13 nov. 2026) : un chiffre se touche et montre ses courses */
+.tdb-cliquable { cursor: pointer; text-align: left; width: 100%; font: inherit; color: inherit; }
+.tdb-cliquable.ouvert { outline: 2px solid var(--g-rose, #f1aeb7); }
+.tdb-detail { display: grid; gap: 8px; margin: 8px 0 12px; }
+.tdb-detail-ligne { align-items: center; }
+.tdb-detail-ligne small { display: block; opacity: 0.75; }
+.tdb-detail-boutons { display: flex; flex-wrap: wrap; gap: 6px; flex: none; }
+.ml-cliquable { display: flex; justify-content: space-between; gap: 10px; width: 100%; background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ml-cliquable span::after { content: " ›"; opacity: 0.6; }

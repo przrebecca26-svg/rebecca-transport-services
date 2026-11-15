@@ -114,16 +114,26 @@ function Carte({ s, onClick }) {
 }
 
 const MESSAGE_ACCES = "Bonjour Rebecca, je souhaite réserver un service de Transport privé.";
-function SurDemande({ a }) {
+// 15 nov. 2026 : le ramassage scolaire est ouvert a tous, meme quand le Transport prive est sur autorisation
+const SERVICES_PUBLICS = ["ramassage"];
+
+function SurDemande({ a, onChoix }) {
   return (
     <section className="espace" style={ESPACE} aria-labelledby={"titre-" + a.id}>
       <div style={ENTETE}>
         <span className="espace-icone" aria-hidden="true"><IconeService id={servicesDe(a.id)[0].id} /></span>
         <h2 id={"titre-" + a.id} style={TITRE}>{a.titre}</h2>
       </div>
+      {onChoix && a.id === "transport" && (
+        <div className="services">
+          {SERVICES.filter((s) => SERVICES_PUBLICS.includes(s.id)).map((s) => (
+            <Carte key={s.id} s={s} onClick={() => onChoix(s.id)} />
+          ))}
+        </div>
+      )}
       <div className="sur-demande">
         <ul className="sur-demande-liste">
-          {servicesDe(a.id).map((s) => (
+          {servicesDe(a.id).filter((s) => !SERVICES_PUBLICS.includes(s.id)).map((s) => (
             <li key={s.id}><IconeService id={s.id} taille={26} />{s.titre}</li>
           ))}
         </ul>
@@ -207,7 +217,7 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
           </div>
         </section>
       ) : (
-        <SurDemande a={{ id: "transport", titre: "Transport privé", texte: "Trajets, aéroport, Hatan & Kala, ramassage scolaire et mise à disposition." }} />
+        <SurDemande onChoix={onChoix} a={{ id: "transport", titre: "Transport privé", texte: "Trajets, aéroport, Hatan & Kala, ramassage scolaire et mise à disposition." }} />
       )}
 
       {/* Beauté & bien-être */}
@@ -372,7 +382,7 @@ export default function App() {
   const versCompte = (ongletInitial, vueInitiale) => aller({ nom: "compte", ongletInitial, vueInitiale });
   const versFormulaire = (service, depart) => {
     const s = SERVICES.find((x) => x.id === service);
-    if (!s || !activitesVisibles(acces).some((a) => a.id === s.activite)) return aller({ nom: "accueil" });
+    if (!s || (!SERVICES_PUBLICS.includes(s.id) && !activitesVisibles(acces).some((a) => a.id === s.activite))) return aller({ nom: "accueil" });
     aller({ nom: "form", service, depart, cle: Date.now() });
   };
 

@@ -91,9 +91,10 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/autorisations/$(request.auth.uid + "__" + act)).data.actif == true;
     }
 
+    // 15 nov. 2026 : le ramassage scolaire est ouvert a tous (avec ou sans compte), meme si le Transport prive est sur autorisation
     function serviceAutorise(nom) {
       return nom is string
-        && (activitePublique(activiteDe(nom)) || compteAutorise(activiteDe(nom)));
+        && (nom == "ramassage" || activitePublique(activiteDe(nom)) || compteAutorise(activiteDe(nom)));
     }
 
     // v15 : services que gere un coequipier (coursier et transport ; jamais la beaute, Epoxy ni Digital)

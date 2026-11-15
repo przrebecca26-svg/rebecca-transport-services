@@ -437,6 +437,7 @@ service cloud.firestore {
     // l'ouvre avec son lien personnel (identifiant aleatoire, jamais liste) et complete ses enfants.
     // Seule Rebecca peut lister, accepter, refuser ou supprimer. Une fois accepte ou refuse, plus personne d'autre ne modifie.
     // Priorite (15 nov. 2026) : au bout de 2 semaines sans reponse, le lien des familles ne modifie plus rien (annule).
+    // Toute demande de ramassage du site a son document ici (meme une seule famille) : elle se MODIFIE avec son lien.
     function familleFormeValide(f) {
       return f is map
         && f.keys().hasOnly(["nom", "telephone", "rempli", "enfants"])
@@ -468,7 +469,9 @@ service cloud.firestore {
       allow update: if estAdmin()
         || (resource.data.statut == "en cours"
           && request.time < resource.data.creeLe + duration.value(14, "d")
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["familles", "majLe"])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["familles", "majLe", "commun", "modePartage"])
+          && request.resource.data.commun is map
+          && request.resource.data.modePartage in ["enfant", "egal"]
           && famillesValides(request.resource.data.familles)
           && request.resource.data.familles.size() == resource.data.familles.size()
           && request.resource.data.majLe == request.time);

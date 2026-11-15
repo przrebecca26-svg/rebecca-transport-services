@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Devis from "./Devis.jsx";
+import Champ from "./Champ.jsx";
 import IconeService from "./IconeService.jsx";
 import Enfant from "./EnfantRamassage.jsx";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 import { useFermetures } from "../fermetures.js";
-import { MAX_ENFANTS, enfantVide, manquePlan, planVide, libellePeriode } from "../pricing/ramassagePlanning.js";
+import { MAX_ENFANTS, PERIODES, enfantVide, manquePlan, planVide, libellePeriode } from "../pricing/ramassagePlanning.js";
 import { prixFr } from "../pricing/partage.js";
-import { calculerPartage, lienPartage, messagePartage, nomPartage, remplirFamille, enfantPropre, STATUTS_PARTAGE } from "../pricing/partageRamassage.js";
+import { calculerPartage, lienPartage, messagePartage, nomPartage, remplirFamille, enfantPropre, nouveauPartage, STATUTS_PARTAGE } from "../pricing/partageRamassage.js";
 import { useRoutes } from "./DemandeRamassage.jsx";
 import { etatAge } from "../pricing/prioriteRamassage.js";
 import "../client-commun.css";
@@ -32,6 +33,9 @@ export default function PartageRamassage({ id, famille, onRetour }) {
   const [telephone, setTelephone] = useState("");
   const [info, setInfo] = useState("");
   const [enregistre, setEnregistre] = useState(false);
+  // La 1re famille (celle qui a fait la demande) peut aussi changer les adresses, la periode et le partage
+  const [commun, setCommun] = useState(null);
+  const [mode, setMode] = useState("enfant");
 
   useEffect(() => {
     let actif = true;
@@ -63,11 +67,16 @@ export default function PartageRamassage({ id, famille, onRetour }) {
     setEnfants(f.enfants.length ? f.enfants.map((e) => ({ ...enfantVide(), ...e })) : [enfantVide()]);
     setNom(f.nom || "");
     setTelephone(f.telephone || "");
+    setCommun({ ...doc.commun });
+    setMode(doc.modePartage === "egal" ? "egal" : "enfant");
     setPret(true);
   }, [doc, famille, pret]);
 
   // Le devis avec MES enfants tels que je les saisis (les autres familles : ce qui est enregistre)
-  const brouillon = useMemo(() => (doc && doc.familles[famille] ? { ...doc, familles: doc.familles.map((f, i) => (i === famille ? { ...f, nom, telephone, enfants, rempli: true } : f)) } : null), [doc, famille, enfants, nom, telephone]);
+  const brouillon = useMemo(
+    () => (doc && doc.familles[famille] ? { ...doc, ...(famille === 0 && commun ? { commun, modePartage: mode } : {}), familles: doc.familles.map((f, i) => (i === famille ? { ...f, nom, telephone, enfants, rempli: true } : f)) } : null),
+    [doc, famille, enfants, nom, telephone, commun, mode]
+  );
   const planRoutes = useMemo(() => (brouillon ? { ...planVide(), domicile: brouillon.commun.domicile, ecole: brouillon.commun.ecole, enfants: brouillon.familles.flatMap((f) => f.enfants) } : planVide()), [brouillon]);
   const { routes, statut } = useRoutes(planRoutes);
   const calcul = useMemo(() => (brouillon && statut === "ok" ? calculerPartage(brouillon, routes) : null), [brouillon, routes, statut, reglages]);
@@ -86,11 +95,12 @@ export default function PartageRamassage({ id, famille, onRetour }) {
   // 15 nov. 2026 : au bout de 2 semaines sans reponse de Rebecca, le trajet partage est annule (il faut refaire la demande)
   const expire = doc.statut === "en cours" && etatAge(doc.creeLe).etat === "expiree";
   const enCours = doc.statut === "en cours" && !expire;
-  const monPlan = { ...planVide(), ...doc.commun, enfants };
+  const monPlan = { ...planVide(), ...(brouillon ? brouillon.commun : doc.commun), enfants };
   const manque = manquePlan(monPlan);
   const resultat = calcul && calcul.resultat && calcul.resultat.ok ? calcul.resultat : null;
   const origine = window.location.origin + window.location.pathname;
-  const jourUnique = jourDeLaDate(doc.commun.date);
+  const jourUnique = jourDeLaDate((brouillon ? brouillon.commun : doc.commun).date);
+  const seule = doc.familles.length === 1;
 
   const enregistrer = async () => {
     if (manque) return setInfo(manque);
@@ -98,9 +108,15 @@ export default function PartageRamassage({ id, famille, onRetour }) {
     try {
       const [{ db }, { doc: refDoc, updateDoc, serverTimestamp }] = await Promise.all([import("../firebase.js"), import("firebase/firestore")]);
       const maj = remplirFamille(doc, famille, { enfants: enfants.map(enfantPropre), nom: String(nom).trim().slice(0, 60), telephone: String(telephone).trim().slice(0, 20) });
-      await updateDoc(refDoc(db, "trajetsPartages", id), { familles: maj.familles, majLe: serverTimestamp() });
+      const champs = { familles: maj.familles, majLe: serverTimestamp() };
+      if (famille === 0 && commun) {
+        const propre = nouveauPartage(commun, [], mode);
+        champs.commun = propre.commun;
+        champs.modePartage = propre.modePartage;
+      }
+      await updateDoc(refDoc(db, "trajetsPartages", id), champs);
       setEnregistre(true);
-      setInfo("Enregistré ! Le devis est recalculé pour toutes les familles. Prévenez-les avec les boutons ci-dessous.");
+      setInfo(seule ? "Enregistré ! Votre demande est mise à jour, elle garde sa place. Prévenez Rebecca avec le bouton ci-dessous." : "Enregistré ! Le devis est recalculé pour toutes les familles. Prévenez-les avec les boutons ci-dessous.");
     } catch {
       setInfo("Enregistrement impossible pour l'instant. Vérifiez votre connexion et réessayez.");
     }
@@ -116,13 +132,13 @@ export default function PartageRamassage({ id, famille, onRetour }) {
     <div className="formulaire rs-form">
       <header className="titre-service">
         <span aria-hidden="true"><IconeService id="ramassage" taille={40} /></span>
-        <h2>Ramassage scolaire partagé</h2>
+        <h2>{seule ? "Ma demande de ramassage" : "Ramassage scolaire partagé"}</h2>
       </header>
       <div className="bloc">
-        <p><strong>{doc.familles.length} familles</strong> partagent les trajets · {STATUTS_PARTAGE[doc.statut] || doc.statut}</p>
+        <p>{seule ? "Votre demande" : <><strong>{doc.familles.length} familles</strong> partagent les trajets</>} · {STATUTS_PARTAGE[doc.statut] || doc.statut}</p>
         {doc.commun.domicile && <p className="note">Domicile : {doc.commun.domicile.label}</p>}
         {doc.commun.ecole && <p className="note">École : {doc.commun.ecole.label}</p>}
-        <p className="note">Partage de la note : {doc.modePartage === "egal" ? "parts égales" : "par enfant (chaque famille paie pour ses enfants)"}</p>
+        {!seule && <p className="note">Partage de la note : {doc.modePartage === "egal" ? "parts égales" : "par enfant (chaque famille paie pour ses enfants)"}</p>}
         <ul className="rs-familles">
           {doc.familles.map((f, i) => (
             <li key={i}>
@@ -135,6 +151,26 @@ export default function PartageRamassage({ id, famille, onRetour }) {
 
       {enCours ? (
         <>
+          {famille === 0 && commun && (
+            <div className="bloc">
+              <h3>Adresses et période</h3>
+              <Champ champ={{ name: "domicile", label: "Adresse du domicile", type: "adresse", required: true }} valeurs={commun} onChange={(n, x) => setCommun((o) => ({ ...o, [n]: x }))} />
+              <Champ champ={{ name: "ecole", label: "Adresse de l'école", type: "adresse", required: true }} valeurs={commun} onChange={(n, x) => setCommun((o) => ({ ...o, [n]: x }))} />
+              <div className="choix rs-trois">
+                {PERIODES.map((o) => (
+                  <button key={o.v} type="button" className={commun.periode === o.v ? "actif" : ""} aria-pressed={commun.periode === o.v} onClick={() => setCommun((c) => ({ ...c, periode: o.v }))}>{o.l}</button>
+                ))}
+              </div>
+              <label htmlFor="rs-p-date">{commun.periode === "jour" ? "Date *" : "Premier jour (facultatif)"}</label>
+              <input id="rs-p-date" type="date" value={commun.date || ""} onChange={(e) => setCommun((c) => ({ ...c, date: e.target.value }))} />
+              {!seule && (
+                <div className="choix rs-deux">
+                  <button type="button" className={mode === "enfant" ? "actif" : ""} aria-pressed={mode === "enfant"} onClick={() => setMode("enfant")}>Par enfant</button>
+                  <button type="button" className={mode === "egal" ? "actif" : ""} aria-pressed={mode === "egal"} onClick={() => setMode("egal")}>Parts égales</button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="bloc">
             <h3>Votre famille</h3>
             <label htmlFor="rs-p-nom">Nom</label>
@@ -149,7 +185,7 @@ export default function PartageRamassage({ id, famille, onRetour }) {
             </div>
           </div>
           {enfants.map((e, i) => (
-            <Enfant key={i} site enfant={e} index={i} periode={doc.commun.periode} jourUnique={jourUnique} changer={(n) => setEnfants((l) => l.map((x, j) => (j === i ? n : x)))} />
+            <Enfant key={i} site enfant={e} index={i} periode={(brouillon ? brouillon.commun : doc.commun).periode} jourUnique={jourUnique} changer={(n) => setEnfants((l) => l.map((x, j) => (j === i ? n : x)))} />
           ))}
         </>
       ) : (
@@ -182,13 +218,13 @@ export default function PartageRamassage({ id, famille, onRetour }) {
 
       {(enregistre || doc.statut === "acceptee") && (
         <div className="bloc">
-          <h3>Prévenir les autres</h3>
+          <h3>{seule ? "Prévenir Rebecca" : "Prévenir les autres"}</h3>
           {brouillon.familles.map((f, i) => (i === famille || !f.telephone ? null : (
             <a key={i} className="bouton rs-whatsapp" href={lienWhatsApp(f.telephone, messagePartage({ ...brouillon, familles: brouillon.familles.map((x, j) => (j === i ? { ...x, rempli: x.rempli } : x)) }, i, lienPartage(origine, id, i), calcul, nom))} target="_blank" rel="noopener noreferrer">
               Envoyer le nouveau devis à {nomPartage(brouillon, i)}
             </a>
           )))}
-          <a className="lien" href={lienWhatsApp(WHATSAPP, `Bonjour Rebecca, ${nom || "une famille"} a complété ses enfants pour le ramassage scolaire partagé.\n${lienPartage(origine, id, 0)}`)} target="_blank" rel="noopener noreferrer">Prévenir Rebecca</a>
+          <a className={seule ? "bouton" : "lien"} href={lienWhatsApp(WHATSAPP, `Bonjour Rebecca, ${nom || "une famille"} a mis à jour sa demande de ramassage scolaire${seule ? "" : " partagé"}.${calcul && calcul.resultat && calcul.resultat.ok ? `\nNouveau devis : ${prixFr(calcul.resultat.total)} ₪` : ""}\n${lienPartage(origine, id, 0)}`)} target="_blank" rel="noopener noreferrer">Prévenir Rebecca</a>
         </div>
       )}
       <button type="button" className="retour" onClick={onRetour}>← Accueil</button>

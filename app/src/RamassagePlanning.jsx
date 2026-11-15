@@ -14,7 +14,7 @@ import { prixFr } from "./pricing/partage.js";
 import { planDuPartage } from "./pricing/partageRamassage.js";
 import { useDemandesRamassage } from "./prioriteBase.js";
 import { demandesAvant, arriveeFr, textePriorite } from "./pricing/prioriteRamassage.js";
-import { doc as refDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { changerStatutPartage } from "./partageBase.js";
 import JourneeTournee from "./components/JourneeTournee.jsx";
 import Enfant from "./components/EnfantRamassage.jsx";
 import { aujourdhui } from "./profil.js";
@@ -136,7 +136,7 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
       await enregistrerTournee({ ...suite, choix: [...lireChoix(base.donnees.choix), ...fiches.flatMap((f) => choixDeLaFamille(f))] });
       if (id && id === devisOuvert) setDevisOuvert("");
       if (partageId && !id) {
-        await updateDoc(refDoc(db, "trajetsPartages", partageId), { statut: "acceptee", majLe: serverTimestamp() }).catch(() => {});
+        await changerStatutPartage(partageId, "acceptee").catch(() => {});
         setPartageId("");
       }
       return `Devis de ${String(nom || "").trim() || "la cliente"} accepté : sa fiche est dans ton Répertoire et ses trajets dans ta tournée.`;

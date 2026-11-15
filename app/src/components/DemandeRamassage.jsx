@@ -14,6 +14,7 @@ import { compteOuvert, useClient } from "../client.js";
 import { PERIODES, MAX_ENFANTS, enfantVide, manquePlan, ecolesDuPlan, cleEcole, planVide } from "../pricing/ramassagePlanning.js";
 import { prixFr } from "../pricing/partage.js";
 import { nouveauPartage, calculerPartage, lienPartage, messagePartage, messageRebecca, enfantPropre } from "../pricing/partageRamassage.js";
+import { etatAge, arriveeFr } from "../pricing/prioriteRamassage.js";
 import "../client-commun.css";
 import "../ramassage-site.css";
 
@@ -92,8 +93,49 @@ function depuisDetails(details) {
   };
 }
 
+// 15 nov. 2026 : une demande deja envoyee depuis cet appareil se MODIFIE avec son lien (pas de nouvelle demande)
+const CLE_EN_COURS = "rs_ramassage_en_cours";
+const lireEnCours = () => {
+  try {
+    return JSON.parse(window.localStorage.getItem(CLE_EN_COURS) || "null");
+  } catch {
+    return null;
+  }
+};
+const garderEnCours = (id) => {
+  try {
+    window.localStorage.setItem(CLE_EN_COURS, JSON.stringify({ id, quand: Date.now() }));
+  } catch {
+    /* navigation privee */
+  }
+};
+
 export default function DemandeRamassage({ onRetour, depart }) {
   const avant = depuisDetails(depart && depart.details);
+  // « Modifier » depuis l'historique du compte : on ouvre directement le lien de la demande (meme devis, mis a jour)
+  const partageAModifier = depart && depart.remplace && depart.details && depart.details.partageId;
+  useEffect(() => {
+    if (partageAModifier) window.location.hash = `#/partage/${depart.details.partageId}/0`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Demande deja en cours sur cet appareil ?
+  const [dejaEnCours, setDejaEnCours] = useState(null);
+  useEffect(() => {
+    const m = lireEnCours();
+    if (!m || !m.id) return;
+    let actif = true;
+    Promise.all([import("../firebase.js"), import("firebase/firestore")])
+      .then(([{ db }, { doc: refDoc, getDoc }]) => getDoc(refDoc(db, "trajetsPartages", m.id)))
+      .then((s) => {
+        if (!actif || !s.exists()) return;
+        const d = s.data();
+        if (d.statut === "en cours" && etatAge(d.creeLe).etat !== "expiree") setDejaEnCours({ id: m.id, creeLe: d.creeLe });
+      })
+      .catch(() => {});
+    return () => {
+      actif = false;
+    };
+  }, []);
   const client = useClient();
   const ouvert = compteOuvert(client);
   const profil = ouvert ? client.profil : null;
@@ -156,13 +198,12 @@ export default function DemandeRamassage({ onRetour, depart }) {
     setEnvoi({ enCours: true, fini: null });
     try {
       const [{ db }, { addDoc, collection, serverTimestamp }] = await Promise.all([import("../firebase.js"), import("firebase/firestore")]);
-      let id = "";
-      if (partage) {
-        const ref = await addDoc(collection(db, "trajetsPartages"), { ...doc, familles: doc.familles.map((f) => ({ ...f, enfants: f.enfants.map(enfantPropre) })), creeLe: serverTimestamp(), majLe: serverTimestamp() });
-        id = ref.id;
-      }
+      // Toujours un devis « vivant » avec son lien (meme sans partage) : la cliente le modifie au lieu d'en refaire un
+      const ref = await addDoc(collection(db, "trajetsPartages"), { ...doc, familles: doc.familles.map((f) => ({ ...f, enfants: f.enfants.map(enfantPropre) })), creeLe: serverTimestamp(), majLe: serverTimestamp() });
+      const id = ref.id;
+      garderEnCours(id);
       const origine = window.location.origin + window.location.pathname;
-      const liens = partage ? doc.familles.map((_, f) => lienPartage(origine, id, f)) : [];
+      const liens = doc.familles.map((_, f) => lienPartage(origine, id, f));
       let message = messageRebecca(doc, calcul, liens);
       message = message.replace("\n\nMerci de me confirmer", `\n\nTéléphone en cas d'urgence : ${v.telUrgence}\nPersonnes autorisées : ${v.personnesAutorisees}${v.infos ? `\nInformations : ${v.infos}` : ""}\nPaiement prévu : ${v.moyenPaiement}\n\nMerci de me confirmer`);
       if (!partage) message = message.replace("Ramassage scolaire partagé (1 familles)", "Ramassage scolaire");
@@ -210,6 +251,12 @@ export default function DemandeRamassage({ onRetour, depart }) {
           {!ouvertAvant && <a className="bouton" href={versRebecca} target="_blank" rel="noopener noreferrer">Envoyer aussi à Rebecca sur WhatsApp</a>}
           {ouvertAvant && <a className="lien" href={versRebecca} target="_blank" rel="noopener noreferrer">WhatsApp ne s'est pas ouvert ? Envoyer à Rebecca</a>}
         </div>
+        <div className="bloc">
+          <h3>Pour modifier votre demande</h3>
+          <p className="note">Horaires, enfants, adresses : utilisez votre lien ci-dessous. <strong>Ne refaites pas une nouvelle demande</strong> : votre demande garde sa place (priorité) et Rebecca voit la mise à jour.</p>
+          <a className="bouton" href={liens[0]}>Modifier ma demande</a>
+          <a className="lien rs-lien" href={liens[0]}>{liens[0]}</a>
+        </div>
         {liens.length > 1 && (
           <div className="bloc">
             <h3>Envoyez son lien à chaque famille</h3>
@@ -219,8 +266,6 @@ export default function DemandeRamassage({ onRetour, depart }) {
                 Envoyer à {f.nom || `la famille ${k + 2}`} sur WhatsApp
               </a>
             ))}
-            <p className="note">Votre propre lien, pour suivre le devis ou changer vos horaires :</p>
-            <a className="lien rs-lien" href={liens[0]}>{liens[0]}</a>
           </div>
         )}
         <button type="button" className="retour" onClick={onRetour}>← Retour à l'accueil</button>
@@ -238,6 +283,13 @@ export default function DemandeRamassage({ onRetour, depart }) {
         <h2>Ramassage scolaire</h2>
       </header>
       {avant && <p className="note">Votre dernière demande est remplie : vérifiez les horaires, choisissez la date et envoyez.</p>}
+      {dejaEnCours && (
+        <div className="bloc">
+          <p><strong>Vous avez déjà une demande en cours</strong>{dejaEnCours.creeLe ? ` (envoyée le ${arriveeFr(dejaEnCours.creeLe)})` : ""}.</p>
+          <p className="note">Pour changer des horaires, des enfants ou l'adresse, modifiez-la : elle garde sa place. Ne faites une nouvelle demande que pour un autre ramassage.</p>
+          <a className="bouton" href={`#/partage/${dejaEnCours.id}/0`}>Modifier ma demande en cours</a>
+        </div>
+      )}
 
       <div className="bloc">
         <Champ champ={CHAMP_DOMICILE} valeurs={commun} onChange={changerCommun} />

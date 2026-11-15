@@ -7,7 +7,8 @@ import { useTournee } from "./tourneeBase.js";
 import { nomPartage, STATUTS_PARTAGE } from "./pricing/partageRamassage.js";
 import { useDemandesRamassage } from "./prioriteBase.js";
 import { textePriorite, arriveeFr } from "./pricing/prioriteRamassage.js";
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { changerStatutPartage, telSimple } from "./partageBase.js";
+import { arriveeMs } from "./pricing/prioriteRamassage.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
 
@@ -24,7 +25,22 @@ function TrajetsPartages({ ouvrir }) {
   const [liste, setListe] = useState([]);
   const { demandes, classees } = useDemandesRamassage();
   const infos = new Map(demandes.map((d) => [d.cle, d]));
-  const changer = (id, statut) => updateDoc(doc(db, "trajetsPartages", id), { statut, majLe: serverTimestamp() }).catch(() => {});
+  const changer = (id, statut, plus) => changerStatutPartage(id, statut, plus).catch(() => {});
+  // Doublons : deux demandes en attente avec le meme telephone (la cliente a refait une demande au lieu de modifier)
+  const enAttente = liste.filter((d) => d.statut === "en cours");
+  const plusRecente = (d) => {
+    const tel = telSimple(d.familles[0] && d.familles[0].telephone);
+    if (tel.length < 9) return null;
+    const autres = enAttente.filter((x) => x.id !== d.id && telSimple(x.familles[0] && x.familles[0].telephone) === tel && (arriveeMs(x.creeLe) || 0) > (arriveeMs(d.creeLe) || 0));
+    return autres.sort((a, b) => (arriveeMs(b.creeLe) || 0) - (arriveeMs(a.creeLe) || 0))[0] || null;
+  };
+  // Garder la plus recente : l'ancienne est annulee, la nouvelle garde la place (priorite) de l'ancienne
+  const garderRecente = async (ancienne, recente) => {
+    await changer(ancienne.id, "annulee");
+    const depuis = ancienne.prioriteDepuis || ancienne.creeLe;
+    const actuel = recente.prioriteDepuis || recente.creeLe;
+    if ((arriveeMs(depuis) || 0) < (arriveeMs(actuel) || Infinity)) await changer(recente.id, "en cours", { prioriteDepuis: depuis });
+  };
   const [lecture, setLecture] = useState("");
   useEffect(
     () =>
@@ -38,29 +54,32 @@ function TrajetsPartages({ ouvrir }) {
   if (!liste.length && !lecture) return null;
   return (
     <section className="tdb-bloc">
-      <h2>Trajets partagés (site)</h2>
+      <h2>Demandes du site (devis modifiables)</h2>
       {lecture && <p className="rp-alerte">{lecture}</p>}
       {liste.map((d) => (
         <div className="rp-forfait" key={d.id}>
           <span>
-            <span className="rp-origine">Trajet partagé</span> <b>{d.familles.map((f, i) => nomPartage(d, i)).join(" + ")}</b> · {STATUTS_PARTAGE[d.statut] || d.statut}
+            <span className="rp-origine">{d.familles.length > 1 ? "Trajet partagé" : "Demande du site"}</span> <b>{d.familles.map((f, i) => nomPartage(d, i)).join(" + ")}</b> · {STATUTS_PARTAGE[d.statut] || d.statut}
             <br />
             {d.familles.map((f, i) => `${nomPartage(d, i)} : ${f.enfants.length ? `${f.enfants.length} enfant${f.enfants.length > 1 ? "s" : ""}` : "en attente"}`).join(" · ")}
             {infos.get("p" + d.id) && (
               <>
                 <br />
-                <small>Arrivée le {arriveeFr(d.creeLe)}{d.statut === "en cours" ? ` · ${textePriorite(infos.get("p" + d.id), classees)}` : ""}</small>
+                <small>Arrivée le {arriveeFr(d.creeLe)}{d.prioriteDepuis ? ` (place gardée depuis le ${arriveeFr(d.prioriteDepuis)})` : ""}{d.statut === "en cours" ? ` · ${textePriorite(infos.get("p" + d.id), classees)}` : ""}</small>
+                {d.statut === "en cours" && plusRecente(d) && <><br /><small className="rp-alerte">⚠️ Même téléphone qu'une demande plus récente : la cliente a sûrement refait sa demande au lieu de la modifier.</small></>}
               </>
             )}
           </span>
           <div className="rp-boutons">
             <button type="button" className="rp-waze" onClick={() => ouvrir({ id: d.id, doc: d, cle: Date.now() })}>Ouvrir dans mon devis</button>
             <a className="rp-waze" href={`#/partage/${d.id}/0`} target="_blank" rel="noopener noreferrer">Voir la page des familles</a>
+            {d.statut === "en cours" && plusRecente(d) && <button type="button" className="rp-waze" onClick={() => garderRecente(d, plusRecente(d))}>Doublon : garder la plus récente</button>}
             {d.statut === "en cours" && <button type="button" className="rp-waze" onClick={() => changer(d.id, "refusee")}>Refusé ❌</button>}
             {d.statut === "en cours" && <button type="button" className="rp-waze" onClick={() => changer(d.id, "annulee")}>Annulé</button>}
           </div>
         </div>
       ))}
+      <p className="tdb-note">Chaque demande du site a son lien : la cliente la modifie sans en refaire une. « Doublon : garder la plus récente » annule l'ancienne et donne sa place (priorité) à la nouvelle.</p>
       <p className="tdb-note">« Ouvrir dans mon devis » : tous les enfants des familles arrivent dans le devis ci-dessous. Tu vérifies ta tournée, puis « La cliente accepte » crée une fiche par famille et marque le trajet partagé accepté.</p>
     </section>
   );

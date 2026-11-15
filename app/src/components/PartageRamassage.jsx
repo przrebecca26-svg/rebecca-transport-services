@@ -11,6 +11,8 @@ import { prixFr } from "../pricing/partage.js";
 import { calculerPartage, lienPartage, messagePartage, nomPartage, remplirFamille, enfantPropre, nouveauPartage, STATUTS_PARTAGE } from "../pricing/partageRamassage.js";
 import { useRoutes } from "./DemandeRamassage.jsx";
 import { etatAge } from "../pricing/prioriteRamassage.js";
+import { trajetsIndisponibles, texteIndisponibles } from "../pricing/dispoRamassage.js";
+import { useArretsPublics } from "../arretsBase.js";
 import "../client-commun.css";
 import "../ramassage-site.css";
 
@@ -90,6 +92,13 @@ export default function PartageRamassage({ id, famille, onRetour }) {
   const planRoutes = useMemo(() => (brouillon ? { ...planVide(), domicile: brouillon.commun.domicile, ecole: brouillon.commun.ecole, enfants: brouillon.familles.flatMap((f) => f.enfants) } : planVide()), [brouillon]);
   const { routes, statut } = useRoutes(planRoutes);
   const calcul = useMemo(() => (brouillon && statut === "ok" ? calculerPartage(brouillon, routes) : null), [brouillon, routes, statut, reglages]);
+  // Trajets ou Rebecca est deja prise : seulement ceux que CETTE page change (mes enfants ; la 1re famille : aussi les autres)
+  const arrets = useArretsPublics();
+  const indispos = useMemo(() => {
+    if (!brouillon || statut !== "ok") return [];
+    const listes = [enfants, ...(famille === 0 ? Object.values(autresEnfants) : [])];
+    return listes.flatMap((l) => trajetsIndisponibles({ ...planVide(), ...brouillon.commun, enfants: l }, routes, undefined, arrets));
+  }, [brouillon, statut, routes, enfants, autresEnfants, famille, arrets, reglages]);
 
   if (etat === "chargement") return <p className="consigne" style={{ padding: 24 }}>Chargement…</p>;
   if (etat !== "ok" || !doc.familles[famille]) {
@@ -115,6 +124,7 @@ export default function PartageRamassage({ id, famille, onRetour }) {
 
   const enregistrer = async () => {
     if (manque) return setInfo(manque);
+    if (indispos.length) return setInfo("Certains horaires ne sont pas disponibles : décochez ces jours ou gardez seulement le trajet libre.");
     if (!String(nom).trim()) return setInfo("Indiquez le nom de votre famille.");
     try {
       const [{ db }, { doc: refDoc, updateDoc, serverTimestamp }] = await Promise.all([import("../firebase.js"), import("firebase/firestore")]);
@@ -236,6 +246,14 @@ export default function PartageRamassage({ id, famille, onRetour }) {
         </div>
       )}
 
+      {enCours && indispos.length > 0 && (
+        <section className="devis bloque" aria-live="polite">
+          <h3>Horaires déjà pris</h3>
+          <p>Rebecca n'est pas disponible à ces moments-là :</p>
+          {texteIndisponibles(indispos).map((x, k) => <p className="note" key={k}>⛔ {x}</p>)}
+          <p className="note">Décochez ces jours, changez l'heure, ou gardez seulement le trajet libre. Si vous êtes déjà dans la tournée de Rebecca, écrivez-lui sur WhatsApp.</p>
+        </section>
+      )}
       <Devis resultat={manque ? null : resultat} trajet={statut === "chargement" ? { statut: "chargement" } : null} pretPourCalcul={!manque} manque={manque} />
       {resultat && calcul && (
         <section className="devis attente">

@@ -6,6 +6,7 @@ import { TARIFS } from "./pricing/config.js";
 import { ajoutsDesJours, creneauxDeLaTournee, creneauxAEnregistrer, memesCreneaux, creneauxParDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { useTournee, useDurees, useJoursTournee } from "./tourneeBase.js";
+import { arretsGroupables } from "./pricing/dispoRamassage.js";
 import { useRepertoire } from "./repertoireBase.js";
 
 // MA TOURNEE -> MON CALENDRIER, AUTOMATIQUEMENT (12 nov. 2026, 15h28). Monte dans l'espace de Rebecca, n'affiche rien.
@@ -65,6 +66,23 @@ export default function SyncTournee() {
     return () => clearTimeout(minuteur);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cle]);
+  // 15 nov. 2026 : arrets publics (lieu de l'ecole, heure, places) : le site laisse une maman demander une sortie
+  // ou je passe deja, meme si ce moment est pris dans mon Calendrier
+  const arretsPublics = useRef(null);
+  useEffect(() => onSnapshot(doc(db, "reglages", "ramassageArrets"), (x) => { arretsPublics.current = x.exists() ? x.data().json || "[]" : "[]"; }, () => {}), []);
+  const arretsVoulus = utilisee ? JSON.stringify(arretsGroupables(tous, aujourdhui())) : "";
+  useEffect(() => {
+    if (!arretsVoulus) return undefined;
+    const minuteur = setTimeout(async () => {
+      if (arretsPublics.current == null || arretsPublics.current === arretsVoulus) return;
+      try {
+        await setDoc(doc(db, "reglages", "ramassageArrets"), { json: arretsVoulus, majLe: serverTimestamp() });
+      } catch {
+        /* reessaye au prochain changement */
+      }
+    }, 4000);
+    return () => clearTimeout(minuteur);
+  }, [arretsVoulus]);
   // Trajets confies a Jeremy certaines dates : ces jours-la, mes creneaux bloques sont recalcules
   const datesPubliques = useRef(null);
   useEffect(() => onSnapshot(doc(db, "reglages", "creneauxDates"), (x) => {

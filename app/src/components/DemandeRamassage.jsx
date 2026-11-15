@@ -15,6 +15,8 @@ import { PERIODES, MAX_ENFANTS, enfantVide, manquePlan, ecolesDuPlan, cleEcole, 
 import { prixFr } from "../pricing/partage.js";
 import { nouveauPartage, calculerPartage, lienPartage, messagePartage, messageRebecca, enfantPropre } from "../pricing/partageRamassage.js";
 import { etatAge, arriveeFr } from "../pricing/prioriteRamassage.js";
+import { trajetsIndisponibles, texteIndisponibles } from "../pricing/dispoRamassage.js";
+import { useArretsPublics } from "../arretsBase.js";
 import "../client-commun.css";
 import "../ramassage-site.css";
 
@@ -173,6 +175,14 @@ export default function DemandeRamassage({ onRetour, depart }) {
   const monPlan = { ...planVide(), ...commun, enfants: mesEnfants };
   const manque = !commun.domicile ? "Indiquez l'adresse du domicile pour voir le prix." : !commun.ecole && !mesEnfants.every((e) => e.autreEcole) ? "Indiquez l'adresse de l'école pour voir le prix." : manquePlan(monPlan);
   const resultat = calcul && calcul.resultat;
+  // 15 nov. 2026 : les trajets ou Rebecca est deja prise (sa tournee) ne peuvent pas etre demandes
+  const arrets = useArretsPublics();
+  const indispos = useMemo(() => {
+    if (statut !== "ok") return [];
+    const plans = [{ enfants: mesEnfants }, ...(partage ? autres.filter((f) => f.connais).map((f) => ({ enfants: f.enfants })) : [])];
+    return plans.flatMap((p) => trajetsIndisponibles({ ...planVide(), ...commun, enfants: p.enfants }, routes, undefined, arrets));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statut, routes, mesEnfants, autres, partage, commun, arrets, reglages]);
   const jourUnique = jourDeLaDate(commun.date);
   const mesParts = calcul && calcul.parFamille;
 
@@ -183,6 +193,7 @@ export default function DemandeRamassage({ onRetour, depart }) {
     if (!String(v.nom).trim()) err = "Indiquez votre nom.";
     else if (!telOk(v.telephone)) err = "Indiquez votre téléphone (au moins 9 chiffres).";
     else if (manque) err = manque;
+    else if (indispos.length) err = "Certains horaires ne sont pas disponibles (voir plus haut) : décochez ces jours ou gardez seulement le trajet libre.";
     else if (!telOk(v.telUrgence)) err = "Indiquez un téléphone en cas d'urgence.";
     else if (!String(v.personnesAutorisees).trim()) err = "Indiquez les personnes autorisées à récupérer ou accueillir les enfants.";
     else if (partage) {
@@ -390,6 +401,14 @@ export default function DemandeRamassage({ onRetour, depart }) {
         <Champ champ={{ name: "infos", label: "Informations utiles (code du portail, allergies à connaître…)", type: "texte-long" }} valeurs={v} onChange={changerV} />
       </div>
 
+      {indispos.length > 0 && (
+        <section className="devis bloque" aria-live="polite">
+          <h3>Horaires déjà pris</h3>
+          <p>Rebecca n'est pas disponible à ces moments-là :</p>
+          {texteIndisponibles(indispos).map((x, k) => <p className="note" key={k}>⛔ {x}</p>)}
+          <p className="note">Décochez ces jours, changez l'heure, ou gardez seulement le trajet libre (par exemple seulement la sortie). Si vous êtes déjà dans la tournée de Rebecca, écrivez-lui sur WhatsApp.</p>
+        </section>
+      )}
       <Devis resultat={manque ? null : resultat && resultat.ok ? resultat : null} trajet={statut === "chargement" ? { statut: "chargement" } : null} pretPourCalcul={!manque} manque={manque} />
       {partage && mesParts && resultat && resultat.ok && (
         <section className="devis attente" aria-live="polite">

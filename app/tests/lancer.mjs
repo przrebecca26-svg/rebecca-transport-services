@@ -18,6 +18,7 @@ await import("./ramassagePlanning.test.mjs");
 await import("./partage.test.mjs");
 await import("./partageRamassage.test.mjs");
 await import("./prioriteRamassage.test.mjs");
+await import("./dispoRamassage.test.mjs");
 await import("./tournee.test.mjs");
 await import("./repertoire.test.mjs");
 await import("./familles.test.mjs");

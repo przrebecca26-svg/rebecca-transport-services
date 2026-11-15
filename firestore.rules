@@ -1,4 +1,6 @@
 rules_version = '2';
+// Regles Rebecca Services v17 (15 novembre 2026) = v16 + ramassage scolaire ouvert a tous (avec ou sans compte)
+//   + trajets partages du ramassage (trajetsPartages : lien personnel de chaque famille).
 // Regles Rebecca Services v16 (13 novembre 2026) = v15 + reservations beaute et commandes Epoxy SANS compte
 //   (comme le coursier) : le creneau reste verrouille ; avec un compte verifie, la demande est rattachee au compte.
 // v15 (12 novembre 2026) = v14 + demandes beaute invisibles pour un coequipier
@@ -431,12 +433,6 @@ service cloud.firestore {
             || d.nombre <= get(/databases/$(database)/documents/promos/$(d.code)).data.utilisationsParCompte);
     }
 
-    // Demandes : un client peut en CREER, jamais lire, modifier ou supprimer.
-    // v9 : Rebecca et un coequipier actif gerent les demandes (coursier et transport) ; seule Rebecca supprime.
-    // v15 (12 nov. 2026) : un coequipier ne lit et ne modifie que les demandes du coursier et du transport.
-    // Les rendez-vous beaute (Nails, Hair, Slim & Lift, RegenX) restent visibles par Rebecca seule.
-    // (Le site du coequipier lit les demandes avec where("service", "in", ces services) : app/src/accesDemandes.js)
-    // Attention : "service" est un mot reserve des regles, on ecrit donc data["service"].
     // 15 nov. 2026 : TRAJET PARTAGE du ramassage scolaire. La 1re maman le cree depuis le site ; chaque famille
     // l'ouvre avec son lien personnel (identifiant aleatoire, jamais liste) et complete ses enfants.
     // Seule Rebecca peut lister, accepter, refuser ou supprimer. Une fois accepte ou refuse, plus personne d'autre ne modifie.
@@ -477,6 +473,12 @@ service cloud.firestore {
       allow delete: if estAdmin();
     }
 
+    // Demandes : un client peut en CREER, jamais lire, modifier ou supprimer.
+    // v9 : Rebecca et un coequipier actif gerent les demandes (coursier et transport) ; seule Rebecca supprime.
+    // v15 (12 nov. 2026) : un coequipier ne lit et ne modifie que les demandes du coursier et du transport.
+    // Les rendez-vous beaute (Nails, Hair, Slim & Lift, RegenX) restent visibles par Rebecca seule.
+    // (Le site du coequipier lit les demandes avec where("service", "in", ces services) : app/src/accesDemandes.js)
+    // Attention : "service" est un mot reserve des regles, on ecrit donc data["service"].
     match /demandes/{id} {
       allow create: if demandeValide() || (gestion() && demandeManuelleValide());
       allow read: if estAdmin()

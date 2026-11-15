@@ -29,20 +29,20 @@ test("meme prix par trajet que le site (55 ₪ dans Netanya)", () => {
   egal(r.total, site.total);
 });
 
-test("une semaine, 1 enfant, 6 jours = le forfait du site (285 ₪)", () => {
+test("une semaine, 1 enfant, 6 jours = -10 % (regle du 15 nov. 2026)", () => {
   const r = calc(plan({ enfants: [enfant({ heureSortie: "16:30" })] }));
-  egal([r.details.nbTrajets, r.details.reduction, r.total], [6, 15, 285]);
+  egal([r.details.nbTrajets, r.details.reduction, r.total], [6, 10, 300]);
 });
 
 test("2 enfants a des heures differentes = 2 trajets par jour", () => {
   const r = calc(plan({ enfants: [enfant({ heureSortie: "12:00" }), enfant({ heureSortie: "16:00" })] }));
-  egal([r.details.nbTrajets, r.details.brut, r.details.reduction, r.total], [12, 660, 20, 530]);
+  egal([r.details.nbTrajets, r.details.brut, r.details.reduction, r.total], [12, 660, 15, 565]);
   egal(r.details.parEnfant, [6, 6]);
 });
 
 test("2 enfants a la meme heure = 1 seul trajet", () => {
   const r = calc(plan({ enfants: [enfant({ heureSortie: "16:00" }), enfant({ heureSortie: "16:00" })] }));
-  egal([r.details.nbTrajets, r.total], [6, 265]);
+  egal([r.details.nbTrajets, r.total], [6, 285]);
 });
 
 test("heure differente selon le jour : meme heure que l'autre enfant ce jour-la = trajet commun", () => {
@@ -161,7 +161,7 @@ test("message pour la cliente", () => {
 
 test("pre-remplissage de l'ajout manuel : forfait entier au premier trajet", () => {
   const p = plan({ enfants: [enfant({ heureSortie: "12:00" }), enfant({ heureSortie: "16:00" })] });
-  egal(P.planVersAjoutManuel(p, calc(p)), { service: "ramassage", date: "2026-11-15", heure: "12:00", adresses: { domicile: A.netanya, ecole: A.netanya2 }, direction: "vers", magasin: "", prix: "530" });
+  egal(P.planVersAjoutManuel(p, calc(p)), { service: "ramassage", date: "2026-11-15", heure: "12:00", adresses: { domicile: A.netanya, ecole: A.netanya2 }, direction: "vers", magasin: "", prix: "565" });
 });
 
 section("Ramassage : devis sans date et forfait au mois");
@@ -169,7 +169,7 @@ section("Ramassage : devis sans date et forfait au mois");
 test("semaine sans date = semaine complete (meme prix qu'une semaine sans fete)", () => {
   const p = plan({ date: "", enfants: [enfant({ heureSortie: "12:00" }), enfant({ heureSortie: "16:00" })] });
   const r = calc(p);
-  egal([r.details.nbTrajets, r.details.sansDate, r.total], [12, true, 530]);
+  egal([r.details.nbTrajets, r.details.sansDate, r.total], [12, true, 565]);
   vrai(P.messagePlan(p, r).includes("pour une semaine complète (6 jours d'école)"));
 });
 

@@ -6,8 +6,8 @@
 // - un trajet = un passage de Rebecca : deux enfants a la meme heure le meme jour = UN seul trajet ;
 // - prix d'un trajet : exactement celui du site (prixTrajetRamassage) ;
 // - chaque enfant peut avoir une autre ecole (meme domicile) : son trajet a alors son propre prix ;
-// - reduction proposee : un jour = prix normal ; semaine = paliers du site (3 jours, 5 jours) ; mois = « reductionMois » ;
-//   plusieurs enfants en forfait = « reductionPlusieursEnfants » (Reglages -> Tarifs) ; Rebecca peut taper un autre
+// - reduction proposee (regle du 15 nov. 2026) : un jour = prix normal ; 1 enfant : semaine -10 %, mois -15 % ;
+//   2 enfants ou plus : semaine -15 %, mois -20 % (Reglages -> Tarifs) ; Rebecca peut taper un autre
 //   pourcentage dans le devis ;
 // - Chabbat, fetes et jours sans ecole indiques par Rebecca ne sont pas comptes ;
 // - semaine ou mois SANS date (la cliente veut juste un prix) : semaine complete, ou mois le plus long
@@ -143,13 +143,20 @@ export function reductionSaisie(plan) {
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n / 100 : null;
 }
 
+// Regle de Rebecca (15 nov. 2026) : 1 enfant = semaine -10 %, mois -15 % ; 2 enfants ou plus = semaine -15 %, mois -20 %
+export function reductionForfait(periode, enfants, t = TARIFS) {
+  const r = t.ramassage || {};
+  const n = (x, d) => (typeof x === "number" && x >= 0 ? x : d);
+  if (periode === "mois") return enfants > 1 ? n(r.reductionPlusieursEnfants, 0.2) : n(r.reductionMois, 0.15);
+  if (periode === "semaine") return enfants > 1 ? n(r.reductionSemainePlusieurs, 0.15) : n(r.reductionSemaine, 0.1);
+  return 0;
+}
+
 // Reduction proposee selon la periode, le nombre de jours et le nombre d'enfants
 export function reductionProposee(plan, jours, t = TARIFS) {
   if (plan.periode === "jour") return 0;
-  const palier = [...t.ramassage.reductions].sort((a, b) => b.minJours - a.minJours).find((r) => jours >= r.minJours);
-  const base = plan.periode === "mois" ? t.ramassage.reductionMois || 0 : palier ? palier.pourcentage : 0;
-  const forfait = plan.periode === "mois" || !!palier;
-  return forfait && plan.enfants.length > 1 ? Math.max(base, t.ramassage.reductionPlusieursEnfants || 0) : base;
+  void jours;
+  return reductionForfait(plan.periode, plan.enfants.length, t);
 }
 
 export const heureDuJour = (e, w) => (e.jours[w] && e.jours[w].heure) || e.heureSortie || "";

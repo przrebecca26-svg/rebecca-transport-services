@@ -274,7 +274,7 @@ export const FORMULAIRES = {
       label: j,
       type: "case",
       si: (v) => v.frequence === "semaine",
-      ...(i === 0 ? { indice: "Cochez les jours souhaités. Dès 3 jours : -10 %, 5 jours : -15 %." } : {}),
+      ...(i === 0 ? { indice: "Cochez les jours souhaités. Forfait semaine : -10 % (1 enfant), -15 % (2 enfants ou plus)." } : {}),
     })),
     { name: "infos", label: "Informations utiles (code du portail, allergies à connaître…)", type: "texte-long" },
   ],

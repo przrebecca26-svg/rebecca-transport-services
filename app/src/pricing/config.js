@@ -178,9 +178,11 @@ export const TARIFS = {
 
   // Ramassage scolaire : prix d'un trajet = prix par trajet de la grille B ; forfait semaine = reduction selon le nombre de jours
   // (de la plus forte a la plus faible). Exemple : 3 jours = -10 %, 5 jours ou plus = -15 %.
-  // Devis a plusieurs enfants (12 nov. 2026, regle de Rebecca) : un jour = prix normal ; forfait au mois = reductionMois ;
-  // plusieurs enfants en forfait (semaine ou mois) = reductionPlusieursEnfants.
-  ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionMois: 0.15, reductionPlusieursEnfants: 0.2,
+  // REGLE DE REBECCA (15 nov. 2026, remplace les paliers 3 jours / 5 jours) :
+  // 1 enfant : un jour = prix normal, semaine -10 %, mois -15 % ;
+  // 2 enfants ou plus (de la meme famille) : semaine -15 %, mois -20 %.
+  // « reductions » n'est plus utilise (garde pour les anciens reglages).
+  ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionSemaine: 0.1, reductionSemainePlusieurs: 0.15, reductionMois: 0.15, reductionPlusieursEnfants: 0.2,
     // Vacances scolaires : la liste du calendrier (TARIFS.calendrier.vacancesScolaires) sert partout (12 nov. 2026)
   },
   // Ma tournee scolaire (12 nov. 2026) : marge de route a chaque deplacement (petit probleme sur la route), temps

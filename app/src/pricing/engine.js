@@ -503,7 +503,10 @@ function calculerRamassage(d, t) {
     if (trajets === 2) supplementNuit(lignes, "Trajet 2", parTrajet, d.heure2 || d.heure, t);
   } else {
     const brut = prixTrajet * trajets * jours;
-    const palier = [...t.ramassage.reductions].sort((a, b) => b.minJours - a.minJours).find((r) => jours >= r.minJours);
+    // Regle du 15 nov. 2026 : semaine -10 % (1 enfant) ou -15 % (2 enfants ou plus)
+    const r0 = t.ramassage || {};
+    const pctSemaine = nbEnfants > 1 ? (typeof r0.reductionSemainePlusieurs === "number" ? r0.reductionSemainePlusieurs : 0.15) : typeof r0.reductionSemaine === "number" ? r0.reductionSemaine : 0.1;
+    const palier = pctSemaine > 0 ? { pourcentage: pctSemaine } : null;
     lignes.push({ libelle: `Forfait semaine : ${jours} jour(s) x ${trajets} trajet(s) x ${parTrajet} ₪`, montant: parTrajet * trajets * jours, base: true });
     ligneEnPlus(trajets * jours);
     if (palier) {

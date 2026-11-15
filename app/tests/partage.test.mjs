@@ -98,7 +98,7 @@ test("familles : changer le nombre d'enfants d'une famille ne touche pas l'autre
 
 test("une seule famille : prix inchange (2 enfants a la meme heure = 1 trajet)", () => {
   const r = P.calculerPlan({ ...P.planVide(), domicile: A.netanya, ecole: A.netanya2, date: "2026-11-15", enfants: [enfant({ heureSortie: "16:00" }), enfant({ heureSortie: "16:00" })] }, ROUTE, T);
-  egal([r.details.nbTrajets, r.total], [6, 265]);
+  egal([r.details.nbTrajets, r.total], [6, 285]);
 });
 
 test("une famille, 3 enfants a la meme heure : supplement pour le 3e", () => {

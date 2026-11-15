@@ -343,10 +343,13 @@ export default function App() {
   useFermetures();
 
   const [lienPartage, setLienPartage] = useState(() => lireLienPartage(window.location.hash));
+  // Lien direct du formulaire de ramassage (15 nov. 2026) : Rebecca l'envoie a une cliente sur WhatsApp
+  const [lienRamassage, setLienRamassage] = useState(() => window.location.hash === "#/ramassage");
   useEffect(() => {
     const suivre = () => {
       setAdmin(enAdmin());
       setLienPartage(lireLienPartage(window.location.hash));
+      setLienRamassage(window.location.hash === "#/ramassage");
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -380,7 +383,7 @@ export default function App() {
   return (
     <div className="appli theme-site">
       <main>
-        {!lienPartage && ecran.nom === "accueil" && (
+        {!lienPartage && !lienRamassage && ecran.nom === "accueil" && (
           <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />
         )}
         {ecran.nom === "catalogue-nails" && (
@@ -412,10 +415,19 @@ export default function App() {
             }}
           />
         )}
-        {!lienPartage && ecran.nom === "form" && ecran.service === "ramassage" && (
+        {!lienPartage && lienRamassage && (
+          <DemandeRamassage
+            key="lien-ramassage"
+            onRetour={() => {
+              window.location.hash = "";
+              aller({ nom: "accueil" });
+            }}
+          />
+        )}
+        {!lienPartage && !lienRamassage && ecran.nom === "form" && ecran.service === "ramassage" && (
           <DemandeRamassage key={"ramassage" + ecran.cle} onRetour={() => aller({ nom: "accueil" })} />
         )}
-        {ecran.nom === "form" && ecran.service !== "ramassage" && (
+        {!lienPartage && !lienRamassage && ecran.nom === "form" && ecran.service !== "ramassage" && (
           <ServiceForm
             key={ecran.service + ecran.cle}
             service={ecran.service}

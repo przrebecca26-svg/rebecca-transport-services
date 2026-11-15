@@ -11,7 +11,8 @@ import { lienWhatsApp } from "./pricing/navigation.js";
 import { useFermetures } from "./fermetures.js";
 import { JOURS, PERIODES, SENS, MAX_ENFANTS, MODES_PARTAGE, planVide, enfantVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel, nbFamillesDe, familleDe, nomsFamilles, enfantsDeLaFamille, reglerEnfantsFamille, reglerNombreFamilles, sousPlanFamille } from "./pricing/ramassagePlanning.js";
 import { prixFr } from "./pricing/partage.js";
-import { planDuPartage } from "./pricing/partageRamassage.js";
+import { planDuPartage, partageDepuisPlan } from "./pricing/partageRamassage.js";
+import { doc as refDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useDemandesRamassage } from "./prioriteBase.js";
 import { demandesAvant, arriveeFr, textePriorite } from "./pricing/prioriteRamassage.js";
 import { changerStatutPartage } from "./partageBase.js";
@@ -186,6 +187,18 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ouvrirPartage && ouvrirPartage.cle]);
   const [infoListe, setInfoListe] = useState("");
+  // Enregistrer mes changements dans la demande du site (meme document : les familles voient la mise a jour)
+  const [infoPartage, setInfoPartage] = useState("");
+  const enregistrerPartage = async () => {
+    if (!partageId) return;
+    try {
+      const nouveau = partageDepuisPlan(plan, cliente, tel, ouvrirPartage && ouvrirPartage.doc);
+      await updateDoc(refDoc(db, "trajetsPartages", partageId), { commun: nouveau.commun, modePartage: nouveau.modePartage, familles: nouveau.familles, majLe: serverTimestamp() });
+      setInfoPartage(`Demande mise à jour${calcule ? ` : nouveau devis ${resultat.total} ₪` : ""}. Envoie le message ci-dessous à la cliente pour la prévenir.`);
+    } catch {
+      setInfoPartage("Enregistrement impossible pour l'instant. Vérifie ta connexion et réessaie.");
+    }
+  };
   const changerStatut = async (id, statut) => {
     try {
       await enregistrerTournee(statutDevis(base.donnees, id, statut));
@@ -433,6 +446,16 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
 
       {pret && (
         <section className="tdb-bloc">
+          {partageId && ouvrirPartage && ouvrirPartage.id === partageId && (
+            <>
+              <h2>Demande de la cliente (site)</h2>
+              <p className="tdb-note">Tu as ouvert la demande faite sur le site. Si la maman te demande un changement (horaire, enfant, adresse, période, partage), fais-le ici puis enregistre : sa demande est mise à jour, elle garde sa place, et chaque famille voit le nouveau devis avec son lien.</p>
+              <div className="dr-actions">
+                <button type="button" className="tdb-bouton" onClick={enregistrerPartage}>Enregistrer les changements dans sa demande</button>
+              </div>
+              {infoPartage && <p className="tdb-note" role="status">{infoPartage}</p>}
+            </>
+          )}
           <h2>Garder ce devis</h2>
           <p className="tdb-note">Tant que tu ne le gardes pas, le devis disparaît quand tu quittes cette page. Gardé, il reste dans « Mes devis en attente de réponse » avec le nom, le téléphone et le message envoyé.</p>
           <div className="dr-actions">

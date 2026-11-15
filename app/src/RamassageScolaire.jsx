@@ -71,7 +71,7 @@ function TrajetsPartages({ ouvrir }) {
             )}
           </span>
           <div className="rp-boutons">
-            <button type="button" className="rp-waze" onClick={() => ouvrir({ id: d.id, doc: d, cle: Date.now() })}>Ouvrir dans mon devis</button>
+            <button type="button" className="rp-waze" onClick={() => ouvrir({ id: d.id, doc: d, cle: Date.now() })}>Ouvrir / modifier dans mon devis</button>
             <a className="rp-waze" href={`#/partage/${d.id}/0`} target="_blank" rel="noopener noreferrer">Voir la page des familles</a>
             {d.statut === "en cours" && plusRecente(d) && <button type="button" className="rp-waze" onClick={() => garderRecente(d, plusRecente(d))}>Doublon : garder la plus récente</button>}
             {d.statut === "en cours" && <button type="button" className="rp-waze" onClick={() => changer(d.id, "refusee")}>Refusé ❌</button>}
@@ -80,7 +80,8 @@ function TrajetsPartages({ ouvrir }) {
         </div>
       ))}
       <p className="tdb-note">Chaque demande du site a son lien : la cliente la modifie sans en refaire une. « Doublon : garder la plus récente » annule l'ancienne et donne sa place (priorité) à la nouvelle.</p>
-      <p className="tdb-note">« Ouvrir dans mon devis » : tous les enfants des familles arrivent dans le devis ci-dessous. Tu vérifies ta tournée, puis « La cliente accepte » crée une fiche par famille et marque le trajet partagé accepté.</p>
+      <p className="tdb-note">« Ouvrir / modifier dans mon devis » : la demande arrive dans le devis ci-dessous ; tu peux la changer et « Enregistrer les changements dans sa demande ». Tes propres devis rapides se changent avec « Rouvrir » puis « Enregistrer les changements du devis ».</p>
+      <p className="tdb-note">Tous les enfants des familles arrivent dans le devis ci-dessous. Tu vérifies ta tournée, puis « La cliente accepte » crée une fiche par famille et marque le trajet partagé accepté.</p>
     </section>
   );
 }

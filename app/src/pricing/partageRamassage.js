@@ -152,3 +152,18 @@ export function messageRebecca(doc, calcul, liens = []) {
   lignes.push("", "Merci de me confirmer la disponibilité.");
   return lignes.join("\n").slice(0, 4900);
 }
+
+// Rebecca modifie la demande d'une cliente dans son Devis rapide (15 nov. 2026) : le devis -> le document partage.
+// nomCliente / telephone = la 1re famille ; les autres familles viennent de plan.autresFamilles.
+// ancien = le document actuel (on garde « rempli » de chaque famille ; une famille ajoutee par Rebecca est remplie).
+export function partageDepuisPlan(plan, nomCliente, telephone, ancien = null) {
+  const nb = Math.max(1, Math.min(3, Math.round(Number(plan.nbFamilles)) || 1));
+  const familleDe = (e) => (nb === 1 ? 0 : Math.max(0, Math.min(nb - 1, Math.round(Number(e.famille)) || 0)));
+  const familles = Array.from({ length: nb }, (_, f) => {
+    const autre = f === 0 ? { nom: nomCliente, telephone } : (plan.autresFamilles || [])[f - 1] || {};
+    const enfants = plan.enfants.filter((e) => familleDe(e) === f);
+    const avant = ancien && ancien.familles && ancien.familles[f];
+    return { nom: autre.nom || "", telephone: autre.telephone || "", rempli: avant ? !!avant.rempli || enfants.length > 0 : true, enfants };
+  });
+  return nouveauPartage(plan, familles, plan.modePartage);
+}

@@ -75,3 +75,14 @@ test("ouverture dans le devis rapide : familles, noms et telephones", () => {
   const { plan } = R.planDuPartage(d);
   egal([plan.nbFamilles, plan.enfants.map((e) => e.famille), plan.autresFamilles[0]], [2, [0, 0, 1], { nom: "Voisine", telephone: "0502222222" }]);
 });
+
+test("Rebecca modifie la demande dans son devis : aller-retour devis <-> demande sans perte", () => {
+  const d = creation(true);
+  const { plan } = R.planDuPartage(d);
+  plan.enfants[0].heureSortie = "12:50"; // la maman demande un changement
+  const n = R.partageDepuisPlan(plan, "Cliente", "0501111111", d);
+  egal([n.familles.length, n.familles[0].nom, n.familles[1].nom, n.familles[1].telephone], [2, "Cliente", "Voisine", "0502222222"]);
+  egal([n.familles[0].enfants.length, n.familles[1].enfants.length, n.familles[0].enfants[0].heureSortie], [2, 1, "12:50"]);
+  egal([n.familles[0].rempli, n.familles[1].rempli], [true, true]);
+  egal(n.commun.domicile, d.commun.domicile);
+});

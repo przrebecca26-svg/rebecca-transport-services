@@ -253,7 +253,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         <h2>{d.serviceTitre}</h2>
         <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
       </div>
-      <p className="tb-quand">{jour(d.date, true)} à {d.heure}</p>
+      <p className="tb-quand">{d.date ? `${jour(d.date, true)} à ${d.heure}` : d.service === "ramassage" && d.details && d.details.periode ? `Devis ${d.details.periode === "mois" ? "au mois" : d.details.periode === "semaine" ? "à la semaine" : "pour un jour"} (sans date de début)` : `à ${d.heure}`}</p>
       {d.source === "manuel" && <p className="tb-note">Ajoutée à la main{d.origine ? ` · origine : ${LIBELLE_ORIGINE[d.origine] || d.origine}` : ""}</p>}
 
       <div className="tb-bloc">
@@ -270,6 +270,12 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
 
       <div className="tb-bloc">
         <h3>Statut</h3>
+        {d.details && d.details.partageId && d.statut === "en attente" && (
+          <div className="tb-actions">
+            <p className="tb-note">Trajet partagé entre plusieurs familles : accepte-le depuis « Ramassage scolaire » → « Trajets partagés » → « Ouvrir dans mon devis ». Tu vérifies ta tournée, et « La cliente accepte » crée une fiche par famille. « Accepter » ici ne valide que cette demande.</p>
+            <button className="tb-bouton" onClick={() => aller("ramassage")}>Ouvrir dans Ramassage scolaire</button>
+          </div>
+        )}
         <div className="tb-actions">
           {d.statut === "en attente" && (
             <>

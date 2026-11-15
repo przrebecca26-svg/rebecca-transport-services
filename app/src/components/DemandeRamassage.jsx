@@ -179,6 +179,9 @@ export default function DemandeRamassage({ onRetour, depart }) {
         plan: { ...nouveauPartage(commun, [{ enfants: mesEnfants }]).commun, enfants: mesEnfants.map(enfantPropre) },
         autres: partage ? autres.map((f) => ({ nom: String(f.nom).slice(0, 60), telephone: String(f.telephone).slice(0, 20) })) : [],
         modePartage: mode,
+        // Itineraires et Waze dans « Demandes » (memes cles que l'ancien formulaire)
+        domicile: commun.domicile ? { label: String(commun.domicile.label || "").slice(0, 300), lat: typeof commun.domicile.lat === "number" ? commun.domicile.lat : null, lon: typeof commun.domicile.lon === "number" ? commun.domicile.lon : null } : null,
+        ecole: commun.ecole ? { label: String(commun.ecole.label || "").slice(0, 300), lat: typeof commun.ecole.lat === "number" ? commun.ecole.lat : null, lon: typeof commun.ecole.lon === "number" ? commun.ecole.lon : null } : null,
         telUrgence: String(v.telUrgence).slice(0, 30),
         personnesAutorisees: String(v.personnesAutorisees).slice(0, 500),
         infos: String(v.infos || "").slice(0, 1000),

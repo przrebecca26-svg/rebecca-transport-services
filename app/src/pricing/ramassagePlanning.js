@@ -13,9 +13,15 @@
 // - semaine ou mois SANS date (la cliente veut juste un prix) : semaine complete, ou mois le plus long
 //   (31 jours, sans fete ni vacances) = le prix MAXIMUM d'un mois ;
 // - forfait accepte : chaque mois, le prix reel du mois (fetes et vacances retirees) a cote du prix du mois complet.
+// TRAJET PARTAGE (15 nov. 2026) : 1, 2 ou 3 familles partagent les trajets ; chaque famille a ses enfants (1 a 4).
+// - jusqu'a 2 enfants sur un trajet = le prix normal ; chaque enfant en plus = supplement (TARIFS.partage.ramassage) ;
+// - « par enfant » : chaque famille paie la place de ses enfants sur chaque trajet, avec SA reduction (mois, plusieurs
+//   enfants...) ; « parts egales » : le total divise par le nombre de familles. Pour Rebecca, le total ne change pas.
+export { MODES_PARTAGE };
 
 import { TARIFS } from "./config.js";
 import { arrondiSup, analyserRentabilite, detecterZone, prixTrajetRamassage } from "./engine.js";
+import { MODES_PARTAGE, maxFamilles, nomFamille, partagerNote, personnesEnPlus, prixFr, supplementParPersonne, lignesPartage, centimes } from "./partage.js";
 import { ajouterJours, nomsJourSacre, vacancesDuCalendrier, verifierDisponibilite } from "./calendrier.js";
 
 export const JOURS = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
@@ -54,9 +60,13 @@ export const enfantVide = () => ({
   jours: JOURS.map(() => ({ actif: true, heure: "" })),
   autreEcole: false, // true = cet enfant n'est pas dans l'ecole indiquee en haut
   ecole: null,
+  famille: 0, // 0 = la cliente ; 1 et 2 = les autres familles qui partagent les trajets
 });
 
-export const planVide = () => ({ domicile: null, ecole: null, periode: "semaine", date: "", sansEcoleDu: "", sansEcoleAu: "", reduction: "", enfants: [enfantVide()] });
+export const planVide = () => ({
+  domicile: null, ecole: null, periode: "semaine", date: "", sansEcoleDu: "", sansEcoleAu: "", reduction: "", enfants: [enfantVide()],
+  nbFamilles: 1, autresFamilles: [{ nom: "", telephone: "" }, { nom: "", telephone: "" }], modePartage: "enfant",
+});
 
 // Change le nombre d'enfants sans perdre ce qui est deja saisi
 export function reglerNombreEnfants(enfants, n) {
@@ -67,6 +77,51 @@ export function reglerNombreEnfants(enfants, n) {
 }
 
 export const nomEnfant = (e, i) => String((e && e.prenom) || "").trim() || `Enfant ${i + 1}`;
+
+/* ---------- Familles qui partagent les trajets (15 nov. 2026) ---------- */
+
+export const nbFamillesDe = (plan) => Math.max(1, Math.min(maxFamilles(), Math.round(Number(plan && plan.nbFamilles)) || 1));
+export const familleDe = (plan, i) => {
+  const n = nbFamillesDe(plan);
+  const f = Math.round(Number(plan.enfants[i] && plan.enfants[i].famille)) || 0;
+  return n === 1 ? 0 : Math.max(0, Math.min(n - 1, f));
+};
+// Nom de chaque famille : la cliente (nom saisi en haut), puis les autres familles
+export function nomsFamilles(plan, nomCliente = "") {
+  const autres = plan.autresFamilles || [];
+  return Array.from({ length: nbFamillesDe(plan) }, (_, f) => (f === 0 ? nomFamille(nomCliente, 0).replace("Votre famille", "Famille 1") : nomFamille(autres[f - 1] && autres[f - 1].nom, f)));
+}
+export const enfantsDeLaFamille = (plan, f) => plan.enfants.map((e, i) => ({ e, i })).filter((x) => familleDe(plan, x.i) === f);
+
+// Nombre d'enfants d'une famille : on garde les enfants deja saisis des autres familles
+export function reglerEnfantsFamille(plan, f, n) {
+  const nb = Math.min(MAX_ENFANTS, Math.max(1, Number(n) || 1));
+  const liste = [];
+  for (let k = 0; k < nbFamillesDe(plan); k++) {
+    const siens = plan.enfants.filter((_, i) => familleDe(plan, i) === k);
+    const garde = k === f ? siens.slice(0, nb) : siens.length ? siens : [enfantVide()];
+    while (k === f && garde.length < nb) garde.push(enfantVide());
+    liste.push(...garde.map((e) => ({ ...e, famille: k })));
+  }
+  return liste;
+}
+
+// 1, 2 ou 3 familles : chaque famille a au moins un enfant ; une famille retiree perd ses enfants
+export function reglerNombreFamilles(plan, n) {
+  const nb = Math.max(1, Math.min(maxFamilles(), Number(n) || 1));
+  const autres = [...(plan.autresFamilles || [])];
+  while (autres.length < 2) autres.push({ nom: "", telephone: "" });
+  const p = { ...plan, nbFamilles: nb, autresFamilles: autres };
+  const liste = [];
+  for (let k = 0; k < nb; k++) {
+    const siens = plan.enfants.filter((e) => (nbFamillesDe(plan) === 1 ? 0 : Math.round(Number(e.famille)) || 0) === k);
+    liste.push(...(siens.length ? siens : [enfantVide()]).map((e) => ({ ...e, famille: k })));
+  }
+  return { ...p, enfants: liste };
+}
+
+// Le devis d'une seule famille (pour sa fiche du Repertoire quand le devis est accepte)
+export const sousPlanFamille = (plan, f) => ({ ...plan, nbFamilles: 1, enfants: enfantsDeLaFamille(plan, f).map((x) => ({ ...x.e, famille: 0 })) });
 // Ecole d'un enfant : la sienne s'il en a une autre, sinon celle du haut du devis
 export const ecoleDe = (plan, i) => (plan.enfants[i] && plan.enfants[i].autreEcole ? plan.enfants[i].ecole : plan.ecole);
 export const cleEcole = (a) => (a && typeof a.lat === "number" && typeof a.lon === "number" ? `${a.lat},${a.lon}` : "");
@@ -249,21 +304,55 @@ export function calculerPlan(plan, routes, t = TARIFS, options = {}) {
   }
 
   const jours = new Set(trajets.map((x) => x.date)).size;
-  const brut = trajets.reduce((n, x) => n + prixEcole.get(x.ecole).parTrajet, 0);
-  const proposee = reductionProposee(plan, jours, t);
+  // Trajet partage : jusqu'a 2 enfants = prix du trajet ; chaque enfant en plus = supplement (meme regle que le site)
+  const pctEnPlus = supplementParPersonne("ramassage", t);
+  const supplementDe = (x) => arrondiSup(prixEcole.get(x.ecole).parTrajet * pctEnPlus, 1);
+  const enPlusDe = (x) => (pctEnPlus > 0 ? personnesEnPlus(x.enfants.length, t) : 0);
+  const prixDe = (x) => prixEcole.get(x.ecole).parTrajet + enPlusDe(x) * supplementDe(x);
+  const brut = trajets.reduce((n, x) => n + prixDe(x), 0);
   const saisie = reductionSaisie(plan);
+  const nbFam = nbFamillesDe(plan);
+  const noms = nomsFamilles(plan, options.nomCliente);
+  // Chaque famille paie la place de ses enfants sur chaque trajet, avec sa propre reduction
+  const familles = Array.from({ length: nbFam }, (_, f) => {
+    const siens = new Set(enfantsDeLaFamille(plan, f).map((x) => x.i));
+    const leurs = trajets.filter((x) => x.enfants.some((i) => siens.has(i)));
+    const brutF = leurs.reduce((n, x) => n + (prixDe(x) * x.enfants.filter((i) => siens.has(i)).length) / x.enfants.length, 0);
+    const joursF = new Set(leurs.map((x) => x.date)).size;
+    const proposeeF = reductionProposee({ ...plan, enfants: [...siens].map((i) => plan.enfants[i]) }, joursF, t);
+    const pctF = saisie === null ? proposeeF : saisie;
+    const totalF = pctF > 0 ? arrondiSup(brutF * (1 - pctF), t.arrondi) : Math.ceil(brutF - 1e-9);
+    return { nom: noms[f], enfants: siens.size, trajets: leurs.length, brut: centimes(brutF), pourcentage: pctF, proposee: proposeeF, total: totalF };
+  });
+  const proposee = nbFam === 1 ? reductionProposee(plan, jours, t) : Math.max(...familles.map((f) => f.proposee));
   const pourcentage = saisie === null ? proposee : saisie;
-  const total = pourcentage > 0 ? arrondiSup(brut * (1 - pourcentage), t.arrondi) : brut;
+  const total = nbFam === 1 ? (pourcentage > 0 ? arrondiSup(brut * (1 - pourcentage), t.arrondi) : brut) : familles.reduce((n, f) => n + f.total, 0);
   const nomPeriode = plan.periode === "mois" ? "Forfait mois" : plan.periode === "semaine" ? "Forfait semaine" : "Ramassage";
   // Une ligne par prix de trajet (une seule si tous les enfants sont dans la meme ecole)
   const parPrix = new Map();
   for (const x of trajets) parPrix.set(prixEcole.get(x.ecole).parTrajet, (parPrix.get(prixEcole.get(x.ecole).parTrajet) || 0) + 1);
   const groupes = [...parPrix.entries()].map(([prix, nombre]) => ({ prix, nombre }));
   const lignes = groupes.map((g) => ({ libelle: `${nomPeriode} : ${g.nombre} trajet${g.nombre > 1 ? "s" : ""} x ${g.prix} ₪`, montant: g.nombre * g.prix, base: true }));
-  const pct = Math.round(pourcentage * 1000) / 10;
-  if (total < brut) lignes.push({ libelle: `Réduction ${plan.periode === "jour" ? "" : "forfait "}${String(pct).replace(".", ",")} %`, montant: total - brut, base: true });
+  // Enfants en plus (3e, 4e enfant sur un meme trajet) : une ligne par montant de supplement
+  const parSupplement = new Map();
+  for (const x of trajets) if (enPlusDe(x)) parSupplement.set(supplementDe(x), (parSupplement.get(supplementDe(x)) || 0) + enPlusDe(x));
+  const enPlus = [...parSupplement.entries()].map(([prix, nombre]) => ({ prix, nombre }));
+  for (const g of enPlus) lignes.push({ libelle: `Enfant en plus sur un trajet (3e, 4e) : ${g.nombre} x ${g.prix} ₪`, montant: g.nombre * g.prix, base: true });
+  const pcts = [...new Set(familles.map((f) => Math.round(f.pourcentage * 1000) / 10))];
+  const pct = nbFam === 1 || pcts.length === 1 ? Math.round(pourcentage * 1000) / 10 : 0;
+  const reductionsDifferentes = nbFam > 1 && pcts.length > 1;
+  if (total < brut) {
+    lignes.push({
+      libelle: reductionsDifferentes ? `Réductions des familles (${pcts.filter((x) => x > 0).map((x) => String(x).replace(".", ",") + " %").join(", ")})` : `Réduction ${plan.periode === "jour" ? "" : "forfait "}${String(pct).replace(".", ",")} %`,
+      montant: centimes(total - brut),
+      base: true,
+    });
+  }
 
   const aConfirmer = [];
+  const places = (t.tournee && t.tournee.places) || 4;
+  const tropPlein = trajets.find((x) => x.enfants.length > places);
+  if (tropPlein) aConfirmer.push(`Plus de ${places} enfants sur un même trajet (${tropPlein.enfants.length} à ${h(tropPlein.heure)}) : il faut deux voyages ou un autre horaire.`);
   if (horsAxe) aConfirmer.push("Trajet hors axe Netanya : prix à confirmer par Rebecca.");
   if (sansDate && plan.periode === "mois") aConfirmer.push("Prix d'un mois complet (le plus long, sans fête ni vacances).");
   else if (plan.periode !== "jour" && !sansDate) aConfirmer.push("Chabbat, fêtes et vacances scolaires ne sont pas comptés.");
@@ -301,8 +390,12 @@ export function calculerPlan(plan, routes, t = TARIFS, options = {}) {
       sansDate,
       brut,
       reduction: total < brut ? pct : 0,
+      reductionsDifferentes,
       reductionProposee: Math.round(proposee * 1000) / 10,
-      economie: brut - total,
+      economie: centimes(brut - total),
+      enPlus,
+      familles,
+      partage: nbFam > 1 ? partagerNote(total, familles.map((f) => ({ nom: f.nom, personnes: f.enfants, montant: f.total })), plan.modePartage) : null,
       parEnfant,
       retires,
       conflits,
@@ -351,7 +444,9 @@ export function libellePeriode(plan, resultat) {
 // Message pret a envoyer a la cliente. Jamais les alertes internes (rentabilite, agenda de Rebecca).
 export function messagePlan(plan, resultat) {
   const n = plan.enfants.length;
-  const qui = n === 1 ? (plan.enfants[0].prenom.trim() ? `de ${plan.enfants[0].prenom.trim()}` : "de votre enfant") : `de vos ${n} enfants`;
+  const nbFam = nbFamillesDe(plan);
+  const qui = nbFam > 1 ? `de vos ${n} enfants (${nbFam} familles, trajets partagés)` : n === 1 ? (plan.enfants[0].prenom.trim() ? `de ${plan.enfants[0].prenom.trim()}` : "de votre enfant") : `de vos ${n} enfants`;
+  const noms = nomsFamilles(plan, resultat && resultat.ok && resultat.details.familles ? resultat.details.familles[0].nom : "");
   const lignes = ["Bonjour 😊", ""];
   if (!resultat || !resultat.ok) {
     lignes.push(`Pour le ramassage scolaire ${qui}, je vous prépare un devis personnalisé.`);
@@ -359,11 +454,13 @@ export function messagePlan(plan, resultat) {
     const x = resultat.details;
     lignes.push(`Voici mon devis pour le ramassage scolaire ${qui}, ${libellePeriode(plan, resultat)} :`, "");
     const plusieursEcoles = ecolesDuPlan(plan).length > 1;
-    plan.enfants.forEach((e, i) => lignes.push(`• ${nomEnfant(e, i)}${plusieursEcoles ? ` (${String(ecoleDe(plan, i).label).split(",")[0]})` : ""} : ${horairesEnfant(plan, i)}`));
+    plan.enfants.forEach((e, i) => lignes.push(`• ${nomEnfant(e, i)}${nbFam > 1 ? ` (${noms[familleDe(plan, i)]})` : ""}${plusieursEcoles ? ` (${String(ecoleDe(plan, i).label).split(",")[0]})` : ""} : ${horairesEnfant(plan, i)}`));
     lignes.push("");
     for (const g of x.groupes) lignes.push(`${g.nombre} trajet${g.nombre > 1 ? "s" : ""} x ${g.prix} ₪ = ${nombreFr(g.nombre * g.prix)} ₪`);
-    if (x.reduction) lignes.push(`Réduction ${plan.periode === "jour" ? "" : "forfait "}${String(x.reduction).replace(".", ",")} % : -${nombreFr(x.economie)} ₪`);
-    lignes.push(`Total : ${nombreFr(resultat.total)} ₪${x.reduction ? ` (soit ${String(x.parTrajetNet).replace(".", ",")} ₪ par trajet)` : ""}`);
+    for (const g of x.enPlus || []) lignes.push(`Enfant en plus sur un trajet : ${g.nombre} x ${g.prix} ₪ = ${nombreFr(g.nombre * g.prix)} ₪`);
+    if (x.economie > 0) lignes.push(x.reductionsDifferentes ? `Réductions (selon le nombre d'enfants de chaque famille) : -${prixFr(x.economie)} ₪` : `Réduction ${plan.periode === "jour" ? "" : "forfait "}${String(x.reduction).replace(".", ",")} % : -${prixFr(x.economie)} ₪`);
+    lignes.push(`Total : ${nombreFr(resultat.total)} ₪${x.reduction && nbFam === 1 ? ` (soit ${String(x.parTrajetNet).replace(".", ",")} ₪ par trajet)` : ""}`);
+    if (x.partage) lignes.push("", ...lignesPartage(x.partage, "enfant"));
     if (plan.periode !== "jour" && !x.sansDate) lignes.push("", "Chabbat, fêtes et vacances scolaires ne sont pas comptés.");
   }
   lignes.push("", "Pouvez-vous me confirmer les adresses exactes et les horaires ?", "", "Rebecca Services", "Votre temps est précieux, je vous aide à en profiter. 🌸");

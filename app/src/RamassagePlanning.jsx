@@ -9,7 +9,8 @@ import AjoutManuel from "./AjoutManuel.jsx";
 import { calculerTrajet } from "./routing.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { useFermetures } from "./fermetures.js";
-import { JOURS, PERIODES, SENS, MAX_ENFANTS, planVide, enfantVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel } from "./pricing/ramassagePlanning.js";
+import { JOURS, PERIODES, SENS, MAX_ENFANTS, MODES_PARTAGE, planVide, enfantVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel, nbFamillesDe, familleDe, nomsFamilles, enfantsDeLaFamille, reglerEnfantsFamille, reglerNombreFamilles, sousPlanFamille } from "./pricing/ramassagePlanning.js";
+import { prixFr } from "./pricing/partage.js";
 import JourneeTournee from "./components/JourneeTournee.jsx";
 import { aujourdhui } from "./profil.js";
 import ChoixLieu from "./components/MesLieux.jsx";
@@ -32,7 +33,7 @@ const jourDeLaDate = (date) => {
   return new Date(Date.UTC(a, m - 1, j, 12)).getUTCDay();
 };
 
-function Enfant({ enfant, index, periode, jourUnique, changer, connues }) {
+function Enfant({ enfant, index, periode, jourUnique, changer, connues, famille }) {
   const set = (cle, valeur) => changer({ ...enfant, [cle]: valeur });
   const setJour = (w, cle, valeur) => changer({ ...enfant, jours: enfant.jours.map((j, k) => (k === w ? { ...j, [cle]: valeur } : j)) });
   const avecSortie = enfant.sens !== "matin";
@@ -40,7 +41,7 @@ function Enfant({ enfant, index, periode, jourUnique, changer, connues }) {
   const jours = JOURS.map((nom, w) => ({ nom, w })).filter((j) => periode !== "jour" || j.w === jourUnique);
   return (
     <div className="bloc rp-enfant">
-      <h3>{nomEnfant(enfant, index)}</h3>
+      <h3>{nomEnfant(enfant, index)}{famille ? <small> · {famille}</small> : null}</h3>
       <div className="champ">
         <label htmlFor={`rp-prenom-${index}`}>Prénom (facultatif)</label>
         <input id={`rp-prenom-${index}`} type="text" maxLength={40} value={enfant.prenom} onChange={(e) => set("prenom", e.target.value)} />
@@ -113,7 +114,11 @@ export default function RamassagePlanning({ retour, aller }) {
   const [ajout, setAjout] = useState(false);
   const [demandes, setDemandes] = useState([]);
   const reglages = useFermetures();
+  const [cliente, setCliente] = useState("");
   const changer = (nom, valeur) => setPlan((o) => ({ ...o, [nom]: valeur }));
+  const changerFamille = (k, cle, valeur) => setPlan((o) => ({ ...o, autresFamilles: (o.autresFamilles || []).map((f, j) => (j === k ? { ...f, [cle]: valeur } : f)) }));
+  const nbFam = nbFamillesDe(plan);
+  const noms = nomsFamilles(plan, cliente);
   const changerEnfant = (i, e) => setPlan((o) => ({ ...o, enfants: o.enfants.map((x, k) => (k === i ? e : x)) }));
 
   // Distance reelle domicile <-> chaque ecole (meme calcul que le site)
@@ -151,9 +156,9 @@ export default function RamassagePlanning({ retour, aller }) {
   const distanceOk = trajet && trajet.statut === "ok";
   const resultat = useMemo(() => {
     if (!pret || !distanceOk) return null;
-    return calculerPlan(plan, routes);
+    return calculerPlan(plan, routes, undefined, { nomCliente: cliente });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, trajet, routes, pret, distanceOk, reglages]);
+  }, [plan, trajet, routes, pret, distanceOk, reglages, cliente]);
 
   const calcule = !!(resultat && resultat.ok);
   const x = calcule ? resultat.details : null;
@@ -162,7 +167,6 @@ export default function RamassagePlanning({ retour, aller }) {
 
   // Est-ce que je peux accepter ? Les trajets de la cliente sont inseres dans ma tournee, jour par jour.
   const base = useTournee();
-  const [cliente, setCliente] = useState("");
   const [ajoutTournee, setAjoutTournee] = useState("");
   const repertoire = useRepertoire();
   // Ma tournee = trajets des fiches enfants (Repertoire) + trajets saisis a la main
@@ -179,11 +183,15 @@ export default function RamassagePlanning({ retour, aller }) {
   // Devis accepte (celui de l'ecran, ou un devis en attente de la liste) : fiche de la famille + trajets + forfait
   const accepter = async ({ plan: p, routes: r, nom, telephone, id }) => {
     try {
-      const famille = familleDuDevis(p, nom, telephone);
-      await enregistrerRepertoire(repertoire.lieux, repertoire.corrections, [...repertoire.familles, famille]);
+      // Trajets partages : une fiche par famille, chacune avec ses enfants (15 nov. 2026)
+      const autres = (p.autresFamilles || []).slice(0, nbFamillesDe(p) - 1);
+      const fiches = nbFamillesDe(p) > 1
+        ? [familleDuDevis(sousPlanFamille(p, 0), nom, telephone), ...autres.map((f, k) => familleDuDevis(sousPlanFamille(p, k + 1), f.nom || `Famille ${k + 2}`, f.telephone))]
+        : [familleDuDevis(p, nom, telephone)];
+      await enregistrerRepertoire(repertoire.lieux, repertoire.corrections, [...repertoire.familles, ...fiches]);
       // Ses trajets sont choisis d'office dans ma tournee (elle les a demandes) ; le forfait au mois est garde
       const suite = retirerDevis(ajouterALaTournee(base.donnees, p, r, nom, aujourdhui(), { sansTrajets: true }), id || ""); // accepte : il n'est plus « en attente »
-      await enregistrerTournee({ ...suite, choix: [...lireChoix(base.donnees.choix), ...choixDeLaFamille(famille)] });
+      await enregistrerTournee({ ...suite, choix: [...lireChoix(base.donnees.choix), ...fiches.flatMap((f) => choixDeLaFamille(f))] });
       if (id && id === devisOuvert) setDevisOuvert("");
       return `Devis de ${String(nom || "").trim() || "la cliente"} accepté : sa fiche est dans ton Répertoire et ses trajets dans ta tournée.`;
     } catch {
@@ -352,17 +360,62 @@ export default function RamassagePlanning({ retour, aller }) {
             </fieldset>
           )}
           <fieldset className="champ">
-            <legend>Nombre d'enfants</legend>
-            <div className="choix rp-quatre">
-              {Array.from({ length: MAX_ENFANTS }, (_, k) => k + 1).map((n) => (
-                <button key={n} type="button" className={plan.enfants.length === n ? "actif" : ""} aria-pressed={plan.enfants.length === n} onClick={() => changer("enfants", reglerNombreEnfants(plan.enfants, n))}>{n}</button>
+            <legend>Combien de familles partagent les trajets ?</legend>
+            <div className="choix rp-trois">
+              {[1, 2, 3].map((n) => (
+                <button key={n} type="button" className={nbFam === n ? "actif" : ""} aria-pressed={nbFam === n} onClick={() => setPlan((o) => reglerNombreFamilles(o, n))}>{n === 1 ? "1 famille" : `${n} familles`}</button>
               ))}
             </div>
+            {nbFam > 1 && <span className="aide">Jusqu'à 2 enfants sur un trajet : prix normal. Chaque enfant en plus : un supplément. Chaque famille paie pour ses enfants (avec sa réduction), ou parts égales.</span>}
           </fieldset>
+          {nbFam === 1 && (
+            <fieldset className="champ">
+              <legend>Nombre d'enfants</legend>
+              <div className="choix rp-quatre">
+                {Array.from({ length: MAX_ENFANTS }, (_, k) => k + 1).map((n) => (
+                  <button key={n} type="button" className={plan.enfants.length === n ? "actif" : ""} aria-pressed={plan.enfants.length === n} onClick={() => changer("enfants", reglerNombreEnfants(plan.enfants, n))}>{n}</button>
+                ))}
+              </div>
+            </fieldset>
+          )}
         </div>
 
+        {nbFam > 1 && (
+          <div className="bloc rp-familles">
+            {Array.from({ length: nbFam }, (_, f) => (
+              <fieldset className="champ" key={f}>
+                <legend>Famille {f + 1}{f === 0 ? ` : ${String(cliente || "").trim() || "la cliente (nom en haut)"}` : ""}</legend>
+                {f > 0 && (
+                  <>
+                    <label htmlFor={`rp-fam-nom-${f}`}>Nom</label>
+                    <input id={`rp-fam-nom-${f}`} type="text" maxLength={60} value={(plan.autresFamilles[f - 1] || {}).nom || ""} onChange={(e) => changerFamille(f - 1, "nom", e.target.value)} />
+                    <label htmlFor={`rp-fam-tel-${f}`}>Téléphone (WhatsApp, facultatif)</label>
+                    <input id={`rp-fam-tel-${f}`} type="tel" inputMode="tel" maxLength={20} placeholder="05X XXX XXXX" value={(plan.autresFamilles[f - 1] || {}).telephone || ""} onChange={(e) => changerFamille(f - 1, "telephone", e.target.value)} />
+                  </>
+                )}
+                <span className="aide">Nombre d'enfants</span>
+                <div className="choix rp-quatre">
+                  {Array.from({ length: MAX_ENFANTS }, (_, k) => k + 1).map((n) => {
+                    const nb = enfantsDeLaFamille(plan, f).length;
+                    return <button key={n} type="button" className={nb === n ? "actif" : ""} aria-pressed={nb === n} onClick={() => setPlan((o) => ({ ...o, enfants: reglerEnfantsFamille(o, f, n) }))}>{n}</button>;
+                  })}
+                </div>
+              </fieldset>
+            ))}
+            <fieldset className="champ">
+              <legend>Partager la note</legend>
+              <div className="choix rp-deux">
+                {MODES_PARTAGE.map((o) => (
+                  <button key={o.v} type="button" className={(plan.modePartage || "enfant") === o.v ? "actif" : ""} aria-pressed={(plan.modePartage || "enfant") === o.v} onClick={() => changer("modePartage", o.v)}>{o.v === "egal" ? "Parts égales" : "Par enfant"}</button>
+                ))}
+              </div>
+              <span className="aide">{(plan.modePartage || "enfant") === "egal" ? "Le total divisé par le nombre de familles." : "Chaque famille paie pour ses enfants."} Pour toi, le total ne change pas.</span>
+            </fieldset>
+          </div>
+        )}
+
         {plan.enfants.map((e, i) => (
-          <Enfant key={i} enfant={e} index={i} periode={plan.periode} jourUnique={jourUnique} changer={(n) => changerEnfant(i, n)} connues={connues} />
+          <Enfant key={i} enfant={e} index={i} periode={plan.periode} jourUnique={jourUnique} changer={(n) => changerEnfant(i, n)} connues={connues} famille={nbFam > 1 ? noms[familleDe(plan, i)] : ""} />
         ))}
 
         <div className="bloc">
@@ -385,6 +438,10 @@ export default function RamassagePlanning({ retour, aller }) {
               <li key={i}><span>{nomEnfant(e, i)}</span><b>{x.parEnfant[i]} trajet{x.parEnfant[i] > 1 ? "s" : ""}</b></li>
             ))}
             <li><span>Trajets à faire en tout</span><b>{x.nbTrajets}</b></li>
+            {x.familles && x.familles.length > 1 && x.familles.map((f, k) => (
+              <li key={"f" + k}><span>{f.nom} ({f.enfants} enfant{f.enfants > 1 ? "s" : ""}{f.pourcentage > 0 ? `, -${String(Math.round(f.pourcentage * 1000) / 10).replace(".", ",")} %` : ""})</span><b>{prixFr(f.total)} ₪</b></li>
+            ))}
+            {x.partage && x.partage.mode === "egal" && <li><span>Parts égales ({x.partage.parts.length} familles)</span><b>{prixFr(x.partage.parts[x.partage.parts.length - 1].montant)} ₪ chacune</b></li>}
             {x.reduction > 0 && <li><span>Prix par trajet après réduction</span><b>{String(x.parTrajetNet).replace(".", ",")} ₪</b></li>}
             {x.retires.length > 0 && <li><span>Jours retirés</span><b>{x.retires.length} ({[...new Set(x.retires.map((r) => r.motif))].join(", ")})</b></li>}
           </ul>

@@ -3,6 +3,7 @@
 // (Instagram, WhatsApp...), avec EXACTEMENT le meme calculateur que le site, et preparer le message a envoyer.
 
 import { champsAdresses } from "./ajoutManuel.js";
+import { lignesPartage } from "./partage.js";
 
 // Nom de la ville : dernier morceau de l'adresse, sans le district ni le pays
 // (ex. « Raanana, נפת פתח תקווה » -> Raanana ; D2b, 9 nov. 2026)
@@ -52,6 +53,8 @@ export function messageDevis(service, v, resultat) {
     lignes.push(`Pour ${resume(service, v)}${quand}, le tarif est de ${resultat.total} ₪.`);
     const aConfirmer = (resultat.aConfirmer || []).filter((a) => !/^Rentabilité/.test(a));
     if (aConfirmer.length) lignes.push("", ...aConfirmer);
+    const partage = resultat.details && resultat.details.partage;
+    if (partage) lignes.push("", ...lignesPartage(partage, service === "ramassage" ? "enfant" : "passager"));
   } else {
     lignes.push(`Pour ${resume(service, v)}${quand}, je vous prépare un devis personnalisé.`);
   }

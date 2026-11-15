@@ -4,6 +4,7 @@
 
 import { TARIFS, coutParKm, partRetourAVide } from "./config.js";
 import { verifierDisponibilite, localVersUtc, ajouterJours as ajouterJoursLocal } from "./calendrier.js";
+import { partagerNote, personnesEnPlus, supplementParPersonne } from "./partage.js";
 import { aujourdhui, calculerRemise, etatCode, libelleActivitePromo, libelleRemise, normaliserCode, promoSapplique } from "./promos.js";
 
 /* ---------- Outils ---------- */
@@ -249,6 +250,7 @@ function calculerTrajet(d, t) {
   }
 
   attenteEnLigne(lignes, attente, t);
+  ligneSupplementPersonnes(lignes, d.passagers, "transport", "Passager", t);
 
   if (d.bagagesSoute > 0) {
     lignes.push({
@@ -274,6 +276,25 @@ function calculerTrajet(d, t) {
     resultat.aConfirmer.push("Rentabilité faible (retour à vide) : vérifier le prix avant de confirmer.");
   }
   return resultat;
+}
+
+/* ---------- Trajet partage : personnes en plus (15 nov. 2026) ---------- */
+
+// Jusqu'a 2 personnes = prix normal du trajet ; chaque personne en plus = supplement en % du trajet (lignes de base).
+function ligneSupplementPersonnes(lignes, personnes, genre, mot, t) {
+  const enPlus = personnesEnPlus(personnes, t);
+  const pct = supplementParPersonne(genre, t);
+  if (!enPlus || !pct) return;
+  const trajet = lignes.filter((l) => l.base).reduce((n, l) => n + (l.montant || 0), 0);
+  const parPersonne = arrondiSup(trajet * pct, 1);
+  lignes.push({ libelle: `${mot}${enPlus > 1 ? "s" : ""} en plus : ${enPlus} x ${parPersonne} ₪ (${Math.round(pct * 100)} % du trajet)`, montant: enPlus * parPersonne, base: true });
+}
+
+// Partage de la note entre 1 a 3 familles : par enfant (ou par personne) ou parts egales. Le total ne change pas.
+function appliquerPartage(r, d) {
+  if (!r || !r.ok || r.bloque || r.devis || r.total == null) return r;
+  const partage = partagerNote(r.total, d.familles, d.partageMode);
+  return partage ? { ...r, details: { ...r.details, partage } } : r;
 }
 
 /* ---------- Livraison ---------- */
@@ -461,19 +482,30 @@ function calculerRamassage(d, t) {
   const { parTrajet, horsAxe } = prixTrajetRamassage(d, t);
   if (horsAxe) aConfirmer.push("Trajet hors axe Netanya : prix à confirmer par Rebecca.");
   const trajets = d.trajets === 2 ? 2 : 1;
+  // Trajet partage (15 nov. 2026) : 3e et 4e enfant sur le trajet = supplement par enfant (chaque enfant paie sa place)
+  const nbEnfants = Math.max(1, Math.round(d.nbEnfants) || 1);
+  const enPlus = personnesEnPlus(nbEnfants, t);
+  const parEnfantEnPlus = enPlus ? arrondiSup(parTrajet * supplementParPersonne("ramassage", t), 1) : 0;
+  const prixTrajet = parTrajet + enPlus * parEnfantEnPlus;
+  if (nbEnfants > ((t.tournee && t.tournee.places) || 4)) aConfirmer.push(`${nbEnfants} enfants : plus que les places de la voiture, Rebecca confirme l'organisation avec vous.`);
   const hebdo = d.frequence === "semaine";
   const jours = hebdo ? (d.joursSemaine || []).length : 1;
   if (hebdo && jours === 0) return erreur("Choisissez au moins un jour.");
-  const details = { parTrajet, trajets, jours, hebdo };
+  const details = { parTrajet, trajets, jours, hebdo, nbEnfants, prixTrajet };
+  const ligneEnPlus = (fois) => {
+    if (enPlus) lignes.push({ libelle: `Enfant${enPlus > 1 ? "s" : ""} en plus sur le trajet : ${enPlus} x ${parEnfantEnPlus} ₪${fois > 1 ? ` x ${fois} trajets` : ""}`, montant: enPlus * parEnfantEnPlus * fois, base: true });
+  };
 
   if (!hebdo) {
     lignes.push({ libelle: trajets === 2 ? `Ramassage : 2 trajets x ${parTrajet} ₪` : "Ramassage : 1 trajet", montant: parTrajet * trajets, base: true });
+    ligneEnPlus(trajets);
     supplementNuit(lignes, "Trajet 1", parTrajet, d.heure, t);
     if (trajets === 2) supplementNuit(lignes, "Trajet 2", parTrajet, d.heure2 || d.heure, t);
   } else {
-    const brut = parTrajet * trajets * jours;
+    const brut = prixTrajet * trajets * jours;
     const palier = [...t.ramassage.reductions].sort((a, b) => b.minJours - a.minJours).find((r) => jours >= r.minJours);
-    lignes.push({ libelle: `Forfait semaine : ${jours} jour(s) x ${trajets} trajet(s) x ${parTrajet} ₪`, montant: brut, base: true });
+    lignes.push({ libelle: `Forfait semaine : ${jours} jour(s) x ${trajets} trajet(s) x ${parTrajet} ₪`, montant: parTrajet * trajets * jours, base: true });
+    ligneEnPlus(trajets * jours);
     if (palier) {
       const apres = arrondiSup(brut * (1 - palier.pourcentage), t.arrondi);
       if (apres < brut) lignes.push({ libelle: `Réduction forfait ${Math.round(palier.pourcentage * 100)} %`, montant: apres - brut, base: true });
@@ -639,7 +671,7 @@ export function calculer(demande, t = TARIFS) {
     default:
       return erreur(`Service inconnu : ${d.service}`);
   }
-  return appliquerPromo(r, d, t);
+  return appliquerPartage(appliquerPromo(r, d, t), d);
 }
 
 // Compare les trois scenarios A, B et C pour une meme demande

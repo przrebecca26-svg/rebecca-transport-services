@@ -186,6 +186,11 @@ export const TARIFS = {
   // Ma tournee scolaire (12 nov. 2026) : marge de route a chaque deplacement (petit probleme sur la route), temps
   // d'arret pour faire monter ou descendre les enfants, retard maximum accepte a une sortie d'ecole, places passagers.
   // retourMaisonMinutes : entre deux moments de la journee, retour a la maison seulement s'il reste au moins ce temps libre.
+  // TRAJET PARTAGE (15 nov. 2026, regle de Rebecca) : jusqu'a « inclus » personnes = le prix normal du trajet ;
+  // chaque personne en plus = un supplement en pourcentage du trajet. Ramassage : 50 % = chaque enfant paie sa place
+  // (un enfant = la moitie d'un trajet des qu'ils sont au moins deux). Transport et aeroport : 25 % par passager en plus.
+  // La note peut etre partagee : par enfant / par personne, ou en parts egales entre les familles.
+  partage: { inclus: 2, ramassage: 0.5, transport: 0.25, maxFamilles: 3 },
   tournee: { margeRouteMinutes: 5, arretMinutes: 5, retardMaxMinutes: 10, places: 4, retourMaisonMinutes: 30, libreMinutes: 20 },
   // libreMinutes (12 nov. 2026, 16h07) : pendant une activite (basket...), si j'attends au moins 20 min entre la depose
   // et la recuperation, ce temps est LIBRE (pas bloque) : je peux prendre une petite course aux alentours.

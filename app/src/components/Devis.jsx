@@ -1,4 +1,5 @@
 import { aConfirmerClient } from "../services.js";
+import { prixFr } from "../pricing/partage.js";
 
 // Devis affiche au client. N'affiche JAMAIS le gain de Rebecca ni les alertes internes.
 export default function Devis({ resultat, trajet, pretPourCalcul, manque }) {
@@ -58,6 +59,16 @@ export default function Devis({ resultat, trajet, pretPourCalcul, manque }) {
             <li key={i}><span>{l.libelle} (hors prestation)</span><span>{l.montant} ₪</span></li>
           ))}
         </ul>
+      )}
+      {resultat.details && resultat.details.partage && (
+        <div className="partage">
+          <p className="note"><strong>{resultat.details.partage.mode === "egal" ? `Parts égales entre les ${resultat.details.partage.parts.length} familles` : "Chaque famille paie sa part"}</strong></p>
+          <ul className="detail">
+            {resultat.details.partage.parts.map((p, i) => (
+              <li key={i}><span>{p.nom} ({p.personnes})</span><span>{prixFr(p.montant)} ₪</span></li>
+            ))}
+          </ul>
+        </div>
       )}
       {notes.map((n, i) => (
         <p className="note" key={i}>• {n}</p>

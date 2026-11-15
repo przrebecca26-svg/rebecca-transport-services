@@ -8,6 +8,7 @@ import { TARIFS } from "./pricing/config.js";
 import { validerPassager } from "./profil.js";
 import { detecterZone } from "./pricing/engine.js";
 import { localVersUtc } from "./pricing/calendrier.js";
+import { lignesPartage } from "./pricing/partage.js";
 
 export const AEROPORT = { label: "Aéroport Ben Gourion (TLV)", lat: 32.0055, lon: 34.8854 };
 export const DEPART_ACTIVITE = { label: "Netanya", lat: 32.3215, lon: 34.8532 };
@@ -140,6 +141,22 @@ const passager = [
   { name: "passagerTel", label: "Téléphone du passager", type: "tel", required: true, si: (v) => !!v.pourAutrui, indice: "Ses coordonnées servent uniquement à organiser le trajet." },
 ];
 
+// TRAJET PARTAGE (15 nov. 2026) : 1, 2 ou 3 familles sur le meme trajet. Chaque famille indique combien
+// d'enfants (ramassage) ou de passagers (transport, aeroport) elle a ; puis comment elles partagent la note.
+const nbFam = (v) => Math.max(1, Math.min(3, Number(v.nbFamilles) || 1));
+export const partageChamps = (mot) => {
+  const pluriel = mot + "s";
+  return [
+    { name: "nbFamilles", label: "Combien de familles partagent ce trajet ?", type: "choix", required: true, defaut: "1", options: [{ v: "1", l: "1 famille" }, { v: "2", l: "2 familles" }, { v: "3", l: "3 familles" }], indice: "Plusieurs familles sur le même trajet : le prix est moins cher pour chacune." },
+    { name: "personnesF1", label: (v) => (nbFam(v) > 1 ? `Nombre d'${pluriel} de votre famille` : `Nombre d'${pluriel}`), type: "nombre", min: 1, max: mot === "enfant" ? 4 : 6, defaut: "1", required: true, indice: `${TARIFS.partage.inclus} ${pluriel} : prix normal du trajet. Chaque ${mot} en plus : petit supplément.` },
+    ...[2, 3].flatMap((n) => [
+      { name: "nomF" + n, label: `Nom de la famille ${n}`, type: "text", required: true, si: (v) => nbFam(v) >= n },
+      { name: "personnesF" + n, label: `Nombre d'${pluriel} de la famille ${n}`, type: "nombre", min: 1, max: mot === "enfant" ? 4 : 6, defaut: "1", required: true, si: (v) => nbFam(v) >= n },
+    ]),
+    { name: "modePartage", label: "Comment partager la note ?", type: "choix", required: true, defaut: "enfant", si: (v) => nbFam(v) >= 2, options: [{ v: "enfant", l: mot === "enfant" ? "Par enfant" : "Par personne" }, { v: "egal", l: "Parts égales" }], indice: mot === "enfant" ? "Par enfant : chaque famille paie pour ses enfants. Parts égales : le total divisé par le nombre de familles." : "Par personne : chaque famille paie pour ses passagers. Parts égales : le total divisé par le nombre de familles." },
+  ];
+};
+
 const urgence = { name: "urgent", label: "C'est urgent", type: "case", indice: "Supplément de 30 à 50 ₪ selon le délai." };
 
 export const CHAMPS_CLIENT = [
@@ -161,7 +178,7 @@ export const FORMULAIRES = {
     { name: "depart", label: "Adresse de départ", type: "adresse", required: true },
     { name: "arrivee", label: "Adresse d'arrivée", type: "adresse", required: true },
     ...quand(),
-    { name: "passagers", label: "Passagers", type: "nombre", min: 1, max: 6, defaut: "1", required: true },
+    ...partageChamps("passager"),
     { name: "bagages", label: "Bagages en soute (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
     ...retour,
     { name: "arrets", label: "Arrêts supplémentaires", type: "nombre", min: 0, max: 5, defaut: "0", indice: "Le tarif des arrêts vous est communiqué avant validation." },
@@ -178,7 +195,7 @@ export const FORMULAIRES = {
     { name: "terminal", label: "Terminal", type: "select", defaut: "", options: [{ v: "", l: "Je ne sais pas" }, { v: "1", l: "Terminal 1" }, { v: "3", l: "Terminal 3" }] },
     { name: "heureVol", label: (v) => (v.direction === "depuis" ? "Heure d'atterrissage" : "Heure du vol"), type: "time", required: true },
     ...quand(" souhaitée"),
-    { name: "passagers", label: "Passagers", type: "nombre", min: 1, max: 6, defaut: "1", required: true },
+    ...partageChamps("passager"),
     { name: "valises", label: "Bagages en soute (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
     ...retour,
     urgence,
@@ -242,7 +259,8 @@ export const FORMULAIRES = {
   ramassage: [
     { name: "frequence", label: "Fréquence", type: "choix", required: true, defaut: "unique", options: [{ v: "unique", l: "Une seule fois" }, { v: "semaine", l: "Forfait à la semaine" }] },
     { name: "trajetsRamassage", label: "Quels trajets ?", type: "choix", required: true, defaut: "matin", options: [{ v: "matin", l: "Matin : domicile → école" }, { v: "apres", l: "Après-midi : école → domicile" }, { v: "deux", l: "Les deux" }] },
-    { name: "enfant", label: "Prénom de l'enfant", type: "text", required: true, indice: "Avec un compte, choisissez votre enfant enregistré : ses informations se remplissent seules." },
+    ...partageChamps("enfant"),
+    { name: "enfant", label: (v) => (Number(v.personnesF1) > 1 || nbFam(v) > 1 ? "Prénom de vos enfants" : "Prénom de l'enfant"), type: "text", required: true, indice: "Avec un compte, choisissez votre enfant enregistré : ses informations se remplissent seules." },
     { name: "classe", label: "Classe", type: "text" },
     { name: "telUrgence", label: "Téléphone en cas d'urgence", type: "tel", required: true },
     { name: "personnesAutorisees", label: "Personnes autorisées à récupérer ou accueillir l'enfant", type: "texte-long", required: true, placeholder: "Nom, téléphone et lien avec l'enfant", indice: "Rebecca ne remet l'enfant qu'à ces personnes." },
@@ -389,6 +407,16 @@ const nb = (x) => Number(x) || 0;
 const zonesArrets = (v, prefixe, nombre) =>
   Array.from({ length: Math.max(0, nombre || 0) }, (_, i) => detecterZone(v[prefixe + (prefixe === "arretL" ? i + 2 : i + 1)] && v[prefixe + (prefixe === "arretL" ? i + 2 : i + 1)].label));
 
+// Familles qui partagent le trajet : [{ nom, personnes }] (une seule = pas de partage).
+// Anciennes demandes (champ « passagers ») : une famille avec ce nombre de passagers.
+export function familles(v) {
+  const n = Math.max(1, Math.min(3, Number(v.nbFamilles) || 1));
+  const compte = (x, defaut = 1) => Math.max(1, Math.min(6, Math.round(Number(x)) || defaut));
+  const liste = [{ nom: n > 1 ? String(v.nom || "").trim() || "Votre famille" : String(v.nom || "").trim(), personnes: compte(v.personnesF1 !== undefined && v.personnesF1 !== "" ? v.personnesF1 : v.passagers) }];
+  for (let k = 2; k <= n; k++) liste.push({ nom: String(v["nomF" + k] || "").trim() || `Famille ${k}`, personnes: compte(v["personnesF" + k]) });
+  return liste;
+}
+
 export function versDemande(service, v, route, maintenantMs = Date.now()) {
   const d = { service, date: v.date, heure: v.heure };
   const trajet = trajetACalculer(service, v);
@@ -462,6 +490,15 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
     d.arretsZones = zonesArrets(v, "arretH", Number(v.nbArrets));
   }
 
+  if (["transport", "aeroport", "ramassage"].includes(service)) {
+    const f = familles(v);
+    d.familles = f;
+    d.personnes = f.reduce((n, x) => n + x.personnes, 0);
+    if (service !== "ramassage") d.passagers = d.personnes;
+    else d.nbEnfants = d.personnes;
+    d.partageMode = v.modePartage === "egal" ? "egal" : "enfant";
+  }
+
   if (v.urgent && v.date && v.heure) {
     d.minutesAvantDepart = Math.round((localVersUtc(v.date, v.heure) - maintenantMs) / 60000);
   }
@@ -515,6 +552,8 @@ export function messageWhatsApp(service, v, devis) {
     const promo = devis.details && devis.details.promo;
     if (promo && promo.statut === "applique") lignes.push(`Code promo : ${promo.code} (-${promo.reduction} ₪)`);
     for (const a of aConfirmerClient(devis)) lignes.push(`• ${a}`);
+    const partage = devis.details && devis.details.partage;
+    if (partage) lignes.push("", ...lignesPartage(partage, service === "ramassage" ? "enfant" : "passager"));
   }
   lignes.push("", "Merci de me confirmer la disponibilité.");
   return lignes.join("\n");

@@ -197,3 +197,7 @@
 .tr-carte { margin: 8px 0; }
 .tr-titre { margin: 0 0 4px; }
 .tr-page h3 { margin: 16px 0 4px; }
+
+/* 15 nov. 2026 : pastille sur le bouton du menu (total des choses a traiter) */
+.ts-burger { position: relative; }
+.ts-pastille { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: #f1aeb7; color: #080709; font: 800 12px/20px system-ui, sans-serif; text-align: center; }

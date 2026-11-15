@@ -19,6 +19,7 @@ import Finances from "./Finances.jsx";
 import ReglagesFondations from "./ReglagesFondations.jsx";
 import SyncCreneaux from "./SyncCreneaux.jsx";
 import SyncTournee from "./SyncTournee.jsx";
+import { useCompteurs } from "./compteursBase.js";
 import SyncComptes from "./comptesBase.js";
 import ComptesEntreNous from "./ComptesEntreNous.jsx";
 import Statistiques, { Rapports } from "./Statistiques.jsx";
@@ -262,6 +263,9 @@ export default function Admin() {
   // 12 nov. 2026 : courses proposees a accepter (compteur du menu + bandeau en haut de chaque page)
   const moiId = role === "equipe" && equipe.fiche ? equipe.fiche.id : ADMIN_ID;
   const aTraiter = useTransfertsATraiter(role === "admin" || role === "equipe", moiId);
+  // 15 nov. 2026 : nombre de choses a traiter a cote de chaque rubrique du menu
+  const compteurs = { ...useCompteurs(role), transferts: aTraiter };
+  const totalATraiter = Object.values(compteurs).reduce((n, x) => n + (x || 0), 0);
   if (role === "admin" || role === "equipe") {
     const membre = role === "equipe" ? equipe.fiche : null;
     const moi = membre ? membre.id : ADMIN_ID;
@@ -299,6 +303,7 @@ export default function Admin() {
         <header className="ts-entete">
           <button className="ts-burger" onClick={() => setMenu(true)} aria-label="Ouvrir le menu" aria-expanded={menu}>
             <i /><i /><i />
+            {totalATraiter > 0 && <span className="ts-pastille" aria-label={`${totalATraiter} à traiter`}>{totalATraiter > 99 ? "99+" : totalATraiter}</span>}
           </button>
           <span className="ts-titre">{(rubriques.find((r) => r.id === onglet) || rubriques[0]).label}</span>
         </header>
@@ -312,7 +317,7 @@ export default function Admin() {
             <button key={r.id} className={"ts-lien" + (onglet === r.id ? " actif" : "")} aria-current={onglet === r.id ? "page" : undefined} onClick={() => aller(r.id)}>
               <span className="ts-point" />
               {r.label}
-              {r.id === "transferts" && aTraiter > 0 && <span className="tr-compteur">{aTraiter}</span>}
+              {compteurs[r.id] > 0 && <span className="tr-compteur" aria-label={`${compteurs[r.id]} à traiter`}>{compteurs[r.id]}</span>}
             </button>
           ))}
           <div className="ts-pied">

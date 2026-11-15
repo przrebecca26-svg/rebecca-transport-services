@@ -86,3 +86,20 @@ test("Rebecca modifie la demande dans son devis : aller-retour devis <-> demande
   egal([n.familles[0].rempli, n.familles[1].rempli], [true, true]);
   egal(n.commun.domicile, d.commun.domicile);
 });
+
+test("etape 2 : lien de bienvenue, enfants dans « Mes enfants », message de confirmation", () => {
+  egal(R.lireLienBienvenue("#/bienvenue/AbCdEfGhIjKlMnOpQrSt/1"), { id: "AbCdEfGhIjKlMnOpQrSt", famille: 1 });
+  const d = creation(true);
+  const l = R.enfantsPourLeCompte(d, 0, [{ prenom: "léa", age: 7 }]);
+  egal(l.map((e) => e.prenom), ["léa", "Tom"]); // Léa existe deja (meme prenom) : pas de doublon
+  vrai(l[1].horaires.includes("15h30") && l[1].adresse.length > 0, JSON.stringify(l[1]));
+  const m = R.messageConfirmation(d, 1, "https://x/#/bienvenue/abc/1", 1305.5, "pour un mois complet");
+  vrai(m.includes("C'est confirmé") && m.includes("1 305,50 ₪") && m.includes("https://x/#/bienvenue/abc/1"), m);
+});
+
+test("famille deja acceptee : ses trajets sont reconnus (pas bloquee par ses propres horaires)", () => {
+  const d = { ...creation(true), statut: "acceptee" };
+  const t = R.trajetsDeLaFamille(d, 0);
+  vrai(t.some((x) => x.sens === "sortie" && x.heure === "12:00") && t.some((x) => x.heure === "15:30"), JSON.stringify(t));
+  egal(R.trajetsDeLaFamille(creation(true), 0), []); // pas encore acceptee : rien
+});

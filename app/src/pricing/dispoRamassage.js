@@ -79,6 +79,9 @@ export function trajetsIndisponibles(plan, routes, creneaux = TARIFS.calendrier.
   const auPassage = (w, heure, ecole, n) =>
     coord(ecole) &&
     (arrets || []).some((a) => a.jours.includes(w) && Math.abs(minutes(a.heure) - minutes(heure)) <= retard && distance(a.lieu, ecole) <= 250 && a.places + n <= places);
+  // Trajets deja a cette famille (demande acceptee) : jamais bloquee par ses propres horaires (a 15 min pres)
+  const propres = options.propres || [];
+  const aElle = (w, sens, heure) => propres.some((p) => p.w === w && p.sens === sens && Math.abs(minutes(p.heure) - minutes(heure)) <= 15);
   const sortie = [];
   for (const i of enfants) {
     const e = plan.enfants[i];
@@ -91,12 +94,12 @@ export function trajetsIndisponibles(plan, routes, creneaux = TARIFS.calendrier.
       if (!actif) continue;
       if (e.sens !== "sortie" && minutes(e.heureMatin) != null) {
         const m = minutes(e.heureMatin);
-        if (pris(w, m - marge, m + duree + marge)) sortie.push({ i, nom: nomEnfant(e, i), w, jour: JOURS[w], sens: "matin", heure: e.heureMatin });
+        if (pris(w, m - marge, m + duree + marge) && !aElle(w, "matin", e.heureMatin)) sortie.push({ i, nom: nomEnfant(e, i), w, jour: JOURS[w], sens: "matin", heure: e.heureMatin });
       }
       const h = heureDuJour(e, w);
       if (e.sens !== "matin" && minutes(h) != null) {
         const m = minutes(h);
-        if (pris(w, m - marge, m + duree + marge) && !auPassage(w, h, ecole, ensemble(w, h, ecole))) sortie.push({ i, nom: nomEnfant(e, i), w, jour: JOURS[w], sens: "sortie", heure: h });
+        if (pris(w, m - marge, m + duree + marge) && !aElle(w, "sortie", h) && !auPassage(w, h, ecole, ensemble(w, h, ecole))) sortie.push({ i, nom: nomEnfant(e, i), w, jour: JOURS[w], sens: "sortie", heure: h });
       }
     }
   }

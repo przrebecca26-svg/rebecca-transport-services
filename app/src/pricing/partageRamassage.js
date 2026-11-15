@@ -167,3 +167,59 @@ export function partageDepuisPlan(plan, nomCliente, telephone, ancien = null) {
   });
   return nouveauPartage(plan, familles, plan.modePartage);
 }
+
+/* ---------- Etape 2 (15 nov. 2026) : demande acceptee -> chaque famille cree son compte ---------- */
+
+// Lien de bienvenue d'une famille : son prix, ses enfants, « Creer mon compte », puis ses enfants dans « Mes enfants »
+export const lienBienvenue = (origine, id, f) => `${String(origine || "").replace(/\/$/, "")}/#/bienvenue/${id}/${f}`;
+export function lireLienBienvenue(hash) {
+  const m = /^#\/bienvenue\/([A-Za-z0-9_-]{10,40})\/([0-2])$/.exec(hash || "");
+  return m ? { id: m[1], famille: Number(m[2]) } : null;
+}
+
+// Trajets d'une famille deja acceptee (pour ne pas la bloquer sur ses propres horaires quand elle refait sa demande)
+export function trajetsDeLaFamille(doc, f) {
+  const fam = doc && doc.familles && doc.familles[f];
+  if (!fam || doc.statut !== "acceptee") return [];
+  const plan = { ...planVide(), ...doc.commun, enfants: fam.enfants.map((e) => ({ ...enfantVide(), ...e })) };
+  const sortie = [];
+  plan.enfants.forEach((e) => {
+    for (let w = 0; w < JOURS.length; w++) {
+      if (!e.jours[w] || !e.jours[w].actif) continue;
+      if (e.sens !== "sortie" && HEURE.test(e.heureMatin || "")) sortie.push({ w, sens: "matin", heure: e.heureMatin });
+      const h = (e.jours[w] && e.jours[w].heure) || e.heureSortie;
+      if (e.sens !== "matin" && HEURE.test(h || "")) sortie.push({ w, sens: "sortie", heure: h });
+    }
+  });
+  return sortie;
+}
+
+// Les enfants d'une famille au format « Mes enfants » du compte (on ne remplace pas un enfant du meme prenom)
+export function enfantsPourLeCompte(doc, f, existants = [], max = 6) {
+  const fam = doc && doc.familles && doc.familles[f];
+  if (!fam) return existants;
+  const plan = { ...planVide(), ...doc.commun, enfants: fam.enfants.map((e) => ({ ...enfantVide(), ...e })) };
+  const deja = new Set(existants.map((e) => String(e.prenom || "").trim().toLowerCase()));
+  const nouveaux = plan.enfants
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => String(e.prenom || "").trim() && !deja.has(String(e.prenom).trim().toLowerCase()))
+    .map(({ e, i }) => ({
+      prenom: texte(e.prenom, 40).trim(),
+      age: 0,
+      classe: "",
+      ecole: texte((e.autreEcole && e.ecole ? e.ecole.label : doc.commun.ecole && doc.commun.ecole.label) || "", 80),
+      adresse: texte((doc.commun.domicile && doc.commun.domicile.label) || "", 300),
+      telephoneUrgence: "",
+      horaires: texte(horairesEnfant(plan, i), 120),
+      personnesAutorisees: "",
+    }));
+  return [...existants, ...nouveaux].slice(0, max);
+}
+
+// Message WhatsApp de Rebecca a une famille quand elle accepte : son prix et son lien pour creer son compte
+export function messageConfirmation(doc, f, lien, part, periodeTexte = "") {
+  const lignes = ["Bonjour 😊", "", `C'est confirmé : je m'occupe du ramassage scolaire${doc.familles.length > 1 ? " partagé" : ""} de vos enfants${periodeTexte ? ` (${periodeTexte})` : ""}.`, "", "Vos enfants :", ...enfantsTexte(doc, f)];
+  if (part != null) lignes.push("", `Votre prix : ${prixFr(part)} ₪${doc.familles.length > 1 ? (doc.modePartage === "egal" ? " (parts égales)" : " (votre part, par enfant)") : ""}.`);
+  lignes.push("", "Créez votre compte sur le site avec ce lien : vos enfants s'ajoutent tout seuls dans « Mes enfants », et votre prochaine demande sera déjà remplie.", lien, "", "Rebecca Services", "Votre temps est précieux, je vous aide à en profiter. 🌸");
+  return lignes.join("\n");
+}

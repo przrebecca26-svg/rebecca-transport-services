@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import ServiceForm from "./components/ServiceForm.jsx";
 import DemandeRamassage from "./components/DemandeRamassage.jsx";
 import PartageRamassage from "./components/PartageRamassage.jsx";
-import { lireLienPartage } from "./pricing/partageRamassage.js";
+import { lireLienPartage, lireLienBienvenue } from "./pricing/partageRamassage.js";
+import BienvenueRamassage, { CLE_INVITATION } from "./components/BienvenueRamassage.jsx";
 import FavoriBouton from "./components/FavoriBouton.jsx";
 import { ACTIVITES, SERVICES, activitesVisibles, servicesDe } from "./services.js";
 import { prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
@@ -353,12 +354,15 @@ export default function App() {
   useFermetures();
 
   const [lienPartage, setLienPartage] = useState(() => lireLienPartage(window.location.hash));
+  // Etape 2 (15 nov. 2026) : lien de bienvenue d'une famille acceptee (prix, compte, enfants dans « Mes enfants »)
+  const [lienBienvenue, setLienBienvenue] = useState(() => lireLienBienvenue(window.location.hash));
   // Lien direct du formulaire de ramassage (15 nov. 2026) : Rebecca l'envoie a une cliente sur WhatsApp
   const [lienRamassage, setLienRamassage] = useState(() => window.location.hash === "#/ramassage");
   useEffect(() => {
     const suivre = () => {
       setAdmin(enAdmin());
       setLienPartage(lireLienPartage(window.location.hash));
+      setLienBienvenue(lireLienBienvenue(window.location.hash));
       setLienRamassage(window.location.hash === "#/ramassage");
     };
     window.addEventListener("hashchange", suivre);
@@ -368,6 +372,18 @@ export default function App() {
   useEffect(() => {
     if (!enAdmin()) demarrer();
   }, []);
+
+  // Compte cree (ou connexion) depuis un lien de bienvenue : on y revient pour ajouter ses enfants
+  const ouvertCompte = compteOuvert(client);
+  useEffect(() => {
+    if (!ouvertCompte) return;
+    try {
+      const inv = JSON.parse(window.localStorage.getItem(CLE_INVITATION) || "null");
+      if (inv && inv.id && /^#?$/.test(window.location.hash.replace(/^#\/?$/, ""))) window.location.hash = `#/bienvenue/${inv.id}/${inv.famille || 0}`;
+    } catch {
+      /* sans importance */
+    }
+  }, [ouvertCompte]);
 
   useEffect(() => {
     if (client.phase !== "anonyme" || lirePopup()) return;
@@ -393,7 +409,7 @@ export default function App() {
   return (
     <div className="appli theme-site">
       <main>
-        {!lienPartage && !lienRamassage && ecran.nom === "accueil" && (
+        {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
           <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />
         )}
         {ecran.nom === "catalogue-nails" && (
@@ -414,7 +430,22 @@ export default function App() {
         {ecran.nom === "catalogue-digital" && (
           <CatalogueDigital onRetour={() => aller({ nom: "accueil" })} />
         )}
-        {lienPartage && (
+        {lienBienvenue && (
+          <BienvenueRamassage
+            key={lienBienvenue.id + lienBienvenue.famille}
+            id={lienBienvenue.id}
+            famille={lienBienvenue.famille}
+            onRetour={() => {
+              window.location.hash = "";
+              aller({ nom: "accueil" });
+            }}
+            onCompte={() => {
+              window.location.hash = "";
+              versCompte(undefined, "inscription");
+            }}
+          />
+        )}
+        {!lienBienvenue && lienPartage && (
           <PartageRamassage
             key={lienPartage.id + lienPartage.famille}
             id={lienPartage.id}
@@ -425,7 +456,7 @@ export default function App() {
             }}
           />
         )}
-        {!lienPartage && lienRamassage && (
+        {!lienBienvenue && !lienPartage && lienRamassage && (
           <DemandeRamassage
             key="lien-ramassage"
             onRetour={() => {
@@ -434,10 +465,10 @@ export default function App() {
             }}
           />
         )}
-        {!lienPartage && !lienRamassage && ecran.nom === "form" && ecran.service === "ramassage" && (
+        {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "form" && ecran.service === "ramassage" && (
           <DemandeRamassage key={"ramassage" + ecran.cle} depart={ecran.depart} onRetour={() => aller({ nom: "accueil" })} />
         )}
-        {!lienPartage && !lienRamassage && ecran.nom === "form" && ecran.service !== "ramassage" && (
+        {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "form" && ecran.service !== "ramassage" && (
           <ServiceForm
             key={ecran.service + ecran.cle}
             service={ecran.service}

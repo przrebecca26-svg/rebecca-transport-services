@@ -35,6 +35,14 @@ export default function PartageRamassage({ id, famille, onRetour }) {
   const [telephone, setTelephone] = useState("");
   const [info, setInfo] = useState("");
   const [enregistre, setEnregistre] = useState(false);
+  // Ce telephone appartient a cette famille : une prochaine demande reconnaitra ses horaires une fois acceptee
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("rs_ramassage_famille", JSON.stringify({ id, famille }));
+    } catch {
+      /* navigation privee */
+    }
+  }, [id, famille]);
   // La 1re famille (celle qui a fait la demande) peut aussi changer les adresses, la periode et le partage
   const [commun, setCommun] = useState(null);
   const [mode, setMode] = useState("enfant");

@@ -13,7 +13,7 @@ import { construireDemande, enregistrerDemande } from "../demandes.js";
 import { compteOuvert, useClient } from "../client.js";
 import { PERIODES, MAX_ENFANTS, enfantVide, manquePlan, ecolesDuPlan, cleEcole, planVide } from "../pricing/ramassagePlanning.js";
 import { prixFr } from "../pricing/partage.js";
-import { nouveauPartage, calculerPartage, lienPartage, messagePartage, messageRebecca, enfantPropre } from "../pricing/partageRamassage.js";
+import { nouveauPartage, calculerPartage, lienPartage, messagePartage, messageRebecca, enfantPropre, trajetsDeLaFamille } from "../pricing/partageRamassage.js";
 import { etatAge, arriveeFr } from "../pricing/prioriteRamassage.js";
 import { trajetsIndisponibles, texteIndisponibles } from "../pricing/dispoRamassage.js";
 import { useArretsPublics } from "../arretsBase.js";
@@ -120,6 +120,27 @@ export default function DemandeRamassage({ onRetour, depart }) {
     if (partageAModifier) window.location.hash = `#/partage/${depart.details.partageId}/0`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Famille deja dans la tournee (demande acceptee, lien de bienvenue ou « Refaire ») : ses propres horaires ne la bloquent pas
+  const [propres, setPropres] = useState([]);
+  useEffect(() => {
+    let source = null;
+    try {
+      source = JSON.parse(window.localStorage.getItem("rs_ramassage_famille") || "null");
+    } catch {
+      source = null;
+    }
+    if (depart && depart.details && depart.details.partageId) source = { id: depart.details.partageId, famille: 0 };
+    if (!source || !source.id) return undefined;
+    let actif = true;
+    Promise.all([import("../firebase.js"), import("firebase/firestore")])
+      .then(([{ db }, { doc: refDoc, getDoc }]) => getDoc(refDoc(db, "trajetsPartages", source.id)))
+      .then((s) => actif && s.exists() && setPropres(trajetsDeLaFamille(s.data(), source.famille || 0)))
+      .catch(() => {});
+    return () => {
+      actif = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Demande deja en cours sur cet appareil ?
   const [dejaEnCours, setDejaEnCours] = useState(null);
   useEffect(() => {
@@ -180,9 +201,9 @@ export default function DemandeRamassage({ onRetour, depart }) {
   const indispos = useMemo(() => {
     if (statut !== "ok") return [];
     const plans = [{ enfants: mesEnfants }, ...(partage ? autres.filter((f) => f.connais).map((f) => ({ enfants: f.enfants })) : [])];
-    return plans.flatMap((p) => trajetsIndisponibles({ ...planVide(), ...commun, enfants: p.enfants }, routes, undefined, arrets));
+    return plans.flatMap((p, k) => trajetsIndisponibles({ ...planVide(), ...commun, enfants: p.enfants }, routes, undefined, arrets, undefined, { propres: k === 0 ? propres : [] }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statut, routes, mesEnfants, autres, partage, commun, arrets, reglages]);
+  }, [statut, routes, mesEnfants, autres, partage, commun, arrets, reglages, propres]);
   const jourUnique = jourDeLaDate(commun.date);
   const mesParts = calcul && calcul.parFamille;
 

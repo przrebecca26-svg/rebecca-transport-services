@@ -11,7 +11,7 @@ import { lienWhatsApp } from "./pricing/navigation.js";
 import { useFermetures } from "./fermetures.js";
 import { JOURS, PERIODES, SENS, MAX_ENFANTS, MODES_PARTAGE, planVide, enfantVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel, nbFamillesDe, familleDe, nomsFamilles, enfantsDeLaFamille, reglerEnfantsFamille, reglerNombreFamilles, sousPlanFamille } from "./pricing/ramassagePlanning.js";
 import { prixFr } from "./pricing/partage.js";
-import { planDuPartage, partageDepuisPlan } from "./pricing/partageRamassage.js";
+import { planDuPartage, partageDepuisPlan, lienBienvenue, messageConfirmation } from "./pricing/partageRamassage.js";
 import { doc as refDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useDemandesRamassage } from "./prioriteBase.js";
 import { demandesAvant, arriveeFr, textePriorite } from "./pricing/prioriteRamassage.js";
@@ -138,6 +138,11 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
       if (id && id === devisOuvert) setDevisOuvert("");
       if (partageId && !id) {
         await changerStatutPartage(partageId, "acceptee").catch(() => {});
+        // Etape 2 : un message par famille (son prix + son lien pour creer son compte)
+        const docAccepte = { ...partageDepuisPlan(p, nom, telephone, ouvrirPartage && ouvrirPartage.doc), statut: "acceptee" };
+        const parts = calcule ? (resultat.details.partage ? resultat.details.partage.parts.map((x) => x.montant) : [resultat.total]) : [];
+        const origine = window.location.origin + window.location.pathname;
+        setConfirmations(docAccepte.familles.map((f, k) => ({ nom: f.nom || `Famille ${k + 1}`, telephone: f.telephone, message: messageConfirmation(docAccepte, k, lienBienvenue(origine, partageId, k), parts[k] != null ? parts[k] : null, calcule ? libellePeriode(p, resultat) : "") })));
         setPartageId("");
       }
       return `Devis de ${String(nom || "").trim() || "la cliente"} accepté : sa fiche est dans ton Répertoire et ses trajets dans ta tournée.`;
@@ -187,6 +192,7 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ouvrirPartage && ouvrirPartage.cle]);
   const [infoListe, setInfoListe] = useState("");
+  const [confirmations, setConfirmations] = useState([]);
   // Enregistrer mes changements dans la demande du site (meme document : les familles voient la mise a jour)
   const [infoPartage, setInfoPartage] = useState("");
   const enregistrerPartage = async () => {
@@ -441,6 +447,16 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
             <button className="dr-secondaire" onClick={ajouterTournee}>La cliente accepte : ajouter à ma tournée</button>
           </div>
           {ajoutTournee && <p className="tdb-note" role="status">{ajoutTournee}</p>}
+          {confirmations.length > 0 && (
+            <div className="rp-confirmations">
+              <p className="tdb-note">Préviens chaque famille : son prix et son lien pour créer son compte (ses enfants s'ajoutent tout seuls).</p>
+              {confirmations.map((c, k) => (
+                <a key={k} className={"tdb-bouton dr-lien" + (String(c.telephone || "").replace(/\D/g, "").length >= 9 ? "" : " inactif")} href={String(c.telephone || "").replace(/\D/g, "").length >= 9 ? lienWhatsApp(c.telephone, c.message) : undefined} target="_blank" rel="noopener noreferrer">
+                  Envoyer la confirmation à {c.nom}{String(c.telephone || "").replace(/\D/g, "").length >= 9 ? "" : " (téléphone manquant)"}
+                </a>
+              ))}
+            </div>
+          )}
         </section>
       )}
 

@@ -40,3 +40,9 @@ test("arrets publics : lieu arrondi (ecole), heure, places, sans nom", () => {
   vrai(!JSON.stringify(a).includes("Ma fille"), JSON.stringify(a));
   egal(a[0].jours, [0, 1, 2, 3, 4]);
 });
+
+test("famille deja dans la tournee : ses propres horaires (a 15 min pres) ne la bloquent pas", () => {
+  const p = plan([enfant({ sens: "deux", heureMatin: "07:45", heureSortie: "16:00" })]);
+  const propres = [0, 1, 2, 3, 4].map((w) => ({ w, sens: "matin", heure: "07:50" }));
+  egal(D.trajetsIndisponibles(p, ROUTE, CRENEAUX, [], undefined, { propres }), []);
+});

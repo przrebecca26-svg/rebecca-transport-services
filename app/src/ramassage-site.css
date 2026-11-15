@@ -1,0 +1,18 @@
+/* RAMASSAGE SCOLAIRE SUR LE SITE (15 nov. 2026) : formulaire a plusieurs enfants et trajet partage */
+.rs-form .rp-enfant h3 { margin: 0 0 6px; font-size: 18px; }
+.rs-form .rp-enfant h3 small { font: 500 14px var(--sans); color: var(--gris); }
+.rs-quatre { grid-template-columns: repeat(4, 1fr) !important; }
+.rs-trois { grid-template-columns: repeat(3, 1fr) !important; }
+.rs-deux { grid-template-columns: 1fr 1fr !important; }
+.rs-form .rp-jours { display: grid; gap: 6px; }
+.rs-form .rp-jour { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; border-top: 1px solid var(--rose); }
+.rs-form .rp-jour .case { flex: 1; min-width: 0; }
+.rs-form .rp-jour .rp-nom { flex: 1; font-weight: 600; }
+.rs-form .rp-jour input[type="time"] { width: 120px; flex: none; min-height: 44px; }
+.rs-form .rp-jour.inactif { opacity: 0.55; }
+.rs-famille { border: 1px solid var(--rose-fonce); border-radius: var(--rayon); padding: 12px; display: grid; gap: 6px; }
+.rs-famille input[type="text"], .rs-famille input[type="tel"] { min-height: 44px; }
+.rs-whatsapp { display: block; margin: 8px 0; text-align: center; }
+.rs-lien { word-break: break-all; }
+.rs-familles { list-style: none; padding: 0; margin: 8px 0 0; }
+.rs-familles li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--rose); }

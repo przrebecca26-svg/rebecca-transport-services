@@ -436,6 +436,46 @@ service cloud.firestore {
     // Les rendez-vous beaute (Nails, Hair, Slim & Lift, RegenX) restent visibles par Rebecca seule.
     // (Le site du coequipier lit les demandes avec where("service", "in", ces services) : app/src/accesDemandes.js)
     // Attention : "service" est un mot reserve des regles, on ecrit donc data["service"].
+    // 15 nov. 2026 : TRAJET PARTAGE du ramassage scolaire. La 1re maman le cree depuis le site ; chaque famille
+    // l'ouvre avec son lien personnel (identifiant aleatoire, jamais liste) et complete ses enfants.
+    // Seule Rebecca peut lister, accepter, refuser ou supprimer. Une fois accepte ou refuse, plus personne d'autre ne modifie.
+    function familleFormeValide(f) {
+      return f is map
+        && f.keys().hasOnly(["nom", "telephone", "rempli", "enfants"])
+        && f.nom is string && f.nom.size() <= 60
+        && f.telephone is string && f.telephone.size() <= 20
+        && f.rempli is bool
+        && f.enfants is list && f.enfants.size() <= 4;
+    }
+    function famillesValides(l) {
+      return l is list && l.size() >= 1 && l.size() <= 3
+        && familleFormeValide(l[0])
+        && (l.size() < 2 || familleFormeValide(l[1]))
+        && (l.size() < 3 || familleFormeValide(l[2]));
+    }
+    function partageValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["statut", "commun", "modePartage", "familles", "creeLe", "majLe"])
+        && d.statut == "en cours"
+        && d.commun is map
+        && d.modePartage in ["enfant", "egal"]
+        && famillesValides(d.familles)
+        && d.creeLe == request.time
+        && d.majLe == request.time;
+    }
+    match /trajetsPartages/{id} {
+      allow create: if partageValide();
+      allow get: if true;
+      allow list: if estAdmin();
+      allow update: if estAdmin()
+        || (resource.data.statut == "en cours"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["familles", "majLe"])
+          && famillesValides(request.resource.data.familles)
+          && request.resource.data.familles.size() == resource.data.familles.size()
+          && request.resource.data.majLe == request.time);
+      allow delete: if estAdmin();
+    }
+
     match /demandes/{id} {
       allow create: if demandeValide() || (gestion() && demandeManuelleValide());
       allow read: if estAdmin()

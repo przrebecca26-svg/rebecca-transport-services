@@ -1,5 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import ServiceForm from "./components/ServiceForm.jsx";
+import DemandeRamassage from "./components/DemandeRamassage.jsx";
+import PartageRamassage from "./components/PartageRamassage.jsx";
+import { lireLienPartage } from "./pricing/partageRamassage.js";
 import FavoriBouton from "./components/FavoriBouton.jsx";
 import { ACTIVITES, SERVICES, activitesVisibles, servicesDe } from "./services.js";
 import { prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
@@ -339,8 +342,12 @@ export default function App() {
   const acces = useAcces(client);
   useFermetures();
 
+  const [lienPartage, setLienPartage] = useState(() => lireLienPartage(window.location.hash));
   useEffect(() => {
-    const suivre = () => setAdmin(enAdmin());
+    const suivre = () => {
+      setAdmin(enAdmin());
+      setLienPartage(lireLienPartage(window.location.hash));
+    };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
   }, []);
@@ -373,7 +380,7 @@ export default function App() {
   return (
     <div className="appli theme-site">
       <main>
-        {ecran.nom === "accueil" && (
+        {!lienPartage && ecran.nom === "accueil" && (
           <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />
         )}
         {ecran.nom === "catalogue-nails" && (
@@ -394,7 +401,21 @@ export default function App() {
         {ecran.nom === "catalogue-digital" && (
           <CatalogueDigital onRetour={() => aller({ nom: "accueil" })} />
         )}
-        {ecran.nom === "form" && (
+        {lienPartage && (
+          <PartageRamassage
+            key={lienPartage.id + lienPartage.famille}
+            id={lienPartage.id}
+            famille={lienPartage.famille}
+            onRetour={() => {
+              window.location.hash = "";
+              aller({ nom: "accueil" });
+            }}
+          />
+        )}
+        {!lienPartage && ecran.nom === "form" && ecran.service === "ramassage" && (
+          <DemandeRamassage key={"ramassage" + ecran.cle} onRetour={() => aller({ nom: "accueil" })} />
+        )}
+        {ecran.nom === "form" && ecran.service !== "ramassage" && (
           <ServiceForm
             key={ecran.service + ecran.cle}
             service={ecran.service}

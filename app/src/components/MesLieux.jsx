@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { cleLieu } from "../pricing/tournee.js";
 import { distanceKm } from "../routing.js";
+import { lieuVide, repertoireCourant } from "../pricing/repertoire.js";
+import { enregistrerRepertoire } from "../repertoireBase.js";
 
 // MES LIEUX (12 nov. 2026) : au-dessus de chaque adresse, une liste « Choisir un lieu deja enregistre » (Maison,
 // Ecole, Basket...) ; on ne retape une adresse que si le lieu est nouveau.
@@ -8,9 +11,52 @@ const IDEES = ["École ", "Gan ", "Basket", "Activité ", "Chez "];
 const LOIN_KM = 25;
 
 // Liste deroulante des lieux connus. connues = [{ nom, adresse, sansNom }]
-export default function ChoixLieu({ id, connues, valeur, choisir }) {
-  if (connues.length === 0) return null;
+export default function ChoixLieu({ id, connues, valeur, choisir, sansAjout = false }) {
   const actuel = connues.find((c) => cleLieu(c.adresse) === cleLieu(valeur));
+  return (
+    <>
+      {connues.length > 0 && <Liste id={id} connues={connues} actuel={actuel} choisir={choisir} />}
+      {!sansAjout && <AjouterAMesLieux id={id} valeur={valeur} dejaNomme={!!(actuel && !actuel.sansNom)} />}
+    </>
+  );
+}
+
+// 15 nov. 2026, Rebecca : « a cote d'une adresse, pouvoir la rajouter a mes lieux (chez ma mere, le Gan des filles
+// d'Alexia) pour qu'elle soit directement dans la liste ». Enregistre tout de suite dans le Repertoire (Mes lieux).
+export const ID_AJOUT_RAPIDE = /^lq/;
+function AjouterAMesLieux({ id, valeur, dejaNomme }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [nom, setNom] = useState("");
+  const [etat, setEtat] = useState("");
+  const cle = cleLieu(valeur);
+  if (!cle || dejaNomme || (repertoireCourant().lieux || []).some((l) => cleLieu(l.adresse) === cle)) return etat === "ok" ? <p className="tdb-note">✓ Ajouté à mes lieux.</p> : null;
+  if (!ouvert) return <button type="button" className="dr-secondaire" onClick={() => setOuvert(true)}>⭐ Ajouter cette adresse à mes lieux</button>;
+  const ajouter = async () => {
+    setEtat("…");
+    try {
+      const r = repertoireCourant();
+      await enregistrerRepertoire([...(r.lieux || []), { ...lieuVide(), id: "lq" + Date.now().toString(36), nom: nom.trim().slice(0, 40), adresse: valeur }]);
+      setEtat("ok");
+      setOuvert(false);
+    } catch {
+      setEtat("Enregistrement impossible. Vérifie la connexion.");
+    }
+  };
+  return (
+    <div className="champ">
+      <label htmlFor={id + "-nouveau"}>Nom de ce lieu (Chez maman, Gan des filles d'Alexia…)</label>
+      <input id={id + "-nouveau"} type="text" maxLength={40} list={id + "-idees2"} value={nom} onChange={(e) => setNom(e.target.value)} />
+      <datalist id={id + "-idees2"}>{IDEES.map((x) => <option key={x} value={x} />)}</datalist>
+      <div className="dr-actions">
+        <button type="button" className="tdb-bouton" disabled={!nom.trim() || etat === "…"} onClick={ajouter}>Ajouter à mes lieux</button>
+        <button type="button" className="dr-secondaire" onClick={() => setOuvert(false)}>Annuler</button>
+      </div>
+      {etat && etat !== "…" && etat !== "ok" && <p className="fm-erreur">{etat}</p>}
+    </div>
+  );
+}
+
+function Liste({ id, connues, actuel, choisir }) {
   return (
     <div className="champ rp-choix-lieu">
       <label htmlFor={id}>Choisir un lieu déjà enregistré</label>

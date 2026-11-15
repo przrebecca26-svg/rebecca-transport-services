@@ -165,6 +165,7 @@ export function lireTrajets(liste) {
       du: dateOk(r.du),
       au: dateOk(r.au),
       client: r.client === true,
+      ...(r.reste === true ? { reste: true } : {}), // 15 nov. 2026 : je reste sur place apres l'avoir depose
     }));
 }
 
@@ -417,6 +418,12 @@ function avecTempsLibre(lignes, regles) {
   const sortie = [];
   lignes.forEach((x, k) => {
     const attente = x.debut - x.arrivee;
+    const p = k > 0 ? lignes[k - 1] : null;
+    if (p && p.trajet && p.trajet.reste && cleLieu(p.lieu) === cleLieu(x.lieu) && x.debut - p.depart >= 1) {
+      sortie.push({ pause: true, bloque: true, texte: "Je reste sur place", minutes: Math.round(x.debut - p.depart), du: p.depart, au: x.debut });
+      sortie.push(x);
+      return;
+    }
     if (k > 0 && x.sorte === "prise" && attente >= seuil) {
       const partir = x.debut - x.route - regles.margeRouteMinutes;
       const du = lignes[k - 1].depart;
@@ -431,12 +438,62 @@ function avecTempsLibre(lignes, regles) {
   return sortie;
 }
 
+// OU EST L'ENFANT ? (15 nov. 2026, Rebecca) : « j'ai pose Shyrel chez Alexia pour l'anniversaire, je ne dois pas
+// repartir de la maison avec Shyrel pour l'amener au basket, elle est deja chez Alexia ». Pour chaque enfant, ses
+// trajets du jour dans l'ordre des heures :
+// - un trajet qui part de la MAISON alors que l'enfant a ete depose ailleurs (et pas ramene) part de cet endroit ;
+// - « je le recupere a X pour le ramener a la maison » suivi de peu (moins de 30 min) par « je pars de la maison avec
+//   lui » : je l'emmene directement de X, sans passer par la maison ;
+// - un trajet dont l'enfant est deja a destination disparait.
+const cleEnfant = (r) => (String(r.nom || "").includes(" + ") || r.places > 1 ? "" : prenom(r.nom).toLowerCase());
+const heureRef = (r, w) => {
+  const h = heureTrajet(r, w);
+  return HEURE_OK.test(h) ? enMin(h) : HEURE_OK.test(r.heurePrise || "") ? enMin(r.heurePrise) : null;
+};
+export function suivreEnfants(trajets, w, maison, seuil = 30) {
+  if (!maison) return trajets;
+  const parEnfant = new Map();
+  for (const r of trajets) {
+    const k = cleEnfant(r);
+    if (!k || manqueTrajet(r) || heureRef(r, w) == null) continue;
+    if (!parEnfant.has(k)) parEnfant.set(k, []);
+    parEnfant.get(k).push(r);
+  }
+  const remplaces = new Map();
+  const retires = new Set();
+  for (const liste of parEnfant.values()) {
+    if (liste.length < 2) continue;
+    liste.sort((a, b) => heureRef(a, w) - heureRef(b, w));
+    let ou = null;
+    let precedent = null;
+    for (const r0 of liste) {
+      let r = r0;
+      if (cleLieu(r.de) === maison) {
+        const direct = precedent && cleLieu(precedent.a) === maison && cleLieu(precedent.de) !== maison && heureRef(r, w) - heureRef(precedent, w) < seuil;
+        if (direct) {
+          retires.add(precedent.id);
+          r = { ...r, de: precedent.de };
+        } else if (ou && cleLieu(ou) !== maison) r = { ...r, de: ou };
+      }
+      if (cleLieu(r.de) === cleLieu(r.a)) {
+        retires.add(r0.id); // deja sur place
+        continue;
+      }
+      if (r !== r0) remplaces.set(r0.id, r);
+      ou = r.a;
+      precedent = r;
+    }
+  }
+  if (!retires.size && !remplaces.size) return trajets;
+  return trajets.filter((r) => !retires.has(r.id)).map((r) => remplaces.get(r.id) || r);
+}
+
 // Une journee : trajets actifs ce jour de semaine, regroupes par moment (matin, midi, sortie...), ordre calcule.
 // duree(cleA, cleB) = minutes de route, ou null si inconnue. Renvoie :
 // { statut: "vide" | "possible" | "serre" | "impossible" | "inconnu", arrets: [...], probleme, retard, incomplets }
 export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
   const regles = t.tournee;
-  const actifs = trajets.filter((r) => trajetActif(r, w, periode.du, periode.au));
+  const actifs = suivreEnfants(trajets.filter((r) => trajetActif(r, w, periode.du, periode.au)), w, cleLieu(periode.domicile), regles.retourMaisonMinutes ?? 30);
   const incomplets = actifs.filter((r) => manqueTrajet(r));
   // Enfants pris au meme endroit, a la meme heure, pour le meme endroit (freres et soeurs) = un seul trajet
   const fusion = new Map();
@@ -475,8 +532,13 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
     retard += r.retard;
     r.lignes = avecTempsLibre(r.lignes, regles);
     const libre = avant && maison ? r.departMaison - avant.retourMaison : null;
-    const passeMaison = !avant || (maison && libre >= regles.retourMaisonMinutes);
-    if (avant && !passeMaison) {
+    // 15 nov. 2026 : « je reste sur place » (anniversaire, rendez-vous...) : pas de retour a la maison, creneau bloque
+    const finAvant = avant && avant.lignes[avant.lignes.length - 1];
+    const resteLa = !!(finAvant && finAvant.trajet && finAvant.trajet.reste && finAvant.sorte === "depose" && cleLieu(finAvant.lieu) === cleLieu(r.lignes[0].lieu));
+    const passeMaison = !avant || (!resteLa && maison && libre >= regles.retourMaisonMinutes);
+    if (avant && resteLa) {
+      arrets.push({ pause: true, bloque: true, texte: "Je reste sur place", minutes: Math.max(0, Math.round(r.lignes[0].debut - finAvant.depart)), du: finAvant.depart, au: r.lignes[0].debut });
+    } else if (avant && !passeMaison) {
       // J'enchaine sans rentrer : ai-je le temps d'aller de la fin du premier moment au debut du second ?
       const a = avant.lignes[avant.lignes.length - 1];
       const b = r.lignes[0];
@@ -582,6 +644,7 @@ export function momentsDuJour(jour) {
   };
   for (const x of jour.arrets || []) {
     if (x.pause) {
+      if (x.bloque) continue; // je reste sur place : le moment continue, le creneau reste bloque
       fermer();
       continue;
     }
@@ -842,7 +905,7 @@ function lireAjouts(liste) {
   const bruts = (Array.isArray(liste) ? liste : []).filter((r) => r && typeof r === "object").slice(0, 20);
   return lireTrajets(bruts).map((r, i) => ({ ...r, id: /^p/.test(r.id) ? r.id : "p" + r.id, ...(bruts[i].famille ? { famille: String(bruts[i].famille).slice(0, 40) } : {}) }));
 }
-export function trajetPonctuel({ date, sens, heure, de, a, nom, famille = "" }) {
+export function trajetPonctuel({ date, sens, heure, de, a, nom, famille = "", reste = false }) {
   if (!DATE_OK.test(date || "") || !HEURE_OK.test(heure || "") || !adresseOk(de) || !adresseOk(a)) return null;
   const w = jourDe(date);
   const r = trajetVide({
@@ -855,15 +918,17 @@ export function trajetPonctuel({ date, sens, heure, de, a, nom, famille = "" }) 
     du: date,
     au: date,
     client: true,
+    ...(reste && sens === "deposer" ? { reste: true } : {}),
   });
   return famille ? { ...r, famille: String(famille).slice(0, 40) } : r;
 }
 export const ajoutsDesJours = (jours) => Object.values(jours || {}).flatMap((j) => (j && j.ajouts) || []);
 export const estPonctuel = (id) => /^p/.test(String(id || ""));
 export function ajouterTrajetCeJour(jours, date, trajet) {
-  if (!trajet || manqueTrajet(trajet)) return jours;
+  const liste = (Array.isArray(trajet) ? trajet : [trajet]).filter((r) => r && !manqueTrajet(r));
+  if (!liste.length) return jours;
   const j = { ...jourVide(), ...(jours[date] || {}) };
-  return propre(jours, date, { ...j, ajouts: [...j.ajouts, trajet] });
+  return propre(jours, date, { ...j, ajouts: [...j.ajouts, ...liste] });
 }
 export function retirerAjout(jours, date, ids) {
   const j = { ...jourVide(), ...(jours[date] || {}) };
@@ -901,7 +966,7 @@ export function annulerEtape(jours, date, cle) {
 // autre : docteur...), puis pour qui, et si c'est un adulte (18 ans et plus) ou un enfant (mineur).
 // En plus : { type, pour, age ("adulte" | "enfant" | ""), enfant: { famille, enfant } (fiche du Repertoire) | null }
 export const TYPES_TACHE = [
-  { v: "ramassage", l: "Ramassage scolaire", icone: "🎒" },
+  { v: "ramassage", l: "Trajet d'un enfant (école, activité, anniversaire…)", icone: "🎒" },
   { v: "course", l: "Course / Livraison", icone: "📦" },
   { v: "beaute", l: "Rendez-vous beauté", icone: "💅" },
   { v: "autre", l: "Autre (docteur…)", icone: "📌" },

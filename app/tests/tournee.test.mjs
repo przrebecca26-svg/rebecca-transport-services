@@ -517,3 +517,35 @@ test("modifier une tache : nouvelles heures, nouveau creneau bloque", () => {
   vrai(c.some((x) => x.debut === "11:30" && x.fin === "12:30"));
   egal(To.modifierTache(jours, VENDREDI, id, { titre: "x", debut: "13:00", fin: "12:00" }), jours);
 });
+
+section("Ou est l'enfant ? (15 nov. 2026)");
+// Shyrel : 15h30 deposee chez l'amie (anniversaire), puis basket a l'ecole A pour 18h00 (trajet habituel depuis la maison)
+const DATE = "2026-11-15"; // dimanche
+const anniv = To.trajetPonctuel({ date: DATE, sens: "deposer", heure: "15:30", de: MAISON, a: AMIE, nom: "Shyrel · Anniversaire (aller)" });
+const basket = To.trajetVide({ id: "b1", nom: "Shyrel · Basket (aller)", type: "matin", de: MAISON, a: ECOLE, heure: "18:00", jours: tous() });
+
+test("apres l'anniversaire chez l'amie, le basket part de chez l'amie, pas de la maison", () => {
+  const j = To.evaluerJour([anniv, basket], 0, duree, T, { du: DATE, au: DATE, domicile: MAISON });
+  const prise = j.arrets.find((x) => x.trajet && x.trajet.id === "b1" && x.sorte === "prise");
+  egal(To.cleLieu(prise.lieu), To.cleLieu(AMIE));
+  const fil = To.filTournee(j, null, MAISON).map((e) => e.texte);
+  vrai(!fil.some((t) => t === "Partir de la maison avec Shyrel" && fil.indexOf(t) > 1), fil.join(" | "));
+});
+
+test("deposer puis recuperer a 18h pour l'amener au basket : directement, sans passer par la maison", () => {
+  const retour = To.trajetPonctuel({ date: DATE, sens: "recuperer", heure: "18:00", de: AMIE, a: MAISON, nom: "Shyrel · Anniversaire (retour)" });
+  const j = To.evaluerJour([anniv, retour, basket], 0, duree, T, { du: DATE, au: DATE, domicile: MAISON });
+  const vrais = j.arrets.filter((x) => x.trajet);
+  egal(vrais.length, 4); // depose anniv, prise chez l'amie, depose basket... (le retour maison a disparu)
+  egal(vrais.filter((x) => x.trajet.id === retour.id).length, 0);
+});
+
+test("je reste sur place : pas de retour a la maison, creneau bloque d'un bout a l'autre", () => {
+  const aller = To.trajetPonctuel({ date: DATE, sens: "deposer", heure: "15:30", de: MAISON, a: AMIE, nom: "Noa · Docteur (aller)", reste: true });
+  const ret = To.trajetPonctuel({ date: DATE, sens: "recuperer", heure: "17:00", de: AMIE, a: MAISON, nom: "Noa · Docteur (retour)" });
+  egal(To.lireTrajets([aller])[0].reste, true);
+  const j = To.evaluerJour([aller, ret], 0, duree, T, { du: DATE, au: DATE, domicile: MAISON });
+  vrai(j.arrets.some((x) => x.pause && x.bloque && x.texte === "Je reste sur place"));
+  egal(j.arrets.filter((x) => x.maison === "retour").length, 1);
+  egal(To.momentsDuJour(j).length, 1);
+});

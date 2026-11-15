@@ -10,7 +10,7 @@ import { phraseSolde, soldeCompte } from "./pricing/comptesEntreNous.js";
 // FAMILLES ET ENFANTS (12 nov. 2026) : dans le Repertoire, la fiche de chaque enfant (ecole, activites, jours,
 // heures). La tournee scolaire se construit toute seule a partir de ces fiches.
 
-function Adresse({ id, label, valeur, changer, connues }) {
+export function Adresse({ id, label, valeur, changer, connues }) {
   return (
     <>
       <ChoixLieu id={"c" + id} connues={connues} valeur={valeur} choisir={changer} />

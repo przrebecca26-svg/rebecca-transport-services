@@ -168,10 +168,11 @@ export function useMaJournee(actif) {
       if (autres.length) suite = retirerCeJour(suite, date, autres);
       return sauver(suite);
     },
+    // infos = un trajet, ou une liste (deposer puis recuperer : les deux sont enregistres ensemble)
     ajouterRamassage: (date, infos) => {
-      const r = trajetPonctuel({ date, ...infos });
-      if (!r) return Promise.reject(new Error("incomplet"));
-      return sauver(ajouterTrajetCeJour(jours, date, r));
+      const liste = (Array.isArray(infos) ? infos : [infos]).map((x) => trajetPonctuel({ date, ...x }));
+      if (!liste.length || liste.some((r) => !r)) return Promise.reject(new Error("incomplet"));
+      return sauver(ajouterTrajetCeJour(jours, date, liste));
     },
     remettre: (date, ids) => sauver(remettreCeJour(jours, date, ids)),
     changerHeure: (date, ids, heure) => sauver(changerHeureCeJour(jours, date, ids, heure)),

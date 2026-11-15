@@ -1,6 +1,6 @@
 import { useState } from "react";
 import ChoixAge from "./components/ChoixAge.jsx";
-import { Famille } from "./Familles.jsx";
+import { Adresse, Famille } from "./Familles.jsx";
 import { Compte } from "./ComptesEntreNous.jsx";
 import { enregistrerComptes, useComptes } from "./comptesBase.js";
 import { enregistrerRepertoire, useRepertoire } from "./repertoireBase.js";
@@ -90,7 +90,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
               <button type="button" className="tdb-bouton" onClick={creerFamille}>Créer sa fiche famille</button>
             </>
           ) : (
-            <Membres f={f} changer={changer} />
+            <Membres f={f} changer={changer} connues={connues} />
           )}
           {entree.clients.length > 0 && (
             <div className="bloc">
@@ -153,7 +153,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
   );
 }
 
-function Membres({ f, changer }) {
+function Membres({ f, changer, connues }) {
   const set = (cle, v) => changer({ ...f, [cle]: v });
   const setM = (id, cle, v) => set("membres", f.membres.map((m) => (m.id === id ? { ...m, [cle]: v } : m)));
   return (
@@ -162,6 +162,18 @@ function Membres({ f, changer }) {
       <div className="champ"><label>Téléphone<input type="tel" inputMode="tel" maxLength={20} value={f.telephone} onChange={(x) => set("telephone", x.target.value)} /></label></div>
       <div className="champ"><label>Autre parent (facultatif)<input type="text" maxLength={60} value={f.nom2 || ""} onChange={(x) => set("nom2", x.target.value)} /></label></div>
       <div className="champ"><label>Téléphone de l'autre parent<input type="tel" inputMode="tel" maxLength={20} value={f.telephone2 || ""} onChange={(x) => set("telephone2", x.target.value)} /></label></div>
+      {/* 15 nov. 2026 : l'adresse de la maison se met ici, dans la fiche de la famille ; les enfants la reprennent seuls */}
+      <Adresse id={"md" + f.id} label="Adresse de la maison" valeur={f.domicile} changer={(v) => set("domicile", v)} connues={connues} />
+      <p className="tdb-note">Ses enfants partent de cette adresse et y reviennent (inutile de la remettre dans l'onglet Enfants, sauf si un enfant habite ailleurs).</p>
+      <p className="rp-type">Adresses favorites</p>
+      {(f.adresses || []).map((x, k) => (
+        <div className="rp-correction" key={k}>
+          <div className="champ"><label>Nom (travail, grands-parents…)<input type="text" maxLength={40} value={x.nom} onChange={(e) => set("adresses", f.adresses.map((y, i) => (i === k ? { ...y, nom: e.target.value } : y)))} /></label></div>
+          <Adresse id={"ma" + f.id + k} label="Adresse" valeur={x.adresse} changer={(v) => set("adresses", f.adresses.map((y, i) => (i === k ? { ...y, adresse: v } : y)))} connues={connues} />
+          <button type="button" className="dr-secondaire" onClick={() => set("adresses", f.adresses.filter((_, i) => i !== k))}>Supprimer cette adresse</button>
+        </div>
+      ))}
+      <button type="button" className="dr-secondaire" onClick={() => set("adresses", [...(f.adresses || []), { nom: "", adresse: null }])}>+ Ajouter une adresse favorite</button>
       <p className="rp-type">Autres membres</p>
       {(f.membres || []).map((m) => (
         <div key={m.id} className="rp-correction">

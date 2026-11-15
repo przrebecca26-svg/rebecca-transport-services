@@ -11,6 +11,8 @@ import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
 import { useMaJournee } from "./maJournee.js";
 import AddressField from "./components/AddressField.jsx";
+import ChoixLieu from "./components/MesLieux.jsx";
+import { cleLieu } from "./pricing/tournee.js";
 import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
@@ -541,11 +543,22 @@ const decaler = (h, minutes) => {
 function FormTache({ date, journee, initial = null, onFin }) {
   const rep = useRepertoire();
   const enfants = listeEnfants(rep.familles);
+  // 15 nov. 2026 : mes lieux + la maison de chaque famille + ses adresses favorites, en un geste
+  const connues = (() => {
+    const vus = new Map();
+    const mettre = (nom, adresse) => { const c = cleLieu(adresse); if (c && nom && !vus.has(c)) vus.set(c, { nom, adresse }); };
+    for (const l of rep.lieux || []) mettre(String(l.nom || "").trim(), l.adresse);
+    for (const fa of rep.familles || []) {
+      if (fa.categorie !== "moi") mettre(`Chez ${fa.nom || "famille"}`, fa.domicile);
+      for (const a of fa.adresses || []) mettre(`${a.nom || "Adresse"} (${fa.nom || "famille"})`, a.adresse);
+    }
+    return [...vus.values()];
+  })();
   const choixInitial = initial && initial.enfant ? initial.enfant.famille + "|" + initial.enfant.enfant : "";
   const [f, setF] = useState(
     initial
       ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, enfant: choixInitial, compte: initial.compte || "", livraison: initial.livraison || null }
-      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null }
+      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null, heure2: "", retour: null, reste: false }
   );
   const [nouvel, setNouvel] = useState(NOUVEL_ENFANT);
   const [message, setMessage] = useState("");
@@ -587,7 +600,8 @@ function FormTache({ date, journee, initial = null, onFin }) {
         : !!choisi
       : f.quoi.trim();
   const adresseOk = (x) => !!(x && typeof x.lat === "number" && typeof x.lon === "number");
-  const ponctuelOk = /^\d{2}:\d{2}$/.test(f.heure || "") && adresseOk(f.de) && adresseOk(f.a);
+  const allerRetour = f.sens === "allerretour";
+  const ponctuelOk = /^\d{2}:\d{2}$/.test(f.heure || "") && adresseOk(f.de) && adresseOk(f.a) && (!allerRetour || (/^\d{2}:\d{2}$/.test(f.heure2 || "") && f.heure2 > f.heure));
   const ok = !!f.type && (ponctuel ? ponctuelOk : heuresOk) && quiOk && !enCours;
 
   const valider = async () => {
@@ -609,7 +623,19 @@ function FormTache({ date, journee, initial = null, onFin }) {
           lieu = lieu || nouvel.ecole;
         }
         if (ponctuel) {
-          await journee.ajouterRamassage(date, { sens: f.sens, heure: f.heure, de: f.de, a: f.a, nom: `${prenom} · ${f.sens === "deposer" ? "aller" : "retour"}`, famille: ref ? ref.famille : "" });
+          const fam = ref ? ref.famille : "";
+          const quoi = String(f.quoi || "").trim().slice(0, 30);
+          // 15 nov. 2026 : « je le depose puis je reviens le chercher » (anniversaire...) = deux trajets enregistres ensemble ;
+          // « je reste sur place » : pas de retour a la maison entre les deux, le creneau reste bloque
+          await journee.ajouterRamassage(
+            date,
+            allerRetour
+              ? [
+                  { sens: "deposer", heure: f.heure, de: f.de, a: f.a, nom: `${prenom} · ${quoi || "sortie"} (aller)`, famille: fam, reste: f.reste },
+                  { sens: "recuperer", heure: f.heure2, de: f.a, a: adresseOk(f.retour) ? f.retour : f.de, nom: `${prenom} · ${quoi || "sortie"} (retour)`, famille: fam },
+                ]
+              : { sens: f.sens, heure: f.heure, de: f.de, a: f.a, nom: `${prenom} · ${quoi || (f.sens === "deposer" ? "aller" : "retour")}`, famille: fam }
+          );
           onFin();
           setEnCours(false);
           return;
@@ -722,23 +748,53 @@ function FormTache({ date, journee, initial = null, onFin }) {
           <fieldset className="champ">
             <legend>3. Je dois</legend>
             <div className="choix" role="radiogroup" aria-label="Récupérer ou déposer">
-              {[["recuperer", "Le récupérer"], ["deposer", "Le déposer"]].map(([v, l]) => (
-                <button key={v} type="button" role="radio" aria-checked={f.sens === v} className={f.sens === v ? "actif" : ""} onClick={() => setF((x) => ({ ...x, sens: v, ...(estNouvel ? { heure: v === "deposer" ? nouvel.entree : nouvel.sortie, de: v === "deposer" ? x.a : x.de, a: v === "deposer" ? x.de : x.a } : remplir(x.enfant, v)) }))}>
+              {[["recuperer", "Le récupérer"], ["deposer", "Le déposer"], ["allerretour", "Le déposer puis le récupérer"]].map(([v, l]) => (
+                <button key={v} type="button" role="radio" aria-checked={f.sens === v} className={f.sens === v ? "actif" : ""} onClick={() => setF((x) => {
+                  const versEcole = v !== "recuperer";
+                  const avant = x.sens !== "recuperer";
+                  if (estNouvel) return { ...x, sens: v, heure: versEcole ? nouvel.entree : nouvel.sortie, ...(versEcole === avant ? {} : { de: x.a, a: x.de }) };
+                  return { ...x, sens: v, ...remplir(x.enfant, versEcole ? "deposer" : "recuperer") };
+                })}>
                   {l}
                 </button>
               ))}
             </div>
           </fieldset>
-          <label className="ag-champ">{f.sens === "deposer" ? "Arriver au plus tard à" : "Heure de sortie (je le récupère à)"}
+          <label className="ag-champ">Pour quoi ? (facultatif)
+            <input type="text" maxLength={30} placeholder="Anniversaire, basket, docteur…" value={f.quoi} onChange={(x) => set("quoi", x.target.value)} />
+          </label>
+          <label className="ag-champ">{f.sens === "recuperer" ? "Heure de sortie (je le récupère à)" : "Arriver au plus tard à"}
             <input type="time" value={f.heure} onChange={(x) => set("heure", x.target.value)} />
           </label>
           <div className="ag-champ">Où je le prends
+            <ChoixLieu id={"cl-" + "rp-de-" + date} connues={connues} valeur={f.de} choisir={(v) => set("de", v)} />
             <AddressField id={"rp-de-" + date} valeur={f.de} position={false} onChange={(v) => set("de", v)} />
           </div>
           <div className="ag-champ">Où je le dépose
+            <ChoixLieu id={"cl-" + "rp-a-" + date} connues={connues} valeur={f.a} choisir={(v) => set("a", v)} />
             <AddressField id={"rp-a-" + date} valeur={f.a} position={false} onChange={(v) => set("a", v)} />
           </div>
-          <p className="tb-note">Il se place tout seul au bon endroit de ta journée, avec le temps de route, pour aujourd'hui seulement. Le site bloque ce moment comme tes autres trajets.</p>
+          {allerRetour && (
+            <>
+              <label className="ag-champ">Je reviens le chercher à
+                <input type="time" value={f.heure2} onChange={(x) => set("heure2", x.target.value)} />
+              </label>
+              {f.heure2 && f.heure && f.heure2 <= f.heure && <p className="fm-erreur">L'heure où je le récupère doit être après l'heure où je le dépose.</p>}
+              <div className="ag-champ">Où je le ramène (vide = là où je l'ai pris)
+                <ChoixLieu id={"cl-" + "rp-r-" + date} connues={connues} valeur={f.retour} choisir={(v) => set("retour", v)} />
+            <AddressField id={"rp-r-" + date} valeur={f.retour} position={false} onChange={(v) => set("retour", v)} />
+              </div>
+              <fieldset className="champ">
+                <legend>Pendant ce temps</legend>
+                <div className="choix" role="radiogroup" aria-label="Je reste ou je pars">
+                  {[[false, "Je pars (je suis libre)"], [true, "Je reste sur place (créneau bloqué)"]].map(([v, l]) => (
+                    <button key={l} type="button" role="radio" aria-checked={f.reste === v} className={f.reste === v ? "actif" : ""} onClick={() => set("reste", v)}>{l}</button>
+                  ))}
+                </div>
+              </fieldset>
+            </>
+          )}
+          <p className="tb-note">Il se place tout seul au bon endroit de ta journée, avec le temps de route, pour aujourd'hui seulement. Le site bloque ce moment comme tes autres trajets. Ensuite, si l'enfant est déjà ici, ses trajets suivants partent d'ici (pas de la maison).</p>
         </>
       )}
 

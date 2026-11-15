@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes } from "./accesDemandes.js";
@@ -9,7 +9,7 @@ import { ADMIN_ID } from "./pricing/equipe.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import FicheRepertoire from "./FicheRepertoire.jsx";
 import Champ from "./components/Champ.jsx";
-import ChoixLieu from "./components/MesLieux.jsx";
+import ChoixLieu, { ID_AJOUT_RAPIDE } from "./components/MesLieux.jsx";
 import Familles from "./Familles.jsx";
 import { lienWazePoint, lienWhatsApp } from "./pricing/navigation.js";
 import { TYPES_LIEU, lieuVide, manqueLieu, cleAdresse, adressesClients, corriger } from "./pricing/repertoire.js";
@@ -43,7 +43,7 @@ function Lieu({ l, changer, supprimer, connues, ouvert, ouvrir }) {
           {TYPES_LIEU.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
         </select>
       </div>
-      <ChoixLieu id={"rc-" + l.id} connues={connues.filter((c) => c.id !== l.id)} valeur={l.adresse} choisir={(x) => set("adresse", x)} />
+      <ChoixLieu id={"rc-" + l.id} connues={connues.filter((c) => c.id !== l.id)} valeur={l.adresse} choisir={(x) => set("adresse", x)} sansAjout />
       <Champ champ={{ name: "ra" + l.id, label: "Adresse", type: "adresse" }} valeurs={{ ["ra" + l.id]: l.adresse }} onChange={(_, v) => set("adresse", v)} />
       <div className="champ">
         <label htmlFor={"ro-" + l.id}>Note (code du portail, étage…), facultatif</label>
@@ -125,6 +125,7 @@ export default function Repertoire({ aller = null }) {
   const [modifie, setModifie] = useState(false);
   const [message, setMessage] = useState("");
   const [texte, setTexte] = useState("");
+  const supprimes = useRef(new Set()); // lieux supprimes ici (a ne pas faire revenir a l'enregistrement)
   const [lieuOuvert, setLieuOuvert] = useState(""); // un seul lieu ouvert a la fois, avec sa fleche de retour
 
   useEffect(() => {
@@ -139,7 +140,8 @@ export default function Repertoire({ aller = null }) {
 
   // 13 nov. 2026 : tout le monde dans un seul Repertoire (moi, famille et amis, clientes), chacun avec sa Fiche
   const entrees = entreesRepertoire(rep.familles, fc.fiches, fc.categories);
-  const lieuxConnus0 = lieux.filter((x) => x.nom.trim() && cleAdresse(x.adresse)).map((x) => ({ id: x.id, nom: x.nom, adresse: x.adresse }));
+  const avecRapides = [...lieux, ...rep.lieux.filter((x) => ID_AJOUT_RAPIDE.test(x.id) && !lieux.some((y) => y.id === x.id) && !supprimes.current.has(x.id))];
+  const lieuxConnus0 = avecRapides.filter((x) => x.nom.trim() && cleAdresse(x.adresse)).map((x) => ({ id: x.id, nom: x.nom, adresse: x.adresse }));
   if (ficheOuverte) {
     const entree = ficheOuverte.nouvelle
       ? { cle: "fam:" + ficheOuverte.nouvelle.id, type: "famille", nom: "Nouvelle fiche", telephone: "", categorie: ficheOuverte.nouvelle.categorie, famille: ficheOuverte.nouvelle, clients: [] }
@@ -172,7 +174,9 @@ export default function Repertoire({ aller = null }) {
     const pb = lieux.map(manqueLieu).find(Boolean);
     if (pb) return setMessage(pb);
     try {
-      await enregistrerRepertoire(lieux, corrections, familles);
+      // lieux ajoutes entre-temps avec « ⭐ Ajouter a mes lieux » (deja enregistres) : on les garde
+      const rapides = rep.lieux.filter((x) => ID_AJOUT_RAPIDE.test(x.id) && !lieux.some((y) => y.id === x.id) && !supprimes.current.has(x.id));
+      await enregistrerRepertoire([...lieux, ...rapides], corrections, familles);
       setModifie(false);
       setLieuOuvert("");
       setEnCorrection("");
@@ -190,7 +194,7 @@ export default function Repertoire({ aller = null }) {
     setModifie(true);
     setMessage("");
   };
-  const lieuxConnus = lieux.filter((x) => x.nom.trim() && cleAdresse(x.adresse)).map((x) => ({ id: x.id, nom: x.nom, adresse: x.adresse }));
+  const lieuxConnus = lieuxConnus0;
   const clientes = adressesClients(rep.bruts, corrections).filter((c) => voit(c.nom, c.telephone, ...c.adresses.map((a) => a.nom)));
 
   return (
@@ -240,7 +244,7 @@ export default function Repertoire({ aller = null }) {
             <div key={t.v}>
               <p className="rp-type">{t.l}</p>
               {duType.map((l) => (
-                <Lieu key={l.id} l={l} connues={lieuxConnus} ouvert={lieuOuvert === l.id} ouvrir={(oui) => { setLieuOuvert((actuel) => (oui ? l.id : actuel === l.id ? "" : actuel)); if (!oui) window.scrollTo({ top: 0, behavior: "smooth" }); }} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => changer(lieux.filter((x) => x.id !== l.id))} />
+                <Lieu key={l.id} l={l} connues={lieuxConnus} ouvert={lieuOuvert === l.id} ouvrir={(oui) => { setLieuOuvert((actuel) => (oui ? l.id : actuel === l.id ? "" : actuel)); if (!oui) window.scrollTo({ top: 0, behavior: "smooth" }); }} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => { supprimes.current.add(l.id); changer(lieux.filter((x) => x.id !== l.id)); }} />
               ))}
             </div>
           );

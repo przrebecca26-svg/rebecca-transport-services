@@ -12,7 +12,7 @@
 import { planVide, enfantVide, calculerPlan, manquePlan, nomEnfant, libellePeriode, horairesEnfant, JOURS, MAX_ENFANTS } from "./ramassagePlanning.js";
 import { prixFr } from "./partage.js";
 
-export const STATUTS_PARTAGE = { "en cours": "En cours", acceptee: "Accepté par Rebecca", refusee: "Refusé" };
+export const STATUTS_PARTAGE = { "en cours": "En cours", acceptee: "Accepté par Rebecca", refusee: "Refusé", annulee: "Annulé" };
 
 const texte = (x, max) => String(x == null ? "" : x).slice(0, max);
 const HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;

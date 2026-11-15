@@ -75,17 +75,35 @@ function NombreEnfants({ valeur, changer, id }) {
   );
 }
 
-export default function DemandeRamassage({ onRetour }) {
+// « Refaire » depuis le compte (15 nov. 2026) : la derniere demande remplit tout le formulaire
+// (adresses, periode, enfants et horaires, familles du partage, urgences). Il ne reste qu'a envoyer.
+function depuisDetails(details) {
+  const d = details || {};
+  const p = d.plan && typeof d.plan === "object" ? d.plan : null;
+  if (!p) return null;
+  const enfants = (Array.isArray(p.enfants) ? p.enfants : []).slice(0, MAX_ENFANTS).map((e) => ({ ...enfantVide(), ...e }));
+  const autres = (Array.isArray(d.autres) ? d.autres : []).slice(0, 2).map((f) => ({ nom: String(f.nom || ""), telephone: String(f.telephone || ""), connais: false, enfants: [enfantVide()] }));
+  return {
+    commun: { domicile: p.domicile || null, ecole: p.ecole || null, periode: ["jour", "semaine", "mois"].includes(p.periode) ? p.periode : "mois", date: "", sansEcoleDu: "", sansEcoleAu: "" },
+    enfants: enfants.length ? enfants : [enfantVide()],
+    autres,
+    mode: d.modePartage === "egal" ? "egal" : "enfant",
+    v: { telUrgence: String(d.telUrgence || ""), personnesAutorisees: String(d.personnesAutorisees || ""), infos: String(d.infos || "") },
+  };
+}
+
+export default function DemandeRamassage({ onRetour, depart }) {
+  const avant = depuisDetails(depart && depart.details);
   const client = useClient();
   const ouvert = compteOuvert(client);
   const profil = ouvert ? client.profil : null;
   const reglages = useFermetures();
-  const [v, setV] = useState(() => ({ nom: "", telephone: "", moyenPaiement: TARIFS.moyensPaiement[0], ...valeursDepuisProfil(profil), telUrgence: "", personnesAutorisees: "", infos: "" }));
-  const [commun, setCommun] = useState(() => ({ domicile: null, ecole: null, periode: "mois", date: "", sansEcoleDu: "", sansEcoleAu: "" }));
-  const [mesEnfants, setMesEnfants] = useState([enfantVide()]);
-  const [partage, setPartage] = useState(false);
-  const [autres, setAutres] = useState([{ nom: "", telephone: "", connais: false, enfants: [enfantVide()] }]);
-  const [mode, setMode] = useState("enfant");
+  const [v, setV] = useState(() => ({ nom: "", telephone: "", moyenPaiement: TARIFS.moyensPaiement[0], ...valeursDepuisProfil(profil), telUrgence: "", personnesAutorisees: "", infos: "", ...(avant ? avant.v : {}) }));
+  const [commun, setCommun] = useState(() => (avant ? avant.commun : { domicile: null, ecole: null, periode: "mois", date: "", sansEcoleDu: "", sansEcoleAu: "" }));
+  const [mesEnfants, setMesEnfants] = useState(() => (avant ? avant.enfants : [enfantVide()]));
+  const [partage, setPartage] = useState(() => !!(avant && avant.autres.length));
+  const [autres, setAutres] = useState(() => (avant && avant.autres.length ? avant.autres : [{ nom: "", telephone: "", connais: false, enfants: [enfantVide()] }]));
+  const [mode, setMode] = useState(() => (avant ? avant.mode : "enfant"));
   const [erreur, setErreur] = useState("");
   const [envoi, setEnvoi] = useState({ enCours: false, fini: null });
   const envoiRef = useRef(false);
@@ -157,6 +175,10 @@ export default function DemandeRamassage({ onRetour }) {
         nbFamilles: doc.familles.length,
         partageId: id,
         enfants: mesEnfants.map((x) => String(x.prenom || "").slice(0, 40)).join(", "),
+        // Pour « Refaire » depuis le compte et pour la priorite : tout le devis de la famille
+        plan: { ...nouveauPartage(commun, [{ enfants: mesEnfants }]).commun, enfants: mesEnfants.map(enfantPropre) },
+        autres: partage ? autres.map((f) => ({ nom: String(f.nom).slice(0, 60), telephone: String(f.telephone).slice(0, 20) })) : [],
+        modePartage: mode,
         telUrgence: String(v.telUrgence).slice(0, 30),
         personnesAutorisees: String(v.personnesAutorisees).slice(0, 500),
         infos: String(v.infos || "").slice(0, 1000),
@@ -212,6 +234,7 @@ export default function DemandeRamassage({ onRetour }) {
         <span aria-hidden="true"><IconeService id="ramassage" taille={40} /></span>
         <h2>Ramassage scolaire</h2>
       </header>
+      {avant && <p className="note">Votre dernière demande est remplie : vérifiez les horaires, choisissez la date et envoyez.</p>}
 
       <div className="bloc">
         <Champ champ={CHAMP_DOMICILE} valeurs={commun} onChange={changerCommun} />

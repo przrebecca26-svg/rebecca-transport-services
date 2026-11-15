@@ -9,6 +9,7 @@ import { MAX_ENFANTS, enfantVide, manquePlan, planVide, libellePeriode } from ".
 import { prixFr } from "../pricing/partage.js";
 import { calculerPartage, lienPartage, messagePartage, nomPartage, remplirFamille, enfantPropre, STATUTS_PARTAGE } from "../pricing/partageRamassage.js";
 import { useRoutes } from "./DemandeRamassage.jsx";
+import { etatAge } from "../pricing/prioriteRamassage.js";
 import "../client-commun.css";
 import "../ramassage-site.css";
 
@@ -82,7 +83,9 @@ export default function PartageRamassage({ id, famille, onRetour }) {
     );
   }
 
-  const enCours = doc.statut === "en cours";
+  // 15 nov. 2026 : au bout de 2 semaines sans reponse de Rebecca, le trajet partage est annule (il faut refaire la demande)
+  const expire = doc.statut === "en cours" && etatAge(doc.creeLe).etat === "expiree";
+  const enCours = doc.statut === "en cours" && !expire;
   const monPlan = { ...planVide(), ...doc.commun, enfants };
   const manque = manquePlan(monPlan);
   const resultat = calcul && calcul.resultat && calcul.resultat.ok ? calcul.resultat : null;
@@ -150,7 +153,14 @@ export default function PartageRamassage({ id, famille, onRetour }) {
           ))}
         </>
       ) : (
-        <div className="bloc"><p>Rebecca a {doc.statut === "acceptee" ? "accepté" : "répondu à"} ce trajet partagé : il ne se modifie plus ici. Pour un changement, écrivez-lui.</p></div>
+        <div className="bloc">
+          {expire || doc.statut === "annulee" ? (
+            <p>Cette demande est annulée (plus de 2 semaines sans réponse, ou annulée par Rebecca). Si vous voulez toujours le ramassage, refaites le devis et la demande sur le site.</p>
+          ) : (
+            <p>Rebecca a {doc.statut === "acceptee" ? "accepté" : "répondu à"} ce trajet partagé : il ne se modifie plus ici. Pour un changement, écrivez-lui.</p>
+          )}
+          {(expire || doc.statut === "annulee") && <a className="bouton" href="#/ramassage">Refaire le devis</a>}
+        </div>
       )}
 
       <Devis resultat={manque ? null : resultat} trajet={statut === "chargement" ? { statut: "chargement" } : null} pretPourCalcul={!manque} manque={manque} />
@@ -170,7 +180,7 @@ export default function PartageRamassage({ id, famille, onRetour }) {
         </div>
       )}
 
-      {(enregistre || !enCours) && (
+      {(enregistre || doc.statut === "acceptee") && (
         <div className="bloc">
           <h3>Prévenir les autres</h3>
           {brouillon.familles.map((f, i) => (i === famille || !f.telephone ? null : (

@@ -435,7 +435,7 @@ export default function App() {
           />
         )}
         {!lienPartage && !lienRamassage && ecran.nom === "form" && ecran.service === "ramassage" && (
-          <DemandeRamassage key={"ramassage" + ecran.cle} onRetour={() => aller({ nom: "accueil" })} />
+          <DemandeRamassage key={"ramassage" + ecran.cle} depart={ecran.depart} onRetour={() => aller({ nom: "accueil" })} />
         )}
         {!lienPartage && !lienRamassage && ecran.nom === "form" && ecran.service !== "ramassage" && (
           <ServiceForm

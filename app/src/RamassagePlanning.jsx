@@ -12,12 +12,14 @@ import { useFermetures } from "./fermetures.js";
 import { JOURS, PERIODES, SENS, MAX_ENFANTS, MODES_PARTAGE, planVide, enfantVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel, nbFamillesDe, familleDe, nomsFamilles, enfantsDeLaFamille, reglerEnfantsFamille, reglerNombreFamilles, sousPlanFamille } from "./pricing/ramassagePlanning.js";
 import { prixFr } from "./pricing/partage.js";
 import { planDuPartage } from "./pricing/partageRamassage.js";
+import { useDemandesRamassage } from "./prioriteBase.js";
+import { demandesAvant, arriveeFr, textePriorite } from "./pricing/prioriteRamassage.js";
 import { doc as refDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import JourneeTournee from "./components/JourneeTournee.jsx";
 import Enfant from "./components/EnfantRamassage.jsx";
 import { aujourdhui } from "./profil.js";
 import ChoixLieu from "./components/MesLieux.jsx";
-import { evaluerDevis, ajouterALaTournee, adressesConnues, nomDuLieu, garderDevis, retirerDevis, statutDevis } from "./pricing/tournee.js";
+import { evaluerDevis, ajouterALaTournee, adressesConnues, nomDuLieu, garderDevis, retirerDevis, statutDevis, trajetsDuDevis } from "./pricing/tournee.js";
 import { useTournee, useDurees, enregistrerTournee, PASTILLES } from "./tourneeBase.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { trajetsDesChoix, lireChoix, choixDeLaFamille, familleDuDevis } from "./pricing/familles.js";
@@ -100,7 +102,17 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
   const [ajoutTournee, setAjoutTournee] = useState("");
   const repertoire = useRepertoire();
   // Ma tournee = trajets des fiches enfants (Repertoire) + trajets saisis a la main
-  const maTournee = useMemo(() => [...trajetsDesChoix(repertoire.familles, lireChoix(base.donnees.choix)), ...base.donnees.trajets], [repertoire.familles, base.donnees.choix, base.donnees.trajets]);
+  const [devisOuvert, setDevisOuvert] = useState(""); // identifiant du devis en attente qu'on a rouvert
+  const [partageId, setPartageId] = useState(""); // trajet partage du site ouvert dans ce devis
+  // Priorite (15 nov. 2026) : les demandes arrivees avant (moins d'1 semaine, ou avant celle-ci) comptent comme deja prises
+  const { classees } = useDemandesRamassage();
+  const cleCourante = devisOuvert ? "r" + devisOuvert : partageId ? "p" + partageId : "";
+  const avant = useMemo(() => demandesAvant(classees, cleCourante).filter((d) => d.plan && d.plan.enfants && d.plan.enfants.length), [classees, cleCourante]);
+  const trajetsAvant = useMemo(
+    () => avant.flatMap((d) => trajetsDuDevis(d.plan).map((r) => ({ ...r, id: `prio-${d.cle}-${r.id}`.slice(0, 40), nom: `⏳ ${d.nom} · ${r.nom}`.slice(0, 60), client: false }))),
+    [avant]
+  );
+  const maTournee = useMemo(() => [...trajetsDesChoix(repertoire.familles, lireChoix(base.donnees.choix)), ...base.donnees.trajets, ...trajetsAvant], [repertoire.familles, base.donnees.choix, base.donnees.trajets, trajetsAvant]);
   const tousTrajets = useMemo(() => (pret ? [...maTournee, ...evaluerDevis([], plan, () => 0).nouveaux] : []), [pret, plan, maTournee]);
   const durees = useDurees(tousTrajets, base.donnees.domicile);
   const faisable = useMemo(
@@ -140,7 +152,6 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
   const nomLieu = (adresse) => nomDuLieu(adresse, base.donnees.domicile, lieux);
 
   // Devis en attente : garde, rouvert, supprime (rien d'autre n'est enregistre tant que la cliente n'a pas accepte)
-  const [devisOuvert, setDevisOuvert] = useState(""); // identifiant du devis en attente qu'on a rouvert
   const [infoDevis, setInfoDevis] = useState("");
   const garder = async () => {
     try {
@@ -161,7 +172,6 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
     setAjoutTournee("");
   };
   // Trajet partage du site (15 nov. 2026) : toutes les familles et leurs enfants arrivent dans ce devis
-  const [partageId, setPartageId] = useState("");
   useEffect(() => {
     if (!ouvrirPartage || !ouvrirPartage.doc) return;
     const { plan: p } = planDuPartage(ouvrirPartage.doc);
@@ -225,7 +235,7 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
       {base.donnees.devis.length > 0 && (
         <section className="tdb-bloc">
           <h2>Mes devis en attente de réponse</h2>
-          {base.donnees.devis.filter((d) => d.statut !== "refuse").map((d) => (
+          {base.donnees.devis.filter((d) => d.statut === "attente").map((d) => (
             <div className="rp-forfait" key={d.id}>
               <span><b>{d.nom}</b>{d.telephone ? ` · ${d.telephone}` : ""} · {d.plan.enfants.length} enfant{d.plan.enfants.length > 1 ? "s" : ""}{d.total != null ? ` · ${d.total} ₪` : ""}{d.creeLe ? ` · fait le ${d.creeLe.split("-").reverse().join("/")}` : ""}{devisOuvert === d.id ? " · ouvert ci-dessous" : ""}</span>
               <div className="rp-boutons">
@@ -236,12 +246,12 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
               </div>
             </div>
           ))}
-          {base.donnees.devis.some((d) => d.statut === "refuse") && (
+          {base.donnees.devis.some((d) => d.statut !== "attente") && (
             <details className="rp-journee">
-              <summary><span>Devis refusés</span><b>{base.donnees.devis.filter((d) => d.statut === "refuse").length}</b></summary>
-              {base.donnees.devis.filter((d) => d.statut === "refuse").map((d) => (
+              <summary><span>Devis refusés ou annulés</span><b>{base.donnees.devis.filter((d) => d.statut !== "attente").length}</b></summary>
+              {base.donnees.devis.filter((d) => d.statut !== "attente").map((d) => (
                 <div className="rp-forfait" key={d.id}>
-                  <span><b>{d.nom}</b>{d.total != null ? ` · ${d.total} ₪` : ""}</span>
+                  <span><b>{d.nom}</b>{d.total != null ? ` · ${d.total} ₪` : ""}{d.statut === "annule" ? " · annulé (2 semaines sans réponse)" : ""}</span>
                   <div className="rp-boutons">
                     <button type="button" className="rp-waze" onClick={() => changerStatut(d.id, "attente")}>Remettre en attente</button>
                     <button type="button" className="rp-waze" onClick={() => supprimerDevis(d.id)}>Supprimer</button>
@@ -406,6 +416,9 @@ export default function RamassagePlanning({ retour, aller, ouvrirPartage }) {
           <h2>Est-ce que je peux accepter ?</h2>
           <p className="rp-reponse">{PASTILLES[faisable.statut].signe} {faisable.statut === "possible" ? "Oui, ça rentre dans ma tournée." : faisable.statut === "serre" ? "Oui, mais c'est serré certains jours." : faisable.statut === "impossible" ? "Non, pas tous les jours tel quel." : "Calcul des temps de route en cours…"}</p>
           {durees.statut === "erreur" && <p className="rp-alerte">Temps de route indisponibles pour l'instant. Réessaie dans un moment.</p>}
+          {avant.length > 0 && (
+            <p className="tdb-note rp-alerte">⏳ Comptées comme déjà prises (demandes prioritaires arrivées avant) : {avant.map((d) => `${d.nom} (arrivée le ${arriveeFr(d.arrivee)})`).join(" ; ")}. Si une journée est rouge à cause d'elles, cette demande passe après.</p>
+          )}
           {maTournee.length === 0 && <p className="tdb-note">Ta tournée scolaire est vide : ajoute tes trajets dans « Tournée scolaire » pour que la réponse en tienne compte.</p>}
           {faisable.jours.map((j) => (
             <JourneeTournee key={j.w} titre={j.jour} jour={j} nouveaux={faisable.nouveaux.map((r) => r.id)} nomLieu={nomLieu} />

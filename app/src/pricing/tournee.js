@@ -196,20 +196,25 @@ export function lireDevis(liste) {
       creeLe: dateOk(d.creeLe),
       total: d.total != null && Number.isFinite(Number(d.total)) ? Number(d.total) : null,
       message: String(d.message || "").slice(0, 3000),
-      statut: d.statut === "refuse" ? "refuse" : "attente",
+      statut: d.statut === "refuse" ? "refuse" : d.statut === "annule" ? "annule" : "attente",
+      // 15 nov. 2026 : moment d'arrivee du devis (priorite d'1 semaine, annulation automatique a 2 semaines)
+      arriveeLe: typeof d.arriveeLe === "string" && !Number.isNaN(Date.parse(d.arriveeLe)) ? d.arriveeLe : "",
       plan: d.plan,
       routes: d.routes && typeof d.routes === "object" ? d.routes : {},
     }));
 }
 
 // Garde un devis (meme identifiant = il est remplace : on a rouvert puis modifie le meme devis)
-export function garderDevis(doc, { id, nom, telephone, plan, routes, total, creeLe, message }) {
-  const devis = { id: id || nouvelId(), nom: String(nom || "").trim().slice(0, 60) || "Cliente", telephone: String(telephone || "").trim().slice(0, 20), creeLe: creeLe || "", total: total == null ? null : total, message: String(message || "").slice(0, 3000), statut: "attente", plan, routes: routes || {} };
+export function garderDevis(doc, { id, nom, telephone, plan, routes, total, creeLe, message, arriveeLe }) {
+  // Un devis deja garde garde son moment d'arrivee (sa priorite ne change pas quand on le modifie)
+  const ancien = (doc.devis || []).find((d) => id && d.id === id);
+  const arrivee = (ancien && ancien.arriveeLe) || arriveeLe || new Date().toISOString();
+  const devis = { id: id || nouvelId(), nom: String(nom || "").trim().slice(0, 60) || "Cliente", telephone: String(telephone || "").trim().slice(0, 20), creeLe: creeLe || "", total: total == null ? null : total, message: String(message || "").slice(0, 3000), statut: "attente", arriveeLe: arrivee, plan, routes: routes || {} };
   const autres = (doc.devis || []).filter((d) => d.id !== devis.id);
   return { doc: { ...doc, devis: [devis, ...autres] }, id: devis.id };
 }
 export const retirerDevis = (doc, id) => ({ ...doc, devis: (doc.devis || []).filter((d) => d.id !== id) });
-export const statutDevis = (doc, id, statut) => ({ ...doc, devis: (doc.devis || []).map((d) => (d.id === id ? { ...d, statut: statut === "refuse" ? "refuse" : "attente" } : d)) });
+export const statutDevis = (doc, id, statut) => ({ ...doc, devis: (doc.devis || []).map((d) => (d.id === id ? { ...d, statut: statut === "refuse" ? "refuse" : statut === "annule" ? "annule" : "attente" } : d)) });
 
 export function lireTournee(json) {
   let o;

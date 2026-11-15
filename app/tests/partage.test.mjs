@@ -158,3 +158,11 @@ test("meme ecole, sorties a 10 min d'ecart au plus = un seul trajet (12h41 et 12
   const loin = { ...p, enfants: [enfant({ heureSortie: "12:30" }), enfant({ heureSortie: "12:50" })] };
   egal(P.calculerPlan(loin, ROUTE, T).details.nbTrajets, 2);
 });
+
+test("transport : famille 2 avec son adresse = un arret ; heure a plus de 10 min = a confirmer", () => {
+  const r = site("transport", { depart: A.netanya2, arrivee: A.tel_aviv, heure: "10:00", nbFamilles: "2", personnesF1: "2", nomF2: "Amis", personnesF2: "2", heureF2: "10:20", adresseF2: A.netanya }, TR.tel_aviv);
+  vrai(r.aConfirmer.some((a) => a.startsWith("1 arrêt")), JSON.stringify(r.aConfirmer));
+  vrai(r.aConfirmer.some((a) => a.startsWith("Amis : plus de 10 minutes")), JSON.stringify(r.aConfirmer));
+  const ok = site("transport", { depart: A.netanya2, arrivee: A.tel_aviv, heure: "10:00", nbFamilles: "2", personnesF1: "2", nomF2: "Amis", personnesF2: "2", heureF2: "10:05" }, TR.tel_aviv);
+  vrai(!ok.aConfirmer.some((a) => a.includes("10 minutes")), JSON.stringify(ok.aConfirmer));
+});

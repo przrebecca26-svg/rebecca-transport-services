@@ -268,6 +268,7 @@ function calculerTrajet(d, t) {
   }
 
   if (d.arrets > 0) aConfirmer.push(`${d.arrets} arrêt(s) supplémentaire(s) : tarif communiqué avant validation.`);
+  if (d.famillesHorsDelai && d.famillesHorsDelai.length) aConfirmer.push(`${d.famillesHorsDelai.join(", ")} : plus de 10 minutes d'écart avec l'heure du trajet, Rebecca confirme si c'est possible.`);
   if (d.fraisAnnonces > 0) lignes.push({ libelle: "Péages / stationnement (annoncés)", montant: d.fraisAnnonces });
 
   const resultat = construire({ lignes, aConfirmer, details });

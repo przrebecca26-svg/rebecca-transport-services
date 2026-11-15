@@ -15,6 +15,7 @@ import QuiFait from "./components/QuiFait.jsx";
 import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import { attribueA, coursesDeLaPersonne, filtrerPersonne } from "./pricing/quiFait.js";
 import { servicesDuMembre } from "./pricing/espaceEquipe.js";
+import { regroupementsPossibles, prixRegroupe, passagersDe } from "./pricing/regroupement.js";
 import "./demandes.css";
 
 // Liste et traitement des demandes (espace prive de Rebecca) - Lot B, seance B3 :
@@ -156,6 +157,56 @@ function PartageEnDirect({ id, creeLe }) {
   );
 }
 
+// Transport / aeroport (15 nov. 2026) : une autre demande le meme jour, a 10 min d'ecart, departs et arrivees proches
+// -> Rebecca peut faire UN trajet partage ; prix conseille et part de chacune
+function Regroupement({ d, toutes, aller }) {
+  const [info, setInfo] = useState("");
+  const lie = d.regroupeAvec ? toutes.find((x) => x.id === d.regroupeAvec) : null;
+  const possibles = regroupementsPossibles(d, toutes).filter((x) => !d.regroupeAvec || x.d.id === d.regroupeAvec);
+  if (!lie && possibles.length === 0) return null;
+  const regrouper = async (autre) => {
+    try {
+      await updateDoc(doc(db, "demandes", d.id), { regroupeAvec: autre.id, majLe: serverTimestamp() });
+      await updateDoc(doc(db, "demandes", autre.id), { regroupeAvec: d.id, majLe: serverTimestamp() });
+      setInfo("Regroupées : un seul trajet. Mets le prix conseillé de chacune dans « Prix » (ici et dans l'autre demande), puis préviens-les.");
+    } catch {
+      setInfo("Regroupement impossible pour l'instant. Réessaie.");
+    }
+  };
+  const separer = async () => {
+    try {
+      await updateDoc(doc(db, "demandes", d.id), { regroupeAvec: null, majLe: serverTimestamp() });
+      if (lie) await updateDoc(doc(db, "demandes", lie.id), { regroupeAvec: null, majLe: serverTimestamp() });
+      setInfo("Séparées : deux trajets.");
+    } catch {
+      setInfo("Impossible pour l'instant. Réessaie.");
+    }
+  };
+  const ligne = (x, ecart, depart) => {
+    const p = prixRegroupe(d, x);
+    return (
+      <div key={x.id} className="tb-adresse">
+        <div>
+          <p><strong>{x.nom}</strong> · {x.heure}{typeof ecart === "number" ? ` (${ecart} min d'écart)` : ""} · {passagersDe(x)} passager{passagersDe(x) > 1 ? "s" : ""}{typeof depart === "number" ? ` · départs à ${depart} km` : ""}</p>
+          {p ? <small>Trajet commun conseillé : {p.total} ₪ au lieu de {p.separes} ₪ ({p.passagers} passagers{p.arret ? `, +${p.arret} ₪ d'arrêt` : ""}) · {d.nom} : {p.parts[0].montant} ₪ · {x.nom} : {p.parts[1].montant} ₪</small> : <small>Prix conseillé : il manque le prix d'une des deux demandes.</small>}
+        </div>
+        <div className="tb-actions">
+          <button className="tb-bouton tb-clair" onClick={() => aller("demandes", x.id)}>Ouvrir</button>
+          {d.regroupeAvec === x.id ? <button className="tb-bouton tb-clair" onClick={separer}>Séparer</button> : <button className="tb-bouton" onClick={() => regrouper(x)}>Regrouper</button>}
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>{lie ? "Trajet regroupé" : "Regrouper avec une autre demande"}</h3>
+      {lie ? ligne(lie) : possibles.map((x) => ligne(x.d, x.ecart, x.departKm))}
+      {!lie && <p className="tb-note">Même jour, 10 min d'écart au plus, départs et arrivées proches : tu peux faire un seul trajet partagé.</p>}
+      {info && <p className="tb-note" role="status">{info}</p>}
+    </div>
+  );
+}
+
 function Detail({ d, toutes, marge, aller, onFermer }) {
   const { moi } = useEquipeContexte();
   const [prix, setPrix] = useState(typeof prixActuel(d) === "number" ? String(prixActuel(d)) : "");
@@ -201,7 +252,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
     setVerif({ etat: "calcul" });
     try {
       // enchainement verifie sur l'agenda de la personne qui fera la course
-      const liste = voisins(d, coursesDeLaPersonne(toutes, quiAccepte).filter((x) => x.statut === "acceptee"), datesDe(d));
+      // une demande regroupee avec celle-ci = le meme trajet : pas un conflit d'agenda
+      const liste = voisins(d, coursesDeLaPersonne(toutes, quiAccepte).filter((x) => x.statut === "acceptee" && x.id !== d.regroupeAvec), datesDe(d));
       const trajets = {};
       await Promise.all(
         trajetsACalculer(liste).map(async (p) => {
@@ -357,6 +409,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
           </ul>
         )}
       </div>
+
+      <Regroupement d={d} toutes={toutes} aller={aller} />
 
       <PaiementsCourse d={d} />
 

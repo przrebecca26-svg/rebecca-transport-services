@@ -152,6 +152,13 @@ export const partageChamps = (mot) => {
     ...[2, 3].flatMap((n) => [
       { name: "nomF" + n, label: `Nom de la famille ${n}`, type: "text", required: true, si: (v) => nbFam(v) >= n },
       { name: "personnesF" + n, label: `Nombre d'${pluriel} de la famille ${n}`, type: "nombre", min: 1, max: mot === "enfant" ? 4 : 6, defaut: "1", required: true, si: (v) => nbFam(v) >= n },
+      // Transport et aeroport (15 nov. 2026) : une famille peut avoir son heure (10 min d'ecart max) et son adresse
+      ...(mot === "enfant"
+        ? []
+        : [
+            { name: "heureF" + n, label: `Heure de la famille ${n} (si différente)`, type: "time", si: (v) => nbFam(v) >= n, indice: "Jusqu'à 10 minutes d'écart : même trajet, même prix partagé." },
+            { name: "adresseF" + n, label: (v) => `Adresse de ${v.direction === "depuis" ? "dépose" : "prise en charge"} de la famille ${n} (si différente)`, type: "adresse", si: (v) => nbFam(v) >= n, indice: "Une adresse en plus = un arrêt sur le trajet." },
+          ]),
     ]),
     { name: "modePartage", label: "Comment partager la note ?", type: "choix", required: true, defaut: "enfant", si: (v) => nbFam(v) >= 2, options: [{ v: "enfant", l: mot === "enfant" ? "Par enfant" : "Par personne" }, { v: "egal", l: "Parts égales" }], indice: mot === "enfant" ? "Par enfant : chaque famille paie pour ses enfants. Parts égales : le total divisé par le nombre de familles." : "Par personne : chaque famille paie pour ses passagers. Parts égales : le total divisé par le nombre de familles." },
   ];
@@ -413,7 +420,12 @@ export function familles(v) {
   const n = Math.max(1, Math.min(3, Number(v.nbFamilles) || 1));
   const compte = (x, defaut = 1) => Math.max(1, Math.min(6, Math.round(Number(x)) || defaut));
   const liste = [{ nom: n > 1 ? String(v.nom || "").trim() || "Votre famille" : String(v.nom || "").trim(), personnes: compte(v.personnesF1 !== undefined && v.personnesF1 !== "" ? v.personnesF1 : v.passagers) }];
-  for (let k = 2; k <= n; k++) liste.push({ nom: String(v["nomF" + k] || "").trim() || `Famille ${k}`, personnes: compte(v["personnesF" + k]) });
+  for (let k = 2; k <= n; k++) {
+    const f = { nom: String(v["nomF" + k] || "").trim() || `Famille ${k}`, personnes: compte(v["personnesF" + k]) };
+    if (/^\d{2}:\d{2}$/.test(v["heureF" + k] || "")) f.heure = v["heureF" + k];
+    if (v["adresseF" + k] && typeof v["adresseF" + k] === "object" && String(v["adresseF" + k].label || "").trim()) f.adresse = v["adresseF" + k];
+    liste.push(f);
+  }
   return liste;
 }
 
@@ -497,6 +509,15 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
     if (service !== "ramassage") d.passagers = d.personnes;
     else d.nbEnfants = d.personnes;
     d.partageMode = v.modePartage === "egal" ? "egal" : "enfant";
+    if (service !== "ramassage") {
+      // une adresse differente = un arret ; une heure a plus de 10 min de celle du trajet = Rebecca confirme
+      const ecart = (TARIFS.ramassage && typeof TARIFS.ramassage.regroupementMinutes === "number" ? TARIFS.ramassage.regroupementMinutes : 10);
+      const enMin = (h) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+      const cle = (a) => (a && typeof a.lat === "number" ? `${a.lat.toFixed(3)},${a.lon.toFixed(3)}` : String((a && a.label) || "").trim().toLowerCase());
+      const base = cle(service === "aeroport" ? v.adresse : v.depart);
+      d.arrets = (d.arrets || 0) + new Set(f.filter((x) => x.adresse && cle(x.adresse) !== base).map((x) => cle(x.adresse))).size;
+      d.famillesHorsDelai = /^\d{2}:\d{2}$/.test(v.heure || "") ? f.filter((x) => x.heure && Math.abs(enMin(x.heure) - enMin(v.heure)) > ecart).map((x) => x.nom) : [];
+    }
   }
 
   if (v.urgent && v.date && v.heure) {

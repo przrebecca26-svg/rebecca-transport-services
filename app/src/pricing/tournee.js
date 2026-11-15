@@ -35,6 +35,17 @@ export const enHeure = (min) => {
 };
 const adresseOk = (a) => !!(a && typeof a === "object" && String(a.label || "").trim() && typeof a.lat === "number" && typeof a.lon === "number");
 export const cleLieu = (a) => (adresseOk(a) ? `${a.lat.toFixed(5)},${a.lon.toFixed(5)}` : "");
+// Deux adresses a moins de 120 m = le meme endroit (ex. « Alexia » et l'adresse de sa fiche, meme immeuble)
+const PROCHE_KM = 0.12;
+export function proche(a, b) {
+  if (!adresseOk(a) || !adresseOk(b)) return false;
+  if (cleLieu(a) === cleLieu(b)) return true;
+  const r = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * r;
+  const dLon = (b.lon - a.lon) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h)) < PROCHE_KM;
+}
 const lieuCourt = (a) => String((a && a.label) || "").split(",")[0];
 const jourSemaine = (date) => {
   const [a, m, j] = date.split("-").map(Number);
@@ -309,11 +320,12 @@ function derouler(ordre, duree, regles, tots = null, maison = "") {
   let conduite = 0;
   const lignes = [];
   let avant = null;
+  let avantLieu = null;
   let surPlace = 0; // heure d'arrivee a l'endroit ou je suis (plusieurs enfants au meme endroit = un seul arret)
   for (let k = 0; k < ordre.length; k++) {
     const s = ordre[k];
     const cle = cleLieu(s.lieu);
-    const memeLieu = avant === cle;
+    const memeLieu = k > 0 && proche(avantLieu, s.lieu);
     const route = k === 0 || memeLieu ? 0 : duree(avant, cle);
     if (route == null) return null;
     conduite += route;
@@ -333,7 +345,10 @@ function derouler(ordre, duree, regles, tots = null, maison = "") {
     t = memeLieu ? Math.max(t, debut + regles.arretMinutes) : debut + regles.arretMinutes;
     ligne.depart = t;
     lignes.push(ligne);
-    avant = cle;
+    if (!memeLieu) {
+      avant = cle;
+      avantLieu = s.lieu;
+    }
   }
   if (!maison || lignes.length === 0) return { lignes, violation, retard, conduite, fin: t };
   // Depart de la maison et retour a la maison : comptes dans la route (pas d'aller-retour pour rien)
@@ -419,7 +434,7 @@ function avecTempsLibre(lignes, regles) {
   lignes.forEach((x, k) => {
     const attente = x.debut - x.arrivee;
     const p = k > 0 ? lignes[k - 1] : null;
-    if (p && p.trajet && p.trajet.reste && cleLieu(p.lieu) === cleLieu(x.lieu) && x.debut - p.depart >= 1) {
+    if (p && p.trajet && p.trajet.reste && proche(p.lieu, x.lieu) && x.debut - p.depart >= 1) {
       sortie.push({ pause: true, bloque: true, texte: "Je reste sur place", minutes: Math.round(x.debut - p.depart), du: p.depart, au: x.debut });
       sortie.push(x);
       return;
@@ -450,8 +465,9 @@ const heureRef = (r, w) => {
   const h = heureTrajet(r, w);
   return HEURE_OK.test(h) ? enMin(h) : HEURE_OK.test(r.heurePrise || "") ? enMin(r.heurePrise) : null;
 };
-export function suivreEnfants(trajets, w, maison, seuil = 30) {
-  if (!maison) return trajets;
+export function suivreEnfants(trajets, w, domicile, seuil = 30) {
+  if (!adresseOk(domicile)) return trajets;
+  const aLaMaison = (a) => proche(a, domicile);
   const parEnfant = new Map();
   for (const r of trajets) {
     const k = cleEnfant(r);
@@ -463,20 +479,24 @@ export function suivreEnfants(trajets, w, maison, seuil = 30) {
   const retires = new Set();
   for (const liste of parEnfant.values()) {
     if (liste.length < 2) continue;
-    liste.sort((a, b) => heureRef(a, w) - heureRef(b, w));
+    // meme heure : « je le recupere a » passe avant « je l'emmene » (on sait alors d'ou il part)
+    liste.sort((a, b) => heureRef(a, w) - heureRef(b, w) || (a.type === b.type ? 0 : a.type === "sortie" ? -1 : 1));
     let ou = null;
     let precedent = null;
     for (const r0 of liste) {
       let r = r0;
-      if (cleLieu(r.de) === maison) {
-        const direct = precedent && cleLieu(precedent.a) === maison && cleLieu(precedent.de) !== maison && heureRef(r, w) - heureRef(precedent, w) < seuil;
+      if (aLaMaison(r.de)) {
+        const direct = precedent && aLaMaison(precedent.a) && !aLaMaison(precedent.de) && heureRef(r, w) - heureRef(precedent, w) < seuil;
         if (direct) {
           retires.add(precedent.id);
+          remplaces.delete(precedent.id);
           r = { ...r, de: precedent.de };
-        } else if (ou && cleLieu(ou) !== maison) r = { ...r, de: ou };
+        } else if (ou && !aLaMaison(ou)) r = { ...r, de: ou };
       }
-      if (cleLieu(r.de) === cleLieu(r.a)) {
-        retires.add(r0.id); // deja sur place
+      // deja sur place, ou le meme trajet deux fois (ex. « retour de l'anniversaire vers l'ecole » + « aller au basket »)
+      const double = precedent && proche(precedent.de, r.de) && proche(precedent.a, r.a) && Math.abs(heureRef(r, w) - heureRef(precedent, w)) <= ECART_GROUPE;
+      if (proche(r.de, r.a) || double) {
+        retires.add(r0.id);
         continue;
       }
       if (r !== r0) remplaces.set(r0.id, r);
@@ -493,7 +513,7 @@ export function suivreEnfants(trajets, w, maison, seuil = 30) {
 // { statut: "vide" | "possible" | "serre" | "impossible" | "inconnu", arrets: [...], probleme, retard, incomplets }
 export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
   const regles = t.tournee;
-  const actifs = suivreEnfants(trajets.filter((r) => trajetActif(r, w, periode.du, periode.au)), w, cleLieu(periode.domicile), regles.retourMaisonMinutes ?? 30);
+  const actifs = suivreEnfants(trajets.filter((r) => trajetActif(r, w, periode.du, periode.au)), w, periode.domicile, regles.retourMaisonMinutes ?? 30);
   const incomplets = actifs.filter((r) => manqueTrajet(r));
   // Enfants pris au meme endroit, a la meme heure, pour le meme endroit (freres et soeurs) = un seul trajet
   const fusion = new Map();
@@ -534,15 +554,18 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
     const libre = avant && maison ? r.departMaison - avant.retourMaison : null;
     // 15 nov. 2026 : « je reste sur place » (anniversaire, rendez-vous...) : pas de retour a la maison, creneau bloque
     const finAvant = avant && avant.lignes[avant.lignes.length - 1];
-    const resteLa = !!(finAvant && finAvant.trajet && finAvant.trajet.reste && finAvant.sorte === "depose" && cleLieu(finAvant.lieu) === cleLieu(r.lignes[0].lieu));
-    const passeMaison = !avant || (!resteLa && maison && libre >= regles.retourMaisonMinutes);
+    const resteLa = !!(finAvant && finAvant.trajet && finAvant.trajet.reste && finAvant.sorte === "depose" && proche(finAvant.lieu, r.lignes[0].lieu));
+    // 15 nov. 2026 : si le moment d'avant finit A la maison (ou si le suivant commence a la maison), je suis a la
+    // maison entre les deux, meme pour moins de 30 min : pas de « petite course » ni de « Partir pour Maison »
+    const dejaMaison = !!(finAvant && maison && (proche(finAvant.lieu, periode.domicile) || proche(r.lignes[0].lieu, periode.domicile)));
+    const passeMaison = !avant || (!resteLa && maison && (dejaMaison || libre >= regles.retourMaisonMinutes));
     if (avant && resteLa) {
       arrets.push({ pause: true, bloque: true, texte: "Je reste sur place", minutes: Math.max(0, Math.round(r.lignes[0].debut - finAvant.depart)), du: finAvant.depart, au: r.lignes[0].debut });
     } else if (avant && !passeMaison) {
       // J'enchaine sans rentrer : ai-je le temps d'aller de la fin du premier moment au debut du second ?
       const a = avant.lignes[avant.lignes.length - 1];
       const b = r.lignes[0];
-      const route = cleLieu(a.lieu) === cleLieu(b.lieu) ? 0 : duree(cleLieu(a.lieu), cleLieu(b.lieu));
+      const route = proche(a.lieu, b.lieu) ? 0 : duree(cleLieu(a.lieu), cleLieu(b.lieu));
       const arrivee = route == null ? null : a.depart + (route ? route + regles.margeRouteMinutes : 0);
       if (route != null && arrivee <= b.debut && b.debut - arrivee >= (regles.libreMinutes ?? 20)) b.partir = b.debut - (route ? route + regles.margeRouteMinutes : regles.margeRouteMinutes);
       if (arrivee != null && arrivee > b.debut) {
@@ -778,7 +801,7 @@ export function filTournee(jour, nomLieu = null, domicile = null) {
       } else sortie.push({ min: x.heure, genre: "maison", heure: enHeure(x.heure), texte: "Partir de la maison" });
       continue;
     }
-    if (x.trajet && maison && cleLieu(x.lieu) === maison) {
+    if (x.trajet && maison && proche(x.lieu, domicile)) {
       const precedent = sortie[sortie.length - 1];
       if (x.sorte === "prise" && precedent && precedent.genre === "maison" && precedent.texte.startsWith("Partir")) {
         precedent.texte += (precedent.texte.includes(" avec ") ? " et " : " avec ") + (nomCourt(x) || "l'enfant");

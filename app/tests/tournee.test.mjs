@@ -549,3 +549,25 @@ test("je reste sur place : pas de retour a la maison, creneau bloque d'un bout a
   egal(j.arrets.filter((x) => x.maison === "retour").length, 1);
   egal(To.momentsDuJour(j).length, 1);
 });
+
+test("journee reelle du 15 nov. : anniversaire chez l'amie puis basket, sans trajets en double", () => {
+  const AMIE2 = { label: "Alexia", lat: AMIE.lat + 0.0002, lon: AMIE.lon }; // meme immeuble, autre point (~20 m)
+  const d2 = (a, b) => (a === To.cleLieu(AMIE2) ? duree(To.cleLieu(AMIE), b) : b === To.cleLieu(AMIE2) ? duree(a, To.cleLieu(AMIE)) : duree(a, b));
+  const jr = [
+    To.trajetVide({ id: "jl", nom: "Joy · Gan (retour) + Liel · Gan (retour)", type: "sortie", places: 2, de: GAN, a: AMIE, heure: "14:00", jours: tous() }),
+    To.trajetVide({ id: "sh", nom: "Shyrel · Alexia (retour)", type: "sortie", de: AMIE2, a: MAISON, heure: "14:15", peutAttendre: true, jours: tous() }),
+    To.trajetPonctuel({ date: DATE, sens: "deposer", heure: "15:30", de: MAISON, a: AMIE, nom: "Shyrel · Anniversaire (aller)" }),
+    To.trajetPonctuel({ date: DATE, sens: "recuperer", heure: "18:00", de: AMIE, a: ECOLE, nom: "Shyrel · Anniversaire (retour)" }),
+    To.trajetVide({ id: "ba", nom: "Shyrel · Basket (aller)", type: "matin", de: MAISON, a: ECOLE, heure: "18:00", jours: tous() }),
+    To.trajetVide({ id: "br", nom: "Shyrel · Basket (retour)", type: "sortie", de: ECOLE, a: MAISON, heure: "19:00", jours: tous() }),
+  ];
+  const j = To.evaluerJour(jr, 0, d2, T, { du: DATE, au: DATE, domicile: MAISON });
+  const fil = To.filTournee(j, null, MAISON).map((e) => `${e.heure} ${e.texte}${e.lieu ? " @" + e.lieu : ""}`);
+  const txt = fil.join(" | ");
+  if (process.env.VOIR) console.log(fil.join("\n"));
+  vrai(!/petite course possible aux alentours jusqu'à 15/.test(txt) && !fil.some((t) => /Partir pour Maison/.test(t)), txt);
+  egal(fil.filter((t) => /Déposer Shyrel @École A/.test(t)).length, 1, txt); // un seul passage a l'ecole avant le basket
+  egal(fil.filter((t) => /Prendre Shyrel @Chez l'amie|Prendre Shyrel @Alexia/.test(t)).length, 2, txt); // 14h15 puis vers 18h
+  vrai(fil.some((t) => /De retour à la maison avec Shyrel/.test(t)), txt);
+  vrai(!fil.some((t) => /Prendre Joy/.test(t)) || !fil.some((t) => /^14h2\d Prendre Shyrel/.test(t)), txt); // pas d'arret separe 11 min apres
+});

@@ -139,6 +139,23 @@ function Verification({ verif, d, enCours, onForcer, onFermer }) {
   );
 }
 
+// Demande de ramassage du site : son devis peut avoir ete modifie depuis (lien des familles, 15 nov. 2026)
+function PartageEnDirect({ id, creeLe }) {
+  const [p, setP] = useState(null);
+  useEffect(() => onSnapshot(doc(db, "trajetsPartages", id), (s) => setP(s.exists() ? s.data() : null), () => setP(null)), [id]);
+  if (!p) return null;
+  const maj = p.majLe && p.majLe.toMillis ? p.majLe.toMillis() : 0;
+  const envoi = creeLe && creeLe.toMillis ? creeLe.toMillis() : 0;
+  const modifiee = maj && envoi && maj - envoi > 60000;
+  const quand = modifiee ? new Date(maj).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" }) : "";
+  return (
+    <p className={"tb-note" + (modifiee ? " rp-alerte" : "")}>
+      {modifiee ? `✏️ Devis modifié le ${quand} (lien de la cliente ou des familles). Le prix affiché ici est celui de l'envoi : le devis à jour est dans « Ramassage scolaire ».` : "Devis modifiable par la cliente avec son lien."}{" "}
+      {p.familles.map((f, i) => `${f.nom || `Famille ${i + 1}`} : ${f.enfants.length} enfant${f.enfants.length > 1 ? "s" : ""}`).join(" · ")}
+    </p>
+  );
+}
+
 function Detail({ d, toutes, marge, aller, onFermer }) {
   const { moi } = useEquipeContexte();
   const [prix, setPrix] = useState(typeof prixActuel(d) === "number" ? String(prixActuel(d)) : "");
@@ -158,6 +175,12 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
     try {
       await updateDoc(ref, { ...champs, majLe: serverTimestamp() });
       ok = true;
+      // 15 nov. 2026 : demande de ramassage du site -> son devis modifiable (lien des familles) suit le meme statut
+      const partageId = d.details && d.details.partageId;
+      const STATUT_PARTAGE = { refusee: "refusee", annulee: "annulee", acceptee: "acceptee", terminee: "acceptee", "en attente": "en cours" };
+      if (partageId && champs.statut && STATUT_PARTAGE[champs.statut]) {
+        await updateDoc(doc(db, "trajetsPartages", partageId), { statut: STATUT_PARTAGE[champs.statut], majLe: serverTimestamp() }).catch(() => {});
+      }
       const suiviOk = await synchroniserSuivi({ ...d, ...champs });
       if (!suiviOk) setAvertissement("Enregistré, mais l'historique du client n'a pas pu être mis à jour. Utilise « Mettre à jour l'historique des clients » en bas de la liste.");
     } catch {
@@ -270,6 +293,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
 
       <div className="tb-bloc">
         <h3>Statut</h3>
+        {d.details && d.details.partageId && <PartageEnDirect id={d.details.partageId} creeLe={d.creeLe} />}
         {d.details && d.details.partageId && d.statut === "en attente" && (
           <div className="tb-actions">
             <p className="tb-note">Trajet partagé entre plusieurs familles : accepte-le depuis « Ramassage scolaire » → « Trajets partagés » → « Ouvrir dans mon devis ». Tu vérifies ta tournée, et « La cliente accepte » crée une fiche par famille. « Accepter » ici ne valide que cette demande.</p>

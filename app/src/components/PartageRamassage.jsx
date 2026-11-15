@@ -36,6 +36,8 @@ export default function PartageRamassage({ id, famille, onRetour }) {
   // La 1re famille (celle qui a fait la demande) peut aussi changer les adresses, la periode et le partage
   const [commun, setCommun] = useState(null);
   const [mode, setMode] = useState("enfant");
+  // 15 nov. 2026 : la 1re famille peut aussi corriger les enfants des autres familles (elle les a souvent remplis)
+  const [autresEnfants, setAutresEnfants] = useState({});
 
   useEffect(() => {
     let actif = true;
@@ -69,13 +71,21 @@ export default function PartageRamassage({ id, famille, onRetour }) {
     setTelephone(f.telephone || "");
     setCommun({ ...doc.commun });
     setMode(doc.modePartage === "egal" ? "egal" : "enfant");
+    if (famille === 0) setAutresEnfants(Object.fromEntries(doc.familles.map((x, i) => [i, x.enfants.map((e) => ({ ...enfantVide(), ...e }))]).filter(([i]) => Number(i) > 0)));
     setPret(true);
   }, [doc, famille, pret]);
 
   // Le devis avec MES enfants tels que je les saisis (les autres familles : ce qui est enregistre)
   const brouillon = useMemo(
-    () => (doc && doc.familles[famille] ? { ...doc, ...(famille === 0 && commun ? { commun, modePartage: mode } : {}), familles: doc.familles.map((f, i) => (i === famille ? { ...f, nom, telephone, enfants, rempli: true } : f)) } : null),
-    [doc, famille, enfants, nom, telephone, commun, mode]
+    () =>
+      doc && doc.familles[famille]
+        ? {
+            ...doc,
+            ...(famille === 0 && commun ? { commun, modePartage: mode } : {}),
+            familles: doc.familles.map((f, i) => (i === famille ? { ...f, nom, telephone, enfants, rempli: true } : famille === 0 && autresEnfants[i] ? { ...f, enfants: autresEnfants[i] } : f)),
+          }
+        : null,
+    [doc, famille, enfants, nom, telephone, commun, mode, autresEnfants]
   );
   const planRoutes = useMemo(() => (brouillon ? { ...planVide(), domicile: brouillon.commun.domicile, ecole: brouillon.commun.ecole, enfants: brouillon.familles.flatMap((f) => f.enfants) } : planVide()), [brouillon]);
   const { routes, statut } = useRoutes(planRoutes);
@@ -96,7 +106,8 @@ export default function PartageRamassage({ id, famille, onRetour }) {
   const expire = doc.statut === "en cours" && etatAge(doc.creeLe).etat === "expiree";
   const enCours = doc.statut === "en cours" && !expire;
   const monPlan = { ...planVide(), ...(brouillon ? brouillon.commun : doc.commun), enfants };
-  const manque = manquePlan(monPlan);
+  const manqueAutres = famille === 0 ? Object.entries(autresEnfants).map(([i, l]) => (l.length ? manquePlan({ ...monPlan, enfants: l }) && `${nomPartage(doc, Number(i))} : ${manquePlan({ ...monPlan, enfants: l })}` : "")).find(Boolean) : "";
+  const manque = manquePlan(monPlan) || manqueAutres || "";
   const resultat = calcul && calcul.resultat && calcul.resultat.ok ? calcul.resultat : null;
   const origine = window.location.origin + window.location.pathname;
   const jourUnique = jourDeLaDate((brouillon ? brouillon.commun : doc.commun).date);
@@ -108,6 +119,7 @@ export default function PartageRamassage({ id, famille, onRetour }) {
     try {
       const [{ db }, { doc: refDoc, updateDoc, serverTimestamp }] = await Promise.all([import("../firebase.js"), import("firebase/firestore")]);
       const maj = remplirFamille(doc, famille, { enfants: enfants.map(enfantPropre), nom: String(nom).trim().slice(0, 60), telephone: String(telephone).trim().slice(0, 20) });
+      if (famille === 0) maj.familles = maj.familles.map((f, i) => (i > 0 && autresEnfants[i] ? { ...f, enfants: autresEnfants[i].map(enfantPropre) } : f));
       const champs = { familles: maj.familles, majLe: serverTimestamp() };
       if (famille === 0 && commun) {
         const propre = nouveauPartage(commun, [], mode);
@@ -187,15 +199,40 @@ export default function PartageRamassage({ id, famille, onRetour }) {
           {enfants.map((e, i) => (
             <Enfant key={i} site enfant={e} index={i} periode={(brouillon ? brouillon.commun : doc.commun).periode} jourUnique={jourUnique} changer={(n) => setEnfants((l) => l.map((x, j) => (j === i ? n : x)))} />
           ))}
+          {famille === 0 && Object.keys(autresEnfants).map((k) => {
+            const i = Number(k);
+            const liste = autresEnfants[i] || [];
+            const regler2 = (n) => setAutresEnfants((o) => {
+              const x = (o[i] || []).slice(0, n);
+              while (x.length < n) x.push(enfantVide());
+              return { ...o, [i]: x };
+            });
+            return (
+              <div key={"autre" + i}>
+                <div className="bloc">
+                  <h3>Enfants de {nomPartage(doc, i)}</h3>
+                  <span className="indice">{doc.familles[i].rempli ? "Elle a déjà rempli ses enfants : ne changez que si elle vous l'a demandé." : "Elle ne les a pas encore remplis : vous pouvez le faire pour elle (0 = elle les remplira)."}</span>
+                  <div className="choix rs-cinq" role="group" aria-label={`Nombre d'enfants de ${nomPartage(doc, i)}`}>
+                    {[0, 1, 2, 3, 4].map((n) => (
+                      <button key={n} type="button" className={liste.length === n ? "actif" : ""} aria-pressed={liste.length === n} onClick={() => regler2(n)}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+                {liste.map((e, j) => (
+                  <Enfant key={j} site enfant={e} index={j} famille={nomPartage(doc, i)} periode={(brouillon ? brouillon.commun : doc.commun).periode} jourUnique={jourUnique} changer={(n) => setAutresEnfants((o) => ({ ...o, [i]: (o[i] || []).map((x, y) => (y === j ? n : x)) }))} />
+                ))}
+              </div>
+            );
+          })}
         </>
       ) : (
         <div className="bloc">
-          {expire || doc.statut === "annulee" ? (
-            <p>Cette demande est annulée (plus de 2 semaines sans réponse, ou annulée par Rebecca). Si vous voulez toujours le ramassage, refaites le devis et la demande sur le site.</p>
+          {expire || doc.statut === "annulee" || doc.statut === "refusee" ? (
+            <p>Cette demande n'est plus active (refusée ou annulée par Rebecca, ou plus de 2 semaines sans réponse). Si vous voulez toujours le ramassage, refaites le devis et la demande sur le site.</p>
           ) : (
             <p>Rebecca a {doc.statut === "acceptee" ? "accepté" : "répondu à"} ce trajet partagé : il ne se modifie plus ici. Pour un changement, écrivez-lui.</p>
           )}
-          {(expire || doc.statut === "annulee") && <a className="bouton" href="#/ramassage">Refaire le devis</a>}
+          {(expire || doc.statut === "annulee" || doc.statut === "refusee") && <a className="bouton" href="#/ramassage">Refaire le devis</a>}
         </div>
       )}
 
@@ -212,7 +249,7 @@ export default function PartageRamassage({ id, famille, onRetour }) {
       {enCours && (
         <div className="barre-envoi">
           <div className="barre-prix">{calcul && calcul.parFamille[famille].montant != null ? <strong>{prixFr(calcul.parFamille[famille].montant)} ₪</strong> : <span>Devis</span>}</div>
-          <button type="button" className="bouton" onClick={enregistrer}>Enregistrer mes enfants</button>
+          <button type="button" className="bouton" onClick={enregistrer}>{famille === 0 ? "Enregistrer les changements" : "Enregistrer mes enfants"}</button>
         </div>
       )}
 

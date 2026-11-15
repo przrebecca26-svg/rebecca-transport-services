@@ -6,7 +6,7 @@ import Champ from "./components/Champ.jsx";
 import Devis from "./components/Devis.jsx";
 import IconeService from "./components/IconeService.jsx";
 import AjoutManuel from "./AjoutManuel.jsx";
-import { calculerTrajet } from "./routing.js";
+import { calculerTrajetSur as calculerTrajet } from "./routing.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { useFermetures } from "./fermetures.js";
 import { JOURS, PERIODES, SENS, MAX_ENFANTS, MODES_PARTAGE, planVide, enfantVide, reglerNombreEnfants, nomEnfant, heureDuJour, manquePlan, calculerPlan, ecolesDuPlan, cleEcole, messagePlan, libellePeriode, planVersAjoutManuel, nbFamillesDe, familleDe, nomsFamilles, enfantsDeLaFamille, reglerEnfantsFamille, reglerNombreFamilles, sousPlanFamille } from "./pricing/ramassagePlanning.js";

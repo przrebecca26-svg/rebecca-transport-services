@@ -4,7 +4,7 @@ import Devis from "./Devis.jsx";
 import IconeService from "./IconeService.jsx";
 import Enfant from "./EnfantRamassage.jsx";
 import { CHAMPS_CLIENT, valeursDepuisProfil } from "../services.js";
-import { calculerTrajet } from "../routing.js";
+import { calculerTrajetSur } from "../routing.js";
 import { TARIFS } from "../pricing/config.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
@@ -49,7 +49,7 @@ export function useRoutes(plan) {
     }
     const ctrl = new AbortController();
     setStatut("chargement");
-    Promise.all(ecoles.map((e) => calculerTrajet(a, e, ctrl.signal)))
+    Promise.all(ecoles.map((e) => calculerTrajetSur(a, e, ctrl.signal)))
       .then((liste) => {
         setRoutes(Object.fromEntries(liste.map((r, k) => [cleEcole(ecoles[k]), { km: r.km, minutes: r.minutes }])));
         setStatut("ok");
@@ -409,7 +409,11 @@ export default function DemandeRamassage({ onRetour, depart }) {
           <p className="note">Décochez ces jours, changez l'heure, ou gardez seulement le trajet libre (par exemple seulement la sortie). Si vous êtes déjà dans la tournée de Rebecca, écrivez-lui sur WhatsApp.</p>
         </section>
       )}
-      <Devis resultat={manque ? null : resultat && resultat.ok ? resultat : null} trajet={statut === "chargement" ? { statut: "chargement" } : null} pretPourCalcul={!manque} manque={manque} />
+      {(() => {
+        // Ce qui manque encore pour le prix de TOUTES les familles (ex. un horaire d'un enfant d'une copine)
+        const autreManque = !manque && calcul && !(resultat && resultat.ok) ? calcul.manque || (resultat && resultat.erreur) || "" : "";
+        return <Devis resultat={manque || autreManque ? null : resultat && resultat.ok ? resultat : null} trajet={statut === "chargement" || (!calcul && !manque) ? { statut: "chargement" } : null} pretPourCalcul={!manque && !autreManque} manque={manque || autreManque} />;
+      })()}
       {partage && mesParts && resultat && resultat.ok && (
         <section className="devis attente" aria-live="polite">
           <p className="note"><strong>Votre part : {mesParts[0].montant != null ? `${prixFr(mesParts[0].montant)} ₪` : "—"}</strong></p>

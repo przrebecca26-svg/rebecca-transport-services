@@ -232,3 +232,23 @@ export async function calculerKm(points, signal) {
   return data.distances.map((ligne) => ligne.map((m) => (typeof m === "number" ? Math.round(m / 100) / 10 : null)));
 }
 
+
+// 15 nov. 2026 : le service gratuit de calcul d'itineraire (OSRM) est parfois indisponible quelques minutes, et le
+// devis de ramassage restait alors sans prix. Ici : 3 essais, puis une estimation a vol d'oiseau (+40 % pour les
+// detours, 30 km/h en ville). Le resultat porte « estime: true » pour le signaler.
+const attendre = (ms, signal) => new Promise((ok, ko) => {
+  const t = setTimeout(ok, ms);
+  if (signal) signal.addEventListener("abort", () => { clearTimeout(t); ko(Object.assign(new Error("annule"), { name: "AbortError" })); }, { once: true });
+});
+export async function calculerTrajetSur(depart, arrivee, signal) {
+  for (let essai = 0; essai < 3; essai++) {
+    try {
+      return await calculerTrajet(depart, arrivee, signal);
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      if (essai < 2) await attendre(1200 * (essai + 1), signal);
+    }
+  }
+  const km = Math.max(0.5, Math.round(distanceKm(depart, arrivee) * 1.4 * 10) / 10);
+  return { km, minutes: Math.max(5, Math.round((km / 30) * 60)), source: "estimation", estime: true };
+}

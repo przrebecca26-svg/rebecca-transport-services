@@ -254,7 +254,10 @@ export default function PartageRamassage({ id, famille, onRetour }) {
           <p className="note">Décochez ces jours, changez l'heure, ou gardez seulement le trajet libre. Si vous êtes déjà dans la tournée de Rebecca, écrivez-lui sur WhatsApp.</p>
         </section>
       )}
-      <Devis resultat={manque ? null : resultat} trajet={statut === "chargement" ? { statut: "chargement" } : null} pretPourCalcul={!manque} manque={manque} />
+      {(() => {
+        const autreManque = !manque && calcul && !resultat ? calcul.manque || (calcul.resultat && calcul.resultat.erreur) || "" : "";
+        return <Devis resultat={manque || autreManque ? null : resultat} trajet={statut === "chargement" || (!calcul && !manque) ? { statut: "chargement" } : null} pretPourCalcul={!manque && !autreManque} manque={manque || autreManque} />;
+      })()}
       {resultat && calcul && (
         <section className="devis attente">
           <p className="note">Devis {libellePeriode(calcul.plan, resultat)}.</p>

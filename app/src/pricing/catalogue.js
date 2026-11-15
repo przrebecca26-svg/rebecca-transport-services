@@ -380,6 +380,7 @@ export const TARIFS_EDITABLES = [
   { chemin: "demenagement.valises", label: "Déménagement : valises ou petits objets", unite: "₪", groupe: "Hatan & Kala et déménagement" },
   { chemin: "demenagement.cartons", label: "Déménagement : plusieurs cartons", unite: "₪", groupe: "Hatan & Kala et déménagement" },
   { chemin: "demenagement.parEtageSansAscenseur", label: "Déménagement : par étage sans ascenseur", unite: "₪", groupe: "Hatan & Kala et déménagement" },
+  { chemin: "ramassage.regroupementMinutes", label: "Ramassage : même école, écart maximum pour un seul trajet", unite: "min", groupe: "Ramassage scolaire" },
   { chemin: "ramassage.reductionSemaine", label: "Ramassage : semaine, 1 enfant", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
   { chemin: "ramassage.reductionSemainePlusieurs", label: "Ramassage : semaine, 2 enfants ou plus", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },
   { chemin: "ramassage.reductionMois", label: "Ramassage : mois, 1 enfant", unite: "%", pourcent: true, groupe: "Ramassage scolaire" },

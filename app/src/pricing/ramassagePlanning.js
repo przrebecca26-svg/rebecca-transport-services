@@ -273,10 +273,21 @@ export function trajetsPlan(plan, t = TARIFS, options = {}) {
         continue;
       }
     }
-    for (const p of prevus) {
+    // 15 nov. 2026 (Rebecca) : meme ecole, meme sens, a 10 minutes d'ecart au plus = UN seul trajet
+    // (ex. sorties a 12h41 et 12h50) ; l'heure du trajet = la premiere du groupe
+    const ecart = (t.ramassage && typeof t.ramassage.regroupementMinutes === "number" ? t.ramassage.regroupementMinutes : 10);
+    const enMin = (h) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+    const ouverts = new Map(); // sens|ecole -> { cle, debut }
+    for (const p of [...prevus].sort((a, b) => (a.heure < b.heure ? -1 : a.heure > b.heure ? 1 : 0))) {
+      const g = `${p.sens}|${p.ecole}`;
+      const o = ouverts.get(g);
+      if (o && enMin(p.heure) - o.debut <= ecart) {
+        trajets.get(o.cle).enfants.push(p.i);
+        continue;
+      }
       const cle = `${jour.cle}|${p.sens}|${p.heure}|${p.ecole}`;
-      if (!trajets.has(cle)) trajets.set(cle, { date: jour.cle, w: jour.w, reel: !!jour.date, sens: p.sens, heure: p.heure, ecole: p.ecole, enfants: [] });
-      trajets.get(cle).enfants.push(p.i);
+      trajets.set(cle, { date: jour.cle, w: jour.w, reel: !!jour.date, sens: p.sens, heure: p.heure, ecole: p.ecole, enfants: [p.i] });
+      ouverts.set(g, { cle, debut: enMin(p.heure) });
     }
   }
   const liste = [...trajets.values()].sort((a, b) => (a.date + a.heure < b.date + b.heure ? -1 : 1));

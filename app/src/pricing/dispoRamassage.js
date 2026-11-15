@@ -75,7 +75,8 @@ export function trajetsIndisponibles(plan, routes, creneaux = TARIFS.calendrier.
   const pris = (w, debut, fin) => (creneaux || []).some((c) => c && c.actif !== false && Array.isArray(c.jours) && c.jours.includes(w) && minutes(c.debut) < fin && minutes(c.fin) > debut);
   const jourUnique = plan.periode === "jour" && /^\d{4}-\d{2}-\d{2}$/.test(plan.date || "") ? new Date(`${plan.date}T12:00:00Z`).getUTCDay() : null;
   // Combien d'enfants de cette demande sortent ensemble (meme ecole, meme heure, meme jour)
-  const ensemble = (w, heure, ecole) => plan.enfants.filter((e, k) => e.sens !== "matin" && (jourUnique !== null ? w === jourUnique : e.jours[w] && e.jours[w].actif) && heureDuJour(e, w) === heure && cleEcole(ecoleDe(plan, k)) === cleEcole(ecole)).length;
+  const ecartGroupe = (t.ramassage && typeof t.ramassage.regroupementMinutes === "number" ? t.ramassage.regroupementMinutes : 10);
+  const ensemble = (w, heure, ecole) => plan.enfants.filter((e, k) => e.sens !== "matin" && (jourUnique !== null ? w === jourUnique : e.jours[w] && e.jours[w].actif) && minutes(heureDuJour(e, w)) != null && Math.abs(minutes(heureDuJour(e, w)) - minutes(heure)) <= ecartGroupe && cleEcole(ecoleDe(plan, k)) === cleEcole(ecole)).length;
   const auPassage = (w, heure, ecole, n) =>
     coord(ecole) &&
     (arrets || []).some((a) => a.jours.includes(w) && Math.abs(minutes(a.heure) - minutes(heure)) <= retard && distance(a.lieu, ecole) <= 250 && a.places + n <= places);

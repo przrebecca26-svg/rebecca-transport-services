@@ -151,3 +151,10 @@ test("message WhatsApp du site : partage de la note", () => {
   const m = S.messageWhatsApp("transport", v, r);
   vrai(m.includes("Partage de la note en parts égales (2 familles)"), m);
 });
+
+test("meme ecole, sorties a 10 min d'ecart au plus = un seul trajet (12h41 et 12h50)", () => {
+  const p = { ...P.planVide(), domicile: A.netanya, ecole: A.netanya2, periode: "jour", date: "2026-11-20", enfants: [enfant({ heureSortie: "12:41" }), enfant({ heureSortie: "12:50" })] };
+  egal(P.calculerPlan(p, ROUTE, T).details.nbTrajets, 1);
+  const loin = { ...p, enfants: [enfant({ heureSortie: "12:30" }), enfant({ heureSortie: "12:50" })] };
+  egal(P.calculerPlan(loin, ROUTE, T).details.nbTrajets, 2);
+});

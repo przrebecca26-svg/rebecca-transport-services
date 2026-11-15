@@ -183,6 +183,8 @@ export const TARIFS = {
   // 2 enfants ou plus (de la meme famille) : semaine -15 %, mois -20 %.
   // « reductions » n'est plus utilise (garde pour les anciens reglages).
   ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionSemaine: 0.1, reductionSemainePlusieurs: 0.15, reductionMois: 0.15, reductionPlusieursEnfants: 0.2,
+    // 15 nov. 2026 : deux enfants de la meme ecole a 10 min d'ecart au plus (meme sens) = un seul trajet
+    regroupementMinutes: 10,
     // Vacances scolaires : la liste du calendrier (TARIFS.calendrier.vacancesScolaires) sert partout (12 nov. 2026)
   },
   // Ma tournee scolaire (12 nov. 2026) : marge de route a chaque deplacement (petit probleme sur la route), temps

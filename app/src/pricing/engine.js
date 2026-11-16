@@ -252,10 +252,18 @@ function calculerTrajet(d, t) {
   attenteEnLigne(lignes, attente, t);
   if (!d.sansSupplementPersonnes) ligneSupplementPersonnes(lignes, d.passagers, "transport", "Passager", t, d.enfants);
 
+  // Bagages du retour a part (16 nov. 2026) : sans bagage au retour, la ligne et le prix restent comme avant
+  const soutesRetour = d.allerRetour && d.bagagesSouteRetour > 0 ? d.bagagesSouteRetour : 0;
   if (d.bagagesSoute > 0) {
     lignes.push({
-      libelle: `Bagages en soute : ${d.bagagesSoute} x ${t.bagages.supplementParSoute} ₪`,
+      libelle: `Bagages en soute${soutesRetour ? " à l'aller" : ""} : ${d.bagagesSoute} x ${t.bagages.supplementParSoute} ₪`,
       montant: d.bagagesSoute * t.bagages.supplementParSoute,
+    });
+  }
+  if (soutesRetour) {
+    lignes.push({
+      libelle: `Bagages en soute au retour : ${soutesRetour} x ${t.bagages.supplementParSoute} ₪`,
+      montant: soutesRetour * t.bagages.supplementParSoute,
     });
   }
 

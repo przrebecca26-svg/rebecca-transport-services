@@ -172,6 +172,22 @@ test("supplement passagers offert : reserve au Devis rapide, le prix revient au 
   vrai(!S.champsVisibles("ramassage", S.valeursInitiales("ramassage"), true).some((c) => /^enfantsF|sansSupplement/.test(c.name)));
 });
 
+test("aller-retour : bagages en soute seulement au retour (16 nov. 2026)", () => {
+  const ar = { direction: "vers", adresse: A.netanya, personnesF1: "3", enfantsF1: "2", typeTrajet: "ar", dateRetour: "2026-11-22", heureRetour: "16:30" };
+  const sans = site("aeroport", ar, TR.ben_gurion);
+  const retour = site("aeroport", { ...ar, bagagesRetour: "3" }, TR.ben_gurion);
+  egal(retour.total, sans.total + 3 * T.bagages.supplementParSoute);
+  vrai(retour.lignes.some((l) => l.libelle === `Bagages en soute au retour : 3 x ${T.bagages.supplementParSoute} ₪`), JSON.stringify(retour.lignes));
+  const deux = site("aeroport", { ...ar, valises: "1", bagagesRetour: "3" }, TR.ben_gurion);
+  egal(deux.total, sans.total + 4 * T.bagages.supplementParSoute);
+  vrai(deux.lignes.some((l) => l.libelle.startsWith("Bagages en soute à l'aller : 1 x")));
+  // aller simple : le champ du retour est cache et ne compte jamais
+  const simple = { direction: "vers", adresse: A.netanya, personnesF1: "2" };
+  egal(site("aeroport", { ...simple, bagagesRetour: "3" }, TR.ben_gurion).total, site("aeroport", simple, TR.ben_gurion).total);
+  vrai(!S.champsVisibles("aeroport", { ...S.valeursInitiales("aeroport") }).some((c) => c.name === "bagagesRetour"));
+  vrai(S.champsVisibles("transport", { ...S.valeursInitiales("transport"), typeTrajet: "ar" }).some((c) => c.name === "bagagesRetour"));
+});
+
 test("message WhatsApp du site : partage de la note", () => {
   const v = { ...S.valeursInitiales("transport"), depart: A.netanya2, arrivee: A.tel_aviv, date: "2026-11-15", heure: "10:00", nom: "Cliente", telephone: "0500000000", nbFamilles: "2", personnesF1: "2", nomF2: "Amis", personnesF2: "2", modePartage: "egal" };
   const r = calculer(S.versDemande("transport", v, TR.tel_aviv, MAINTENANT), T);

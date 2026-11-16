@@ -18,7 +18,7 @@ export const MODES_PARTAGE_PASSAGERS = [
   { v: "egal", l: "Parts égales entre les familles" },
 ];
 
-const reglage = (t) => ({ inclus: 2, ramassage: 0.5, transport: 0.25, maxFamilles: 3, ...((t && t.partage) || {}) });
+const reglage = (t) => ({ inclus: 2, ramassage: 0.5, transport: 0.25, enfantTransport: 0.5, maxFamilles: 3, ...((t && t.partage) || {}) });
 export const maxFamilles = (t = TARIFS) => Math.max(1, Math.min(3, Math.round(reglage(t).maxFamilles) || 3));
 export const personnesIncluses = (t = TARIFS) => Math.max(1, Math.round(reglage(t).inclus) || 2);
 // Pourcentage par personne en plus : « ramassage » ou « transport » (aeroport compris)
@@ -28,6 +28,11 @@ export const supplementParPersonne = (genre, t = TARIFS) => {
 };
 // Combien de « trajets » vaut un trajet avec n personnes : 1 jusqu'a 2 personnes, puis + le supplement par personne
 export const facteurPersonnes = (n, genre, t = TARIFS) => 1 + supplementParPersonne(genre, t) * Math.max(0, (Math.round(n) || 1) - personnesIncluses(t));
+// Transport et aeroport (16 nov. 2026) : part du supplement passager payee par un enfant en plus (0.5 = la moitie)
+export const partEnfant = (t = TARIFS) => {
+  const p = Number(reglage(t).enfantTransport);
+  return Number.isFinite(p) && p >= 0 && p <= 1 ? p : 0.5;
+};
 export const personnesEnPlus = (n, t = TARIFS) => Math.max(0, (Math.round(n) || 1) - personnesIncluses(t));
 
 export const centimes = (x) => Math.round(x * 100) / 100;

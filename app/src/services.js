@@ -146,12 +146,17 @@ const passager = [
 const nbFam = (v) => Math.max(1, Math.min(3, Number(v.nbFamilles) || 1));
 export const partageChamps = (mot) => {
   const pluriel = mot + "s";
+  const de = mot === "enfant" ? "d'" : "de ";
+  // Transport et aeroport (16 nov. 2026) : combien d'enfants parmi les passagers (un enfant en plus paie moins)
+  const enfantsDe = (n) => mot === "enfant" ? [] : [{ name: "enfantsF" + n, label: (v) => (nbFam(v) > 1 ? (n === 1 ? "Dont enfants (votre famille)" : `Dont enfants (famille ${n})`) : "Dont enfants"), type: "nombre", min: 0, max: 6, defaut: "0", si: (v) => nbFam(v) >= n, indice: n === 1 ? "Parmi les passagers. Un enfant en plus paie un supplément réduit." : undefined }];
   return [
     { name: "nbFamilles", label: "Combien de familles partagent ce trajet ?", type: "choix", required: true, defaut: "1", options: [{ v: "1", l: "1 famille" }, { v: "2", l: "2 familles" }, { v: "3", l: "3 familles" }], indice: "Plusieurs familles sur le même trajet : le prix est moins cher pour chacune." },
-    { name: "personnesF1", label: (v) => (nbFam(v) > 1 ? `Nombre d'${pluriel} de votre famille` : `Nombre d'${pluriel}`), type: "nombre", min: 1, max: mot === "enfant" ? 4 : 6, defaut: "1", required: true, indice: `${TARIFS.partage.inclus} ${pluriel} : prix normal du trajet. Chaque ${mot} en plus : petit supplément.` },
+    { name: "personnesF1", label: (v) => (nbFam(v) > 1 ? `Nombre ${de}${pluriel} de votre famille` : `Nombre ${de}${pluriel}`), type: "nombre", min: 1, max: mot === "enfant" ? 4 : 6, defaut: "1", required: true, indice: mot === "enfant" ? `${TARIFS.partage.inclus} ${pluriel} : prix normal du trajet. Chaque ${mot} en plus : petit supplément.` : `Adultes et enfants compris. ${TARIFS.partage.inclus} ${pluriel} : prix normal du trajet. Chaque ${mot} en plus : petit supplément.` },
+    ...enfantsDe(1),
     ...[2, 3].flatMap((n) => [
       { name: "nomF" + n, label: `Nom de la famille ${n}`, type: "text", required: true, si: (v) => nbFam(v) >= n },
-      { name: "personnesF" + n, label: `Nombre d'${pluriel} de la famille ${n}`, type: "nombre", min: 1, max: mot === "enfant" ? 4 : 6, defaut: "1", required: true, si: (v) => nbFam(v) >= n },
+      { name: "personnesF" + n, label: `Nombre ${de}${pluriel} de la famille ${n}`, type: "nombre", min: 1, max: mot === "enfant" ? 4 : 6, defaut: "1", required: true, si: (v) => nbFam(v) >= n },
+      ...enfantsDe(n),
       // Transport et aeroport (15 nov. 2026) : une famille peut avoir son heure (10 min d'ecart max) et son adresse
       ...(mot === "enfant"
         ? []
@@ -160,6 +165,8 @@ export const partageChamps = (mot) => {
             { name: "adresseF" + n, label: (v) => `Adresse de ${v.direction === "depuis" ? "dépose" : "prise en charge"} de la famille ${n} (si différente)`, type: "adresse", si: (v) => nbFam(v) >= n, indice: "Une adresse en plus = un arrêt sur le trajet." },
           ]),
     ]),
+    // Devis rapide seulement (16 nov. 2026, Rebecca : « que je puisse ne pas rajouter de supplément, pour une copine »)
+    ...(mot === "enfant" ? [] : [{ name: "sansSupplementPassagers", label: "Offrir le supplément passagers", type: "case", adminSeul: true, indice: "Coche pour ne compter aucun supplément pour les passagers en plus (une amie, un geste)." }]),
     { name: "modePartage", label: "Comment partager la note ?", type: "choix", required: true, defaut: "enfant", si: (v) => nbFam(v) >= 2, options: [{ v: "enfant", l: mot === "enfant" ? "Par enfant" : "Par personne" }, { v: "egal", l: "Parts égales" }], indice: mot === "enfant" ? "Par enfant : chaque famille paie pour ses enfants. Parts égales : le total divisé par le nombre de familles." : "Par personne : chaque famille paie pour ses passagers. Parts égales : le total divisé par le nombre de familles." },
   ];
 };
@@ -367,7 +374,8 @@ export function valeursDepuisDetails(service, details, garderDate = false) {
   return v;
 }
 
-export const champsVisibles = (service, v) => FORMULAIRES[service].filter((c) => !c.si || c.si(v));
+// adminSeul : champ reserve a Rebecca (Devis rapide), jamais montre ni lu sur le site des clientes
+export const champsVisibles = (service, v, admin = false) => FORMULAIRES[service].filter((c) => (admin || !c.adminSeul) && (!c.si || c.si(v)));
 export const libelle = (c, v) => (typeof c.label === "function" ? c.label(v) : c.label);
 
 /* ---------- Validation : uniquement ce qui est visible ET obligatoire ---------- */
@@ -419,9 +427,12 @@ const zonesArrets = (v, prefixe, nombre) =>
 export function familles(v) {
   const n = Math.max(1, Math.min(3, Number(v.nbFamilles) || 1));
   const compte = (x, defaut = 1) => Math.max(1, Math.min(6, Math.round(Number(x)) || defaut));
+  const enfants = (k, personnes) => Math.max(0, Math.min(personnes, Math.round(Number(v["enfantsF" + k])) || 0));
   const liste = [{ nom: n > 1 ? String(v.nom || "").trim() || "Votre famille" : String(v.nom || "").trim(), personnes: compte(v.personnesF1 !== undefined && v.personnesF1 !== "" ? v.personnesF1 : v.passagers) }];
+  if (enfants(1, liste[0].personnes)) liste[0].enfants = enfants(1, liste[0].personnes);
   for (let k = 2; k <= n; k++) {
     const f = { nom: String(v["nomF" + k] || "").trim() || `Famille ${k}`, personnes: compte(v["personnesF" + k]) };
+    if (enfants(k, f.personnes)) f.enfants = enfants(k, f.personnes);
     if (/^\d{2}:\d{2}$/.test(v["heureF" + k] || "")) f.heure = v["heureF" + k];
     if (v["adresseF" + k] && typeof v["adresseF" + k] === "object" && String(v["adresseF" + k].label || "").trim()) f.adresse = v["adresseF" + k];
     liste.push(f);
@@ -506,7 +517,11 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
     const f = familles(v);
     d.familles = f;
     d.personnes = f.reduce((n, x) => n + x.personnes, 0);
-    if (service !== "ramassage") d.passagers = d.personnes;
+    if (service !== "ramassage") {
+      d.passagers = d.personnes;
+      d.enfants = f.reduce((n, x) => n + (x.enfants || 0), 0);
+      if (v.sansSupplementPassagers) d.sansSupplementPersonnes = true; // case reservee a Rebecca (Devis rapide)
+    }
     else d.nbEnfants = d.personnes;
     d.partageMode = v.modePartage === "egal" ? "egal" : "enfant";
     if (service !== "ramassage") {

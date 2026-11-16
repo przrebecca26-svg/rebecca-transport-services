@@ -4,7 +4,7 @@
 
 import { TARIFS, coutParKm, partRetourAVide } from "./config.js";
 import { verifierDisponibilite, localVersUtc, ajouterJours as ajouterJoursLocal } from "./calendrier.js";
-import { partagerNote, personnesEnPlus, supplementParPersonne } from "./partage.js";
+import { partagerNote, partEnfant, personnesEnPlus, supplementParPersonne } from "./partage.js";
 import { aujourdhui, calculerRemise, etatCode, libelleActivitePromo, libelleRemise, normaliserCode, promoSapplique } from "./promos.js";
 
 /* ---------- Outils ---------- */
@@ -250,7 +250,7 @@ function calculerTrajet(d, t) {
   }
 
   attenteEnLigne(lignes, attente, t);
-  ligneSupplementPersonnes(lignes, d.passagers, "transport", "Passager", t);
+  if (!d.sansSupplementPersonnes) ligneSupplementPersonnes(lignes, d.passagers, "transport", "Passager", t, d.enfants);
 
   if (d.bagagesSoute > 0) {
     lignes.push({
@@ -282,13 +282,25 @@ function calculerTrajet(d, t) {
 /* ---------- Trajet partage : personnes en plus (15 nov. 2026) ---------- */
 
 // Jusqu'a 2 personnes = prix normal du trajet ; chaque personne en plus = supplement en % du trajet (lignes de base).
-function ligneSupplementPersonnes(lignes, personnes, genre, mot, t) {
+// 16 nov. 2026 (transport et aeroport) : les places en plus sont d'abord celles des enfants, qui ne paient qu'une
+// part du supplement (TARIFS.partage.enfantTransport, la moitie). Ex. 1 adulte + 2 enfants = 1 enfant en plus.
+function ligneSupplementPersonnes(lignes, personnes, genre, mot, t, enfants = 0) {
   const enPlus = personnesEnPlus(personnes, t);
   const pct = supplementParPersonne(genre, t);
   if (!enPlus || !pct) return;
   const trajet = lignes.filter((l) => l.base).reduce((n, l) => n + (l.montant || 0), 0);
-  const parPersonne = arrondiSup(trajet * pct, 1);
-  lignes.push({ libelle: `${mot}${enPlus > 1 ? "s" : ""} en plus : ${enPlus} x ${parPersonne} ₪ (${Math.round(pct * 100)} % du trajet)`, montant: enPlus * parPersonne, base: true });
+  const enfantsEnPlus = Math.min(enPlus, Math.max(0, Math.round(Number(enfants)) || 0));
+  const adultesEnPlus = enPlus - enfantsEnPlus;
+  const pourcent = (x) => String(Math.round(x * 1000) / 10).replace(".", ",");
+  if (adultesEnPlus) {
+    const parPersonne = arrondiSup(trajet * pct, 1);
+    lignes.push({ libelle: `${mot}${adultesEnPlus > 1 ? "s" : ""} en plus : ${adultesEnPlus} x ${parPersonne} ₪ (${pourcent(pct)} % du trajet)`, montant: adultesEnPlus * parPersonne, base: true });
+  }
+  const pctEnfant = pct * partEnfant(t);
+  if (enfantsEnPlus && pctEnfant) {
+    const parEnfant = arrondiSup(trajet * pctEnfant, 1);
+    lignes.push({ libelle: `Enfant${enfantsEnPlus > 1 ? "s" : ""} en plus : ${enfantsEnPlus} x ${parEnfant} ₪ (${pourcent(pctEnfant)} % du trajet)`, montant: enfantsEnPlus * parEnfant, base: true });
+  }
 }
 
 // Partage de la note entre 1 a 3 familles : par enfant (ou par personne) ou parts egales. Le total ne change pas.

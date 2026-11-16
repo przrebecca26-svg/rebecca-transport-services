@@ -2,7 +2,7 @@
 // D2a (9 nov. 2026), demande de Rebecca : simuler un devis pour un client qui demande un prix hors du site
 // (Instagram, WhatsApp...), avec EXACTEMENT le meme calculateur que le site, et preparer le message a envoyer.
 
-import { champsAdresses } from "./ajoutManuel.js";
+import { CODE_BIENVENUE, SITE, champsAdresses } from "./ajoutManuel.js";
 import { lignesPartage } from "./partage.js";
 
 // Nom de la ville : dernier morceau de l'adresse, sans le district ni le pays
@@ -80,6 +80,8 @@ export function messageDevisDemande(d) {
   if (d.moyenPaiement) lignes.push(`Paiement prévu : ${String(d.moyenPaiement).toLowerCase()}.`);
   if (d.statut === "acceptee") lignes.push("", "Votre réservation est confirmée ✅");
   else if (d.statut === "en attente") lignes.push("", "N'hésitez pas à me confirmer pour que je réserve ce créneau.");
+  // Cliente sans compte : petite pub pour creer son compte (16 nov. 2026)
+  if (!d.uid) lignes.push("", `🎁 N'oubliez pas de créer votre compte sur ${SITE} avec ce numéro de téléphone : vous recevrez le code ${CODE_BIENVENUE} (-10 ₪ sur votre prochaine réservation) et vous retrouverez toutes vos courses.`);
   lignes.push("", "Rebecca Services", "Votre temps est précieux, je vous aide à en profiter. 🌸");
   return lignes.join("\n");
 }

@@ -40,3 +40,5 @@ test("devis d'une course acceptee : prenom, trajet, date, prix, paiement, confir
 test("prix retenu prioritaire sur l'estimation", () => vrai(R.messageDevisDemande({ ...deborah, prixEstime: 200 }).includes("250 ₪")));
 test("estimation du site si pas de prix retenu", () => vrai(R.messageDevisDemande({ ...deborah, prixFinal: undefined, prixEstime: 230 }).includes("230 ₪")));
 test("sans prix : pas de devis", () => egal(R.messageDevisDemande({ ...deborah, prixFinal: null, prixEstime: null }), null));
+test("cliente sans compte : rappel de creer son compte avec le code bienvenue", () => vrai(R.messageDevisDemande(deborah).includes("créer votre compte") && R.messageDevisDemande(deborah).includes("BIENVENUE10")));
+test("cliente avec compte : pas de rappel", () => vrai(!R.messageDevisDemande({ ...deborah, uid: "x" }).includes("créer votre compte")));

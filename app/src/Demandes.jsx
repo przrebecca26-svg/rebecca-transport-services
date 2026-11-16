@@ -11,6 +11,7 @@ import { rattraperTousLesSuivis, synchroniserSuivi } from "./suiviClient.js";
 import PaiementsCourse from "./PaiementsCourse.jsx";
 import AjoutManuel, { Remerciement } from "./AjoutManuel.jsx";
 import { LIBELLE_ORIGINE, prenomDe } from "./pricing/ajoutManuel.js";
+import { messageDevisDemande } from "./pricing/devisRapide.js";
 import QuiFait from "./components/QuiFait.jsx";
 import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import { attribueA, coursesDeLaPersonne, filtrerPersonne } from "./pricing/quiFait.js";
@@ -318,6 +319,9 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
   const st = STATUTS[d.statut] || { label: d.statut, classe: "attente" };
   const whatsapp = lienWhatsApp(d.telephone, messageClient(d));
   const appel = lienAppel(d.telephone);
+  // Renvoyer le devis (16 nov. 2026) : quel que soit le statut, des qu'un prix existe
+  const texteDevis = messageDevisDemande(d);
+  const devis = texteDevis ? lienWhatsApp(d.telephone, texteDevis) : null;
   const historique = Array.isArray(d.historiquePrix) ? d.historiquePrix : [];
   const cle = cleClient(d);
 
@@ -338,6 +342,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         {d.passager && <p>Passager : {d.passager.nom} · {d.passager.telephone}</p>}
         <div className="tb-actions">
           {whatsapp ? <a className="tb-bouton" href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a> : <span className="tb-note">Numéro non reconnu pour WhatsApp</span>}
+          {devis && <a className="tb-bouton tb-clair" href={devis} target="_blank" rel="noopener noreferrer">Renvoyer le devis</a>}
           {appel && <a className="tb-bouton tb-clair" href={appel}>Appeler</a>}
           {cle && <button className="tb-bouton tb-clair" onClick={() => aller("clients", cle)}>Fiche client</button>}
         </div>

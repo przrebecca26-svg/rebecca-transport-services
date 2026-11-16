@@ -62,6 +62,28 @@ export function messageDevis(service, v, resultat) {
   return lignes.join("\n");
 }
 
+// Renvoyer le devis d'une demande deja enregistree (16 nov. 2026, demande de Rebecca : devis oublie au telephone).
+// d = document de la demande. Prix retenu (supplements compris), sinon estimation du site ; sans prix -> null.
+export function prixDemande(d) {
+  if (!d) return null;
+  if (typeof d.prixFinal === "number") return d.prixFinal;
+  return typeof d.prixEstime === "number" ? d.prixEstime : null;
+}
+
+export function messageDevisDemande(d) {
+  const prix = prixDemande(d);
+  if (prix == null || prix <= 0) return null;
+  const v = { ...(d.details || {}), date: d.date || "", heure: d.heure || "" };
+  const quand = v.date ? ` le ${jourFr(v.date)}${v.heure ? " à " + v.heure.replace(":", "h") : ""}` : "";
+  const prenom = String(d.nom || "").trim().split(/\s+/)[0] || "";
+  const lignes = [prenom ? `Bonjour ${prenom} 😊` : "Bonjour 😊", "", "Voici votre devis :", `Pour ${resume(d.service, v)}${quand}, le tarif est de ${prix} ₪.`];
+  if (d.moyenPaiement) lignes.push(`Paiement prévu : ${String(d.moyenPaiement).toLowerCase()}.`);
+  if (d.statut === "acceptee") lignes.push("", "Votre réservation est confirmée ✅");
+  else if (d.statut === "en attente") lignes.push("", "N'hésitez pas à me confirmer pour que je réserve ce créneau.");
+  lignes.push("", "Rebecca Services", "Votre temps est précieux, je vous aide à en profiter. 🌸");
+  return lignes.join("\n");
+}
+
 // Pre-remplissage de « + Ajouter une course » a partir du devis (meme prix, memes adresses)
 export function versAjoutManuel(service, v, resultat) {
   const adresses = {};

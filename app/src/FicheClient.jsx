@@ -1,13 +1,14 @@
 import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import ChoixAge from "./components/ChoixAge.jsx";
 import { champOperateur } from "./pricing/reverser.js";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { lienAppel, lienWhatsApp } from "./pricing/navigation.js";
 import { bonusRecharge, soldeCredit } from "./pricing/credit.js";
 import { lignesRecharge, validerCorrectionCredit } from "./pricing/clients.js";
 import { LIBELLE_ORIGINE } from "./pricing/ajoutManuel.js";
+import { messageDevisDemande } from "./pricing/devisRapide.js";
 import { Remerciement } from "./AjoutManuel.jsx";
 
 // Fiche client complete (espace prive de Rebecca, Lot B seance B2).
@@ -285,8 +286,12 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
         {fiche.demandes.map((d) => {
           const st = STATUTS[d.statut] || { label: d.statut, classe: "attente" };
           const prix = prixDe(d);
+          // Renvoyer le devis de cette demande (16 nov. 2026), des qu'elle a un prix
+          const texteDevis = messageDevisDemande(d);
+          const devis = texteDevis ? lienWhatsApp(d.telephone || fiche.telephone, texteDevis) : null;
           return (
-            <button key={d.id} className="fc-demande" onClick={() => aller("demandes", d.id)}>
+            <Fragment key={d.id}>
+            <button className="fc-demande" onClick={() => aller("demandes", d.id)}>
               <span className="tb-ligne">
                 <strong><Pastille d={d} /> {d.serviceTitre}</strong>
                 <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
@@ -296,6 +301,8 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
                 <small>{prix != null ? prix + " ₪" : d.surDevis ? "Sur devis" : ""}</small>
               </span>
             </button>
+            {devis && <a className="tb-bouton tb-clair fc-devis" href={devis} target="_blank" rel="noopener noreferrer">Renvoyer le devis</a>}
+            </Fragment>
           );
         })}
       </Bloc>

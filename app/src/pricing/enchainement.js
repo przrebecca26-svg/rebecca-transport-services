@@ -118,6 +118,14 @@ export function voisins(candidate, acceptees, dates) {
   return res;
 }
 
+// Aller-retour avec le retour un autre jour (16 nov. 2026) : le retour apparait aussi a sa date
+// (agenda, « Aujourd'hui »). Renvoie une copie de la demande a la date et l'heure du retour, ou null.
+export function retourAutreJour(d) {
+  const v = (d && d.details) || {};
+  if (v.typeTrajet !== "ar" || !DATE_OK.test(v.dateRetour || "") || v.dateRetour === d.date || !/^\d{2}:\d{2}$/.test(v.heureRetour || "")) return null;
+  return { ...d, date: v.dateRetour, heure: v.heureRetour, serviceTitre: `${d.serviceTitre || ""} (retour)`, estRetour: true };
+}
+
 // Dates concernees par une candidate (jour de la course, jour du retour)
 export function datesDe(d) {
   const v = d.details || {};

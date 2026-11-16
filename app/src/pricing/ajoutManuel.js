@@ -142,6 +142,12 @@ export function detailsCourse(f) {
   }
   if (f.service === "aeroport") det.direction = f.direction === "depuis" ? "depuis" : "vers";
   if (f.service === "courses" && String(f.magasin || "").trim()) det.magasin = String(f.magasin).trim().slice(0, 120);
+  // Aller-retour (16 nov. 2026) : le retour est garde pour l'agenda, meme un autre jour
+  if ((f.service === "aeroport" || f.service === "transport") && f.typeTrajet === "ar" && DATE_OK.test(f.dateRetour || "") && HEURE_OK.test(f.heureRetour || "")) {
+    det.typeTrajet = "ar";
+    det.dateRetour = f.dateRetour;
+    det.heureRetour = f.heureRetour;
+  }
   // Detail du « Devis rapide » (aller-retour, vol, bagages, detail du tarif) : 16 nov. 2026
   if (typeof f.detailDevis === "string" && f.detailDevis.trim()) det.detailDevis = f.detailDevis.trim().slice(0, 3000);
   return det;
@@ -154,6 +160,7 @@ function texteCourse(c, f, det, origine) {
   if (f.service === "aeroport") lignes.push(det.direction === "depuis" ? "Depuis l'aéroport" : "Vers l'aéroport");
   for (const { cle, label } of champsAdresses(f.service)) if (det[cle]) lignes.push(`${label} : ${det[cle].label}`);
   if (det.magasin) lignes.push("Magasin : " + det.magasin);
+  if (det.typeTrajet === "ar") lignes.push(`Retour : ${det.dateRetour} à ${det.heureRetour}`);
   const notes = String(f.notes || "").trim();
   if (notes) lignes.push("", notes);
   return lignes.join("\n").slice(0, 5000);

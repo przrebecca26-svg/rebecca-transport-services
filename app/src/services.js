@@ -542,7 +542,7 @@ export const aConfirmerClient = (devis) => ((devis && devis.aConfirmer) || []).f
 
 /* ---------- Message WhatsApp (resume complet de la demande) ---------- */
 
-function texteValeur(c, val) {
+export function texteValeur(c, val) {
   if (c.type === "adresse") return val && val.label ? val.label : "";
   if (c.type === "case") return val ? "Oui" : "";
   if (c.type === "choix" || c.type === "select") {

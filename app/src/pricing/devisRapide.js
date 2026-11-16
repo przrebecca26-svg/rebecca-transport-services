@@ -4,6 +4,7 @@
 
 import { CODE_BIENVENUE, SITE, champsAdresses } from "./ajoutManuel.js";
 import { lignesPartage } from "./partage.js";
+import { CHAMPS_CLIENT, champsVisibles, libelle, texteValeur } from "../services.js";
 
 // Nom de la ville : dernier morceau de l'adresse, sans le district ni le pays
 // (ex. « Raanana, נפת פתח תקווה » -> Raanana ; D2b, 9 nov. 2026)
@@ -44,6 +45,38 @@ export function resume(service, v) {
   }
 }
 
+// Detail complet du devis (16 nov. 2026, demande de Rebecca : aller-retour, vol, bagages... et detail du tarif).
+// Lignes « Libellé : valeur » de tout ce qui a ete rempli (sauf client, date et heure deja dans la phrase),
+// puis le detail du prix. Jamais les alertes internes.
+const SANS_DETAIL = new Set(CHAMPS_CLIENT.map((c) => c.name).concat(["date", "heure", "promoActif", "codePromo"]));
+export function lignesDetail(service, v, resultat) {
+  const lignes = [];
+  let champs = [];
+  try {
+    champs = champsVisibles(service, v);
+  } catch {
+    champs = [];
+  }
+  for (const c of champs) {
+    if (SANS_DETAIL.has(c.name)) continue;
+    const t = texteValeur(c, v[c.name]);
+    if (t === "" || t === "0" || (c.type === "texte-long" && !t.trim())) continue;
+    // Deja dit dans la phrase du devis, ou sans interet pour la cliente
+    if (c.name === "direction" || (c.name === "nbFamilles" && String(v[c.name]) === "1") || ["Je ne sais pas", "Aucune", "Aller simple"].includes(t)) continue;
+    lignes.push(`• ${String(libelle(c, v)).replace("d'passagers", "de passagers")} : ${t}`);
+  }
+  if (resultat && resultat.ok && !resultat.devis) {
+    const prix = (resultat.lignes || []).filter((l) => l && l.libelle && typeof l.montant === "number");
+    const separe = (resultat.separe || []).filter((l) => l && l.libelle && typeof l.montant === "number");
+    if (prix.length || separe.length) {
+      lignes.push("", "Détail du tarif :");
+      for (const l of prix) lignes.push(`• ${l.libelle} : ${l.montant} ₪`);
+      for (const l of separe) lignes.push(`• ${l.libelle} (hors prestation) : ${l.montant} ₪`);
+    }
+  }
+  return lignes;
+}
+
 // Message pret a envoyer (Instagram, WhatsApp). resultat = sortie du calculateur.
 // Le prix n'est donne que s'il est calcule ; sinon « sur devis ». Jamais les alertes internes (rentabilite).
 export function messageDevis(service, v, resultat) {
@@ -51,6 +84,8 @@ export function messageDevis(service, v, resultat) {
   const lignes = ["Bonjour 😊", ""];
   if (resultat && resultat.ok && !resultat.bloque && !resultat.devis && resultat.total != null) {
     lignes.push(`Pour ${resume(service, v)}${quand}, le tarif est de ${resultat.total} ₪.`);
+    const detail = lignesDetail(service, v, resultat);
+    if (detail.length) lignes.push("", ...detail);
     const aConfirmer = (resultat.aConfirmer || []).filter((a) => !/^Rentabilité/.test(a));
     if (aConfirmer.length) lignes.push("", ...aConfirmer);
     const partage = resultat.details && resultat.details.partage;
@@ -77,6 +112,8 @@ export function messageDevisDemande(d) {
   const quand = v.date ? ` le ${jourFr(v.date)}${v.heure ? " à " + v.heure.replace(":", "h") : ""}` : "";
   const prenom = String(d.nom || "").trim().split(/\s+/)[0] || "";
   const lignes = [prenom ? `Bonjour ${prenom} 😊` : "Bonjour 😊", "", "Voici votre devis :", `Pour ${resume(d.service, v)}${quand}, le tarif est de ${prix} ₪.`];
+  const detail = d.details && typeof d.details.detailDevis === "string" ? d.details.detailDevis.trim() : "";
+  if (detail) lignes.push("", detail, "");
   if (d.moyenPaiement) lignes.push(`Paiement prévu : ${String(d.moyenPaiement).toLowerCase()}.`);
   if (d.statut === "acceptee") lignes.push("", "Votre réservation est confirmée ✅");
   else if (d.statut === "en attente") lignes.push("", "N'hésitez pas à me confirmer pour que je réserve ce créneau.");
@@ -98,5 +135,7 @@ export function versAjoutManuel(service, v, resultat) {
     direction: v.direction === "depuis" ? "depuis" : "vers",
     magasin: v.magasin || "",
     prix: resultat && resultat.ok && !resultat.devis && resultat.total != null ? String(resultat.total) : "",
+    // Detail du devis garde avec la course, pour « Renvoyer le devis » (16 nov. 2026)
+    detailDevis: lignesDetail(service, v, resultat).join("\n").slice(0, 3000),
   };
 }

@@ -142,6 +142,8 @@ export function detailsCourse(f) {
   }
   if (f.service === "aeroport") det.direction = f.direction === "depuis" ? "depuis" : "vers";
   if (f.service === "courses" && String(f.magasin || "").trim()) det.magasin = String(f.magasin).trim().slice(0, 120);
+  // Detail du « Devis rapide » (aller-retour, vol, bagages, detail du tarif) : 16 nov. 2026
+  if (typeof f.detailDevis === "string" && f.detailDevis.trim()) det.detailDevis = f.detailDevis.trim().slice(0, 3000);
   return det;
 }
 

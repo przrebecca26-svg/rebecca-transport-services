@@ -31,6 +31,8 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
   const [trajet, setTrajet] = useState(null);
   const [copie, setCopie] = useState("");
   const [tel, setTel] = useState(course ? course.telephone || "" : "");
+  // Client du devis (16 nov. 2026) : prenom, nom, e-mail -> message personnalise et fiche pre-remplie
+  const [cli, setCli] = useState({ prenom: "", nom: "", email: "" });
   const prixCourse = course ? (typeof course.prixFinal === "number" ? course.prixFinal : typeof course.prixEstime === "number" ? course.prixEstime : null) : null;
   const [prixConvenu, setPrixConvenu] = useState(prixCourse != null ? String(prixCourse) : "");
   const [msgModif, setMsgModif] = useState("");
@@ -80,7 +82,7 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
   const prixNombre = Number(String(prixConvenu).replace(",", "."));
   const prixOk = String(prixConvenu).trim() !== "" && Number.isFinite(prixNombre) && prixNombre > 0 && prixNombre <= 20000;
   const maj = course && pret && prixOk ? majDepuisDevis(course, v, resultat, Math.round(prixNombre * 100) / 100, distanceOk ? trajet : null) : null;
-  const message = course ? (maj ? messageDevisDemande({ ...course, ...maj }) || "" : "") : messageDevis(service, v, resultat);
+  const message = course ? (maj ? messageDevisDemande({ ...course, ...maj }) || "" : "") : messageDevis(service, v, resultat, cli.prenom);
   const enregistrerModif = async () => {
     setMsgModif("");
     if (!pret) return setMsgModif(manque || "Complète le formulaire.");
@@ -104,6 +106,7 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
         mode="course"
         demandes={demandes}
         prerempli={versAjoutManuel(service, v, resultat)}
+        clientPrerempli={{ prenom: cli.prenom.trim(), nom: cli.nom.trim(), telephone: tel.trim(), email: cli.email.trim() }}
         onFermer={() => setAjout(false)}
         onOuvrirDemande={(id) => aller("demandes", id)}
         onOuvrirFiche={(id) => aller("clients", id)}
@@ -152,10 +155,18 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
       {pret && resultat && message && (
         <section className="tdb-bloc">
           <h2>{course ? "Devis à renvoyer" : "Message pour le client"}</h2>
+          {!course && (
+            <div className="dr-client">
+              <p className="tdb-note">Client (facultatif) : son prénom s'affiche dans le message, et tout est repris dans sa fiche quand tu enregistres la course.</p>
+              <input className="dr-tel" placeholder="Prénom" autoComplete="off" value={cli.prenom} onChange={(e) => setCli({ ...cli, prenom: e.target.value })} aria-label="Prénom du client" />
+              <input className="dr-tel" placeholder="Nom" autoComplete="off" value={cli.nom} onChange={(e) => setCli({ ...cli, nom: e.target.value })} aria-label="Nom du client" />
+              <input className="dr-tel" type="email" placeholder="E-mail" autoComplete="off" value={cli.email} onChange={(e) => setCli({ ...cli, email: e.target.value })} aria-label="E-mail du client" />
+            </div>
+          )}
           <textarea className="dr-message" readOnly value={message} rows={9} />
           <div className="dr-actions">
             <button className="tdb-bouton" onClick={copier}>Copier le message</button>
-            <input className="dr-tel" type="tel" inputMode="tel" placeholder="Numéro WhatsApp du client" value={tel} onChange={(e) => setTel(e.target.value)} />
+            <input className="dr-tel" type="tel" inputMode="tel" placeholder="Téléphone du client (WhatsApp)" value={tel} onChange={(e) => setTel(e.target.value)} />
             <a className={"tdb-bouton dr-lien" + (tel.trim().length >= 9 ? "" : " inactif")} href={tel.trim().length >= 9 ? lienWhatsApp(tel, message) : undefined} target="_blank" rel="noopener noreferrer">Envoyer sur WhatsApp</a>
             {calcule && !course && <button className="dr-secondaire" onClick={() => setAjout(true)}>Le client accepte : enregistrer la course</button>}
           </div>

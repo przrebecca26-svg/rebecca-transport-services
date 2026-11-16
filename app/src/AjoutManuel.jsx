@@ -90,13 +90,14 @@ function Remerciement({ prenom, telephone, email }) {
 export { Remerciement };
 
 // D2a (9 nov. 2026) : prerempli = course venant du « Devis rapide » (service, date, heure, adresses, prix)
-export default function AjoutManuel({ mode = "course", demandes = [], marge = MARGE_DEFAUT, cleInitiale = null, prerempli = null, onFermer, onOuvrirDemande, onOuvrirFiche }) {
+export default function AjoutManuel({ mode = "course", demandes = [], marge = MARGE_DEFAUT, cleInitiale = null, prerempli = null, clientPrerempli = null, onFermer, onOuvrirDemande, onOuvrirFiche }) {
   const { moi } = useEquipeContexte(); // J5 : course ajoutee par un coequipier = sa course, son encaissement
   const [base, setBase] = useState({});
   const [lectureImpossible, setLectureImpossible] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [choisi, setChoisi] = useState(null); // fiche existante choisie
-  const [client, setClient] = useState(CLIENT_VIDE);
+  // 16 nov. 2026 : client deja saisi dans le Devis rapide (prenom, nom, telephone, e-mail)
+  const [client, setClient] = useState(() => ({ ...CLIENT_VIDE, ...Object.fromEntries(Object.entries(clientPrerempli || {}).filter(([, x]) => x)) }));
   const [origine, setOrigine] = useState("");
   const jour = aujourdhui();
   const [f, setF] = useState(() => ({ service: "livraison", date: jour, heure: heureRonde(), adresses: {}, direction: "vers", magasin: "", prix: "", etat: "afaire", recu: "", moyen: "", pourboireConfirme: true, notes: "", ...(prerempli || {}) }));

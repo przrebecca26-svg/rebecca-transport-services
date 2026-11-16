@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, deleteField, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, deleteField, doc, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Bilan from "./Bilan.jsx";
@@ -12,6 +12,7 @@ import { useEquipeContexte } from "./equipeContexte.jsx";
 import MonMoisVue from "./MonMoisVue.jsx";
 import EssenceVue, { enregistrerEssence, useEssence } from "./EssenceVue.jsx";
 import { kmWolt } from "./pricing/essence.js";
+import { repartirStatsWolt } from "./pricing/repartitionWolt.js";
 import "./paiements.css";
 import "./finances.css";
 
@@ -267,14 +268,47 @@ function AutresRevenus({ lignes: toutes, moi }) {
   const [enCours, setEnCours] = useState(false);
   const annee = Number(aujourdhui().slice(0, 4));
   const [voirTout, setVoirTout] = useState(false);
+  // 16 nov. 2026 : recopier « Vos statistiques » de Wolt et partager livraisons, pourboires et km sur les lignes saisies
+  const [stats, setStats] = useState(null); // null = ferme ; { debut, fin, livraisons, pourboires, km }
+  const [statsFait, setStatsFait] = useState("");
 
   const triees = [...lignes].sort((a, b) => String(b.debut).localeCompare(String(a.debut)));
   const visibles = voirTout ? triees : triees.filter((l) => String(l.debut).startsWith(String(annee)));
   const totalAnnee = triees.filter((l) => String(l.debut).startsWith(String(annee))).reduce((s, l) => s + (Number(l.revenu) || 0), 0);
 
+  const lignesWolt = triees.filter((l) => /wolt/i.test(l.source || "Wolt"));
+  const apercu = stats && (stats.livraisons || stats.pourboires || stats.km) ? repartirStatsWolt(lignes, stats) : null;
+  const ouvrirStats = () => {
+    fermer();
+    setStatsFait("");
+    setStats({ debut: lignesWolt.length ? lignesWolt[lignesWolt.length - 1].debut : aujourdhui(), fin: aujourdhui(), livraisons: "", pourboires: "", km: "" });
+  };
+  const appliquerStats = async () => {
+    const r = repartirStatsWolt(lignes, stats);
+    if (r.erreur) {
+      setErreur(r.erreur);
+      return;
+    }
+    setEnCours(true);
+    setErreur("");
+    try {
+      const lot = writeBatch(db);
+      for (const x of r.lignes) lot.update(doc(db, "autresRevenus", x.id), { livraisons: x.livraisons, revenu: x.revenu, pourboire: x.pourboire, majLe: serverTimestamp() });
+      await lot.commit();
+      if (avecKm && r.km) await enregistrerEssence(r.lignes.reduce((e, x) => kmWolt(e, x.id, x.km), essence));
+      setStats(null);
+      setStatsFait(`C'est fait : ${r.lignes.length} ligne${r.lignes.length > 1 ? "s" : ""} mise${r.lignes.length > 1 ? "s" : ""} à jour.`);
+    } catch {
+      setErreur("Mise à jour impossible. Vérifie la connexion puis réessaie.");
+    }
+    setEnCours(false);
+  };
+
   const ouvrir = (l) => {
     setErreur("");
     setConfirmerSuppression(false);
+    setStats(null);
+    setStatsFait("");
     if (l) {
       setEdition(l.id);
       setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "", km: essence && essence.woltKm[l.id] ? String(essence.woltKm[l.id]) : "" });
@@ -337,8 +371,61 @@ function AutresRevenus({ lignes: toutes, moi }) {
           <strong>{shekels(totalAnnee)}</strong>
         </p>
         <p className="tb-note">Saisis ici ce que tu gagnes en dehors de Rebecca Services (Wolt…), par jour, par semaine ou par mois. Ces revenus comptent dans le plafond de l'osek patur ; les pourboires restent à part.</p>
-        {!form && <button className="tb-bouton" onClick={() => ouvrir(null)}>+ Ajouter un revenu</button>}
+        {!form && !stats && <button className="tb-bouton" onClick={() => ouvrir(null)}>+ Ajouter un revenu</button>}
+        {!form && !stats && lignesWolt.length > 0 && <button className="tb-bouton tb-clair" onClick={ouvrirStats}>Compléter avec « Vos statistiques » de Wolt</button>}
+        {statsFait && <p className="tb-note" role="status">{statsFait}</p>}
       </div>
+
+      {stats && (
+        <div className="tb-bloc pm-form">
+          <h4>Compléter avec « Vos statistiques » de Wolt</h4>
+          <p className="tb-note">Dans l'appli Wolt, ouvre « Vos statistiques », onglet « Personnalisé », puis recopie ici les dates et les chiffres. Ils sont partagés entre tes lignes Wolt de la période, selon le montant de chacune. Le montant reçu de chaque ligne ne change pas : les pourboires en sont séparés.</p>
+          <div className="fi-deux">
+            <label className="pm-champ">
+              Du
+              <input type="date" value={stats.debut} onChange={(e) => setStats({ ...stats, debut: e.target.value })} />
+            </label>
+            <label className="pm-champ">
+              Au
+              <input type="date" value={stats.fin} onChange={(e) => setStats({ ...stats, fin: e.target.value })} />
+            </label>
+          </div>
+          <label className="pm-champ">
+            Livraisons terminées
+            <input inputMode="numeric" value={stats.livraisons} onChange={(e) => setStats({ ...stats, livraisons: e.target.value.replace(/[^0-9]/g, "") })} placeholder="0" />
+          </label>
+          <label className="pm-champ">
+            Pourboires (₪)
+            <input inputMode="decimal" value={stats.pourboires} onChange={(e) => setStats({ ...stats, pourboires: e.target.value.replace(/[^0-9.,]/g, "") })} placeholder="0" />
+          </label>
+          {avecKm && (
+            <label className="pm-champ">
+              Distance pendant et hors tâches (km)
+              <input inputMode="decimal" value={stats.km} onChange={(e) => setStats({ ...stats, km: e.target.value.replace(/[^0-9.,]/g, "") })} placeholder="0" />
+            </label>
+          )}
+          {apercu && apercu.erreur && <p className="tb-note" role="status">{apercu.erreur}</p>}
+          {apercu && !apercu.erreur && (
+            <>
+              <p className="tb-note">
+                <strong>{apercu.lignes.length} ligne{apercu.lignes.length > 1 ? "s" : ""}</strong> · reçu saisi {shekels(apercu.totalRecu)}
+                {apercu.pourboires ? ` · dont pourboires ${shekels(apercu.pourboires)}` : ""}
+              </p>
+              {apercu.lignes.map((x) => (
+                <p key={x.id} className="tb-note">
+                  {jourCourt(x.debut)} : {x.livraisons} livraison{x.livraisons > 1 ? "s" : ""} · revenu {shekels(x.revenu)} · pourboires {shekels(x.pourboire)}
+                  {x.km != null ? ` · ${x.km.toLocaleString("fr-FR")} km` : ""}
+                </p>
+              ))}
+            </>
+          )}
+          <div className="tb-actions">
+            <button className="tb-bouton" disabled={enCours || !apercu || !!apercu.erreur} onClick={appliquerStats}>Mettre à jour ces lignes</button>
+            <button className="tb-bouton tb-clair" disabled={enCours} onClick={() => { setStats(null); setErreur(""); }}>Annuler</button>
+          </div>
+          {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}
+        </div>
+      )}
 
       {form && (
         <div className="tb-bloc pm-form">

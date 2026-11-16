@@ -12,7 +12,7 @@ import { calculerTrajet } from "./routing.js";
 import { calculer } from "./pricing/engine.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { useFermetures } from "./fermetures.js";
-import { messageDevis, versAjoutManuel } from "./pricing/devisRapide.js";
+import { majDepuisDevis, messageDevis, messageDevisDemande, valeursDepuisDemande, versAjoutManuel } from "./pricing/devisRapide.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
 
@@ -23,12 +23,17 @@ import "./devis-rapide.css";
 const CHAMPS_EXCLUS = new Set(CHAMPS_CLIENT.map((c) => c.name).concat(["promoActif", "codePromo"]));
 const adresseSaisie = (a) => !!(a && typeof a === "object" && String(a.label || "").trim());
 
-function Formulaire({ service, retour, aller }) {
+// course (16 nov. 2026) : « Modifier le devis » d'une course deja enregistree -> formulaire pre-rempli,
+// prix convenu modifiable, et « Enregistrer les modifications » met la course a jour (agenda, devis, suivi).
+function Formulaire({ service, retour, aller, course = null, onEnregistrer = null, enCours = false }) {
   const infos = SERVICES.find((s) => s.id === service);
-  const [v, setV] = useState(() => valeursInitiales(service));
+  const [v, setV] = useState(() => (course ? valeursDepuisDemande(course) : valeursInitiales(service)));
   const [trajet, setTrajet] = useState(null);
   const [copie, setCopie] = useState("");
-  const [tel, setTel] = useState("");
+  const [tel, setTel] = useState(course ? course.telephone || "" : "");
+  const prixCourse = course ? (typeof course.prixFinal === "number" ? course.prixFinal : typeof course.prixEstime === "number" ? course.prixEstime : null) : null;
+  const [prixConvenu, setPrixConvenu] = useState(prixCourse != null ? String(prixCourse) : "");
+  const [msgModif, setMsgModif] = useState("");
   const [ajout, setAjout] = useState(false);
   const [demandes, setDemandes] = useState([]);
   const reglages = useFermetures();
@@ -72,7 +77,16 @@ function Formulaire({ service, retour, aller }) {
   }, [service, v, trajet, pret, distanceOk, reglages]);
 
   const calcule = resultat && resultat.ok && !resultat.bloque;
-  const message = messageDevis(service, v, resultat);
+  const prixNombre = Number(String(prixConvenu).replace(",", "."));
+  const prixOk = String(prixConvenu).trim() !== "" && Number.isFinite(prixNombre) && prixNombre > 0 && prixNombre <= 20000;
+  const maj = course && pret && prixOk ? majDepuisDevis(course, v, resultat, Math.round(prixNombre * 100) / 100, distanceOk ? trajet : null) : null;
+  const message = course ? (maj ? messageDevisDemande({ ...course, ...maj }) || "" : "") : messageDevis(service, v, resultat);
+  const enregistrerModif = async () => {
+    setMsgModif("");
+    if (!pret) return setMsgModif(manque || "Complète le formulaire.");
+    if (!prixOk) return setMsgModif("Indique le prix convenu, en shekels.");
+    if (await onEnregistrer(maj)) setMsgModif("Course mise à jour ✅ (agenda, devis et fiche client).");
+  };
   const renta = resultat && resultat.details && resultat.details.rentabilite;
 
   const copier = async () => {
@@ -99,12 +113,12 @@ function Formulaire({ service, retour, aller }) {
 
   return (
     <div className="tdb devis-rapide">
-      <button className="tdb-retour" onClick={retour}>← Tous les services</button>
+      <button className="tdb-retour" onClick={retour}>{course ? "← Retour à la course" : "← Tous les services"}</button>
       <header className="dr-titre">
         <IconeService id={service} taille={40} />
-        <h1>{infos.titre}</h1>
+        <h1>{course ? `Modifier le devis · ${course.nom}` : infos.titre}</h1>
       </header>
-      <p className="tdb-note">Même calcul que sur le site. Rien n'est enregistré tant que tu ne cliques pas sur « Enregistrer la course ».</p>
+      <p className="tdb-note">{course ? "Corrige tout ce qu'il faut (vol, retour, bagages, adresses, prix…). Rien ne change tant que tu ne cliques pas sur « Enregistrer les modifications »." : "Même calcul que sur le site. Rien n'est enregistré tant que tu ne cliques pas sur « Enregistrer la course »."}</p>
       <div className="formulaire dr-formulaire">
         <div className="bloc">
           {visibles.map((c) => (
@@ -118,21 +132,43 @@ function Formulaire({ service, retour, aller }) {
         <p className="tdb-note">Pour toi seulement : gain net estimé {renta.gainNet} ₪ ({renta.gainNetHeure} ₪ / heure, retour à vide compris).</p>
       )}
 
-      {pret && resultat && (
+      {course && (
         <section className="tdb-bloc">
-          <h2>Message pour le client</h2>
+          <h2>Prix convenu</h2>
+          <div className="dr-actions">
+            <input className="dr-tel" inputMode="decimal" value={prixConvenu} onChange={(e) => setPrixConvenu(e.target.value)} placeholder="Prix en ₪" aria-label="Prix convenu en shekels" />
+            {calcule && resultat.total != null && String(resultat.total) !== String(prixConvenu).trim() && (
+              <button className="dr-secondaire" onClick={() => setPrixConvenu(String(resultat.total))}>Prendre le prix calculé ({resultat.total} ₪)</button>
+            )}
+          </div>
+          <div className="dr-actions">
+            <button className="tdb-bouton" disabled={enCours} onClick={enregistrerModif}>Enregistrer les modifications</button>
+            <button className="dr-secondaire" onClick={retour}>Annuler</button>
+          </div>
+          {msgModif && <p className="tdb-note" role="status">{msgModif}</p>}
+        </section>
+      )}
+
+      {pret && resultat && message && (
+        <section className="tdb-bloc">
+          <h2>{course ? "Devis à renvoyer" : "Message pour le client"}</h2>
           <textarea className="dr-message" readOnly value={message} rows={9} />
           <div className="dr-actions">
             <button className="tdb-bouton" onClick={copier}>Copier le message</button>
             <input className="dr-tel" type="tel" inputMode="tel" placeholder="Numéro WhatsApp du client" value={tel} onChange={(e) => setTel(e.target.value)} />
             <a className={"tdb-bouton dr-lien" + (tel.trim().length >= 9 ? "" : " inactif")} href={tel.trim().length >= 9 ? lienWhatsApp(tel, message) : undefined} target="_blank" rel="noopener noreferrer">Envoyer sur WhatsApp</a>
-            {calcule && <button className="dr-secondaire" onClick={() => setAjout(true)}>Le client accepte : enregistrer la course</button>}
+            {calcule && !course && <button className="dr-secondaire" onClick={() => setAjout(true)}>Le client accepte : enregistrer la course</button>}
           </div>
           {copie && <p className="tdb-note" role="status">{copie}</p>}
         </section>
       )}
     </div>
   );
+}
+
+// « Modifier le devis » depuis la page d'une course (16 nov. 2026)
+export function ModifierDevis({ d, onEnregistrer, onFermer, enCours, aller }) {
+  return <Formulaire service={d.service} course={d} retour={onFermer} aller={aller} onEnregistrer={onEnregistrer} enCours={enCours} />;
 }
 
 export default function SimulateurDevis({ aller }) {

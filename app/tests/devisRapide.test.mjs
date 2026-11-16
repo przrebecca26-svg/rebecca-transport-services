@@ -26,7 +26,7 @@ test("sur devis : pas de prix invente", () => {
 });
 test("aeroport depuis", () => egal(R.resume("aeroport", { direction: "depuis", adresse: A.netanya }), "votre transfert depuis l'aéroport Ben Gourion jusqu'à Netanya"));
 test("transport aller-retour", () => egal(R.resume("transport", { depart: A.netanya, arrivee: A.tel_aviv, typeTrajet: "ar" }), "votre trajet de Netanya à Tel Aviv (aller-retour)"));
-test("pre-remplissage de l'ajout manuel", () => egal((({ detailDevis, ...x }) => x)(R.versAjoutManuel("livraison", v, res)), { service: "livraison", date: "2026-11-10", heure: "16:00", adresses: { recuperation: RAANANA, livraison: A.netanya }, direction: "vers", magasin: "", typeTrajet: "simple", dateRetour: "", heureRetour: "", prix: "140" }));
+test("pre-remplissage de l'ajout manuel", () => egal((({ detailDevis, formulaire, ...x }) => x)(R.versAjoutManuel("livraison", v, res)), { service: "livraison", date: "2026-11-10", heure: "16:00", adresses: { recuperation: RAANANA, livraison: A.netanya }, direction: "vers", magasin: "", typeTrajet: "simple", dateRetour: "", heureRetour: "", prix: "140" }));
 test("pre-remplissage sans prix si sur devis", () => egal(R.versAjoutManuel("demenagement", {}, { ok: true, devis: true }).prix, ""));
 test("ville sans le district en hebreu (cas du 9 nov.)", () => egal(R.resume("livraison", { recuperation: { label: "Raanana, נפת פתח תקווה" }, livraison: { label: "9 דוד רזניק, Neot Shaked, Netanya" } }), "récupérer votre colis à Raanana et le livrer à Netanya"));
 test("ville sans le pays", () => egal(R.resume("transport", { depart: { label: "Herzliya, מחוז תל אביב, Israel" }, arrivee: { label: "Netanya" } }), "votre trajet de Herzliya à Netanya"));
@@ -74,4 +74,28 @@ test("aller simple ou retour le meme jour : rien en plus", () => {
 test("devis renvoye : retour indique", () => {
   const m = R.messageDevisDemande({ ...deborah, details: { ...deborah.details, typeTrajet: "ar", dateRetour: "2026-12-29", heureRetour: "00:45" } });
   vrai(m.includes("(aller-retour)") && m.includes("Retour : le mardi 29 décembre à 00h45"), m);
+});
+
+section("Modifier le devis d'une course (16 nov. 2026)");
+test("formulaire garde avec la course (vol, bagages, retour)", () => {
+  const f = R.versAjoutManuel("aeroport", vAR, resAR);
+  const det = M.detailsCourse({ ...f, adresses: f.adresses });
+  egal([det.numeroVol, det.valises, det.typeTrajet, det.dateRetour], ["LY001", "2", "ar", "2026-12-28"]);
+});
+test("le formulaire se pre-remplit depuis la course", () => {
+  const d = { service: "aeroport", date: "2026-12-21", heure: "05:00", details: { adresse: A.netanya, direction: "vers", numeroVol: "LY001", typeTrajet: "ar", dateRetour: "2026-12-29", heureRetour: "00:45" } };
+  const v2 = R.valeursDepuisDemande(d);
+  egal([v2.date, v2.heure, v2.numeroVol, v2.typeTrajet, v2.dateRetour, v2.adresse.label], ["2026-12-21", "05:00", "LY001", "ar", "2026-12-29", A.netanya.label]);
+});
+test("mise a jour : nouvelles valeurs, prix convenu, detail du tarif seulement si meme prix", () => {
+  const d = { service: "aeroport", date: "2026-12-21", heure: "05:00", prixFinal: 600, details: { adresse: A.netanya, direction: "vers", partageId: "x" } };
+  const maj = R.majDepuisDevis(d, vAR, resAR, 600, { km: 40, minutes: 35 });
+  vrai(maj.prixFinal === 600 && maj.details.numeroVol === "LY001" && maj.details.dateRetour === "2026-12-28" && maj.details.partageId === "x" && maj.kmEstime === 40);
+  vrai(!maj.details.detailDevis.includes("Détail du tarif"), maj.details.detailDevis);
+  vrai(R.majDepuisDevis(d, vAR, resAR, resAR.total).details.detailDevis.includes("Détail du tarif"));
+});
+test("passer en aller simple efface le retour", () => {
+  const d = { service: "aeroport", details: { typeTrajet: "ar", dateRetour: "2026-12-29", heureRetour: "00:45" } };
+  const maj = R.majDepuisDevis(d, { ...vAR, typeTrajet: "simple" }, resAR, 300);
+  vrai(maj.details.typeTrajet === "simple" && !maj.details.dateRetour && !maj.details.heureRetour);
 });

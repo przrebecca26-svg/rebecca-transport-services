@@ -135,7 +135,8 @@ const adresseNette = (a) => {
 
 // Details de la course (memes cles que le site)
 export function detailsCourse(f) {
-  const det = {};
+  // Formulaire du « Devis rapide » (vol, bagages, aller-retour...) garde avec la course (16 nov. 2026)
+  const det = f.formulaire && typeof f.formulaire === "object" ? { ...f.formulaire } : {};
   for (const { cle } of champsAdresses(f.service)) {
     const a = adresseNette(f.adresses && f.adresses[cle]);
     if (a) det[cle] = a;

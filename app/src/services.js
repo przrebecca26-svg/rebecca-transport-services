@@ -132,6 +132,9 @@ const retour = [
   { name: "dateRetour", label: "Date du retour", type: "date", required: true, si: (v) => v.typeTrajet === "ar" },
   { name: "heureRetour", label: "Heure du retour", type: "time", required: true, si: (v) => v.typeTrajet === "ar" },
   // 16 nov. 2026 (Rebecca : « a l'aller que des bagages cabine, au retour des bagages en soute ») : bagages du retour a part
+  // Aeroport (17 nov. 2026) : le vol du retour, pour le suivre aussi dans la journee
+  { name: "numeroVolRetour", label: "Numéro de vol du retour", type: "text", placeholder: "ex. LY002", si: (v) => v.typeTrajet === "ar" && v.direction !== undefined && v.numeroVol !== undefined, indice: "Pour suivre le vol le jour du retour (terminal, retard)." },
+  { name: "heureVolRetour", label: (v) => (v.direction === "depuis" ? "Heure du vol du retour" : "Heure d'atterrissage du retour"), type: "time", si: (v) => v.typeTrajet === "ar" && v.direction !== undefined && v.numeroVol !== undefined },
   { name: "bagagesRetour", label: "Bagages en soute au retour (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", si: (v) => v.typeTrajet === "ar", indice: `${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute. Le nombre du haut compte pour l'aller.` },
   { name: "attenteMinutes", label: "Attente sur place pendant le trajet", type: "select", si: (v) => v.typeTrajet === "ar", defaut: "0", options: [{ v: "0", l: "Aucune" }, { v: "30", l: "30 minutes" }, { v: "60", l: "1 heure" }, { v: "90", l: "1 h 30" }, { v: "120", l: "2 heures" }], indice: "10 minutes offertes, puis 100 ₪ / heure." },
 ];

@@ -55,7 +55,8 @@ export function volDeLaCourse(d) {
   const versAeroport = v.direction !== "depuis";
   const sens = (retour ? !versAeroport : versAeroport) ? "depart" : "arrivee";
   const heureVol = retour ? v.heureVolRetour : v.heureVol;
-  return { numero, texte, sens, date: d.date, heure: HEURE_OK.test(heureVol || "") ? heureVol : HEURE_OK.test(d.heure || "") ? d.heure : "12:00" };
+  const ville = String((retour ? v.villeVolRetour : v.villeVol) || "").trim().slice(0, 60);
+  return { numero, texte, sens, ville, date: d.date, heure: HEURE_OK.test(heureVol || "") ? heureVol : HEURE_OK.test(d.heure || "") ? d.heure : "12:00" };
 }
 
 // Choisit la bonne ligne du tableau : bon sens, bonne compagnie, heure prevue la plus proche (14 h d'ecart au plus)
@@ -95,6 +96,13 @@ const ETATS = {
 const heureDe = (iso) => {
   const m = /[T ](\d{2}):(\d{2})/.exec(String(iso || ""));
   return m ? `${m[1]}:${m[2]}` : "";
+};
+// « TEL AVIV-YAFO » -> « Tel Aviv-Yafo » (les villes du tableau sont en majuscules)
+export const nomVille = (x) => String(x || "").trim().toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+// Ville affichee : celle saisie par Rebecca, sinon celle du tableau de l'aeroport. « vers Paris » / « depuis Lyon »
+export const villeDuVol = (vol, info) => {
+  const ville = (vol && vol.ville) || nomVille(info && info.ville);
+  return ville ? `${vol.sens === "depart" ? "vers" : "depuis"} ${ville}` : "";
 };
 export const dureeFr = (min) => {
   const m = Math.abs(Math.round(min));

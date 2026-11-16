@@ -112,6 +112,11 @@ function BlocRetour({ d, executer, enCours }) {
   const [ouvert, setOuvert] = useState(false);
   const [date, setDate] = useState(det.dateRetour || d.date || "");
   const [heure, setHeure] = useState(det.heureRetour || "");
+  // Aeroport (17 nov. 2026) : le vol du retour, pour le suivre le jour J (terminal, retard, ville)
+  const aeroport = d.service === "aeroport";
+  const [vol, setVol] = useState(det.numeroVolRetour || "");
+  const [heureVol, setHeureVol] = useState(det.heureVolRetour || "");
+  const [ville, setVille] = useState(det.villeVolRetour || "");
   const [msg, setMsg] = useState("");
   const enregistrer = async (avecRetour) => {
     setMsg("");
@@ -126,17 +131,22 @@ function BlocRetour({ d, executer, enCours }) {
         return;
       }
       Object.assign(details, { typeTrajet: "ar", dateRetour: date, heureRetour: heure });
+      if (aeroport) {
+        for (const [cle, valeur] of [["numeroVolRetour", vol.trim().slice(0, 20)], ["heureVolRetour", /^\d{2}:\d{2}$/.test(heureVol) ? heureVol : ""], ["villeVolRetour", ville.trim().slice(0, 60)]]) {
+          if (valeur) details[cle] = valeur;
+          else delete details[cle];
+        }
+      }
     } else {
       details.typeTrajet = "simple";
-      delete details.dateRetour;
-      delete details.heureRetour;
+      for (const cle of ["dateRetour", "heureRetour", "numeroVolRetour", "heureVolRetour", "villeVolRetour"]) delete details[cle];
     }
     if (await executer({ details })) setOuvert(false);
   };
   return (
     <div className="tb-bloc">
       <h3>Retour</h3>
-      {ar && !ouvert && <p>Aller-retour · retour le <strong>{jour(det.dateRetour, true)} à {det.heureRetour}</strong></p>}
+      {ar && !ouvert && <p>Aller-retour · retour le <strong>{jour(det.dateRetour, true)} à {det.heureRetour}</strong>{aeroport ? (det.numeroVolRetour ? ` · vol ${String(det.numeroVolRetour).toUpperCase()}${det.villeVolRetour ? ` (${det.villeVolRetour})` : ""}` : " · numéro de vol du retour à ajouter") : ""}</p>}
       {!ar && !ouvert && <p className="tb-note">Aller simple.</p>}
       {!ouvert ? (
         <button className="tb-retour aj-lien" onClick={() => setOuvert(true)}>{ar ? "Modifier le retour" : "+ Ajouter le retour (aller-retour)"}</button>
@@ -146,6 +156,22 @@ function BlocRetour({ d, executer, enCours }) {
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date du retour" />
             <input type="time" value={heure} onChange={(e) => setHeure(e.target.value)} aria-label="Heure du retour" />
           </div>
+          {aeroport && (
+            <>
+              <label className="pm-champ">
+                Numéro de vol du retour
+                <input value={vol} maxLength={20} placeholder="ex. LY002" onChange={(e) => setVol(e.target.value)} />
+              </label>
+              <label className="pm-champ">
+                {det.direction === "depuis" ? "Heure du vol du retour" : "Heure d'atterrissage du retour"} (facultatif)
+                <input type="time" value={heureVol} onChange={(e) => setHeureVol(e.target.value)} />
+              </label>
+              <label className="pm-champ">
+                Ville (facultatif : sinon elle vient toute seule du vol)
+                <input value={ville} maxLength={60} placeholder="ex. Paris" onChange={(e) => setVille(e.target.value)} />
+              </label>
+            </>
+          )}
           <div className="tb-actions">
             <button className="tb-bouton" disabled={enCours} onClick={() => enregistrer(true)}>Enregistrer le retour</button>
             {ar && <button className="tb-bouton tb-danger" disabled={enCours} onClick={() => enregistrer(false)}>Supprimer le retour</button>}

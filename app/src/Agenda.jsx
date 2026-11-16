@@ -1,4 +1,5 @@
 import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
+import InfoVol from "./components/InfoVol.jsx";
 import { filtrerPersonne } from "./pricing/quiFait.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { indispoValide } from "./fermetures.js";
@@ -360,6 +361,7 @@ function Evenement({ d }) {
         <span className="ag-corps">
           <strong><Pastille d={d} /> {d.serviceTitre}</strong>
           <small>{d.nom} · {textePrix(d)}</small>
+          <InfoVol d={d} compact />
         </span>
         <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
       </button>

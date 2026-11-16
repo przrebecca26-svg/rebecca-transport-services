@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import InfoVol from "./components/InfoVol.jsx";
 import { arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ModifierDevis } from "./SimulateurDevis.jsx";
 import { db } from "./firebase.js";
@@ -425,6 +426,9 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
       </div>
       <p className="tb-quand">{d.date ? `${jour(d.date, true)} à ${d.heure}` : d.service === "ramassage" && d.details && d.details.periode ? `Devis ${d.details.periode === "mois" ? "au mois" : d.details.periode === "semaine" ? "à la semaine" : "pour un jour"} (sans date de début)` : `à ${d.heure}`}</p>
       {d.source === "manuel" && <p className="tb-note">Ajoutée à la main{d.origine ? ` · origine : ${LIBELLE_ORIGINE[d.origine] || d.origine}` : ""}</p>}
+
+      <InfoVol d={d} />
+      {d.details && d.details.typeTrajet === "ar" && d.details.numeroVolRetour && <InfoVol d={{ ...d, date: d.details.dateRetour, heure: d.details.heureRetour, estRetour: true }} />}
 
       <div className="tb-bloc">
         <h3>Client</h3>

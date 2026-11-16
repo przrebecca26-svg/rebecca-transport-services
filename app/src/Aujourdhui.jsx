@@ -8,6 +8,7 @@ import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { situationCourse } from "./pricing/comptes.js";
+import InfoVol from "./components/InfoVol.jsx";
 
 // Onglet « Aujourd'hui » de l'espace prive : ce que Rebecca doit faire dans la journee.
 // Lecture seule : rien n'est modifie ici. Un appui sur une ligne ouvre la demande.
@@ -92,6 +93,7 @@ function CourseDuJour({ d, sit, onOuvrir }) {
           <strong><Pastille d={d} /> {d.serviceTitre}</strong>
           <small>{d.nom} · {textePrix(d)}{sit.resteAPayer > 0 && d.statut !== "annulee" ? ` · reste ${shekels(sit.resteAPayer)}` : ""}</small>
           {a && <small dir="auto">{a.label}</small>}
+          <InfoVol d={d} compact />
         </span>
         <span className={"tb-badge tb-" + etat.classe}>{etat.label}</span>
       </button>
@@ -204,6 +206,7 @@ export default function Aujourdhui({ aller }) {
           {vue.deDemain.map((x) => (
             <button key={x.d.id} className="aj-mini" onClick={() => ouvrir(x.d.id)}>
               <strong>{x.d.heure}</strong> {x.d.serviceTitre} · {x.d.nom}
+              {x.d.service === "aeroport" && <span style={{ display: "block" }}><InfoVol d={x.d} compact /></span>}
             </button>
           ))}
         </div>

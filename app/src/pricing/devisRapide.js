@@ -4,7 +4,7 @@
 
 import { CODE_BIENVENUE, SITE, champsAdresses } from "./ajoutManuel.js";
 import { lignesPartage } from "./partage.js";
-import { CHAMPS_CLIENT, champsVisibles, libelle, texteValeur } from "../services.js";
+import { CHAMPS_CLIENT, FORMULAIRES, champsVisibles, libelle, texteValeur, valeursInitiales } from "../services.js";
 
 // Nom de la ville : dernier morceau de l'adresse, sans le district ni le pays
 // (ex. « Raanana, נפת פתח תקווה » -> Raanana ; D2b, 9 nov. 2026)
@@ -141,5 +141,51 @@ export function versAjoutManuel(service, v, resultat) {
     prix: resultat && resultat.ok && !resultat.devis && resultat.total != null ? String(resultat.total) : "",
     // Detail du devis garde avec la course, pour « Renvoyer le devis » (16 nov. 2026)
     detailDevis: lignesDetail(service, v, resultat).join("\n").slice(0, 3000),
+    // Tout le formulaire (vol, bagages...) pour « Modifier le devis » plus tard
+    formulaire: formulaireAGarder(service, v),
   };
+}
+
+/* ---------- Modifier le devis d'une course enregistree (16 nov. 2026) ---------- */
+
+// Valeurs du formulaire a garder avec la course (tout ce que Rebecca a rempli, sans le client ni le code promo)
+const valeurGardee = (x) => typeof x === "string" ? x.length <= 1000 : typeof x === "boolean" || typeof x === "number" || (x && typeof x === "object" && typeof x.label === "string");
+export function formulaireAGarder(service, v) {
+  const r = {};
+  for (const c of FORMULAIRES[service] || []) {
+    if (SANS_DETAIL.has(c.name)) continue;
+    const x = v[c.name];
+    if (x === undefined || x === "" || !valeurGardee(x)) continue;
+    r[c.name] = x;
+  }
+  return r;
+}
+
+// Formulaire du devis pre-rempli a partir d'une course enregistree
+export function valeursDepuisDemande(d) {
+  const v = valeursInitiales(d.service);
+  const det = d.details || {};
+  for (const k of Object.keys(v)) if (det[k] !== undefined && det[k] !== null) v[k] = det[k];
+  if (d.date) v.date = d.date;
+  if (d.heure) v.heure = d.heure;
+  return v;
+}
+
+// Champs a enregistrer sur la course apres modification du devis.
+// prix = prix convenu ; resultat = calcul (son detail n'est repris que s'il donne ce meme prix).
+export function majDepuisDevis(d, v, resultat, prix, trajet = null) {
+  const details = { ...(d.details || {}) };
+  for (const c of FORMULAIRES[d.service] || []) if (!SANS_DETAIL.has(c.name)) delete details[c.name];
+  for (const { cle } of champsAdresses(d.service)) if (v[cle] && v[cle].label) details[cle] = v[cle];
+  Object.assign(details, formulaireAGarder(d.service, v));
+  if (v.typeTrajet !== "ar") {
+    delete details.dateRetour;
+    delete details.heureRetour;
+  }
+  const memePrix = resultat && resultat.ok && !resultat.devis && resultat.total === prix;
+  details.detailDevis = lignesDetail(d.service, v, memePrix ? resultat : null).join("\n").slice(0, 3000);
+  const maj = { date: v.date, heure: v.heure, prixFinal: prix, details };
+  if (trajet && typeof trajet.km === "number") maj.kmEstime = trajet.km;
+  if (trajet && typeof trajet.minutes === "number") maj.minutesEstimees = trajet.minutes;
+  return maj;
 }

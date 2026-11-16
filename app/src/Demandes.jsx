@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { arrayUnion, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { ModifierDevis } from "./SimulateurDevis.jsx";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
@@ -271,6 +272,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
   const [erreur, setErreur] = useState("");
   const [avertissement, setAvertissement] = useState("");
   const [enCours, setEnCours] = useState(false);
+  const [modif, setModif] = useState(false);
   const ref = doc(db, "demandes", d.id);
 
   // Enregistre la demande, puis met a jour l'historique du client (si la demande vient d'un compte)
@@ -379,6 +381,40 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
   const devis = texteDevis ? lienWhatsApp(d.telephone, texteDevis) : null;
   const historique = Array.isArray(d.historiquePrix) ? d.historiquePrix : [];
   const cle = cleClient(d);
+  // Modifier le devis (16 nov. 2026) : tout le formulaire du devis, pre-rempli ; met la course a jour partout
+  const modifiable = d.service !== "ramassage" && !(d.details && d.details.partageId) && d.statut !== "annulee";
+  const enregistrerDevis = async (maj) => {
+    const champs = { ...maj };
+    const ancien = prixActuel(d);
+    if (ancien !== maj.prixFinal) champs.historiquePrix = arrayUnion({ de: typeof ancien === "number" ? ancien : null, vers: maj.prixFinal, leMs: Date.now(), motif: "Devis modifié" });
+    const ok = await executer(champs);
+    if (ok) setPrix(String(maj.prixFinal));
+    return ok;
+  };
+  // Supprimer la course (16 nov. 2026) : seulement sans paiement noté et sans compte client
+  const supprimer = async () => {
+    setErreur("");
+    if (d.uid) return setErreur("Cette course vient d'un compte client : refuse-la ou annule-la plutôt que de la supprimer.");
+    try {
+      const mouvements = await getDocs(query(collection(db, "mouvements"), where("resId", "==", d.id)));
+      if (!mouvements.empty) return setErreur("Un paiement est noté sur cette course : annule-la depuis « Paiements » plutôt que de la supprimer.");
+      if (!window.confirm(`Supprimer définitivement la course de ${d.nom} ? Elle disparaîtra de l'agenda et de la fiche client.`)) return;
+      await deleteDoc(ref);
+      onFermer();
+    } catch {
+      setErreur("Suppression impossible. Vérifiez la connexion puis réessayez.");
+    }
+  };
+
+  if (modif) {
+    return (
+      <section className="tb-detail">
+        <ModifierDevis d={d} onEnregistrer={enregistrerDevis} onFermer={() => setModif(false)} enCours={enCours} aller={aller} />
+        {avertissement && <p className="dm-verif dm-alerte" role="alert">{avertissement}</p>}
+        {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}
+      </section>
+    );
+  }
 
   return (
     <section className="tb-detail">
@@ -398,6 +434,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         <div className="tb-actions">
           {whatsapp ? <a className="tb-bouton" href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a> : <span className="tb-note">Numéro non reconnu pour WhatsApp</span>}
           {devis && <a className="tb-bouton tb-clair" href={devis} target="_blank" rel="noopener noreferrer">Renvoyer le devis</a>}
+          {modifiable && <button className="tb-bouton tb-clair" onClick={() => setModif(true)}>Modifier le devis</button>}
           {appel && <a className="tb-bouton tb-clair" href={appel}>Appeler</a>}
           {cle && <button className="tb-bouton tb-clair" onClick={() => aller("clients", cle)}>Fiche client</button>}
         </div>
@@ -498,6 +535,14 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         <pre className="tb-message" dir="auto">{d.message}</pre>
         <p className="tb-note">Reçue le {recueLe(d)}</p>
       </div>
+
+      {!d.uid && (
+        <div className="tb-bloc">
+          <h3>Supprimer</h3>
+          <p className="tb-note">Pour une course créée par erreur ou en double. Impossible si un paiement est déjà noté.</p>
+          <button className="tb-bouton tb-danger" disabled={enCours} onClick={supprimer}>Supprimer la course</button>
+        </div>
+      )}
 
       {avertissement && <p className="dm-verif dm-alerte" role="alert">{avertissement}</p>}
       {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}

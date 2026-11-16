@@ -29,6 +29,7 @@
 .fc-demande { display: block; width: 100%; padding: 10px 0; font: inherit; text-align: left; color: var(--noir); background: none; border: 0; border-top: 1px solid var(--rose); cursor: pointer; }
 .fc-demande:first-of-type { border-top: 0; }
 .fc-demande small { color: var(--gris); }
+.fc-devis { display: inline-block; margin: 0 0 10px; padding: 6px 12px; font-size: 0.9em; }
 .fc-enfant, .fc-avis { padding: 8px 0; border-top: 1px solid var(--rose); }
 .fc-enfant:first-of-type, .fc-avis:first-of-type { border-top: 0; }
 .fc .tb-bloc p small { color: var(--gris); }

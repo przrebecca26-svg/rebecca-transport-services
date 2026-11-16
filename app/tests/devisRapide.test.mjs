@@ -30,3 +30,15 @@ test("pre-remplissage de l'ajout manuel", () => egal(R.versAjoutManuel("livraiso
 test("pre-remplissage sans prix si sur devis", () => egal(R.versAjoutManuel("demenagement", {}, { ok: true, devis: true }).prix, ""));
 test("ville sans le district en hebreu (cas du 9 nov.)", () => egal(R.resume("livraison", { recuperation: { label: "Raanana, נפת פתח תקווה" }, livraison: { label: "9 דוד רזניק, Neot Shaked, Netanya" } }), "récupérer votre colis à Raanana et le livrer à Netanya"));
 test("ville sans le pays", () => egal(R.resume("transport", { depart: { label: "Herzliya, מחוז תל אביב, Israel" }, arrivee: { label: "Netanya" } }), "votre trajet de Herzliya à Netanya"));
+
+section("Renvoyer le devis d'une demande (16 nov. 2026)");
+const deborah = { service: "aeroport", nom: "Deborah Nacache", date: "2026-12-21", heure: "05:00", moyenPaiement: "Espèces", prixFinal: 250, statut: "acceptee", details: { adresse: A.netanya, direction: "vers" } };
+test("devis d'une course acceptee : prenom, trajet, date, prix, paiement, confirmation", () => {
+  const m = R.messageDevisDemande(deborah);
+  vrai(m.startsWith("Bonjour Deborah") && m.includes("de Netanya vers l'aéroport Ben Gourion le lundi 21 décembre à 05h00, le tarif est de 250 ₪.") && m.includes("Paiement prévu : espèces.") && m.includes("confirmée"), m);
+});
+test("prix retenu prioritaire sur l'estimation", () => vrai(R.messageDevisDemande({ ...deborah, prixEstime: 200 }).includes("250 ₪")));
+test("estimation du site si pas de prix retenu", () => vrai(R.messageDevisDemande({ ...deborah, prixFinal: undefined, prixEstime: 230 }).includes("230 ₪")));
+test("sans prix : pas de devis", () => egal(R.messageDevisDemande({ ...deborah, prixFinal: null, prixEstime: null }), null));
+test("cliente sans compte : rappel de creer son compte avec le code bienvenue", () => vrai(R.messageDevisDemande(deborah).includes("créer votre compte") && R.messageDevisDemande(deborah).includes("BIENVENUE10")));
+test("cliente avec compte : pas de rappel", () => vrai(!R.messageDevisDemande({ ...deborah, uid: "x" }).includes("créer votre compte")));

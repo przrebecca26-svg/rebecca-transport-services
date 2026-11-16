@@ -2,7 +2,7 @@
 // D2a (9 nov. 2026), demande de Rebecca : simuler un devis pour un client qui demande un prix hors du site
 // (Instagram, WhatsApp...), avec EXACTEMENT le meme calculateur que le site, et preparer le message a envoyer.
 
-import { champsAdresses } from "./ajoutManuel.js";
+import { CODE_BIENVENUE, SITE, champsAdresses } from "./ajoutManuel.js";
 import { lignesPartage } from "./partage.js";
 
 // Nom de la ville : dernier morceau de l'adresse, sans le district ni le pays
@@ -59,6 +59,30 @@ export function messageDevis(service, v, resultat) {
     lignes.push(`Pour ${resume(service, v)}${quand}, je vous prépare un devis personnalisé.`);
   }
   lignes.push("", "Pouvez-vous me confirmer les adresses exactes et l'horaire qui vous convient ?", "", "Rebecca Services", "Votre temps est précieux, je vous aide à en profiter. 🌸");
+  return lignes.join("\n");
+}
+
+// Renvoyer le devis d'une demande deja enregistree (16 nov. 2026, demande de Rebecca : devis oublie au telephone).
+// d = document de la demande. Prix retenu (supplements compris), sinon estimation du site ; sans prix -> null.
+export function prixDemande(d) {
+  if (!d) return null;
+  if (typeof d.prixFinal === "number") return d.prixFinal;
+  return typeof d.prixEstime === "number" ? d.prixEstime : null;
+}
+
+export function messageDevisDemande(d) {
+  const prix = prixDemande(d);
+  if (prix == null || prix <= 0) return null;
+  const v = { ...(d.details || {}), date: d.date || "", heure: d.heure || "" };
+  const quand = v.date ? ` le ${jourFr(v.date)}${v.heure ? " à " + v.heure.replace(":", "h") : ""}` : "";
+  const prenom = String(d.nom || "").trim().split(/\s+/)[0] || "";
+  const lignes = [prenom ? `Bonjour ${prenom} 😊` : "Bonjour 😊", "", "Voici votre devis :", `Pour ${resume(d.service, v)}${quand}, le tarif est de ${prix} ₪.`];
+  if (d.moyenPaiement) lignes.push(`Paiement prévu : ${String(d.moyenPaiement).toLowerCase()}.`);
+  if (d.statut === "acceptee") lignes.push("", "Votre réservation est confirmée ✅");
+  else if (d.statut === "en attente") lignes.push("", "N'hésitez pas à me confirmer pour que je réserve ce créneau.");
+  // Cliente sans compte : petite pub pour creer son compte (16 nov. 2026)
+  if (!d.uid) lignes.push("", `🎁 N'oubliez pas de créer votre compte sur ${SITE} avec ce numéro de téléphone : vous recevrez le code ${CODE_BIENVENUE} (-10 ₪ sur votre prochaine réservation) et vous retrouverez toutes vos courses.`);
+  lignes.push("", "Rebecca Services", "Votre temps est précieux, je vous aide à en profiter. 🌸");
   return lignes.join("\n");
 }
 

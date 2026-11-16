@@ -145,6 +145,33 @@ test("aeroport : 3 passagers = +25 % du trajet, partage par personne", () => {
   egal(Math.round(r.details.partage.parts.reduce((n, p) => n + p.montant, 0) * 100) / 100, r.total);
 });
 
+test("aeroport : 1 adulte + 2 enfants = 1 enfant en plus, la moitie du supplement (16 nov. 2026)", () => {
+  const seul = site("aeroport", { direction: "vers", adresse: A.netanya, personnesF1: "2" }, TR.ben_gurion);
+  const trajet = seul.lignes.filter((l) => l.base).reduce((n, l) => n + l.montant, 0);
+  const adultes = site("aeroport", { direction: "vers", adresse: A.netanya, personnesF1: "3" }, TR.ben_gurion);
+  const r = site("aeroport", { direction: "vers", adresse: A.netanya, personnesF1: "3", enfantsF1: "2" }, TR.ben_gurion);
+  egal(adultes.total, seul.total + Math.ceil(trajet * 0.25));
+  egal(r.total, seul.total + Math.ceil(trajet * 0.125));
+  vrai(r.lignes.some((l) => l.libelle === `Enfant en plus : 1 x ${Math.ceil(trajet * 0.125)} ₪ (12,5 % du trajet)`), JSON.stringify(r.lignes));
+  // 3 adultes + 2 enfants : 3 en plus = 2 enfants (moitie) + 1 adulte (plein)
+  const cinq = site("aeroport", { direction: "vers", adresse: A.netanya, personnesF1: "5", enfantsF1: "2" }, TR.ben_gurion);
+  egal(cinq.total, seul.total + Math.ceil(trajet * 0.25) + 2 * Math.ceil(trajet * 0.125));
+  // 1 adulte + 1 enfant : 2 passagers, aucun supplement
+  egal(site("aeroport", { direction: "vers", adresse: A.netanya, personnesF1: "2", enfantsF1: "1" }, TR.ben_gurion).total, seul.total);
+});
+
+test("supplement passagers offert : reserve au Devis rapide, le prix revient au trajet normal", () => {
+  const seul = site("aeroport", { direction: "vers", adresse: A.netanya, personnesF1: "2" }, TR.ben_gurion);
+  const offert = site("aeroport", { direction: "vers", adresse: A.netanya, personnesF1: "3", enfantsF1: "2", sansSupplementPassagers: true }, TR.ben_gurion);
+  egal(offert.total, seul.total);
+  vrai(!offert.lignes.some((l) => /en plus/.test(l.libelle)));
+  const v = { ...S.valeursInitiales("aeroport"), sansSupplementPassagers: true };
+  vrai(!S.champsVisibles("aeroport", v).some((c) => c.name === "sansSupplementPassagers"), "cache sur le site des clientes");
+  vrai(S.champsVisibles("aeroport", v, true).some((c) => c.name === "sansSupplementPassagers"), "visible dans le Devis rapide");
+  vrai(S.champsVisibles("transport", v, true).some((c) => c.name === "enfantsF1"));
+  vrai(!S.champsVisibles("ramassage", S.valeursInitiales("ramassage"), true).some((c) => /^enfantsF|sansSupplement/.test(c.name)));
+});
+
 test("message WhatsApp du site : partage de la note", () => {
   const v = { ...S.valeursInitiales("transport"), depart: A.netanya2, arrivee: A.tel_aviv, date: "2026-11-15", heure: "10:00", nom: "Cliente", telephone: "0500000000", nbFamilles: "2", personnesF1: "2", nomF2: "Amis", personnesF2: "2", modePartage: "egal" };
   const r = calculer(S.versDemande("transport", v, TR.tel_aviv, MAINTENANT), T);

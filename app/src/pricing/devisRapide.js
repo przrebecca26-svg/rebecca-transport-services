@@ -53,7 +53,7 @@ export function lignesDetail(service, v, resultat) {
   const lignes = [];
   let champs = [];
   try {
-    champs = champsVisibles(service, v);
+    champs = champsVisibles(service, v); // sans les champs reserves a Rebecca (supplement offert)
   } catch {
     champs = [];
   }

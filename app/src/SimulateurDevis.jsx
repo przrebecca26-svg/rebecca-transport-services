@@ -62,7 +62,7 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
     return onSnapshot(refDemandes(), (s) => setDemandes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {});
   }, [ajout]);
 
-  const visibles = champsVisibles(service, v).filter((c) => !CHAMPS_EXCLUS.has(c.name));
+  const visibles = champsVisibles(service, v, true).filter((c) => !CHAMPS_EXCLUS.has(c.name));
   const adresses = FORMULAIRES[service].filter((c) => c.type === "adresse" && visibles.includes(c));
   let manque = "";
   if (!v.date || !v.heure) manque = "Choisis la date et l'heure pour voir le prix.";

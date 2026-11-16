@@ -135,6 +135,7 @@ const retour = [
   // Aeroport (17 nov. 2026) : le vol du retour, pour le suivre aussi dans la journee
   { name: "numeroVolRetour", label: "Numéro de vol du retour", type: "text", placeholder: "ex. LY002", si: (v) => v.typeTrajet === "ar" && v.direction !== undefined && v.numeroVol !== undefined, indice: "Pour suivre le vol le jour du retour (terminal, retard)." },
   { name: "heureVolRetour", label: (v) => (v.direction === "depuis" ? "Heure du vol du retour" : "Heure d'atterrissage du retour"), type: "time", si: (v) => v.typeTrajet === "ar" && v.direction !== undefined && v.numeroVol !== undefined },
+  { name: "villeVolRetour", label: (v) => (v.direction === "depuis" ? "Ville de destination du retour" : "Ville de provenance du retour"), type: "text", placeholder: "ex. Paris", si: (v) => v.typeTrajet === "ar" && v.direction !== undefined && v.numeroVol !== undefined, indice: "Facultatif : laissée vide, elle se remplit toute seule d'après le numéro de vol." },
   { name: "bagagesRetour", label: "Bagages en soute au retour (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", si: (v) => v.typeTrajet === "ar", indice: `${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute. Le nombre du haut compte pour l'aller.` },
   { name: "attenteMinutes", label: "Attente sur place pendant le trajet", type: "select", si: (v) => v.typeTrajet === "ar", defaut: "0", options: [{ v: "0", l: "Aucune" }, { v: "30", l: "30 minutes" }, { v: "60", l: "1 heure" }, { v: "90", l: "1 h 30" }, { v: "120", l: "2 heures" }], indice: "10 minutes offertes, puis 100 ₪ / heure." },
 ];
@@ -210,6 +211,8 @@ export const FORMULAIRES = {
     { name: "direction", label: "Que souhaitez-vous ?", type: "choix", required: true, options: [{ v: "vers", l: "Aller à l'aéroport" }, { v: "depuis", l: "Arriver à l'aéroport" }], defaut: "vers" },
     { name: "adresse", label: (v) => (v.direction === "depuis" ? "Adresse de destination" : "Adresse de prise en charge"), type: "adresse", required: true },
     { name: "numeroVol", label: "Numéro de vol", type: "text", required: true, placeholder: "ex. LY001" },
+    // 17 nov. 2026 : ville du vol (Paris, Lyon...) ; laissee vide, elle vient toute seule du tableau de l'aeroport
+    { name: "villeVol", label: (v) => (v.direction === "depuis" ? "Ville de provenance" : "Ville de destination"), type: "text", placeholder: "ex. Paris", indice: "Facultatif : laissée vide, elle se remplit toute seule d'après le numéro de vol." },
     { name: "compagnie", label: "Compagnie aérienne", type: "text" },
     { name: "terminal", label: "Terminal", type: "select", defaut: "", options: [{ v: "", l: "Je ne sais pas" }, { v: "1", l: "Terminal 1" }, { v: "3", l: "Terminal 3" }] },
     { name: "heureVol", label: (v) => (v.direction === "depuis" ? "Heure d'atterrissage" : "Heure du vol"), type: "time", required: true },

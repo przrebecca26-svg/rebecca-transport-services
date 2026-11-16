@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TABLEAU_AEROPORT, adresseRecherche, choisirVol, etatDuVol, volConsultable, volDeLaCourse } from "../pricing/vols.js";
+import { TABLEAU_AEROPORT, adresseRecherche, choisirVol, etatDuVol, villeDuVol, volConsultable, volDeLaCourse } from "../pricing/vols.js";
 
 // Suivi du vol d'une course aeroport (17 nov. 2026) : terminal, a deposer ou a recuperer, a l'heure ou en retard.
 // Lecture du tableau officiel de l'aeroport Ben Gourion (data.gov.il), relue toutes les 5 minutes tant que l'ecran
@@ -63,19 +63,20 @@ export default function InfoVol({ d, compact = false }) {
   else suite = [terminalSaisi, "vol introuvable sur le tableau de l'aéroport (vérifie le numéro)"].filter(Boolean).join(" · ");
   const style = info && info.alerte ? { color: "#c0392b", fontWeight: 600 } : undefined;
   const mot = vol.sens === "depart" ? "Décollage" : "Atterrissage";
+  const ville = villeDuVol(vol, info);
 
   if (compact) {
     return (
       <small style={style}>
-        ✈️ {vol.texte.toUpperCase()} · {base.action} · {suite}
+        ✈️ {vol.texte.toUpperCase()}{ville ? ` ${ville}` : ""} · {base.action} · {suite}
         {info && Math.abs(info.ecartMinutes) >= 5 && !/annulé/.test(info.etat) ? ` (${info.nouvelle} au lieu de ${info.prevu})` : ""}
       </small>
     );
   }
   return (
     <div className="tb-bloc">
-      <h3>✈️ Vol {vol.texte.toUpperCase()}</h3>
-      <p><strong>{base.action}</strong>{info && info.ville ? ` · ${vol.sens === "depart" ? "vers" : "depuis"} ${info.ville}` : ""}{info && info.compagnie ? ` · ${info.compagnie}` : ""}</p>
+      <h3>✈️ Vol {d.estRetour ? "du retour " : ""}{vol.texte.toUpperCase()}{ville ? ` ${ville}` : ""}</h3>
+      <p><strong>{base.action}</strong>{info && info.compagnie ? ` · ${info.compagnie}` : ""}</p>
       <p style={style}>{suite}</p>
       {info && <p>{mot} : {Math.abs(info.ecartMinutes) >= 5 ? `${info.nouvelle} au lieu de ${info.prevu}` : info.prevu}{info.suite ? ` · ${info.suite}` : ""}</p>}
       <p className="tb-note">

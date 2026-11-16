@@ -47,6 +47,15 @@ test("aller-retour : le jour du retour, on suit le vol du retour dans l'autre se
   vrai(S.champsVisibles("aeroport", v).some((c) => c.name === "numeroVolRetour"));
   vrai(!S.champsVisibles("transport", { ...S.valeursInitiales("transport"), typeTrajet: "ar" }).some((c) => /VolRetour/.test(c.name)));
 });
+test("ville du vol : celle saisie, sinon celle du tableau", () => {
+  const vol = V.volDeLaCourse(course());
+  egal(V.villeDuVol(vol, V.etatDuVol(L(), vol)), "vers Paris");
+  egal(V.villeDuVol(V.volDeLaCourse(course({}, { villeVol: "Lyon" })), V.etatDuVol(L(), vol)), "vers Lyon");
+  egal(V.villeDuVol(vol, null), "");
+  egal(V.nomVille("TEL AVIV-YAFO"), "Tel Aviv-Yafo");
+  const retour = V.volDeLaCourse(course({ estRetour: true, date: "2026-11-26" }, { numeroVolRetour: "TO3452", villeVolRetour: "Paris" }));
+  egal(V.villeDuVol(retour, null), "depuis Paris");
+});
 test("le tableau ne donne un vol qu'autour du jour même", () => {
   const vol = V.volDeLaCourse(course());
   egal([V.volConsultable(vol, "2026-11-16"), V.volConsultable(vol, "2026-11-17"), V.volConsultable(vol, "2026-11-18"), V.volConsultable(vol, "2026-11-10")], [true, true, true, false]);

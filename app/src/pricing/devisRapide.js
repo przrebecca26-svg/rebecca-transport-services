@@ -67,10 +67,15 @@ export function lignesDetail(service, v, resultat) {
   }
   if (resultat && resultat.ok && !resultat.devis) {
     const prix = (resultat.lignes || []).filter((l) => l && l.libelle && typeof l.montant === "number");
+    // 16 nov. 2026 : 2e passager compris dans le prix -> le dire au client (« offert »)
+    if ((service === "transport" || service === "aeroport") && !prix.some((l) => / en plus : /.test(l.libelle))) {
+      const passagers = [1, 2, 3].reduce((n, k) => n + (k === 1 || Number(v.nbFamilles) >= k ? Math.max(0, Math.round(Number(v["personnesF" + k] !== undefined && v["personnesF" + k] !== "" ? v["personnesF" + k] : k === 1 ? v.passagers : 0)) || 0) : 0), 0);
+      if (passagers >= 2) prix.push({ libelle: passagers === 2 ? "Supplément 2e passager" : "Supplément passagers", texte: "offert 🎁" });
+    }
     const separe = (resultat.separe || []).filter((l) => l && l.libelle && typeof l.montant === "number");
     if (prix.length || separe.length) {
       lignes.push("", "Détail du tarif :");
-      for (const l of prix) lignes.push(`• ${l.libelle} : ${l.montant} ₪`);
+      for (const l of prix) lignes.push(`• ${l.libelle} : ${l.texte || l.montant + " ₪"}`);
       for (const l of separe) lignes.push(`• ${l.libelle} (hors prestation) : ${l.montant} ₪`);
     }
   }
@@ -79,9 +84,11 @@ export function lignesDetail(service, v, resultat) {
 
 // Message pret a envoyer (Instagram, WhatsApp). resultat = sortie du calculateur.
 // Le prix n'est donne que s'il est calcule ; sinon « sur devis ». Jamais les alertes internes (rentabilite).
-export function messageDevis(service, v, resultat) {
+// prenom (16 nov. 2026) : prenom du client saisi dans le devis -> « Bonjour Deborah »
+export function messageDevis(service, v, resultat, prenom = "") {
   const quand = v.date ? ` le ${jourFr(v.date)}${v.heure ? " à " + v.heure.replace(":", "h") : ""}` : "";
-  const lignes = ["Bonjour 😊", ""];
+  const p = String(prenom || "").trim();
+  const lignes = [p ? `Bonjour ${p} 😊` : "Bonjour 😊", ""];
   if (resultat && resultat.ok && !resultat.bloque && !resultat.devis && resultat.total != null) {
     lignes.push(`Pour ${resume(service, v)}${quand}, le tarif est de ${resultat.total} ₪.`);
     const detail = lignesDetail(service, v, resultat);

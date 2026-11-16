@@ -99,3 +99,17 @@ test("passer en aller simple efface le retour", () => {
   const maj = R.majDepuisDevis(d, { ...vAR, typeTrajet: "simple" }, resAR, 300);
   vrai(maj.details.typeTrajet === "simple" && !maj.details.dateRetour && !maj.details.heureRetour);
 });
+
+section("Client du devis et 2e passager offert (16 nov. 2026)");
+test("message au prenom du client", () => vrai(R.messageDevis("aeroport", vAR, resAR, "Deborah").startsWith("Bonjour Deborah 😊")));
+test("2 passagers : supplement offert affiche", () => {
+  const v2 = { ...vAR, personnesF1: "2" };
+  const m = R.messageDevis("aeroport", v2, calculer(S.versDemande("aeroport", v2, { km: 40, minutes: 35 }, MAINTENANT)));
+  vrai(m.includes("Supplément 2e passager : offert"), m);
+});
+test("1 passager : rien d'offert", () => vrai(!R.messageDevis("aeroport", vAR, resAR).includes("offert")));
+test("3 passagers : vrai supplement, pas « offert »", () => {
+  const v3 = { ...vAR, personnesF1: "3" };
+  const m = R.messageDevis("aeroport", v3, calculer(S.versDemande("aeroport", v3, { km: 40, minutes: 35 }, MAINTENANT)));
+  vrai(m.includes("en plus") && !m.includes("offert"), m);
+});

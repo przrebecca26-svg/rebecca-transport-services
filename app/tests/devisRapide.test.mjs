@@ -26,7 +26,7 @@ test("sur devis : pas de prix invente", () => {
 });
 test("aeroport depuis", () => egal(R.resume("aeroport", { direction: "depuis", adresse: A.netanya }), "votre transfert depuis l'aéroport Ben Gourion jusqu'à Netanya"));
 test("transport aller-retour", () => egal(R.resume("transport", { depart: A.netanya, arrivee: A.tel_aviv, typeTrajet: "ar" }), "votre trajet de Netanya à Tel Aviv (aller-retour)"));
-test("pre-remplissage de l'ajout manuel", () => egal(R.versAjoutManuel("livraison", v, res), { service: "livraison", date: "2026-11-10", heure: "16:00", adresses: { recuperation: RAANANA, livraison: A.netanya }, direction: "vers", magasin: "", prix: "140" }));
+test("pre-remplissage de l'ajout manuel", () => egal((({ detailDevis, ...x }) => x)(R.versAjoutManuel("livraison", v, res)), { service: "livraison", date: "2026-11-10", heure: "16:00", adresses: { recuperation: RAANANA, livraison: A.netanya }, direction: "vers", magasin: "", prix: "140" }));
 test("pre-remplissage sans prix si sur devis", () => egal(R.versAjoutManuel("demenagement", {}, { ok: true, devis: true }).prix, ""));
 test("ville sans le district en hebreu (cas du 9 nov.)", () => egal(R.resume("livraison", { recuperation: { label: "Raanana, נפת פתח תקווה" }, livraison: { label: "9 דוד רזניק, Neot Shaked, Netanya" } }), "récupérer votre colis à Raanana et le livrer à Netanya"));
 test("ville sans le pays", () => egal(R.resume("transport", { depart: { label: "Herzliya, מחוז תל אביב, Israel" }, arrivee: { label: "Netanya" } }), "votre trajet de Herzliya à Netanya"));
@@ -42,3 +42,16 @@ test("estimation du site si pas de prix retenu", () => vrai(R.messageDevisDemand
 test("sans prix : pas de devis", () => egal(R.messageDevisDemande({ ...deborah, prixFinal: null, prixEstime: null }), null));
 test("cliente sans compte : rappel de creer son compte avec le code bienvenue", () => vrai(R.messageDevisDemande(deborah).includes("créer votre compte") && R.messageDevisDemande(deborah).includes("BIENVENUE10")));
 test("cliente avec compte : pas de rappel", () => vrai(!R.messageDevisDemande({ ...deborah, uid: "x" }).includes("créer votre compte")));
+
+section("Detail complet du devis (16 nov. 2026)");
+const vAR = { ...S.valeursInitiales("aeroport"), adresse: A.netanya, direction: "vers", numeroVol: "LY001", heureVol: "08:00", date: "2026-12-21", heure: "05:00", typeTrajet: "ar", dateRetour: "2026-12-28", heureRetour: "18:00", valises: "2" };
+const resAR = calculer(S.versDemande("aeroport", vAR, { km: 40, minutes: 35 }, MAINTENANT));
+test("le message du devis rapide donne l'aller-retour, le vol, les bagages et le detail du tarif", () => {
+  const m = R.messageDevis("aeroport", vAR, resAR);
+  vrai(m.includes("Aller-retour") && m.includes("LY001") && m.includes("Date du retour") && m.includes("Détail du tarif"), m);
+});
+test("le detail est garde avec la course enregistree puis renvoye", () => {
+  const det = R.versAjoutManuel("aeroport", vAR, resAR).detailDevis;
+  const m = R.messageDevisDemande({ ...deborah, details: { ...deborah.details, detailDevis: det } });
+  vrai(m.includes("Aller-retour") && m.includes("Détail du tarif"), m);
+});

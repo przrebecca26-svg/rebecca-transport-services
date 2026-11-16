@@ -131,6 +131,8 @@ const retour = [
   { name: "typeTrajet", label: "Type de trajet", type: "choix", required: true, options: [{ v: "simple", l: "Aller simple" }, { v: "ar", l: "Aller-retour" }], defaut: "simple" },
   { name: "dateRetour", label: "Date du retour", type: "date", required: true, si: (v) => v.typeTrajet === "ar" },
   { name: "heureRetour", label: "Heure du retour", type: "time", required: true, si: (v) => v.typeTrajet === "ar" },
+  // 16 nov. 2026 (Rebecca : « a l'aller que des bagages cabine, au retour des bagages en soute ») : bagages du retour a part
+  { name: "bagagesRetour", label: "Bagages en soute au retour (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", si: (v) => v.typeTrajet === "ar", indice: `${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute. Le nombre du haut compte pour l'aller.` },
   { name: "attenteMinutes", label: "Attente sur place pendant le trajet", type: "select", si: (v) => v.typeTrajet === "ar", defaut: "0", options: [{ v: "0", l: "Aucune" }, { v: "30", l: "30 minutes" }, { v: "60", l: "1 heure" }, { v: "90", l: "1 h 30" }, { v: "120", l: "2 heures" }], indice: "10 minutes offertes, puis 100 ₪ / heure." },
 ];
 
@@ -193,7 +195,7 @@ export const FORMULAIRES = {
     { name: "arrivee", label: "Adresse d'arrivée", type: "adresse", required: true },
     ...quand(),
     ...partageChamps("passager"),
-    { name: "bagages", label: "Bagages en soute (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
+    { name: "bagages", label: (v) => (v.typeTrajet === "ar" ? "Bagages en soute à l'aller (grandes valises)" : "Bagages en soute (grandes valises)"), type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
     ...retour,
     { name: "arrets", label: "Arrêts supplémentaires", type: "nombre", min: 0, max: 5, defaut: "0", indice: "Le tarif des arrêts vous est communiqué avant validation." },
     urgence,
@@ -210,7 +212,7 @@ export const FORMULAIRES = {
     { name: "heureVol", label: (v) => (v.direction === "depuis" ? "Heure d'atterrissage" : "Heure du vol"), type: "time", required: true },
     ...quand(" souhaitée"),
     ...partageChamps("passager"),
-    { name: "valises", label: "Bagages en soute (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
+    { name: "valises", label: (v) => (v.typeTrajet === "ar" ? "Bagages en soute à l'aller (grandes valises)" : "Bagages en soute (grandes valises)"), type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
     ...retour,
     urgence,
     ...passager,
@@ -460,6 +462,7 @@ export function versDemande(service, v, route, maintenantMs = Date.now()) {
     d.arrets = nb(v.arrets);
     d.urgent = !!v.urgent;
     d.bagagesSoute = nb(service === "aeroport" ? v.valises : v.bagages);
+    if (v.typeTrajet === "ar" && nb(v.bagagesRetour) > 0) d.bagagesSouteRetour = nb(v.bagagesRetour);
   }
 
   if (service === "livraison") {

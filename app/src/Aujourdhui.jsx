@@ -1,3 +1,4 @@
+import { retourAutreJour } from "./pricing/enchainement.js";
 import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID, attribueA } from "./pricing/equipe.js";
 import { useEffect, useMemo, useState } from "react";
@@ -144,8 +145,13 @@ export default function Aujourdhui({ aller }) {
     const parHeure = (a, b) => String(a.d.heure || "").localeCompare(String(b.d.heure || ""));
     const parDate = (a, b) => (String(a.d.date) + String(a.d.heure || "")).localeCompare(String(b.d.date) + String(b.d.heure || ""));
 
-    const duJour = avecSit.filter((x) => x.d.date === jour && (x.d.statut === "acceptee" || x.d.statut === "terminee")).sort(parHeure);
-    const deDemain = avecSit.filter((x) => x.d.date === demain && x.d.statut === "acceptee").sort(parHeure);
+    // Aller-retour : le retour un autre jour compte aussi ce jour-la (16 nov. 2026)
+    const avecRetours = avecSit.flatMap((x) => {
+      const r = retourAutreJour(x.d);
+      return r ? [x, { d: r, sit: x.sit }] : [x];
+    });
+    const duJour = avecRetours.filter((x) => x.d.date === jour && (x.d.statut === "acceptee" || x.d.statut === "terminee")).sort(parHeure);
+    const deDemain = avecRetours.filter((x) => x.d.date === demain && x.d.statut === "acceptee").sort(parHeure);
     const enAttente = avecSit.filter((x) => x.d.statut === "en attente").sort(parDate);
     const aCloturer = avecSit.filter((x) => x.d.statut === "acceptee" && String(x.d.date) < jour).sort(parDate);
     const aEncaisser = avecSit.filter((x) => x.d.statut === "terminee" && x.sit.resteAPayer > 0).sort(parDate);

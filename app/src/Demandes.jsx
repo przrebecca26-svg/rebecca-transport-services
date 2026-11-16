@@ -102,6 +102,61 @@ async function minutesTrajet(de, vers) {
   }
 }
 
+// Aller-retour (16 nov. 2026) : voir, ajouter ou modifier le retour d'une course (aeroport, transport).
+// Le retour s'affiche dans l'agenda a sa date, meme si c'est un autre jour que l'aller.
+function BlocRetour({ d, executer, enCours }) {
+  const det = d.details || {};
+  const ar = det.typeTrajet === "ar";
+  const [ouvert, setOuvert] = useState(false);
+  const [date, setDate] = useState(det.dateRetour || d.date || "");
+  const [heure, setHeure] = useState(det.heureRetour || "");
+  const [msg, setMsg] = useState("");
+  const enregistrer = async (avecRetour) => {
+    setMsg("");
+    const details = { ...det };
+    if (avecRetour) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(heure)) {
+        setMsg("Indique la date et l'heure du retour.");
+        return;
+      }
+      if (d.date && date < d.date) {
+        setMsg("Le retour ne peut pas être avant l'aller.");
+        return;
+      }
+      Object.assign(details, { typeTrajet: "ar", dateRetour: date, heureRetour: heure });
+    } else {
+      details.typeTrajet = "simple";
+      delete details.dateRetour;
+      delete details.heureRetour;
+    }
+    if (await executer({ details })) setOuvert(false);
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>Retour</h3>
+      {ar && !ouvert && <p>Aller-retour · retour le <strong>{jour(det.dateRetour, true)} à {det.heureRetour}</strong></p>}
+      {!ar && !ouvert && <p className="tb-note">Aller simple.</p>}
+      {!ouvert ? (
+        <button className="tb-retour aj-lien" onClick={() => setOuvert(true)}>{ar ? "Modifier le retour" : "+ Ajouter le retour (aller-retour)"}</button>
+      ) : (
+        <>
+          <div className="tb-prix">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date du retour" />
+            <input type="time" value={heure} onChange={(e) => setHeure(e.target.value)} aria-label="Heure du retour" />
+          </div>
+          <div className="tb-actions">
+            <button className="tb-bouton" disabled={enCours} onClick={() => enregistrer(true)}>Enregistrer le retour</button>
+            {ar && <button className="tb-bouton tb-danger" disabled={enCours} onClick={() => enregistrer(false)}>Supprimer le retour</button>}
+            <button className="tb-bouton tb-clair" onClick={() => setOuvert(false)}>Annuler</button>
+          </div>
+          {msg && <p className="tb-note">{msg}</p>}
+          <p className="tb-note">Le prix ne change pas tout seul : s'il faut, modifie-le dans « Prix ».</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Resultat de la verification d'enchainement
 function Verification({ verif, d, enCours, onForcer, onFermer }) {
   if (!verif) return null;
@@ -375,6 +430,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         <p className="tb-note">Après avoir accepté ou refusé, utilisez le bouton WhatsApp : le message est prêt.{d.uid ? " L'historique du client se met à jour tout seul." : ""}</p>
         {d.statut === "acceptee" && <p className="tb-note">Pour annuler (client absent, annulation tardive : l'acompte est conservé), utilisez le bloc « Paiements » plus bas.</p>}
       </div>
+
+      {(d.service === "aeroport" || d.service === "transport") && <BlocRetour d={d} executer={executer} enCours={enCours} />}
 
       <QuiFait d={d} toutes={toutes} marge={marge} executer={executer} enCours={enCours} />
 

@@ -29,7 +29,7 @@ export function resume(service, v) {
     case "courses":
       return v.typePrestation === "courses" ? `faire vos courses et vous les livrer${de("livraison") ? " à " + de("livraison") : ""}` : `récupérer vos achats et vous les livrer${de("livraison") ? " à " + de("livraison") : ""}`;
     case "aeroport":
-      return v.direction === "depuis" ? `votre transfert depuis l'aéroport Ben Gourion${de("adresse") ? " jusqu'à " + de("adresse") : ""}` : `votre transfert${de("adresse") ? " de " + de("adresse") : ""} vers l'aéroport Ben Gourion`;
+      return (v.direction === "depuis" ? `votre transfert depuis l'aéroport Ben Gourion${de("adresse") ? " jusqu'à " + de("adresse") : ""}` : `votre transfert${de("adresse") ? " de " + de("adresse") : ""} vers l'aéroport Ben Gourion`) + (v.typeTrajet === "ar" ? " (aller-retour)" : "");
     case "transport":
       return de("depart") && de("arrivee") ? `votre trajet de ${de("depart")} à ${de("arrivee")}${v.typeTrajet === "ar" ? " (aller-retour)" : ""}` : "votre trajet";
     case "demenagement":
@@ -114,6 +114,7 @@ export function messageDevisDemande(d) {
   const lignes = [prenom ? `Bonjour ${prenom} 😊` : "Bonjour 😊", "", "Voici votre devis :", `Pour ${resume(d.service, v)}${quand}, le tarif est de ${prix} ₪.`];
   const detail = d.details && typeof d.details.detailDevis === "string" ? d.details.detailDevis.trim() : "";
   if (detail) lignes.push("", detail, "");
+  else if (v.typeTrajet === "ar" && v.dateRetour) lignes.push(`Retour : le ${jourFr(v.dateRetour)}${v.heureRetour ? " à " + v.heureRetour.replace(":", "h") : ""}.`);
   if (d.moyenPaiement) lignes.push(`Paiement prévu : ${String(d.moyenPaiement).toLowerCase()}.`);
   if (d.statut === "acceptee") lignes.push("", "Votre réservation est confirmée ✅");
   else if (d.statut === "en attente") lignes.push("", "N'hésitez pas à me confirmer pour que je réserve ce créneau.");
@@ -134,6 +135,9 @@ export function versAjoutManuel(service, v, resultat) {
     adresses,
     direction: v.direction === "depuis" ? "depuis" : "vers",
     magasin: v.magasin || "",
+    typeTrajet: v.typeTrajet === "ar" ? "ar" : "simple",
+    dateRetour: v.typeTrajet === "ar" ? v.dateRetour || "" : "",
+    heureRetour: v.typeTrajet === "ar" ? v.heureRetour || "" : "",
     prix: resultat && resultat.ok && !resultat.devis && resultat.total != null ? String(resultat.total) : "",
     // Detail du devis garde avec la course, pour « Renvoyer le devis » (16 nov. 2026)
     detailDevis: lignesDetail(service, v, resultat).join("\n").slice(0, 3000),

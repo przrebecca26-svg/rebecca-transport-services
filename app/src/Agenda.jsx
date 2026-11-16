@@ -6,6 +6,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
+import { retourAutreJour } from "./pricing/enchainement.js";
 import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauValide, lireCreneaux } from "./fermetures.js";
 import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
@@ -865,7 +866,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
   const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
     ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} />, etape: true })),
-    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id, rendu: <Evenement d={d} /> })),
+    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);
   // Les etapes qui se suivent sont regroupees dans une meme liste ; une course coupe la liste
@@ -1026,6 +1027,9 @@ export default function Agenda() {
     for (const d of items || []) {
       if (!STATUTS[d.statut] || !/^\d{4}-\d{2}-\d{2}$/.test(d.date || "")) continue;
       (m[d.date] = m[d.date] || []).push(d);
+      // Aller-retour : le retour un autre jour s'affiche aussi a sa date (16 nov. 2026)
+      const r = retourAutreJour(d);
+      if (r) (m[r.date] = m[r.date] || []).push(r);
     }
     for (const k of Object.keys(m)) m[k].sort((a, b) => String(a.heure).localeCompare(String(b.heure)));
     return m;

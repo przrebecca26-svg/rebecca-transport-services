@@ -139,7 +139,8 @@ export function lignesPaiement(liens, montant) {
 export function messagePaiement(d, montant, liens) {
   const moyens = lignesPaiement(liens, montant);
   if (!moyens.length) return "";
-  return [bonjour(d), `Pour régler ${montant > 0 ? `${cents(montant)} ₪` : "votre course"} :`, ...moyens, "Merci 🙏", ...lignesSite(d), "Rebecca"].join("\n");
+  const page = lienPaye(d, montant, "solde");
+  return [bonjour(d), `Pour régler ${montant > 0 ? `${cents(montant)} ₪` : "votre course"} :`, ...(page ? [`Payer et me prévenir en un clic : ${page}`, "Ou directement :"] : []), ...moyens, "Merci 🙏", ...lignesSite(d), "Rebecca"].join("\n");
 }
 
 /* ---------- 7. Suivi de la course pour la cliente ---------- */
@@ -196,8 +197,38 @@ export function messageAcompte(d, acompte, liens, delaiHeures = 48) {
     bonjour(d),
     `Pour bloquer votre créneau${quand ? ` du ${quand}` : ""}, merci de régler l'acompte de ${cents(acompte)} ₪${delaiHeures ? ` dans les ${delaiHeures} h` : ""}.`,
   ];
-  if (moyens.length) lignes.push("Vous pouvez payer ici :", ...moyens);
-  else lignes.push("Répondez-moi pour choisir le moyen de paiement (Bit, virement, espèces).");
+  const page = lienPaye(d, acompte, "acompte");
+  if (page) lignes.push(`Payer et me prévenir en un clic : ${page}`);
+  if (moyens.length) lignes.push("Ou directement :", ...moyens);
+  else if (!page) lignes.push("Répondez-moi pour choisir le moyen de paiement (Bit, virement, espèces).");
   lignes.push("L'acompte est déduit du prix total. Dès réception, votre réservation est définitivement bloquée ✅", "Merci 🙏", ...lignesSite(d), "Rebecca");
   return lignes.join("\n");
+}
+
+/* ---------- « J'ai paye » (17 nov. 2026, 16h31) ----------
+   Le message de paiement contient un lien vers une petite page du site : #/paye/ID/MONTANT/SORTE/PRENOM.
+   La cliente y trouve les liens (PayPal, Bit, Revolut) et touche « J'ai payé par … » -> une declaration
+   (paiementsDeclares) arrive chez Rebecca, qui confirme d'un appui : le paiement est note dans la course. */
+export const MOYENS_DECLARES = ["PayPal", "Bit", "Revolut", "Virement", "Espèces"];
+export const SORTES_PAIEMENT = ["acompte", "solde"];
+export function lienPaye(d, montant, sorte = "acompte", site = SITE) {
+  if (!d || !d.id || !(montant > 0)) return "";
+  const prenom = encodeURIComponent(prenomDe(d.nom).slice(0, 30));
+  return `${site}/#/paye/${encodeURIComponent(d.id)}/${cents(montant)}/${SORTES_PAIEMENT.includes(sorte) ? sorte : "acompte"}${prenom ? `/${prenom}` : ""}`;
+}
+export function lireLienPaye(hash) {
+  const m = /^#\/paye\/([A-Za-z0-9_-]{1,100})\/(\d+(?:\.\d{1,2})?)\/(acompte|solde)(?:\/([^/?#]{0,120}))?$/.exec(String(hash || ""));
+  if (!m) return null;
+  let prenom = "";
+  try {
+    prenom = decodeURIComponent(m[4] || "").slice(0, 30);
+  } catch {
+    prenom = "";
+  }
+  const montant = Number(m[2]);
+  return montant > 0 && montant <= 100000 ? { resId: m[1], montant, sorte: m[3], prenom } : null;
+}
+export function declarationValide(x) {
+  return !!x && typeof x.resId === "string" && x.resId.length >= 1 && x.resId.length <= 100 && x.montant > 0 && x.montant <= 100000
+    && MOYENS_DECLARES.includes(x.moyen) && SORTES_PAIEMENT.includes(x.sorte) && typeof x.prenom === "string" && x.prenom.length <= 60;
 }

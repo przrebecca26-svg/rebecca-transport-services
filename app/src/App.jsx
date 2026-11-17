@@ -22,6 +22,8 @@ import CatalogueHair from "./components/CatalogueHair.jsx";
 import CatalogueDigital from "./components/CatalogueDigital.jsx";
 import BoutonsFlottants from "./components/BoutonsFlottants.jsx";
 import AvisPublics from "./components/AvisPublics.jsx";
+import PagePaiement from "./components/PagePaiement.jsx";
+import { lireLienPaye } from "./pricing/suiteClient.js";
 import "./client-commun.css";
 import "./theme-site.css";
 
@@ -359,12 +361,15 @@ export default function App() {
   const [lienBienvenue, setLienBienvenue] = useState(() => lireLienBienvenue(window.location.hash));
   // Lien direct du formulaire de ramassage (15 nov. 2026) : Rebecca l'envoie a une cliente sur WhatsApp
   const [lienRamassage, setLienRamassage] = useState(() => window.location.hash === "#/ramassage");
+  // 17 nov. 2026 : page « Payer et me prevenir » (#/paye/...)
+  const [lienPayeVu, setLienPayeVu] = useState(() => lireLienPaye(window.location.hash));
   useEffect(() => {
     const suivre = () => {
       setAdmin(enAdmin());
       setLienPartage(lireLienPartage(window.location.hash));
       setLienBienvenue(lireLienBienvenue(window.location.hash));
       setLienRamassage(window.location.hash === "#/ramassage");
+      setLienPayeVu(lireLienPaye(window.location.hash));
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -407,6 +412,14 @@ export default function App() {
     return <Suspense fallback={chargement}><Admin /></Suspense>;
   }
 
+  if (lienPayeVu && !admin)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <PagePaiement lien={lienPayeVu} onAccueil={() => { window.location.hash = ""; setLienPayeVu(null); }} />
+        </main>
+      </div>
+    );
   return (
     <div className="appli theme-site">
       <main>

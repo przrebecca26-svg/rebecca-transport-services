@@ -42,5 +42,11 @@ export function useCompteurs(role) {
       setAFaire(ids.size);
     }, () => setAFaire(0));
   }, [admin]);
-  return { tableau: aFaire, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges };
+  // 17 nov. 2026, 16h31 : paiements annonces par les clientes, a confirmer
+  const [declares, setDeclares] = useState(0);
+  useEffect(() => {
+    if (!admin) return undefined;
+    return onSnapshot(query(collection(db, "paiementsDeclares"), where("statut", "==", "a confirmer")), (s) => setDeclares(s.size), () => setDeclares(0));
+  }, [admin]);
+  return { tableau: aFaire + declares, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges };
 }

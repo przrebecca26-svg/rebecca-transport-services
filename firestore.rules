@@ -1,4 +1,6 @@
 rules_version = '2';
+// Regles Rebecca Services v18 (17 novembre 2026) = v17 + PayPal comme moyen de paiement
+//   + paiementsDeclares : « J'ai paye » d'une cliente (creation libre, controlee) ; Rebecca et l'equipe confirment.
 // Regles Rebecca Services v17 (15 novembre 2026) = v16 + ramassage scolaire ouvert a tous (avec ou sans compte)
 //   + trajets partages du ramassage (trajetsPartages : lien personnel de chaque famille, 2 semaines maximum).
 // Regles Rebecca Services v16 (13 novembre 2026) = v15 + reservations beaute et commandes Epoxy SANS compte
@@ -218,7 +220,7 @@ service cloud.firestore {
     // ---------- Mouvements financiers : JAMAIS modifies ni supprimes ----------
 
     function moyenValide(m) {
-      return m in ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement"];
+      return m in ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement", "PayPal"];
     }
 
     // v9 : une course peut etre payee avec le credit prepaye du client (paiement seulement)
@@ -492,6 +494,26 @@ service cloud.firestore {
         || (estMembre()
           && serviceEquipe(resource.data["service"])
           && request.resource.data["service"] == resource.data["service"]);
+      allow delete: if estAdmin();
+    }
+
+    // v18 (17 nov. 2026) : « J'ai paye par PayPal / Bit / Revolut... » envoye par une cliente depuis son lien de paiement.
+    // Tout le monde peut en creer une (avec ou sans compte), seulement « a confirmer » ; Rebecca la confirme ou non.
+    function declarationValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["resId", "montant", "moyen", "sorte", "prenom", "statut", "creeLe"])
+        && d.keys().hasAll(["resId", "montant", "moyen", "sorte", "prenom", "statut", "creeLe"])
+        && d.resId is string && d.resId.size() >= 1 && d.resId.size() <= 100
+        && d.montant is number && d.montant > 0 && d.montant <= 100000
+        && d.moyen in ["PayPal", "Bit", "Revolut", "Virement", "Espèces"]
+        && d.sorte in ["acompte", "solde"]
+        && d.prenom is string && d.prenom.size() <= 60
+        && d.statut == "a confirmer"
+        && d.creeLe == request.time;
+    }
+    match /paiementsDeclares/{id} {
+      allow create: if declarationValide();
+      allow read, update: if gestion();
       allow delete: if estAdmin();
     }
 

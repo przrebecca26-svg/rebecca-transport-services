@@ -38,3 +38,10 @@ test("paiement en ligne, suivi, Wolt, avis", () => {
   egal(S.avisPublic({ id: "a", etoiles: 5, commentaire: " Top " }, "Naomie Cohen").prenom, "Naomie");
   egal(S.lireAvisPublics("oops"), []);
 });
+
+test("message d'acompte avec le lien PayPal", () => {
+  const m = S.messageAcompte({ nom: "Naomie Cohen", date: "2026-11-24", heure: "18:00" }, 102, { paypal: "https://www.paypal.com/ncp/payment/WKZKM3DG5B6PS" }, 48);
+  vrai(m.includes("Pour bloquer votre créneau du mardi 24 novembre à 18h00, merci de régler l'acompte de 102 ₪ dans les 48 h."));
+  vrai(m.includes("PayPal : https://www.paypal.com/ncp/payment/WKZKM3DG5B6PS"));
+  vrai(S.messageAcompte({ nom: "A" }, 20, {}).includes("Répondez-moi"));
+});

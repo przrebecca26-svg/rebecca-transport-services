@@ -185,3 +185,19 @@ export function lireAvisPublics(json) {
     return [];
   }
 }
+
+/* ---------- Acompte a la confirmation (17 nov. 2026, 16h22) ----------
+   Apres le message de confirmation : « Pour bloquer votre creneau, merci de regler l'acompte de X ₪ » + liens de paiement.
+   delaiHeures : delai pour payer (Reglages -> Activites), sinon 48 h. */
+export function messageAcompte(d, acompte, liens, delaiHeures = 48) {
+  const moyens = lignesPaiement(liens, acompte);
+  const quand = d.date ? `${jourLong(d.date)}${d.heure ? ` à ${heureFr(d.heure)}` : ""}` : "";
+  const lignes = [
+    bonjour(d),
+    `Pour bloquer votre créneau${quand ? ` du ${quand}` : ""}, merci de régler l'acompte de ${cents(acompte)} ₪${delaiHeures ? ` dans les ${delaiHeures} h` : ""}.`,
+  ];
+  if (moyens.length) lignes.push("Vous pouvez payer ici :", ...moyens);
+  else lignes.push("Répondez-moi pour choisir le moyen de paiement (Bit, virement, espèces).");
+  lignes.push("L'acompte est déduit du prix total. Dès réception, votre réservation est définitivement bloquée ✅", "Merci 🙏", ...lignesSite(d), "Rebecca");
+  return lignes.join("\n");
+}

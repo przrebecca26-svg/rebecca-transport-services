@@ -13,7 +13,7 @@ import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { useEssence } from "./EssenceVue.jsx";
 import { estBeaute, messagePaiement, messageReprendreRdv } from "./pricing/suiteClient.js";
 import {
-  ETAPES_CHRONO, apresChamps, avanceRetour, bilanTrajet, champsModifChrono, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageFin,
+  ETAPES_CHRONO, apresChamps, duDe, resteDe, avanceRetour, bilanTrajet, champsModifChrono, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageFin,
   messageAvis, messageEnRoute, messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
 } from "./pricing/finCourse.js";
 
@@ -33,6 +33,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [infoMail, setInfoMail] = useState("");
+  const [versTip, setVersTip] = useState("");
   const [compteur, setCompteur] = useState(null); // 17 nov. 2026, 11h38 : kilometrage lu sur le compteur
   const essence = useEssence();
   // 17 nov. 2026, 12h03 : liens de paiement en ligne (Reglages → Paiement en ligne)
@@ -56,7 +57,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
 
   const trajet = trajetDe(d);
   const v = d.details || {};
-  const reste = Math.max(0, Math.round((prixDe(d) - encaisseDe(mouvements, d.id)) * 100) / 100);
+  const reste = resteDe(d, mouvements);
   // Rappel de la veille : sur le retour d'un aller-retour, la veille ou le jour meme, tant qu'il n'est pas fait
   const rappel = trajet === "retour" && !faitDe(d) && (d.date === ajouterJours(aujourdhui, 1) || d.date === aujourdhui) ? lienWhatsApp(d.telephone, messageRappelRetour(d, reste)) : null;
   const boutonRappel = rappel && (
@@ -107,7 +108,25 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const ouvrirCaisse = () => {
     setMerci(false);
     setErreur("");
-    setCaisse(caisse ? null : { recu: reste > 0 ? String(reste) : "", pourboire: "", moyen: TARIFS.moyensPaiement[0] });
+    setCaisse(caisse ? null : { recu: reste > 0 ? String(reste) : "", pourboire: "", ajout: "", moyen: TARIFS.moyensPaiement[0] });
+  };
+  // 17 nov. 2026, 14h29 : une partie d'un paiement deja saisi etait un pourboire -> correction negative + pourboire
+  const passerEnPourboire = async () => {
+    const x = Math.round(Number(String(versTip).replace(",", ".")) * 100) / 100;
+    if (!(x > 0) || x > encaisseDe(mouvements, d.id)) return setErreur("Montant invalide (pas plus que ce qui a été encaissé).");
+    const correction = { kind: "correction", resId: d.id, date: aujourdhui, montant: -x, motif: "Passé en pourboire", ...champOperateur(moi) };
+    const err = validerMouvement(correction);
+    if (err) return setErreur(err);
+    setEnCours(true);
+    try {
+      await addDoc(collection(db, "mouvements"), { ...correction, creeLe: serverTimestamp() });
+      await updateDoc(doc(db, "demandes", d.id), { pourboire: Math.round(((Number(d.pourboire) || 0) + x) * 100) / 100, majLe: serverTimestamp() });
+      setVersTip("");
+      setErreur("");
+    } catch {
+      setErreur("Correction impossible. Vérifie la connexion.");
+    }
+    setEnCours(false);
   };
   const encaisser = async () => {
     const r = preparerEncaissement(d, caisse, aujourdhui);
@@ -127,7 +146,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       setCaisse(null);
       setMerci(true);
       // Merci par e-mail, tout seul, avec le reste a jour
-      const resteApres = Math.max(0, Math.round((reste - (paiement ? paiement.montant : 0)) * 100) / 100);
+      const resteApres = Math.max(0, Math.round((reste + (r.ajout || 0) - (paiement ? paiement.montant : 0)) * 100) / 100);
       mail(SUJETS.merci, messageFin({ ...d, ...(r.champs || {}) }, resteApres));
     } catch {
       setErreur("Enregistrement impossible. Vérifie la connexion puis réessaie.");
@@ -152,8 +171,9 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       {trajet === "aller" && v.dateRetour && <p className="tb-note">Retour prévu le {v.dateRetour.split("-").reverse().join("/")}{v.heureRetour ? ` à ${v.heureRetour.replace(":", "h")}` : ""}.</p>}
       {caisse && (
         <div className="ag-etape-actions">
-          <p className="tb-note">Prix {trajet === "simple" ? "de la course" : "de l'aller-retour"} : {prixDe(d)} ₪ · déjà encaissé : {encaisseDe(mouvements, d.id)} ₪ · reste : {reste} ₪</p>
+          <p className="tb-note">Prix {trajet === "simple" ? "de la course" : "de l'aller-retour"} : {prixDe(d)} ₪{Number(d.ajustement) ? ` (ajout / déduction ${d.ajustement > 0 ? "+" : ""}${d.ajustement} ₪ → ${duDe(d)} ₪)` : ""} · déjà encaissé : {encaisseDe(mouvements, d.id)} ₪ · reste : {reste} ₪</p>
           <label className="ag-champ">Reçu pour la course (₪)<input type="text" inputMode="decimal" value={caisse.recu} onChange={(x) => setCaisse({ ...caisse, recu: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
+          <label className="ag-champ">Ajout / déduction (₪) — supplément pas prévu (ex. 20) ou remise (ex. -20)<input type="text" inputMode="text" value={caisse.ajout} onChange={(x) => setCaisse({ ...caisse, ajout: x.target.value.replace(/[^0-9.,\-−]/g, "") })} placeholder="0" /></label>
           <label className="ag-champ">Pourboire (₪, à part)<input type="text" inputMode="decimal" value={caisse.pourboire} onChange={(x) => setCaisse({ ...caisse, pourboire: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="ag-champ">Moyen de paiement
             <select value={caisse.moyen} onChange={(x) => setCaisse({ ...caisse, moyen: x.target.value })}>
@@ -163,6 +183,15 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           <div className="tb-actions">
             <button type="button" className="tb-bouton" disabled={enCours} onClick={encaisser}>{enCours ? "Enregistrement…" : "Valider le paiement"}</button>
           </div>
+          {encaisseDe(mouvements, d.id) > 0 && (
+            <>
+              <p className="tb-note">Déjà saisi un pourboire avec le paiement ? Indique combien passer en pourboire{Number(d.pourboire) ? ` (pourboire actuel : ${d.pourboire} ₪)` : ""} :</p>
+              <div className="tb-actions">
+                <input className="ag-champ-court" type="text" inputMode="decimal" value={versTip} onChange={(x) => setVersTip(x.target.value.replace(/[^0-9.,]/g, ""))} placeholder="ex. 10" style={{ maxWidth: 90 }} />
+                <button type="button" className="tb-bouton tb-clair" disabled={enCours || !versTip} onClick={passerEnPourboire}>Passer en pourboire</button>
+              </div>
+            </>
+          )}
         </div>
       )}
       {(merci || (fait && reste === 0 && !caisse)) && lienMerci && (

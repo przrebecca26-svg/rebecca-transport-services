@@ -8,7 +8,7 @@
 // Km : seulement des km ESTIMES (les km reellement parcourus ne sont pas enregistres).
 
 import { SERVICES } from "../services.js";
-import { faitDansPeriode, montantFait, partsDans } from "./parts.js";
+import { chiffresSepares, faitDansPeriode, montantFait } from "./parts.js";
 
 export const ACTIVITES_TB = [
   { id: "coursier", titre: "Services coursier", etat: "active", icone: "coursier" },
@@ -23,6 +23,26 @@ export const ACTIVITES_TB = [
 
 const ACTIVITE_DE = Object.fromEntries(SERVICES.map((s) => [s.id, s.activite]));
 export const activiteDe = (service) => ACTIVITE_DE[service] || "autre";
+
+// 17 nov. 2026, 14h30 : les cases du tableau de bord, par domaine
+export const DOMAINES_TB = [
+  { id: "courses", titre: "Chiffre d'affaires courses & livraisons" },
+  { id: "transport", titre: "Chiffre d'affaires transport" },
+  { id: "beaute", titre: "Chiffre d'affaires beauté" },
+  { id: "digital", titre: "Chiffre d'affaires digital" },
+  { id: "epoxy", titre: "Chiffre d'affaires boutique Epoxy" },
+  { id: "autre", titre: "Chiffre d'affaires autres" },
+];
+export function domaineDe(service) {
+  const s = String(service || "");
+  const a = ACTIVITE_DE[s] || s;
+  if (a === "coursier") return "courses";
+  if (a === "transport") return "transport";
+  if (["nails", "hair", "slim", "regenx", "beaute"].some((x) => a === x || s.startsWith(x))) return "beaute";
+  if (a === "digital" || s.startsWith("digital")) return "digital";
+  if (a === "epoxy" || s.startsWith("epoxy")) return "epoxy";
+  return "autre";
+}
 
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 const nb = (x) => {
@@ -52,8 +72,10 @@ export function indicateurs({ activite = null, demandes = [], mouvements = [], p
   const demandesRecues = siennes.filter((d) => dans(dateCreation(d), periode)).length;
   // 17 nov. 2026 : un aller-retour compte trajet par trajet (aller fait = moitie du prix ce jour-la)
   const terminees = siennes.filter((d) => faitDansPeriode(d, periode));
-  const nbParts = terminees.reduce((s, d) => s + partsDans(d, periode).length, 0);
-  const caFait = terminees.reduce((s, d) => s + montantFait(d, periode), 0);
+  // 17 nov. 2026, 14h29 : courses (base) / supplements et ajouts-deductions / pourboires, chacun a part
+  const sep = chiffresSepares(siennes, periode);
+  const nbParts = sep.nbParts;
+  const caFait = cents(sep.base + sep.supplements + sep.ajustements);
   const fraisAnnulation = mouvements
     .filter((m) => m.kind === "annulation" && ids.has(m.resId) && dans(m.date, periode))
     .reduce((s, m) => s + nb(m.fraisRetenus), 0);
@@ -63,12 +85,15 @@ export function indicateurs({ activite = null, demandes = [], mouvements = [], p
       .filter((m) => ids.has(m.resId) && dans(m.date, periode))
       .reduce((s, m) => s + (m.kind === "paiement" || m.kind === "correction" ? nb(m.montant) : m.kind === "remboursement_effectue" ? -nb(m.montant) : 0), 0)
   );
-  const pourboires = cents(terminees.reduce((s, d) => s + nb(d.pourboire), 0));
+  const pourboires = sep.pourboires;
   const kmEstimes = Math.round(terminees.reduce((s, d) => s + nb(d.kmEstime), 0));
   return {
     demandesRecues,
     prestationsTerminees: nbParts,
     caRealise,
+    caCourses: sep.base,
+    parDomaine: Object.fromEntries(DOMAINES_TB.map((x) => [x.id, chiffresSepares(siennes.filter((d) => domaineDe(d.service) === x.id), periode).base])),
+    supplements: cents(sep.supplements + sep.ajustements),
     encaisse,
     pourboires,
     kmEstimes,

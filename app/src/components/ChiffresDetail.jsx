@@ -3,6 +3,7 @@ import DetailCourses from "./DetailCourses.jsx";
 import { dateCreation } from "../pricing/tableauBord.js";
 import { encaisseBrut } from "../pricing/comptes.js";
 import { faitDansPeriode, montantFait } from "../pricing/parts.js";
+import { DOMAINES_TB, domaineDe } from "../pricing/tableauBord.js";
 
 // LES 4 CHIFFRES, CLIQUABLES (13 nov. 2026) - tableau de bord et page de chaque activite.
 // Un chiffre touche = la liste des courses qui le font, avec Ouvrir et Supprimer (courses de test).
@@ -33,7 +34,8 @@ export default function ChiffresDetail({ chiffres, demandes = [], recues = null,
     if (detail === "recues") return (recues || demandes).filter((d) => dansP(dateCreation(d)));
     if (detail === "attente") return demandes.filter((d) => (d.statut === "en attente" || d.statut === "acceptee") && dansP(d.date));
     if (detail === "reste") return demandes.filter((d) => faitDansPeriode(d, periode) && montantFait(d) - encaisseBrut(mouvements, d.id) > 0.009);
-    if (detail === "total" || detail === "rs") return liste2("ca");
+    if (detail.startsWith("dom-")) return liste2("ca").filter((d) => domaineDe(d.service) === detail.slice(4));
+    if (detail === "total" || detail === "rs" || detail === "supp" || detail === "tips") return liste2("ca");
     return [];
   }, [detail, demandes, recues, mouvements, periode.debut, periode.fin]); // eslint-disable-line react-hooks/exhaustive-deps
   const v = (x, argent) => (chiffres ? (argent ? shekels(x) : String(x)) : "…");
@@ -42,14 +44,18 @@ export default function ChiffresDetail({ chiffres, demandes = [], recues = null,
   const reste = demandes.filter((d) => faitDansPeriode(d, periode)).reduce((t, d) => t + Math.max(0, montantFait(d) - encaisseBrut(mouvements, d.id)), 0);
   const cases = general
     ? [
-        ["total", "Chiffre d'affaires total", v(chiffres && chiffres.caRealise + woltTotal, true)],
-        ["rs", "Chiffre d'affaires Rebecca Services", v(chiffres && chiffres.caRealise, true)],
+        // 17 nov. 2026, 14h30 : une case par domaine (prix de base), Wolt, pourboires, supplements / ajouts / deductions,
+        // total, argent recu, reste a encaisser. Epoxy et « autres » seulement s'il y a un montant.
+        ...DOMAINES_TB.filter((x) => !["epoxy", "autre"].includes(x.id) || (chiffres && chiffres.parDomaine && chiffres.parDomaine[x.id])).map((x) => ["dom-" + x.id, x.titre, v(chiffres && chiffres.parDomaine ? chiffres.parDomaine[x.id] || 0 : 0, true)]),
         ["wolt", "Chiffre d'affaires Wolt", v(woltTotal, true)],
+        ["tips", "Pourboires", v(chiffres && (chiffres.pourboires || 0), true)],
+        ["supp", "Suppléments, ajouts / déductions", v(chiffres && (chiffres.supplements || 0), true)],
+        ["total", "Total", v(chiffres && chiffres.caRealise + (chiffres.pourboires || 0) + woltTotal, true)],
+        // 17 nov. 2026 : « Argent reçu » = paiements recus dans la periode (meme payes d'avance), + Wolt seulement s'il y en a
+        ["encaisse", "Total encaissé", v(chiffres && chiffres.encaisse + (chiffres.pourboires || 0) + woltTotal, true)],
+        ["reste", "Reste à encaisser", v(reste, true)],
         ["faites", "Prestations terminées", v(chiffres && chiffres.prestationsTerminees)],
         ["attente", "Prestations en attente", v(enAttente)],
-        // 17 nov. 2026 : « Argent reçu » = paiements recus dans la periode (meme payes d'avance), + Wolt seulement s'il y en a
-        ["encaisse", woltTotal ? "Argent reçu (Wolt compris)" : "Argent reçu", v(chiffres && chiffres.encaisse + woltTotal, true)],
-        ["reste", "Reste à encaisser", v(reste, true)],
       ]
     : [
         ["ca", "Chiffre d'affaires réalisé", v(chiffres && chiffres.caRealise, true)],

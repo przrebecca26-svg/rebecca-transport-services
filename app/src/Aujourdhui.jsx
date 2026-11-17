@@ -9,6 +9,7 @@ import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { situationCourse } from "./pricing/comptes.js";
 import InfoVol from "./components/InfoVol.jsx";
+import { texteDuree } from "./pricing/circulation.js";
 
 // Onglet « Aujourd'hui » de l'espace prive : ce que Rebecca doit faire dans la journee.
 // Lecture seule : rien n'est modifie ici. Un appui sur une ligne ouvre la demande.
@@ -93,6 +94,7 @@ function CourseDuJour({ d, sit, onOuvrir }) {
           <strong><Pastille d={d} /> {d.serviceTitre}</strong>
           <small>{d.nom} · {textePrix(d)}{sit.resteAPayer > 0 && d.statut !== "annulee" ? ` · reste ${shekels(sit.resteAPayer)}` : ""}</small>
           {a && <small dir="auto">{a.label}</small>}
+          {typeof d.kmEstime === "number" && typeof d.minutesEstimees === "number" && <small>🚗 Trajet {texteDuree(d.minutesEstimees, d.date, d.heure)}</small>}
           <InfoVol d={d} compact />
         </span>
         <span className={"tb-badge tb-" + etat.classe}>{etat.label}</span>

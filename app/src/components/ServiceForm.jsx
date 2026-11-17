@@ -268,7 +268,7 @@ export default function ServiceForm({ service, depart, onRetour, onEnvoye, onCom
         />
       </div>
 
-      <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pretPourCalcul} manque={manque} />
+      <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pretPourCalcul} manque={manque} quand={{ date: v.date, heure: v.heure }} />
 
       {credit && (
         <section className="devis attente" aria-live="polite">

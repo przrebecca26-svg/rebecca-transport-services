@@ -128,7 +128,7 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
             <Champ key={c.name} champ={c} valeurs={v} onChange={changer} />
           ))}
         </div>
-        <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pret} manque={manque} />
+        <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pret} manque={manque} quand={{ date: v.date, heure: v.heure }} />
       </div>
 
       {calcule && renta && (

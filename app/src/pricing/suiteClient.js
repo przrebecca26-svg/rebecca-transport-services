@@ -118,12 +118,21 @@ export function releveDuMois(nom, courses, mouvements, mois, soldeComptes = 0) {
 
 /* ---------- 8. Paiement en ligne ---------- */
 // liens = { bit: "05x...", paybox: "https://...", paypal: "https://paypal.me/..." } (Reglages → Paiement en ligne)
+// Revolut : on accepte le lien, « @pseudo » ou « pseudo » (17 nov. 2026, 13h00) -> https://revolut.me/pseudo
+export function normaliserRevolut(x) {
+  const t = String(x || "").trim();
+  if (!t) return "";
+  if (/^https:\/\//.test(t)) return t;
+  const m = /^(?:revolut\.me\/)?@?([A-Za-z0-9._-]{3,40})$/.exec(t);
+  return m ? `https://revolut.me/${m[1]}` : "";
+}
 export function lignesPaiement(liens, montant) {
   const l = liens || {};
   const res = [];
   if (String(l.bit || "").replace(/\D/g, "").length >= 9) res.push(`• Bit : au ${String(l.bit).trim()}`);
   if (/^https:\/\//.test(l.paybox || "")) res.push(`• PayBox : ${l.paybox.trim()}`);
-  if (/^https:\/\//.test(l.revolut || "")) res.push(`• Revolut : ${l.revolut.trim()}`);
+  const rev = normaliserRevolut(l.revolut);
+  if (rev) res.push(`• Revolut : ${rev}`);
   if (/^https:\/\//.test(l.paypal || "")) res.push(`• PayPal : ${l.paypal.trim().replace(/\/$/, "")}${/paypal\.me\//.test(l.paypal) && montant > 0 ? `/${cents(montant)}ILS` : ""}`);
   return res;
 }

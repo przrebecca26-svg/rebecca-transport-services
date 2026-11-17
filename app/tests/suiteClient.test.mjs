@@ -30,6 +30,9 @@ test("paiement en ligne, suivi, Wolt, avis", () => {
   egal(S.messagePaiement({ nom: "A" }, 100, {}), "");
   vrai(S.messagePaiement({ nom: "A" }, 100, { bit: "0501234567", paypal: "https://paypal.me/rebecca" }).includes("paypal.me/rebecca/100ILS"));
   vrai(S.messagePaiement({ nom: "A" }, 50, { revolut: "https://revolut.me/rebecca" }).includes("Revolut : https://revolut.me/rebecca"));
+  egal(S.normaliserRevolut("@rebecc2kl2"), "https://revolut.me/rebecc2kl2");
+  egal(S.normaliserRevolut("rebecc2kl2"), "https://revolut.me/rebecc2kl2");
+  egal(S.normaliserRevolut("n importe quoi !"), "");
   egal(S.avancementDe({ chrono: { simple: { depart: "08:00", prise: "08:20" } } }), "Prise en charge à 08h20");
   egal(S.woltParHeure([{ id: "w", debut: "2026-11-02", revenu: 300 }], { w: 5 }, "2026-11"), { lignes: 1, heures: 5, revenu: 300, parHeure: 60 });
   egal(S.avisPublic({ id: "a", etoiles: 5, commentaire: " Top " }, "Naomie Cohen").prenom, "Naomie");

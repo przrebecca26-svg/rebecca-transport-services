@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { oublierModele } from "./mailClient.js";
 import { MARGE_DEFAUT } from "./pricing/enchainement.js";
 import { PLAFOND_DEFAUT } from "./pricing/financesAnnee.js";
 import { MAX_SECTIONS, MAX_TEXTE, MAX_TITRE, SECTIONS_DEPART, sectionsValides } from "./textesLegaux.js";
@@ -285,11 +286,54 @@ function Textes() {
   );
 }
 
+/* ---------- E-mails aux clientes (17 nov. 2026) ---------- */
+// Identifiant du modele EmailJS « message a une cliente » (reglages/emails.modeleClient), lu par mailClient.js
+function EmailsClientes() {
+  const [valeur, setValeur] = useState("");
+  const [enBase, setEnBase] = useState(null);
+  const [message, setMessage] = useState(null);
+  useEffect(
+    () => onSnapshot(doc(db, "reglages", "emails"), (x) => {
+      const m = x.exists() ? String(x.data().modeleClient || "") : "";
+      setEnBase(m);
+      setValeur((v) => v || m);
+    }, () => setEnBase("")),
+    []
+  );
+  const enregistrer = async () => {
+    const m = valeur.trim();
+    if (!/^template_[A-Za-z0-9_-]{3,60}$/.test(m)) return setMessage({ erreur: true, texte: "Colle l'identifiant du modèle, il commence par « template_ »." });
+    try {
+      await setDoc(doc(db, "reglages", "emails"), { modeleClient: m, majLe: serverTimestamp() });
+      oublierModele();
+      setMessage({ texte: "Enregistré : les messages partiront aussi par e-mail." });
+    } catch {
+      setMessage({ erreur: true, texte: "Enregistrement impossible. Vérifie la connexion." });
+    }
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>E-mails aux clientes</h3>
+      <p className="tb-note">Merci, rappel de la veille, « je suis en route » et demande d'avis partent aussi par e-mail, tout seuls, quand la cliente a donné son adresse.</p>
+      <p className="tb-note">{enBase ? "✅ Activé." : "À faire une fois : sur emailjs.com → Email Templates → Create New Template. Sujet : {{sujet}} · Contenu : {{message}} · To Email : {{to_email}} · From Name : Rebecca Services. Enregistre, copie son identifiant (template_…) et colle-le ici."}</p>
+      <label className="pm-champ">
+        Identifiant du modèle
+        <input value={valeur} maxLength={70} onChange={(e) => { setValeur(e.target.value); setMessage(null); }} placeholder="template_xxxxxxx" />
+      </label>
+      <div className="tb-actions">
+        <button className="tb-bouton" disabled={valeur.trim() === (enBase || "")} onClick={enregistrer}>Enregistrer</button>
+      </div>
+      <Message m={message} />
+    </div>
+  );
+}
+
 export default function Reglages() {
   return (
     <section className="tb-liste rg">
       <Marge />
       <Plafond />
+      <EmailsClientes />
       <Textes />
       <p className="tb-note tb-pad">Les tarifs, les durées et les horaires des activités deviendront modifiables ici au Lot C.</p>
     </section>

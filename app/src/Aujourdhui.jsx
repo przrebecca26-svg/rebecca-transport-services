@@ -2,7 +2,9 @@ import { retourAutreJour } from "./pricing/enchainement.js";
 import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID, attribueA } from "./pricing/equipe.js";
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { avisADemander, messageAvis, messageRappelRetour, rappelsDemain, recusAFaire, resteDe } from "./pricing/finCourse.js";
+import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
@@ -112,6 +114,60 @@ function CourseDuJour({ d, sit, onOuvrir }) {
   );
 }
 
+// 17 nov. 2026, 11h35 : « À envoyer / à faire » — rappels des retours de demain, avis a demander, recus a faire.
+// Un appui sur WhatsApp envoie aussi l'e-mail (si la cliente en a un) et note que c'est fait.
+function AFaire({ demandes, mouvements, jour }) {
+  const [info, setInfo] = useState("");
+  const rappels = rappelsDemain(demandes, jour);
+  const avis = avisADemander(demandes, jour);
+  const recus = recusAFaire(demandes);
+  if (!rappels.length && !avis.length && !recus.length) return null;
+  const noter = (d, champs) => updateDoc(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() }).catch(() => {});
+  const envoyer = (d, sujet, texte, champs) => {
+    noter(d, champs);
+    envoyerMailClient(d, sujet, texte).then((x) => x && setInfo(x)).catch(() => {});
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>À envoyer / à faire</h3>
+      {rappels.length > 0 && <p className="aj-sous-titre">🔔 Rappels pour les retours de demain</p>}
+      {rappels.map((d) => {
+        const texte = messageRappelRetour(d, resteDe(d, mouvements));
+        const wa = lienWhatsApp(d.telephone, texte);
+        return (
+          <div key={"r" + d.id} className="tb-adresse">
+            <div><p>{d.nom}</p><small>Retour {String(d.details.heureRetour || "").replace(":", "h")}{d.details.numeroVolRetour ? ` · vol ${d.details.numeroVolRetour}` : ""}</small></div>
+            {wa ? <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => envoyer(d, SUJETS.rappel, texte, { rappelEnvoyeLe: jour })}>Envoyer</a> : <button className="tb-bouton tb-clair" onClick={() => envoyer(d, SUJETS.rappel, texte, { rappelEnvoyeLe: jour })}>Par e-mail</button>}
+          </div>
+        );
+      })}
+      {avis.length > 0 && <p className="aj-sous-titre">⭐ Demander un avis</p>}
+      {avis.map((d) => {
+        const texte = messageAvis(d);
+        const wa = lienWhatsApp(d.telephone, texte);
+        return (
+          <div key={"a" + d.id} className="tb-adresse">
+            <div><p>{d.nom}</p><small>{d.serviceTitre} · {jourCourt(d.date)}</small></div>
+            <div className="tb-actions">
+              {wa && <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => envoyer(d, SUJETS.avis, texte, { avisDemandeLe: jour })}>Envoyer</a>}
+              <button className="tb-bouton tb-clair" onClick={() => noter(d, { avisDemandeLe: jour })}>Pas pour elle</button>
+            </div>
+          </div>
+        );
+      })}
+      {recus.length > 0 && <p className="aj-sous-titre">🧾 Reçus à faire</p>}
+      {recus.map((d) => (
+        <div key={"q" + d.id} className="tb-adresse">
+          <div><p>{d.nom}</p><small>{d.serviceTitre} · {jourCourt(d.date)} · payé {shekels(Math.max(0, prixDe(d) - resteDe(d, mouvements)))}</small></div>
+          <button className="tb-bouton tb-clair" onClick={() => noter(d, { recuFaitLe: jour })}>C'est fait</button>
+        </div>
+      ))}
+      {recus.length > 0 && <p className="tb-note">Fais le reçu dans ton application de reçus (osek patur), puis appuie sur « C'est fait ».</p>}
+      {info && <p className="tb-note" role="status">{info}</p>}
+    </div>
+  );
+}
+
 export default function Aujourdhui({ aller }) {
   const [demandes, setDemandes] = useState(null);
   const [mouvements, setMouvements] = useState(null);
@@ -213,6 +269,8 @@ export default function Aujourdhui({ aller }) {
           ))}
         </div>
       )}
+
+      {!equipier && <AFaire demandes={demandes} mouvements={mouvements} jour={jour} />}
 
       {vue.aCloturer.length > 0 && (
         <div className="tb-bloc aj-alerte">

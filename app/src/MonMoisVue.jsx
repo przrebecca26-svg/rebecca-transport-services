@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { GROUPES, monMois } from "./pricing/monMois.js";
+import { GROUPES, groupeDe, monMois } from "./pricing/monMois.js";
+import { coutKm, rentabiliteDuMois, texteMinutes } from "./pricing/finCourse.js";
 import { useEssence } from "./EssenceVue.jsx";
 import { useKmReel } from "./kmReel.js";
 import DetailCourses from "./components/DetailCourses.jsx";
@@ -46,6 +47,7 @@ export default function MonMoisVue({ donnees, aller }) {
   const reel = useKmReel(mois, donnees.demandes);
   const r = monMois(mois, { ...donnees, essence, reel });
   const e = r.essence;
+  const parHeure = rentabiliteDuMois(donnees.demandes, mois, groupeDe, coutKm(essence ? essence.pleins : []).parKm);
   return (
     <section className="tb-liste fi">
       <div className="dp-mois">
@@ -102,6 +104,27 @@ export default function MonMoisVue({ donnees, aller }) {
           <p className="tb-note">Pas encore de plein ce mois-ci : ajoute-les dans l'onglet Essence pour un bénéfice réel.</p>
         )}
       </div>
+      {/* 17 nov. 2026, 11h35 : ce que me rapporte une heure, par activite (trajets chronometres dans l'agenda) */}
+      <div className="tb-bloc">
+        <h3>Ce que me rapporte une heure</h3>
+        {Object.keys(parHeure).length === 0 ? (
+          <p className="tb-note">Pas encore de trajet chronométré ce mois-ci : utilise « 🚗 Partie → 📍 Récupérée → ✓ Déposée → 🏠 Rentrée » dans l'agenda.</p>
+        ) : (
+          <ul className="pm-resume">
+            {GROUPES.filter((g) => parHeure[g.id]).map((g) => {
+              const x = parHeure[g.id];
+              return (
+                <li key={g.id}>
+                  <span>{g.l} <small>({x.trajets} trajet{x.trajets > 1 ? "s" : ""}, {texteMinutes(x.minutes)})</small></span>
+                  <strong>{x.parHeure != null ? `${x.parHeure} ₪/h` : "—"}{x.gainReelParHeure != null && x.gainReelParHeure !== x.parHeure ? ` · réel ${x.gainReelParHeure} ₪/h` : ""}</strong>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <p className="tb-note">« Réel » = après l'essence estimée. Wolt : les heures ne sont pas notées, pas encore de comparaison.</p>
+      </div>
+
       {aller && <p className="tb-note tb-pad">Détail de l'année et plafond de l'osek : onglet Année.</p>}
     </section>
   );

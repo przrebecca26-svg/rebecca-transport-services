@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { texteDuree } from "./pricing/circulation.js";
 import InfoVol from "./components/InfoVol.jsx";
 import { arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ModifierDevis } from "./SimulateurDevis.jsx";
@@ -557,7 +558,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
             <a className="tb-bouton tb-clair" href={lienWaze(typeof a.lat === "number" && typeof a.lon === "number" ? { lat: a.lat, lon: a.lon } : { adresse: a.label })} target="_blank" rel="noopener noreferrer">Waze</a>
           </div>
         ))}
-        {typeof d.kmEstime === "number" && <p className="tb-note">Distance estimée : {Math.round(d.kmEstime * 10) / 10} km{typeof d.minutesEstimees === "number" ? ` · ${Math.round(d.minutesEstimees)} min` : ""}</p>}
+        {typeof d.kmEstime === "number" && <p className="tb-note">Distance estimée : {Math.round(d.kmEstime * 10) / 10} km{typeof d.minutesEstimees === "number" ? ` · trajet ${texteDuree(d.minutesEstimees, d.date, d.heure)} en partant à ${d.heure}` : ""}</p>}
       </div>
 
       <div className="tb-bloc">

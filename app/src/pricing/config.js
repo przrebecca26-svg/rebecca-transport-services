@@ -196,6 +196,9 @@ export const TARIFS = {
   // La note peut etre partagee : par enfant / par personne, ou en parts egales entre les familles.
   // 16 nov. 2026 : transport et aeroport, un ENFANT en plus ne paie qu'une part du supplement passager (0.5 = la moitie).
   partage: { inclus: 2, ramassage: 0.5, transport: 0.25, enfantTransport: 0.5, maxFamilles: 3 },
+  // 17 nov. 2026 : duree du trajet aux heures de pointe (affichage seulement, le prix ne change pas).
+  // Heures en nombre (9.5 = 9h30) ; dimanche a jeudi pour le matin et le soir ; pourcentages ajoutes a la duree.
+  circulation: { matinDebut: 7, matinFin: 9.5, matin: 0.5, soirDebut: 15.5, soirFin: 18.5, soir: 0.4, vendrediDebut: 11, vendrediFin: 14.5, vendredi: 0.2 },
   tournee: { margeRouteMinutes: 5, arretMinutes: 5, retardMaxMinutes: 10, places: 4, retourMaisonMinutes: 30, libreMinutes: 20 },
   // libreMinutes (12 nov. 2026, 16h07) : pendant une activite (basket...), si j'attends au moins 20 min entre la depose
   // et la recuperation, ce temps est LIBRE (pas bloque) : je peux prendre une petite course aux alentours.

@@ -1,8 +1,9 @@
 import { aConfirmerClient } from "../services.js";
 import { prixFr } from "../pricing/partage.js";
+import { texteDuree } from "../pricing/circulation.js";
 
 // Devis affiche au client. N'affiche JAMAIS le gain de Rebecca ni les alertes internes.
-export default function Devis({ resultat, trajet, pretPourCalcul, manque }) {
+export default function Devis({ resultat, trajet, pretPourCalcul, manque, quand }) {
   if (resultat && resultat.bloque) {
     const f = resultat.disponibleA;
     return (
@@ -73,7 +74,7 @@ export default function Devis({ resultat, trajet, pretPourCalcul, manque }) {
       {notes.map((n, i) => (
         <p className="note" key={i}>• {n}</p>
       ))}
-      {trajet && trajet.statut === "ok" && trajet.km >= 1 && <p className="note">Trajet estimé : {trajet.km} km, environ {trajet.minutes} min.</p>}
+      {trajet && trajet.statut === "ok" && trajet.km >= 1 && <p className="note">Trajet estimé : {trajet.km} km, {texteDuree(trajet.minutes, quand && quand.date, quand && quand.heure)}{quand && quand.heure ? ` en partant à ${quand.heure}` : ""}.</p>}
       <p className="note">Prix estimatif : Rebecca confirme le prix définitif avec la réservation. Aucun supplément surprise.</p>
     </section>
   );

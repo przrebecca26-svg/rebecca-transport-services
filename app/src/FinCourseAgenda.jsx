@@ -12,7 +12,7 @@ import { ajouterJours } from "./pricing/calendrier.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { useEssence } from "./EssenceVue.jsx";
 import {
-  ETAPES_CHRONO, avanceRetour, bilanTrajet, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageFin,
+  ETAPES_CHRONO, avanceRetour, bilanTrajet, champsModifChrono, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageFin,
   messageAvis, messageEnRoute, messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
 } from "./pricing/finCourse.js";
 
@@ -68,14 +68,12 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const cout = coutKm(essence ? essence.pleins : []);
   const bilan = bilanTrajet(d, cout.parKm);
   const avance = avanceRetour(d, mouvements);
-  const ouvrirCompteur = () => setCompteur(compteur ? null : { kmDepart: c.kmDepart || "", kmDepose: c.kmDepose || "", kmMaison: c.kmMaison || "" });
+  // 17 nov. 2026, 12h03 : corriger toutes les heures et le compteur apres coup
+  const ouvrirCompteur = () => setCompteur(compteur ? null : { depart: c.depart || "", prise: c.prise || "", depose: c.depose || "", maison: c.maison || "", kmDepart: c.kmDepart || "", kmDepose: c.kmDepose || "", kmMaison: c.kmMaison || "" });
   const enregistrerCompteur = async () => {
-    const champs = {};
-    for (const [k, v] of Object.entries(compteur)) {
-      const n = String(v || "").replace(/\D/g, "");
-      champs[`chrono.${trajet}.${k}`] = n ? Number(n) : "";
-    }
-    await enregistrer(champs);
+    const r = champsModifChrono(d, compteur, moi);
+    if (r.erreur) return setErreur(r.erreur);
+    await enregistrer(r.champs);
     setCompteur(null);
   };
   const lienMerci = lienWhatsApp(d.telephone, messageFin(d, reste));
@@ -176,15 +174,17 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
         </div>
       )}
       {infoMail && !boutonRappel && <p className="tb-note">{infoMail}</p>}
-      {moi === ADMIN_ID && (c.prise || c.depart || fait) && (
-        <div className="tb-actions">
-          <button type="button" className="ag-modifier" onClick={ouvrirCompteur}>{compteur ? "Fermer" : "⛽ Compteur km"}</button>
-        </div>
-      )}
+      <div className="tb-actions">
+        <button type="button" className="ag-modifier" onClick={ouvrirCompteur}>{compteur ? "Fermer" : "✏️ Heures et compteur"}</button>
+      </div>
       {compteur && (
         <div className="ag-etape-actions">
-          <p className="tb-note">Recopie le kilométrage de tes photos du compteur (deux suffisent, ex. départ et retour à la maison).</p>
-          {[["kmDepart", "Au départ de la maison"], ["kmDepose", "À la dépose (ex. aéroport)"], ["kmMaison", "En rentrant à la maison"]].map(([k, l]) => (
+          <p className="tb-note">Corrige ou remplis les heures après coup (vide = pas noté).</p>
+          {ETAPES_CHRONO.map((e) => (
+            <label key={e.id} className="ag-champ">{e.libelle}<input type="time" value={compteur[e.id]} onChange={(x) => setCompteur({ ...compteur, [e.id]: x.target.value })} /></label>
+          ))}
+          {moi === ADMIN_ID && <p className="tb-note">Compteur km (tes photos ; deux chiffres suffisent) :</p>}
+          {moi === ADMIN_ID && [["kmDepart", "Au départ de la maison"], ["kmDepose", "À la dépose (ex. aéroport)"], ["kmMaison", "En rentrant à la maison"]].map(([k, l]) => (
             <label key={k} className="ag-champ">{l}<input type="text" inputMode="numeric" value={compteur[k]} onChange={(x) => setCompteur({ ...compteur, [k]: x.target.value.replace(/\D/g, "") })} placeholder="ex. 45210" /></label>
           ))}
           <div className="tb-actions"><button type="button" className="tb-bouton" disabled={enCours} onClick={enregistrerCompteur}>Enregistrer</button></div>

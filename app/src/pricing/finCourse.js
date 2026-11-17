@@ -408,3 +408,25 @@ export function versRefaire(d) {
 }
 // Message de fin selon le service : livraison faite (coursier) ou merci (transport, aeroport...)
 export const messageFin = (d, reste = 0) => (estCoursier(d) && trajetDe(d) === "simple" ? messageLivraisonFaite(d) : messageMerci(d, reste));
+
+// « ✏️ Heures et compteur » (17 nov. 2026, 12h03) : tout corriger apres coup (heures des 4 etapes + km du compteur).
+// valeurs = { depart, prise, depose, maison, kmDepart, kmDepose, kmMaison } ; "" = efface.
+export function champsModifChrono(d, valeurs, quiFait = "rebecca") {
+  const t = trajetDe(d);
+  const champs = {};
+  for (const e of ETAPES_CHRONO) {
+    const h = String((valeurs || {})[e.id] || "").trim();
+    if (h && !HEURE_OK.test(h)) return { erreur: "Heure invalide (ex. 08:45)." };
+    champs[`chrono.${t}.${e.id}`] = h;
+  }
+  for (const k of ["kmDepart", "kmDepose", "kmMaison"]) {
+    const n = String((valeurs || {})[k] || "").replace(/\D/g, "");
+    champs[`chrono.${t}.${k}`] = n ? Number(n) : "";
+  }
+  const depose = champs[`chrono.${t}.depose`] || champs[`chrono.${t}.maison`];
+  if (depose && !faitDe(d)) Object.assign(champs, champsFait(d, depose, quiFait));
+  else if (depose && t === "aller") champs.allerFaitA = champs[`chrono.${t}.depose`] || d.allerFaitA;
+  else if (depose && t === "retour") champs.retourFaitA = champs[`chrono.${t}.depose`] || d.retourFaitA;
+  else if (depose && t === "simple") champs.faitA = champs[`chrono.${t}.depose`] || d.faitA;
+  return { erreur: "", champs };
+}

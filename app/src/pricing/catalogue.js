@@ -389,7 +389,7 @@ export const TARIFS_EDITABLES = [
   { chemin: "partage.ramassage", label: "Ramassage : supplément par enfant en plus sur un trajet", unite: "%", pourcent: true, groupe: "Trajet partagé" },
   { chemin: "partage.transport", label: "Transport et aéroport : supplément par passager en plus", unite: "%", pourcent: true, groupe: "Trajet partagé" },
   { chemin: "partage.enfantTransport", label: "Transport et aéroport : un enfant en plus paie cette part du supplément passager", unite: "%", pourcent: true, groupe: "Trajet partagé" },
-  { chemin: "tournee.margeRouteMinutes", label: "Tournée : marge de route à chaque déplacement", unite: "min", groupe: "Ramassage scolaire" },
+  { chemin: "tournee.margeRouteMinutes", label: "Tournée : marge en plus du trajet calculé (0 = trajet exact selon l'heure)", unite: "min", groupe: "Ramassage scolaire" },
   { chemin: "tournee.arretMinutes", label: "Tournée : temps d'arrêt (monter ou descendre)", unite: "min", groupe: "Ramassage scolaire" },
   { chemin: "tournee.retardMaxMinutes", label: "Tournée : retard maximum à une sortie d'école", unite: "min", groupe: "Ramassage scolaire" },
   { chemin: "tournee.places", label: "Tournée : places pour les enfants dans la voiture", unite: "", groupe: "Ramassage scolaire" },

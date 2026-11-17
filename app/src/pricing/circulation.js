@@ -15,19 +15,33 @@ const jourSemaine = (date) => {
 const pct = (x) => (Number.isFinite(Number(x)) ? Math.max(0, Math.min(1, Number(x))) : 0);
 const dans = (h, debut, fin) => Number.isFinite(+debut) && Number.isFinite(+fin) && h >= +debut && h < +fin;
 
-// Plage de circulation pour un depart (date « AAAA-MM-JJ », heure « HH:MM ») -> { pct, plage } ; pct 0 = circulation normale
-export function plageCirculation(date, heure, t = TARIFS) {
+// Plage de circulation pour un jour de semaine (0 = dimanche) et une minute de la journee (480 = 8h00)
+export function plageDuMoment(jour, minute, t = TARIFS) {
   const c = (t && t.circulation) || {};
-  const m = HEURE_OK.exec(String(heure || ""));
-  if (!DATE_OK.test(String(date || "")) || !m) return { pct: 0, plage: "" };
-  const h = +m[1] + +m[2] / 60;
-  const jour = jourSemaine(date);
+  if (!Number.isInteger(jour) || !Number.isFinite(minute)) return { pct: 0, plage: "" };
+  const h = minute / 60;
   if (jour >= 0 && jour <= 4) {
     if (dans(h, c.matinDebut, c.matinFin) && pct(c.matin)) return { pct: pct(c.matin), plage: "heure de pointe du matin" };
     if (dans(h, c.soirDebut, c.soirFin) && pct(c.soir)) return { pct: pct(c.soir), plage: "heure de pointe du soir" };
   }
   if (jour === 5 && dans(h, c.vendrediDebut, c.vendrediFin) && pct(c.vendredi)) return { pct: pct(c.vendredi), plage: "vendredi avant Chabbat" };
   return { pct: 0, plage: "" };
+}
+
+// Plage de circulation pour un depart (date « AAAA-MM-JJ », heure « HH:MM ») -> { pct, plage } ; pct 0 = circulation normale
+export function plageCirculation(date, heure, t = TARIFS) {
+  const m = HEURE_OK.exec(String(heure || ""));
+  if (!DATE_OK.test(String(date || "")) || !m) return { pct: 0, plage: "" };
+  return plageDuMoment(jourSemaine(date), +m[1] * 60 + +m[2], t);
+}
+
+// Tournee scolaire (17 nov. 2026) : route(a, b, minute) = temps de route normal, majore selon l'heure de depart
+export function routeSelonHeure(duree, jour, t = TARIFS) {
+  return (a, b, minute) => {
+    const d = duree(a, b);
+    if (d == null || d === 0 || minute == null) return d;
+    return Math.ceil(d * (1 + plageDuMoment(jour, minute, t).pct));
+  };
 }
 
 // Duree prevue du trajet : minutes « normales » + la majoration de l'heure de depart

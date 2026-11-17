@@ -24,6 +24,11 @@ const duree = (a, b) => {
   const paire = [To.cleLieu(ECOLE), To.cleLieu(AMIE)];
   return paire.includes(a) && paire.includes(b) ? 2 : 4;
 };
+// 17 nov. 2026 : ces tests verifient l'ordre et les heures de la tournee avec les anciens reglages (5 min de marge de
+// route, sans heures de pointe). Le trajet exact selon l'heure est teste dans circulation.test.mjs.
+const ANCIENS = { marge: TARIFS.tournee.margeRouteMinutes, circulation: TARIFS.circulation };
+TARIFS.tournee.margeRouteMinutes = 5;
+TARIFS.circulation = {};
 const T = JSON.parse(JSON.stringify(TARIFS));
 
 const tous = () => To.JOURS.map(() => ({ actif: true, heure: "" }));
@@ -571,3 +576,7 @@ test("journee reelle du 15 nov. : anniversaire chez l'amie puis basket, sans tra
   vrai(fil.some((t) => /De retour à la maison avec Shyrel/.test(t)), txt);
   vrai(!fil.some((t) => /Prendre Joy/.test(t)) || !fil.some((t) => /^14h2\d Prendre Shyrel/.test(t)), txt); // pas d'arret separe 11 min apres
 });
+
+// Retour aux reglages du programme pour les fichiers de tests suivants
+TARIFS.tournee.margeRouteMinutes = ANCIENS.marge;
+TARIFS.circulation = ANCIENS.circulation;

@@ -253,7 +253,7 @@ export default function TourneeScolaire() {
         </div>
         {durees.statut === "erreur" && <p className="rp-alerte">Temps de route indisponibles pour l'instant. Réessaie dans un moment.</p>}
         <JourneeTournee titre={JOURS[jour]} jour={journee} ouvert nomLieu={nomLieu} />
-        <p className="tdb-note">Compté : temps de route + {regles.margeRouteMinutes} min de marge à chaque déplacement, {regles.arretMinutes} min par arrêt, {regles.retardMaxMinutes} min de retard au maximum à une sortie, {regles.places} places, retour à la maison s'il reste au moins {regles.retourMaisonMinutes} min de libre. Le bouton Waze de chaque arrêt donne le temps réel du moment. Modifiable dans Réglages → Tarifs.</p>
+        <p className="tdb-note">Compté : trajet exact d'une adresse à l'autre selon l'heure (heures de pointe des réglages « Circulation »){regles.margeRouteMinutes ? ` + ${regles.margeRouteMinutes} min de marge` : ""}, {regles.arretMinutes} min par arrêt, {regles.retardMaxMinutes} min de retard au maximum à une sortie, {regles.places} places, retour à la maison s'il reste au moins {regles.retourMaisonMinutes} min de libre. Le bouton Waze de chaque arrêt donne le temps réel du moment. Modifiable dans Réglages → Tarifs.</p>
       </section>
 
       <ConfierTrajets donnees={base.donnees} tous={tous} duree={durees.duree} dureesPretes={durees.statut === "ok"} nomLieu={nomLieu} aujourdhui={aujourdhui()} jour={jour} />

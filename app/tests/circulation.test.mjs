@@ -3,6 +3,7 @@ import { test, egal, vrai, section } from "./outils.mjs";
 import * as C from "../src/pricing/circulation.js";
 import { TARIFS } from "../src/pricing/config.js";
 import { TARIFS_EDITABLES } from "../src/pricing/catalogue.js";
+import * as To from "../src/pricing/tournee.js";
 
 section("Circulation : durée du trajet aux heures de pointe");
 // 2026-11-17 = mardi, 2026-11-20 = vendredi, 2026-11-21 = samedi
@@ -26,4 +27,19 @@ test("réglages : modifiables dans Tarifs, et pris en compte", () => {
   vrai(TARIFS_EDITABLES.filter((c) => c.chemin.startsWith("circulation.")).length === 9);
   const t = { circulation: { ...TARIFS.circulation, matin: 1 } };
   egal(C.dureeSelonHeure(30, "2026-11-17", "08:00", t).minutes, 60);
+});
+
+test("tournée : trajet exact selon l'heure + 5 min d'arrêt, sans marge fixe", () => {
+  egal([TARIFS.tournee.margeRouteMinutes, TARIFS.tournee.arretMinutes], [0, 5]);
+  const lieu = (label, n) => ({ label, lat: 32.3 + n / 100, lon: 34.85 });
+  const A = lieu("École", 1), B = lieu("Gan", 3), M = lieu("Maison", 0);
+  const duree = () => 10;
+  const tous = () => To.JOURS.map(() => ({ actif: true, heure: "" }));
+  const r = (heure) => [To.trajetVide({ id: "s", nom: "Sortie", type: "sortie", de: A, a: B, heure, jours: tous() })];
+  const heures = (j) => j.arrets.filter((x) => x.trajet).map((x) => To.texteArret(x).heure);
+  // mardi (2) : 11h00 hors pointe = 10 min de route ; 16h00 pointe du soir +40 % = 14 min ; arret 5 min
+  egal(heures(To.evaluerJour(r("11:00"), 2, duree, TARIFS, { domicile: M })), ["11h00", "11h15"]);
+  egal(heures(To.evaluerJour(r("16:00"), 2, duree, TARIFS, { domicile: M })), ["16h00", "16h19"]);
+  // vendredi (5) a 16h00 : apres la plage du vendredi, pas de pointe
+  egal(heures(To.evaluerJour(r("16:00"), 5, duree, TARIFS, { domicile: M })), ["16h00", "16h15"]);
 });

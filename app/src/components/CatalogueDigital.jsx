@@ -3,6 +3,7 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 import { ecouterCatalogue } from "../catalogueClient.js";
 import { libellePrix } from "../pricing/catalogue.js";
+import { VISUELS } from "../visuels.js";
 import { CONDITIONS_COMMUNES, FICHES_FORMULES, FICHES_MAINTENANCE, messageConsultation } from "../pricing/digital.js";
 
 // PAGE DIGITAL & APPLICATIONS (17 nov. 2026)
@@ -99,6 +100,7 @@ export default function CatalogueDigital({ onRetour, onDevis }) {
       {de("Études").length > 0 && <h3>Consultation et études</h3>}
       {de("Études").map((p) => (
         <div key={p.id} className="carte-service" style={{ cursor: "default" }}>
+          {VISUELS.digital[p.nom] && <img src={VISUELS.digital[p.nom]} alt="" style={{ width: 64, height: 64, borderRadius: 8, marginRight: 8, flex: "none" }} />}
           <span className="corps">
             <strong>{p.nom}</strong>
             <small>{p.description}</small>

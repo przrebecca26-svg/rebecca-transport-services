@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TABLEAU_AEROPORT, adresseRecherche, choisirVol, etatDuVol, villeDuVol, volConsultable, volDeLaCourse } from "../pricing/vols.js";
+import { TABLEAU_AEROPORT, adresseRecherche, choisirVol, etatDuVol, iconeVol, lieuDuVol, villeDuVol, volConsultable, volDeLaCourse } from "../pricing/vols.js";
 
 // Suivi du vol d'une course aeroport (17 nov. 2026) : terminal, a deposer ou a recuperer, a l'heure ou en retard.
 // Lecture du tableau officiel de l'aeroport Ben Gourion (data.gov.il), relue toutes les 5 minutes tant que l'ecran
@@ -64,21 +64,30 @@ export default function InfoVol({ d, compact = false }) {
   const style = info && info.alerte ? { color: "#c0392b", fontWeight: 600 } : undefined;
   const mot = vol.sens === "depart" ? "Décollage" : "Atterrissage";
   const ville = villeDuVol(vol, info);
+  const lieu = lieuDuVol(vol, info);
+  const icone = iconeVol(vol);
+  const decale = info && Math.abs(info.ecartMinutes) >= 5 && !/annulé/.test(info.etat);
+  // Heure du vol : celle du tableau (nouvelle heure si elle a bouge), sinon celle saisie
+  const heureVol = info ? (decale ? `${info.nouvelle} au lieu de ${info.prevu}` : info.prevu) : (d.estRetour ? v.heureVolRetour : v.heureVol) || "";
 
   if (compact) {
     return (
       <small style={style}>
-        ✈️ {vol.texte.toUpperCase()}{ville ? ` ${ville}` : ""} · {base.action} · {suite}
-        {info && Math.abs(info.ecartMinutes) >= 5 && !/annulé/.test(info.etat) ? ` (${info.nouvelle} au lieu de ${info.prevu})` : ""}
+        {icone} {vol.texte.toUpperCase()}{ville ? ` ${ville}` : ""}{heureVol ? ` · ${mot.toLowerCase()} ${heureVol}` : ""} · {suite} · {base.action}
       </small>
     );
   }
+  const ligne = (titre, valeur, st) => (valeur ? <p style={st}><strong>{titre} :</strong> {valeur}</p> : null);
   return (
     <div className="tb-bloc">
-      <h3>✈️ Vol {d.estRetour ? "du retour " : ""}{vol.texte.toUpperCase()}{ville ? ` ${ville}` : ""}</h3>
-      <p><strong>{base.action}</strong>{info && info.compagnie ? ` · ${info.compagnie}` : ""}</p>
-      <p style={style}>{suite}</p>
-      {info && <p>{mot} : {Math.abs(info.ecartMinutes) >= 5 ? `${info.nouvelle} au lieu de ${info.prevu}` : info.prevu}{info.suite ? ` · ${info.suite}` : ""}</p>}
+      <h3>{icone} Vol {d.estRetour ? "du retour " : "de l'aller "}{vol.texte.toUpperCase()}</h3>
+      <p><strong>{base.action}</strong>{d.estRetour && d.date ? ` · le ${d.date.split("-").reverse().join("/")}` : ""}</p>
+      {ligne(vol.sens === "depart" ? "Destination" : "Provenance", lieu)}
+      {ligne("Compagnie", info && info.compagnie)}
+      {ligne(mot, heureVol, style)}
+      {ligne("Terminal", info ? info.terminal || (!d.estRetour && v.terminal) : !d.estRetour && v.terminal)}
+      {ligne("État", info ? [info.etat, info.suite].filter(Boolean).join(" · ") : suite, style)}
+      {ligne("Enregistrement", info && info.comptoirs)}
       <p className="tb-note">
         {s.statut === "ok" ? `Tableau de l'aéroport Ben Gourion, lu à ${s.a}, relu toutes les 5 minutes. ` : ""}
         <a href={TABLEAU_AEROPORT} target="_blank" rel="noopener noreferrer">Voir le tableau de l'aéroport</a>

@@ -4,7 +4,8 @@
 // Source : tableau officiel des vols de l'aeroport Ben Gourion (Autorite des aeroports d'Israel, data.gov.il),
 // gratuit, sans cle, mis a jour toutes les 15 minutes environ. Il ne contient que les vols proches (hier a demain).
 // Champs du tableau : CHOPER (compagnie), CHFLTN (numero), CHOPERD (nom de la compagnie), CHSTOL (heure prevue),
-// CHPTOL (heure mise a jour), CHAORD (A = arrivee, D = depart), CHLOCCT (ville), CHTERM (terminal), CHRMINE (etat).
+// CHPTOL (heure mise a jour), CHAORD (A = arrivee, D = depart), CHLOC1 (code de l'aeroport), CHLOC1T / CHLOC1D (ville),
+// CHLOCCT (pays), CHTERM (terminal), CHCINT (comptoirs d'enregistrement), CHCKZN (zone), CHRMINE (etat).
 
 export const RESSOURCE_VOLS = "e83f763b-b7d7-479e-b172-ae981ddc6de5";
 export const TABLEAU_AEROPORT = "https://www.iaa.gov.il/airports/ben-gurion/flight-board/";
@@ -100,10 +101,19 @@ const heureDe = (iso) => {
 // « TEL AVIV-YAFO » -> « Tel Aviv-Yafo » (les villes du tableau sont en majuscules)
 export const nomVille = (x) => String(x || "").trim().toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
 // Ville affichee : celle saisie par Rebecca, sinon celle du tableau de l'aeroport. « vers Paris » / « depuis Lyon »
-export const villeDuVol = (vol, info) => {
+// 17 nov. 2026 : ville ET pays (« Paris, France »), plus le code de l'aeroport s'il est connu (« CDG »)
+export const lieuDuVol = (vol, info) => {
   const ville = (vol && vol.ville) || nomVille(info && info.ville);
-  return ville ? `${vol.sens === "depart" ? "vers" : "depuis"} ${ville}` : "";
+  const pays = nomVille(info && info.pays);
+  const lieu = [ville, pays && pays.toLowerCase() !== String(ville).toLowerCase() ? pays : ""].filter(Boolean).join(", ");
+  return lieu ? `${lieu}${info && info.code ? ` (${info.code})` : ""}` : "";
 };
+export const villeDuVol = (vol, info) => {
+  const lieu = lieuDuVol(vol, info);
+  return lieu ? `${vol.sens === "depart" ? "vers" : "depuis"} ${lieu}` : "";
+};
+// L'avion qui decolle (depart) ou qui atterrit (arrivee)
+export const iconeVol = (vol) => (vol && vol.sens === "arrivee" ? "🛬" : "🛫");
 export const dureeFr = (min) => {
   const m = Math.abs(Math.round(min));
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? " " + String(m % 60).padStart(2, "0") : ""}`;
@@ -140,7 +150,10 @@ export function etatDuVol(ligne, vol) {
     suite,
     alerte: annule || ecart >= 5,
     compagnie: String(ligne.CHOPERD || "").trim(),
-    ville: String(ligne.CHLOCCT || "").trim(),
+    ville: String(ligne.CHLOC1T || ligne.CHLOC1D || "").trim(),
+    pays: String(ligne.CHLOCCT || "").trim(),
+    code: String(ligne.CHLOC1 || "").trim().toUpperCase(),
+    comptoirs: vol.sens === "depart" ? [String(ligne.CHCINT || "").trim() ? `comptoirs ${String(ligne.CHCINT).trim()}` : "", String(ligne.CHCKZN || "").trim() ? `zone ${String(ligne.CHCKZN).trim()}` : ""].filter(Boolean).join(", ") : "",
     texte: [action, terminal ? `Terminal ${terminal}` : "", etat, heures, suite].filter(Boolean).join(" · "),
   };
 }

@@ -75,4 +75,9 @@ export const SUJETS = {
   enRoute: "Je suis en route - Rebecca Services",
   avis: "Votre avis compte - Rebecca Services",
   relance: "Besoin de moi ? - Rebecca Services",
+  paiement: "Lien de paiement - Rebecca Services",
+  rdv: "Votre prochain rendez-vous - Rebecca Services",
+  rappelRdv: "Rappel de votre rendez-vous - Rebecca Services",
+  commande: "Votre commande Epoxy - Rebecca Services",
+  releve: "Votre relevé du mois - Rebecca Services",
 };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { GROUPES, groupeDe, monMois } from "./pricing/monMois.js";
 import { coutKm, rentabiliteDuMois, texteMinutes } from "./pricing/finCourse.js";
+import { woltParHeure } from "./pricing/suiteClient.js";
 import { useEssence } from "./EssenceVue.jsx";
 import { useKmReel } from "./kmReel.js";
 import DetailCourses from "./components/DetailCourses.jsx";
@@ -47,6 +48,7 @@ export default function MonMoisVue({ donnees, aller }) {
   const reel = useKmReel(mois, donnees.demandes);
   const r = monMois(mois, { ...donnees, essence, reel });
   const e = r.essence;
+  const wph = woltParHeure((donnees.autresRevenus || []).filter((l) => !l.operateur && /wolt/i.test(l.source || "Wolt")), essence ? essence.woltHeures : {}, mois);
   const parHeure = rentabiliteDuMois(donnees.demandes, mois, groupeDe, coutKm(essence ? essence.pleins : []).parKm);
   return (
     <section className="tb-liste fi">
@@ -107,7 +109,7 @@ export default function MonMoisVue({ donnees, aller }) {
       {/* 17 nov. 2026, 11h35 : ce que me rapporte une heure, par activite (trajets chronometres dans l'agenda) */}
       <div className="tb-bloc">
         <h3>Ce que me rapporte une heure</h3>
-        {Object.keys(parHeure).length === 0 ? (
+        {Object.keys(parHeure).length === 0 && !wph ? (
           <p className="tb-note">Pas encore de trajet chronométré ce mois-ci : utilise « 🚗 Partie → 📍 Récupérée → ✓ Déposée → 🏠 Rentrée » dans l'agenda.</p>
         ) : (
           <ul className="pm-resume">
@@ -120,9 +122,15 @@ export default function MonMoisVue({ donnees, aller }) {
                 </li>
               );
             })}
+            {wph && (
+              <li>
+                <span>Wolt <small>({wph.lignes} ligne{wph.lignes > 1 ? "s" : ""}, {String(wph.heures).replace(".", ",")} h)</small></span>
+                <strong>{wph.parHeure} ₪/h</strong>
+              </li>
+            )}
           </ul>
         )}
-        <p className="tb-note">« Réel » = après l'essence estimée. Wolt : les heures ne sont pas notées, pas encore de comparaison.</p>
+        <p className="tb-note">« Réel » = après l'essence estimée. Wolt : note tes heures dans chaque ligne Wolt (Finances → Wolt) pour comparer.</p>
       </div>
 
       {aller && <p className="tb-note tb-pad">Détail de l'année et plafond de l'osek : onglet Année.</p>}

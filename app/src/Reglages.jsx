@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { MAX_AVIS_PUBLICS, avisPublic, lireAvisPublics } from "./pricing/suiteClient.js";
 import { db } from "./firebase.js";
 import { oublierModele } from "./mailClient.js";
 import { MARGE_DEFAUT } from "./pricing/enchainement.js";
@@ -359,12 +360,87 @@ function Minimum() {
   );
 }
 
+/* ---------- Paiement en ligne (17 nov. 2026) ---------- */
+function PaiementEnLigne() {
+  const [f, setF] = useState({ bit: "", paybox: "", paypal: "" });
+  const [message, setMessage] = useState(null);
+  useEffect(() => onSnapshot(doc(db, "reglages", "paiement"), (x) => x.exists() && setF((v) => (v.bit || v.paybox || v.paypal ? v : { bit: x.data().bit || "", paybox: x.data().paybox || "", paypal: x.data().paypal || "" })), () => {}), []);
+  const enregistrer = async () => {
+    const bit = f.bit.trim();
+    const paybox = f.paybox.trim();
+    const paypal = f.paypal.trim();
+    if (bit && bit.replace(/\D/g, "").length < 9) return setMessage({ erreur: true, texte: "Numéro Bit : ton numéro de téléphone (ex. 050 123 4567)." });
+    if ([paybox, paypal].some((u) => u && !/^https:\/\/\S+$/.test(u))) return setMessage({ erreur: true, texte: "Les liens doivent commencer par https://" });
+    try {
+      await setDoc(doc(db, "reglages", "paiement"), { bit: bit.slice(0, 20), paybox: paybox.slice(0, 300), paypal: paypal.slice(0, 300), majLe: serverTimestamp() });
+      setMessage({ texte: "Enregistré : le bouton « 💳 Envoyer le lien de paiement » apparaît sur les courses à encaisser." });
+    } catch {
+      setMessage({ erreur: true, texte: "Enregistrement impossible. Vérifie la connexion." });
+    }
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>Paiement en ligne</h3>
+      <p className="tb-note">Remplis ceux que tu utilises (laisse vide les autres). Ils sont envoyés à la cliente avec le montant à payer.</p>
+      <label className="pm-champ">Bit (ton numéro)<input inputMode="tel" value={f.bit} onChange={(e) => setF({ ...f, bit: e.target.value })} placeholder="050 123 4567" /></label>
+      <label className="pm-champ">Lien PayBox<input value={f.paybox} onChange={(e) => setF({ ...f, paybox: e.target.value })} placeholder="https://payboxapp.page.link/..." /></label>
+      <label className="pm-champ">Lien PayPal.me<input value={f.paypal} onChange={(e) => setF({ ...f, paypal: e.target.value })} placeholder="https://paypal.me/tonnom" /></label>
+      <div className="tb-actions"><button className="tb-bouton" onClick={enregistrer}>Enregistrer</button></div>
+      <Message m={message} />
+    </div>
+  );
+}
+
+/* ---------- Avis publies sur le site (17 nov. 2026) ---------- */
+function AvisSurLeSite() {
+  const [avis, setAvis] = useState(null);
+  const [noms, setNoms] = useState({});
+  const [publies, setPublies] = useState([]);
+  const [message, setMessage] = useState(null);
+  useEffect(() => onSnapshot(collection(db, "avis"), (x) => setAvis(x.docs.map((y) => ({ id: y.id, ...y.data() })).sort((a, b) => (b.creeLe?.seconds || 0) - (a.creeLe?.seconds || 0))), () => setAvis([])), []);
+  useEffect(() => onSnapshot(doc(db, "reglages", "avisPublics"), (x) => setPublies(lireAvisPublics(x.exists() ? x.data().json : "[]")), () => {}), []);
+  useEffect(() => {
+    for (const a of avis || []) {
+      if (!a.uid || noms[a.uid] !== undefined) continue;
+      setNoms((n) => ({ ...n, [a.uid]: "" }));
+      getDoc(doc(db, "clients", a.uid)).then((c) => setNoms((n) => ({ ...n, [a.uid]: c.exists() ? c.data().prenom || "" : "" }))).catch(() => {});
+    }
+  }, [avis]);
+  const basculer = async (a) => {
+    const deja = publies.some((p) => p.id === a.id);
+    const liste = deja ? publies.filter((p) => p.id !== a.id) : [avisPublic(a, noms[a.uid]), ...publies].slice(0, MAX_AVIS_PUBLICS);
+    try {
+      await setDoc(doc(db, "reglages", "avisPublics"), { json: JSON.stringify(liste), majLe: serverTimestamp() });
+      setMessage(null);
+    } catch {
+      setMessage({ erreur: true, texte: "Enregistrement impossible. Vérifie la connexion." });
+    }
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>Avis sur mon site</h3>
+      <p className="tb-note">Coche les avis à montrer sur la page d'accueil (prénom, étoiles et commentaire). {publies.length} publié{publies.length > 1 ? "s" : ""}.</p>
+      {avis === null && <p className="tb-note">Chargement…</p>}
+      {avis && avis.length === 0 && <p className="tb-note">Pas encore d'avis : ils arrivent quand une cliente avec un compte note sa course.</p>}
+      {(avis || []).slice(0, 60).map((a) => (
+        <label key={a.id} className="pm-champ" style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <input type="checkbox" checked={publies.some((p) => p.id === a.id)} onChange={() => basculer(a)} />
+          <span>{"★".repeat(a.etoiles || 0)} {noms[a.uid] || "Cliente"}{a.commentaire ? ` — ${a.commentaire}` : ""}</span>
+        </label>
+      ))}
+      <Message m={message} />
+    </div>
+  );
+}
+
 export default function Reglages() {
   return (
     <section className="tb-liste rg">
       <Marge />
       <Plafond />
       <Minimum />
+      <PaiementEnLigne />
+      <AvisSurLeSite />
       <EmailsClientes />
       <Textes />
       <p className="tb-note tb-pad">Les tarifs, les durées et les horaires des activités deviendront modifiables ici au Lot C.</p>

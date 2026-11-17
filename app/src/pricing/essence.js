@@ -35,7 +35,10 @@ export function lireEssence(json) {
     .map((p) => ({ id: String(p.id || nouvelIdPlein()).slice(0, 40), date: p.date, montant: cents(pos(p.montant, 5000)), litres: cents(pos(p.litres, 500)), compteur: Math.round(pos(p.compteur, 2000000)) }));
   const woltKm = {};
   for (const [id, km] of Object.entries(o.woltKm && typeof o.woltKm === "object" ? o.woltKm : {}).slice(0, 2000)) if (pos(km, 20000)) woltKm[String(id).slice(0, 60)] = cents(pos(km, 20000));
-  return { pleins, woltKm, tourneeKmJour: cents(pos(o.tourneeKmJour, 500)) };
+  // 17 nov. 2026 : heures Wolt par ligne (pour le gain par heure)
+  const woltHeures = {};
+  for (const [id, h] of Object.entries(o.woltHeures && typeof o.woltHeures === "object" ? o.woltHeures : {}).slice(0, 2000)) if (pos(h, 500)) woltHeures[String(id).slice(0, 60)] = cents(pos(h, 500));
+  return { pleins, woltKm, woltHeures, tourneeKmJour: cents(pos(o.tourneeKmJour, 500)) };
 }
 
 const moisDe = (d) => String(d || "").slice(0, 7);
@@ -120,6 +123,13 @@ export function essenceDuMois(mois, essence, demandes = [], wolt = [], t = TARIF
 
 export const ajouterPlein = (e, p) => ({ ...e, pleins: [...e.pleins, { id: nouvelIdPlein(), date: p.date, montant: cents(pos(p.montant, 5000)), litres: cents(pos(p.litres, 500)), compteur: Math.round(pos(p.compteur, 2000000)) }] });
 export const retirerPlein = (e, id) => ({ ...e, pleins: e.pleins.filter((p) => p.id !== id) });
+export const heuresWolt = (e, id, h) => {
+  const woltHeures = { ...(e.woltHeures || {}) };
+  const n = pos(String(h || "").replace(",", "."), 500);
+  if (n) woltHeures[id] = cents(n);
+  else delete woltHeures[id];
+  return { ...e, woltHeures };
+};
 export const kmWolt = (e, id, km) => {
   const woltKm = { ...e.woltKm };
   if (pos(km, 20000)) woltKm[id] = cents(pos(km, 20000));

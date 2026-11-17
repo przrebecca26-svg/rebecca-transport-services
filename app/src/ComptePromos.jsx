@@ -1,3 +1,4 @@
+import { CADEAU_PARRAINAGE, lienParrainage, messageParrainage } from "./pricing/suiteClient.js";
 import { useEffect, useState } from "react";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -46,8 +47,20 @@ export default function ComptePromos({ client }) {
   }, [user.uid]);
 
   if (codes === null) return <p className="consigne">Chargement…</p>;
+  // 17 nov. 2026 : parrainage — son lien a partager ; l'amie reserve avec, la cliente recoit du credit
+  const lienP = lienParrainage(user.uid);
+  const partager = `https://wa.me/?text=${encodeURIComponent(messageParrainage(user.uid))}`;
   return (
     <div className="promos">
+      <div className="bloc">
+        <h3>🎁 Parrainez une amie</h3>
+        <p className="aide">Partagez votre lien : quand une amie réserve avec et que sa première course est faite, vous recevez {CADEAU_PARRAINAGE} ₪ de crédit sur votre compte.</p>
+        <p dir="ltr" style={{ wordBreak: "break-all" }}><small>{lienP}</small></p>
+        <div className="pourboire-boutons">
+          {partager && <a className="actif" href={partager} target="_blank" rel="noopener noreferrer">Partager sur WhatsApp</a>}
+          <button type="button" onClick={() => navigator.clipboard && navigator.clipboard.writeText(lienP).catch(() => {})}>Copier le lien</button>
+        </div>
+      </div>
       {erreur && <p className="erreur" role="alert">{erreur}</p>}
       {codes.length === 0 && !erreur && (
         <div className="bloc">

@@ -10,7 +10,9 @@ import { ADMIN_ID } from "./pricing/equipe.js";
 import { nomDe } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import SuiviBeaute from "./SuiviBeaute.jsx";
-import { nouvelIdCompte } from "./pricing/comptesEntreNous.js";
+import { nouvelIdCompte, soldeCompte } from "./pricing/comptesEntreNous.js";
+import { releveDuMois } from "./pricing/suiteClient.js";
+import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { encaisseBrut } from "./pricing/comptes.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 
@@ -210,6 +212,29 @@ function Totaux({ titre, faites, mouvements }) {
   );
 }
 
+// 17 nov. 2026, 12h03 : releve du mois (courses terminees, deja regle, reste + comptes entre nous) par WhatsApp et e-mail
+function Releve({ e, liste, mouvements, lies }) {
+  const jour = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+  const [mois, setMois] = useState(jour.slice(0, 7));
+  const [info, setInfo] = useState("");
+  const soldeComptes = lies.reduce((t, c) => t + Math.max(0, soldeCompte(c, liste, mouvements)), 0);
+  const nom = (e.famille && e.famille.nom) || e.nom || "";
+  const telephone = (e.famille && e.famille.telephone) || e.telephone || "";
+  const r = releveDuMois(nom, liste, mouvements, mois, soldeComptes);
+  const wa = lienWhatsApp(telephone, r.texte);
+  const moisPrec = (() => { const [a, m] = mois.split("-").map(Number); const t = a * 12 + m - 2; return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`; })();
+  return (
+    <div className="bloc">
+      <p className="tdb-note">📄 Relevé de {new Date(`${mois}-15T12:00:00Z`).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" })} : {r.nb} course{r.nb > 1 ? "s" : ""}, {r.total} ₪, reste {r.reste} ₪</p>
+      <div className="tb-actions">
+        {wa && <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => envoyerMailClient({ nom, telephone, uid: e.uid || (e.cle && !String(e.cle).startsWith("tel_") ? e.cle : undefined) }, SUJETS.releve, r.texte).then((x) => x && setInfo(x)).catch(() => {})}>Envoyer le relevé</a>}
+        <button type="button" className="dr-secondaire" onClick={() => setMois(mois === jour.slice(0, 7) ? moisPrec : jour.slice(0, 7))}>{mois === jour.slice(0, 7) ? "Mois dernier" : "Ce mois-ci"}</button>
+      </div>
+      {info && <p className="tdb-note">{info}</p>}
+    </div>
+  );
+}
+
 function FinancesFiche({ e, liste, mouvements, comptes, familles, estAdmin, qui }) {
   const faites = liste.filter((d) => d.statut === "terminee");
   const personnesQuiOntFait = [...new Set(faites.map(qui))];
@@ -232,6 +257,7 @@ function FinancesFiche({ e, liste, mouvements, comptes, familles, estAdmin, qui 
       <Totaux titre={estAdmin && personnesQuiOntFait.length > 1 ? "Total" : ""} faites={faites} mouvements={mouvements} />
       {estAdmin && personnesQuiOntFait.length > 1 && personnesQuiOntFait.map((n) => <Totaux key={n} titre={n} faites={faites.filter((d) => qui(d) === n)} mouvements={mouvements} />)}
       {!estAdmin && <p className="tdb-note">Seulement les courses que tu as faites pour cette cliente.</p>}
+      {estAdmin && <Releve e={e} liste={liste} mouvements={mouvements} lies={lies} />}
       {lies.map((c) => (
         <div key={c.id} className="bloc">
           <Compte c={c} comptes={comptes} demandes={liste} mouvements={mouvements} sauver={sauver} familles={familles} retour={null} message={message} />

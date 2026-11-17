@@ -11,7 +11,7 @@ import { dateFr } from "./CompteChamps.jsx";
 
 const millis = (t) => (t && typeof t.toMillis === "function" ? t.toMillis() : 0);
 const MONTANTS = [50, 100, 200, 300, 500];
-const LIBELLES = { recharge: "Recharge", bonus: "Bonus offert", utilisation: "Course payée avec le crédit", correction: "Correction", cadeau: "Cadeau reçu" };
+const LIBELLES = { recharge: "Recharge", bonus: "Bonus offert", utilisation: "Course payée avec le crédit", correction: "Correction", cadeau: "Cadeau reçu", parrainage: "Parrainage d'une amie 🎁" };
 
 export default function CompteCredit({ client, solde, onSolde }) {
   const { user } = client;

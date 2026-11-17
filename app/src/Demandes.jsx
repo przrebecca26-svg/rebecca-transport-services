@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { texteDuree } from "./pricing/circulation.js";
 import InfoVol from "./components/InfoVol.jsx";
-import { arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ModifierDevis } from "./SimulateurDevis.jsx";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
@@ -14,6 +14,7 @@ import { rattraperTousLesSuivis, synchroniserSuivi } from "./suiviClient.js";
 import PaiementsCourse from "./PaiementsCourse.jsx";
 import AjoutManuel, { Remerciement } from "./AjoutManuel.jsx";
 import { versRefaire } from "./pricing/finCourse.js";
+import { CADEAU_PARRAINAGE, cadeauAOffrir } from "./pricing/suiteClient.js";
 import { LIBELLE_ORIGINE, prenomDe } from "./pricing/ajoutManuel.js";
 import { messageDevisDemande } from "./pricing/devisRapide.js";
 import QuiFait from "./components/QuiFait.jsx";
@@ -293,6 +294,37 @@ function Regroupement({ d, toutes, aller }) {
   );
 }
 
+// 17 nov. 2026 : parrainage — course terminee d'une amie venue avec un lien -> credit offert a la marraine
+function CadeauParrainage({ d }) {
+  const [marraine, setMarraine] = useState(null);
+  const [info, setInfo] = useState("");
+  const parrain = d.details && d.details.parrain;
+  useEffect(() => {
+    if (!parrain) return;
+    getDoc(doc(db, "clients", parrain)).then((x) => setMarraine(x.exists() ? x.data() : {})).catch(() => setMarraine({}));
+  }, [parrain]);
+  if (!parrain) return null;
+  const nom = marraine ? [marraine.prenom, marraine.nom].filter(Boolean).join(" ") || "sa marraine" : "…";
+  const offrir = async () => {
+    try {
+      await addDoc(collection(db, "creditMouvements"), { uid: parrain, kind: "parrainage", montant: CADEAU_PARRAINAGE, resId: d.id, creeLe: serverTimestamp() });
+      await updateDoc(doc(db, "demandes", d.id), { parrainageOffertLe: new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), majLe: serverTimestamp() });
+      setInfo(`${CADEAU_PARRAINAGE} ₪ de crédit offerts à ${nom}.`);
+    } catch {
+      setInfo("Impossible d'offrir le crédit. Vérifie la connexion.");
+    }
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>🎁 Parrainage</h3>
+      <p className="tb-note">Venue grâce au lien de {nom}.{d.parrainageOffertLe ? ` Crédit offert le ${d.parrainageOffertLe.split("-").reverse().join("/")}.` : ""}</p>
+      {cadeauAOffrir(d) && <button className="tb-bouton" onClick={offrir}>Offrir {CADEAU_PARRAINAGE} ₪ de crédit à {nom}</button>}
+      {!cadeauAOffrir(d) && !d.parrainageOffertLe && <p className="tb-note">Le cadeau se donne quand la course est terminée.</p>}
+      {info && <p className="tb-note" role="status">{info}</p>}
+    </div>
+  );
+}
+
 function Detail({ d, toutes, marge, aller, onFermer }) {
   const { moi } = useEquipeContexte();
   const [prix, setPrix] = useState(typeof prixActuel(d) === "number" ? String(prixActuel(d)) : "");
@@ -562,6 +594,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
       <Regroupement d={d} toutes={toutes} aller={aller} />
 
       <PaiementsCourse d={d} />
+
+      <CadeauParrainage d={d} />
 
       {d.statut === "terminee" && !d.uid && <Remerciement prenom={prenomDe(d.nom)} telephone={d.telephone} email="" />}
 

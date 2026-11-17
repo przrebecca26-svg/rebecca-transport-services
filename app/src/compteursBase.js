@@ -3,6 +3,7 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes } from "./accesDemandes.js";
 import { avisADemander, rappelsDemain, recusAFaire, relancesClientes } from "./pricing/finCourse.js";
+import { rappelsRdvDemain } from "./pricing/suiteClient.js";
 
 // COMPTEURS DU MENU (15 nov. 2026, demande de Rebecca) : a cote de chaque rubrique, le nombre de choses a traiter,
 // pour savoir ou aller voir sans ouvrir chaque onglet.
@@ -37,7 +38,7 @@ export function useCompteurs(role) {
     return onSnapshot(refDemandes(), (s) => {
       const jour = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
       const toutes = s.docs.map((x) => ({ id: x.id, ...x.data() }));
-      const ids = new Set([...rappelsDemain(toutes, jour), ...avisADemander(toutes, jour), ...recusAFaire(toutes), ...relancesClientes(toutes, jour)].map((d) => d.id));
+      const ids = new Set([...rappelsDemain(toutes, jour), ...avisADemander(toutes, jour), ...recusAFaire(toutes), ...relancesClientes(toutes, jour), ...rappelsRdvDemain(toutes, jour)].map((d) => d.id));
       setAFaire(ids.size);
     }, () => setAFaire(0));
   }, [admin]);

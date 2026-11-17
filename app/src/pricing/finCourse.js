@@ -430,3 +430,14 @@ export function champsModifChrono(d, valeurs, quiFait = "rebecca") {
   else if (depose && t === "simple") champs.faitA = champs[`chrono.${t}.depose`] || d.faitA;
   return { erreur: "", champs };
 }
+
+// La demande telle qu'elle sera apres l'enregistrement (les cles « chrono.aller.prise » rangees dans chrono)
+export function apresChamps(d, champs) {
+  const res = { ...d, chrono: JSON.parse(JSON.stringify(d.chrono || {})) };
+  for (const [k, v] of Object.entries(champs || {})) {
+    const m = /^chrono\.(aller|retour|simple)\.(\w+)$/.exec(k);
+    if (m) res.chrono[m[1]] = { ...(res.chrono[m[1]] || {}), [m[2]]: v };
+    else res[k] = v;
+  }
+  return res;
+}

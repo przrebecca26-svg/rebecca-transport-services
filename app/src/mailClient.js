@@ -7,10 +7,17 @@ import { cleClient } from "./pricing/clients.js";
 // quand la cliente a donne son adresse (compte du site ou fiche client).
 // Envoi par EmailJS (deja utilise pour les demandes) avec un 2e modele « message a une cliente » :
 // son identifiant se colle dans Reglages → « E-mails aux clientes » (reglages/emails.modeleClient).
-// Variables du modele : {{to_email}}, {{to_name}}, {{sujet}}, {{message}}.
+// Variables du modele : {{to_email}}, {{to_name}}, {{sujet}}, {{message}} (texte) ou {{{message_html}}} (avec retours a la ligne).
 
 const EMAILJS = { service: "service_apqztvn", cle: "bdJTayNK-YJyKZ79V" };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// 17 nov. 2026 : le message avec ses retours a la ligne et ses liens cliquables, pour le modele {{{message_html}}}
+const echapper = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+export const enHtml = (t) =>
+  echapper(String(t || "").slice(0, 3000))
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')
+    .replace(/\n/g, "<br>");
 
 let modeleEnCache = null;
 async function modeleClient() {
@@ -59,7 +66,7 @@ export async function envoyerMailClient(d, sujet, message) {
         service_id: EMAILJS.service,
         template_id: modele,
         user_id: EMAILJS.cle,
-        template_params: { to_email: email, to_name: String(d.nom || "").slice(0, 100), sujet: String(sujet).slice(0, 150), message: String(message).slice(0, 3000) },
+        template_params: { to_email: email, to_name: String(d.nom || "").slice(0, 100), sujet: String(sujet).slice(0, 150), message: String(message).slice(0, 3000), message_html: enHtml(message) },
       }),
     });
     if (!r.ok) throw new Error(String(r.status));

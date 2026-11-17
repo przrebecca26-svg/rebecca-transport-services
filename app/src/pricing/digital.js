@@ -467,7 +467,11 @@ export function demandeEcheance(projet, echeance, index, date) {
 /* ---------- Messages au client ---------- */
 
 const prenomDe = (n) => String(n || "").trim().split(/\s+/)[0] || "";
-const shekels = (x) => `${String(cents(x)).replace(".", ",")} ₪`;
+// 17 nov. 2026 : montants lisibles (22 700 ₪, 1 234,50 ₪)
+export const shekels = (x) => {
+  const [e, d] = String(Math.abs(cents(Number(x) || 0))).split(".");
+  return `${(Number(x) < 0 ? "−" : "") + e.replace(/\B(?=(\d{3})+(?!\d))/g, " ")}${d ? "," + d.padEnd(2, "0") : ""} ₪`;
+};
 
 export function messageLienSuivi(p, site = SITE) {
   return [

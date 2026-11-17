@@ -33,7 +33,9 @@ export function encaisseDe(mouvements, resId) {
       .reduce((s, m) => s + nombre(m.montant), 0)
   );
 }
-export const resteDe = (d, mouvements) => cents(Math.max(0, prixDe(d) - encaisseDe(mouvements, d.id)));
+// 17 nov. 2026, 14h29 : le du compte l'ajout / deduction saisi par Rebecca (d.ajustement)
+export const duDe = (d) => cents(prixDe(d) + nombre(d.ajustement));
+export const resteDe = (d, mouvements) => cents(Math.max(0, duDe(d) - encaisseDe(mouvements, d.id)));
 
 // Ce trajet est-il deja fait ? Renvoie l'heure ("14:05"), "oui" si fait sans heure connue, ou ""
 export function faitDe(d) {
@@ -69,7 +71,7 @@ export function champsPasFait(d) {
 }
 
 // Paiement saisi depuis l'agenda : { recu (pour la course), pourboire } -> ligne de paiement + pourboire
-export function preparerEncaissement(d, { recu, pourboire, moyen }, date) {
+export function preparerEncaissement(d, { recu, pourboire, moyen, ajout }, date) {
   const lire = (x) => {
     const t = String(x == null ? "" : x).trim().replace(",", ".");
     if (t === "") return 0;
@@ -78,14 +80,17 @@ export function preparerEncaissement(d, { recu, pourboire, moyen }, date) {
   };
   const montant = lire(recu);
   const tip = lire(pourboire);
+  const plus = lire(String(ajout == null ? "" : ajout).replace("−", "-"));
+  if (!Number.isFinite(plus) || Math.abs(plus) > 5000) return { erreur: "Ajout / déduction invalide (ex. 20 ou -20)." };
   if (!Number.isFinite(montant) || montant < 0 || montant > 100000) return { erreur: "Montant reçu invalide." };
   if (!Number.isFinite(tip) || tip < 0 || tip > 5000) return { erreur: "Pourboire invalide." };
-  if (montant === 0 && tip === 0) return { erreur: "Indique ce que tu as reçu." };
-  if (!moyen) return { erreur: "Choisis le moyen de paiement." };
+  if (montant === 0 && tip === 0 && plus === 0) return { erreur: "Indique ce que tu as reçu." };
+  if (montant > 0 && !moyen) return { erreur: "Choisis le moyen de paiement." };
   if (!DATE_OK.test(date || "")) return { erreur: "Date invalide." };
   const paiement = montant > 0 ? { kind: "paiement", resId: d.id, date, montant, moyen } : null;
   const champs = tip > 0 ? { pourboire: cents(nombre(d.pourboire) + tip) } : {};
-  return { erreur: "", paiement, champs, montant, pourboire: tip };
+  if (plus !== 0) Object.assign(champs, { ajustement: cents(nombre(d.ajustement) + plus), ajustementLe: date });
+  return { erreur: "", paiement, champs, montant, pourboire: tip, ajout: plus };
 }
 
 const jourLong = (date) => {

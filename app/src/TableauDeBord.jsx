@@ -81,7 +81,7 @@ export default function TableauDeBord({ aller, membre = null }) {
         general
         wolt={autres.filter((x) => x.debut && x.debut >= periode.debut && x.debut <= periode.fin)}
       />
-      <p className="tdb-note">{PERIODES_TB.find((p) => p.id === type).titre} · hors pourboires · {membre ? "tes courses" : "Rebecca Services et Wolt"} · touche un chiffre pour voir le détail</p>
+      <p className="tdb-note">{PERIODES_TB.find((p) => p.id === type).titre} · chaque domaine au prix de base ; suppléments, ajouts / déductions et pourboires à part ; Total et Total encaissé comprennent Wolt et les pourboires · {membre ? "tes courses" : "Rebecca Services et Wolt"} · touche un chiffre pour voir le détail</p>
 
       <div className="tdb-titre-ligne">
         <h2>Mes activités</h2>

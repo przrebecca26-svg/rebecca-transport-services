@@ -18,6 +18,15 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- 17 nov. 2026 : si rien ne s'affiche au bout de 8 s (page gardee en memoire apres une publication), on propose de recharger -->
+    <script>
+      setTimeout(function () {
+        var r = document.getElementById("root");
+        if (r && !r.children.length) {
+          r.innerHTML = '<div style="padding:24px;font-family:system-ui,sans-serif"><h2>Chargement trop long</h2><p>Appuie sur Recharger pour avoir la dernière version.</p><button onclick="location.reload()" style="padding:12px 20px;font-size:16px;border-radius:10px;border:0;background:#e7a9b4;font-weight:700">Recharger</button></div>';
+        }
+      }, 8000);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

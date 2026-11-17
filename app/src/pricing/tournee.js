@@ -15,6 +15,7 @@
 // programme (le code est public) : ils sont enregistres dans la base privee de Rebecca (document admin/tournee).
 
 import { TARIFS } from "./config.js";
+import { routeSelonHeure } from "./circulation.js";
 import { ajouterJours, vacancesDuJour } from "./calendrier.js";
 import { JOURS, finDuMois, nomEnfant, ecoleDe, heureDuJour } from "./ramassagePlanning.js";
 
@@ -331,7 +332,7 @@ function derouler(ordre, duree, regles, tots = null, maison = "") {
     const s = ordre[k];
     const cle = cleLieu(s.lieu);
     const memeLieu = k > 0 && proche(avantLieu, s.lieu);
-    const route = k === 0 || memeLieu ? 0 : duree(avant, cle);
+    const route = k === 0 || memeLieu ? 0 : duree(avant, cle, t);
     if (route == null) return null;
     conduite += route;
     const arrivee = k === 0 ? (tots && tots.has(s) ? tots.get(s) : s.tot != null ? s.tot : 0) : memeLieu ? surPlace : t + route + regles.margeRouteMinutes;
@@ -357,8 +358,8 @@ function derouler(ordre, duree, regles, tots = null, maison = "") {
   }
   if (!maison || lignes.length === 0) return { lignes, violation, retard, conduite, fin: t };
   // Depart de la maison et retour a la maison : comptes dans la route (pas d'aller-retour pour rien)
-  const aller = cleLieu(ordre[0].lieu) === maison ? 0 : duree(maison, cleLieu(ordre[0].lieu));
-  const retour = avant === maison ? 0 : duree(avant, maison);
+  const aller = cleLieu(ordre[0].lieu) === maison ? 0 : duree(maison, cleLieu(ordre[0].lieu), lignes[0].arrivee);
+  const retour = avant === maison ? 0 : duree(avant, maison, t);
   if (aller == null || retour == null) return null;
   const departMaison = lignes[0].arrivee - (aller ? aller + regles.margeRouteMinutes : 0);
   const retourMaison = t + (retour ? retour + regles.margeRouteMinutes : 0);
@@ -516,8 +517,11 @@ export function suivreEnfants(trajets, w, domicile, seuil = 30) {
 // Une journee : trajets actifs ce jour de semaine, regroupes par moment (matin, midi, sortie...), ordre calcule.
 // duree(cleA, cleB) = minutes de route, ou null si inconnue. Renvoie :
 // { statut: "vide" | "possible" | "serre" | "impossible" | "inconnu", arrets: [...], probleme, retard, incomplets }
-export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
+export function evaluerJour(trajets, w, dureeNormale, t = TARIFS, periode = {}) {
   const regles = t.tournee;
+  // 17 nov. 2026 (Rebecca) : trajet exact d'une adresse a l'autre selon l'heure (heures de pointe des reglages
+  // « Circulation »), puis le temps d'arret. La marge de route fixe passe a 0 par defaut.
+  const duree = routeSelonHeure(dureeNormale, w, t);
   const actifs = suivreEnfants(trajets.filter((r) => trajetActif(r, w, periode.du, periode.au)), w, periode.domicile, regles.retourMaisonMinutes ?? 30);
   const incomplets = actifs.filter((r) => manqueTrajet(r));
   // Enfants pris au meme endroit, a la meme heure, pour le meme endroit (freres et soeurs) = un seul trajet
@@ -570,7 +574,7 @@ export function evaluerJour(trajets, w, duree, t = TARIFS, periode = {}) {
       // J'enchaine sans rentrer : ai-je le temps d'aller de la fin du premier moment au debut du second ?
       const a = avant.lignes[avant.lignes.length - 1];
       const b = r.lignes[0];
-      const route = proche(a.lieu, b.lieu) ? 0 : duree(cleLieu(a.lieu), cleLieu(b.lieu));
+      const route = proche(a.lieu, b.lieu) ? 0 : duree(cleLieu(a.lieu), cleLieu(b.lieu), a.depart);
       const arrivee = route == null ? null : a.depart + (route ? route + regles.margeRouteMinutes : 0);
       if (route != null && arrivee <= b.debut && b.debut - arrivee >= (regles.libreMinutes ?? 20)) b.partir = b.debut - (route ? route + regles.margeRouteMinutes : regles.margeRouteMinutes);
       if (arrivee != null && arrivee > b.debut) {

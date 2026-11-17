@@ -68,7 +68,7 @@ export function lireArrets(json) {
 // routes = distances domicile <-> chaque ecole. Renvoie [{ i, nom, w, jour, sens, heure }] (trajets impossibles).
 export function trajetsIndisponibles(plan, routes, creneaux = TARIFS.calendrier.creneauxPersonnels, arrets = [], t = TARIFS, options = {}) {
   const enfants = options.indices ? options.indices : plan.enfants.map((_, i) => i);
-  const marge = ((t.tournee && t.tournee.margeRouteMinutes) || 5) + ((t.tournee && t.tournee.arretMinutes) || 5);
+  const marge = ((t.tournee && t.tournee.margeRouteMinutes) ?? 0) + ((t.tournee && t.tournee.arretMinutes) || 5);
   const retard = (t.tournee && t.tournee.retardMaxMinutes) || 10;
   const places = (t.tournee && t.tournee.places) || 4;
   const routeDe = (ecole) => (routes && typeof routes.km === "number" ? routes : routes && routes[cleEcole(ecole)]) || null;

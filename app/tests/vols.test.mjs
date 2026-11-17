@@ -4,7 +4,7 @@ import * as V from "../src/pricing/vols.js";
 import * as S from "../src/services.js";
 
 section("Vols : numéro, bonne ligne du tableau, retard");
-const L = (o) => ({ CHOPER: "TO", CHFLTN: "3453", CHOPERD: "TRANSAVIA FRANCE", CHSTOL: "2026-11-17T14:35:00", CHPTOL: "2026-11-17T14:35:00", CHAORD: "D", CHLOCCT: "PARIS", CHTERM: 3, CHRMINE: "ON TIME", ...o });
+const L = (o) => ({ CHOPER: "TO", CHFLTN: "3453", CHOPERD: "TRANSAVIA FRANCE", CHSTOL: "2026-11-17T14:35:00", CHPTOL: "2026-11-17T14:35:00", CHAORD: "D", CHLOC1T: "PARIS", CHLOCCT: "FRANCE", CHTERM: 3, CHRMINE: "ON TIME", ...o });
 const course = (o = {}, det = {}) => ({ service: "aeroport", date: "2026-11-17", heure: "11:30", details: { direction: "vers", numeroVol: "T03453", heureVol: "14:35", ...det }, ...o });
 
 test("numéro de vol : espaces, tiret, zéro tapé à la place du O", () => {
@@ -49,8 +49,11 @@ test("aller-retour : le jour du retour, on suit le vol du retour dans l'autre se
 });
 test("ville du vol : celle saisie, sinon celle du tableau", () => {
   const vol = V.volDeLaCourse(course());
-  egal(V.villeDuVol(vol, V.etatDuVol(L(), vol)), "vers Paris");
-  egal(V.villeDuVol(V.volDeLaCourse(course({}, { villeVol: "Lyon" })), V.etatDuVol(L(), vol)), "vers Lyon");
+  egal(V.villeDuVol(vol, V.etatDuVol(L({ CHLOC1T: "PARIS", CHLOCCT: "FRANCE", CHLOC1: "cdg" }), vol)), "vers Paris, France (CDG)");
+  egal(V.villeDuVol(vol, V.etatDuVol(L({ CHLOCCT: "FRANCE" }), vol)), "vers France");
+  egal(V.villeDuVol(V.volDeLaCourse(course({}, { villeVol: "Lyon" })), V.etatDuVol(L({ CHLOCCT: "FRANCE" }), vol)), "vers Lyon, France");
+  egal(V.etatDuVol(L({ CHCINT: "21-25", CHCKZN: "B" }), vol).comptoirs, "comptoirs 21-25, zone B");
+  egal([V.iconeVol(vol), V.iconeVol({ sens: "arrivee" })], ["🛫", "🛬"]);
   egal(V.villeDuVol(vol, null), "");
   egal(V.nomVille("TEL AVIV-YAFO"), "Tel Aviv-Yafo");
   const retour = V.volDeLaCourse(course({ estRetour: true, date: "2026-11-26" }, { numeroVolRetour: "TO3452", villeVolRetour: "Paris" }));

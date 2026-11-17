@@ -123,6 +123,7 @@ export function lignesPaiement(liens, montant) {
   const res = [];
   if (String(l.bit || "").replace(/\D/g, "").length >= 9) res.push(`• Bit : au ${String(l.bit).trim()}`);
   if (/^https:\/\//.test(l.paybox || "")) res.push(`• PayBox : ${l.paybox.trim()}`);
+  if (/^https:\/\//.test(l.revolut || "")) res.push(`• Revolut : ${l.revolut.trim()}`);
   if (/^https:\/\//.test(l.paypal || "")) res.push(`• PayPal : ${l.paypal.trim().replace(/\/$/, "")}${/paypal\.me\//.test(l.paypal) && montant > 0 ? `/${cents(montant)}ILS` : ""}`);
   return res;
 }

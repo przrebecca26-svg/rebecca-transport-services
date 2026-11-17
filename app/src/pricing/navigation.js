@@ -61,12 +61,14 @@ export function liensEtapes(etapes) {
 }
 
 // Numero de telephone israelien -> chiffres internationaux (972...), ou null si invalide
+// 17 nov. 2026 : les numeros etrangers (+33 France, +1...) marchent aussi ; un numero qui commence par 0 reste israelien
 export function numeroInternational(telephone) {
   let n = String(telephone || "").replace(/[^\d+]/g, "");
   if (n.startsWith("+")) n = n.slice(1);
   if (n.startsWith("00")) n = n.slice(2);
   if (n.startsWith("0")) n = "972" + n.slice(1);
-  return /^9725\d{8}$/.test(n) ? n : null;
+  if (n.startsWith("972")) return /^9725\d{8}$/.test(n) ? n : null;
+  return /^[1-9]\d{9,14}$/.test(n) ? n : null;
 }
 
 export function lienWhatsApp(telephone, message = "") {

@@ -170,3 +170,23 @@ test("formule Digital sans durée enregistrable, beauté toujours avec durée", 
   egal([r.erreur, r.prestation && r.prestation.dureeMinutes], ["", null]);
   vrai(validerPrestation({ ...base, activite: "nails", typePrix: "fixe" }).erreur.includes("Durée"));
 });
+
+import { devisAutomatique } from "../src/pricing/digital.js";
+import { CATALOGUE_DEPART } from "../src/pricing/catalogue.js";
+section("Devis automatique");
+test("Essentielle + WhatsApp + Google Maps", () => {
+  const d = devisAutomatique({ fonctions: ["presentation", "contact", "whatsapp", "maps"], budget: "7 000 à 15 000 ₪" }, CATALOGUE_DEPART);
+  egal(d.formule, "Essentielle");
+  egal(d.lignes.map((l) => [l.libelle, l.montant]), [["Formule Essentielle", 6900], ["WhatsApp", 800], ["Google Maps", 1000]]);
+  egal([d.total, d.heures, d.notes.length], [8700, 30, 0]);
+});
+test("Business : WhatsApp et statistiques compris, fidélité en option", () => {
+  const d = devisAutomatique({ fonctions: ["espaceClient", "whatsapp", "stats", "promos"] }, CATALOGUE_DEPART);
+  egal(d.lignes.map((l) => l.libelle), ["Formule Business", "Fidélité et codes promo"]);
+});
+test("test de Rebecca : Sur mesure, budget trop petit signalé", () => {
+  const d = devisAutomatique({ fonctions: ["commandes", "paiement", "emails", "whatsapp", "promos", "stats", "langues", "admin", "espaceClient", "presentation"], formuleEnvisagee: "Essentielle", budget: "Moins de 7 000 ₪" }, CATALOGUE_DEPART);
+  egal(d.formule, "Sur mesure");
+  egal(d.lignes.map((l) => [l.libelle, l.montant]), [["Formule Sur mesure", 22000], ["Langue supplémentaire", 700]]);
+  vrai(d.notes.some((n) => n.includes("budget")) && d.notes.some((n) => n.includes("Essentielle")));
+});

@@ -7,7 +7,7 @@ import { CATALOGUE_DEPART, libellePrix } from "./pricing/catalogue.js";
 import { envoyerMailClient } from "./mailClient.js";
 import {
   FORMULES, MAINTENANCES, PRIX_MAX_DEMANDE, QUESTIONS_DOSSIER, REGLE_D4, STATUTS, STATUTS_ACTIFS, aFournir, avancement, bilanEcheances, cahierDepuisTexte,
-  cahierPropre, demandeEcheance, echeancier, enHeures, etatEcheance, finGarantie, libelleStatut, lienProjet, lignesPropres, maintenanceDuMois, messageDevis,
+  cahierPropre, demandeEcheance, devisAutomatique, echeancier, enHeures, etatEcheance, finGarantie, libelleStatut, lienProjet, lignesPropres, maintenanceDuMois, messageDevis,
   messageLienSuivi, messagePaiementEcheance, prixConseille, resumeDemandeDigital, totalDevis,
 } from "./pricing/digital.js";
 import "./digital.css";
@@ -25,7 +25,7 @@ const quand = (t) => (t && t.toDate ? t.toDate().toLocaleDateString("fr-FR", { t
 export default function ProjetsDigital() {
   const [projets, setProjets] = useState(null);
   const [mouvements, setMouvements] = useState([]);
-  const [catalogue, setCatalogue] = useState([]);
+  const [catalogue, setCatalogue] = useState(null); // attendu avant d'ouvrir une fiche (devis automatique)
   const [choisi, setChoisi] = useState(null);
   const [filtre, setFiltre] = useState("actifs");
   const [erreur, setErreur] = useState("");
@@ -42,7 +42,7 @@ export default function ProjetsDigital() {
   );
 
   if (erreur) return <p className="admin-texte tb-pad">{erreur}</p>;
-  if (!projets) return <p className="admin-texte tb-pad">Chargement…</p>;
+  if (!projets || !catalogue) return <p className="admin-texte tb-pad">Chargement…</p>;
   const projet = choisi && projets.find((p) => p.id === choisi);
   if (projet) return <FicheProjet key={projet.id} p={projet} projets={projets} mouvements={mouvements} catalogue={catalogue} onRetour={() => setChoisi(null)} />;
 
@@ -78,10 +78,13 @@ export default function ProjetsDigital() {
 }
 
 function FicheProjet({ p, projets, mouvements, catalogue, onRetour }) {
+  // 17 nov. 2026 : sans devis enregistre, la fiche propose tout de suite le devis calcule a partir des reponses du client
+  const auto = useMemo(() => devisAutomatique(p, catalogue), [p, catalogue]);
+  const dejaDevis = lignesPropres(p.lignesDevis).length > 0;
   const [f, setF] = useState(() => ({
     statut: p.statut,
-    formule: p.formule || p.formuleConseillee || "",
-    lignesDevis: lignesPropres(p.lignesDevis).length ? lignesPropres(p.lignesDevis) : [],
+    formule: p.formule || (dejaDevis ? p.formuleConseillee || "" : auto.formule),
+    lignesDevis: dejaDevis ? lignesPropres(p.lignesDevis) : auto.lignes,
     devisNote: p.devisNote || "",
     cahier: cahierPropre(p.cahier),
     consultation: { date: (p.consultation && p.consultation.date) || "", heure: (p.consultation && p.consultation.heure) || "" },
@@ -89,9 +92,9 @@ function FicheProjet({ p, projets, mouvements, catalogue, onRetour }) {
     maintenance: { niveau: (p.maintenance && p.maintenance.niveau) || "", interventions: (p.maintenance && p.maintenance.interventions) || [] },
     messageClient: p.messageClient || "",
   }));
-  const [prive, setPrive] = useState({ notes: "", heures: "", taux: String(REGLE_D4.taux) });
+  const [prive, setPrive] = useState({ notes: "", heures: dejaDevis ? "" : String(auto.heures || ""), taux: String(REGLE_D4.taux) });
   const [priveCharge, setPriveCharge] = useState(false);
-  const [modifie, setModifie] = useState(false);
+  const [modifie, setModifie] = useState(!dejaDevis);
   const [info, setInfo] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [ajout, setAjout] = useState("");
@@ -105,7 +108,7 @@ function FicheProjet({ p, projets, mouvements, catalogue, onRetour }) {
       onSnapshot(doc(db, "projetsDigitalPrive", p.id), (s) => {
         if (s.exists() && !priveCharge) {
           const d = s.data();
-          setPrive({ notes: d.notes || "", heures: d.heures != null ? String(d.heures) : "", taux: d.taux != null ? String(d.taux) : String(REGLE_D4.taux) });
+          setPrive((x) => ({ notes: d.notes || "", heures: d.heures != null ? String(d.heures) : x.heures, taux: d.taux != null ? String(d.taux) : String(REGLE_D4.taux) }));
         }
         setPriveCharge(true);
       }, () => setPriveCharge(true)),
@@ -252,13 +255,16 @@ function FicheProjet({ p, projets, mouvements, catalogue, onRetour }) {
 
       <div className="tb-bloc">
         <h3>Devis</h3>
+        {!dejaDevis && <p className="tb-note">✨ Devis proposé automatiquement d'après les réponses du client (formule, fonctions demandées, prix du catalogue). Vérifie, ajuste si besoin, puis « Enregistrer ».</p>}
+        {auto.notes.map((n, i) => <p key={i} className="dm-verif dm-alerte">{n}</p>)}
+        <button className="tb-bouton tb-clair" onClick={() => { const a = devisAutomatique(p, catalogue, Number(prive.taux) || REGLE_D4.taux); setF((x) => ({ ...x, formule: a.formule, lignesDevis: a.lignes })); setPrive((x) => ({ ...x, heures: String(a.heures || "") })); setModifie(true); setInfo("Devis recalculé à partir des réponses du client ✓ Pense à « Enregistrer »."); }}>✨ Recalculer le devis automatiquement</button>
         <label className="pm-champ">Formule
           <select value={f.formule} onChange={(e) => set("formule", e.target.value)}>
             <option value="">—</option>
             {FORMULES.map((x) => <option key={x} value={x}>{x}</option>)}
           </select>
         </label>
-        <p className="aj-sous-titre">Calcul des heures (privé, jamais montré au client)</p>
+        <p className="aj-sous-titre">Calcul des heures (privé, jamais montré au client) : rempli tout seul, tu peux le changer</p>
         <div className="tb-ligne">
           <label className="pm-champ">Heures estimées<input inputMode="decimal" value={prive.heures} onChange={(e) => { setPrive({ ...prive, heures: e.target.value }); setModifie(true); }} /></label>
           <label className="pm-champ">₪ / heure ({REGLE_D4.tauxMin} à {REGLE_D4.tauxMax})<input inputMode="numeric" value={prive.taux} onChange={(e) => { setPrive({ ...prive, taux: e.target.value }); setModifie(true); }} /></label>

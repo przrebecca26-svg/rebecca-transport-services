@@ -566,3 +566,65 @@ export const CONDITIONS_COMMUNES = [
   "Hébergement, nom de domaine et services externes : comptes ouverts à votre nom, frais à votre charge.",
   "Maintenance facultative, distincte de la garantie ; délais hors Chabbat et fêtes, pas d'assistance 24 h/24, heures non reportées d'un mois sur l'autre.",
 ];
+
+/* ---------- Devis automatique (17 nov. 2026, demande de Rebecca) ----------
+   « Je ne sais pas tous les détails : ça doit se faire tout seul selon ce que le client a choisi. »
+   A partir des reponses du questionnaire : la formule (conseillee, sinon envisagee), son prix de depart (catalogue),
+   puis une option du catalogue pour chaque fonction demandee qui n'est PAS comprise dans la formule.
+   Les heures sont deduites du total (regle D4 a l'envers : total / (taux x 1,20)). Rebecca garde la main : tout se modifie. */
+export const COMPRIS = {
+  Essentielle: ["presentation", "contact", "espaceClient", "emails"],
+  Business: ["presentation", "contact", "espaceClient", "emails", "admin", "commandes", "reservation", "whatsapp", "stats"],
+  "Sur mesure": ["presentation", "contact", "espaceClient", "emails", "admin", "commandes", "reservation", "whatsapp", "stats", "paiement", "abonnements", "maps", "promos"],
+};
+// Fonction demandee -> option du catalogue (nom exact dans Reglages → Catalogue → Digital → Options)
+export const OPTION_DE = {
+  paiement: "Paiement en ligne",
+  whatsapp: "WhatsApp",
+  maps: "Google Maps",
+  promos: "Fidélité et codes promo",
+  abonnements: "Abonnements",
+  stats: "Statistiques avancées",
+  langues: "Langue supplémentaire",
+  admin: "Espace administrateur supplémentaire",
+  commandes: "Espace administrateur supplémentaire",
+  reservation: "Espace administrateur supplémentaire",
+};
+export const PRIX_DEPART_SUR_MESURE = 22000; // page Digital : « dès 22 000 ₪ » (catalogue : sur devis)
+const BUDGET_MAX = { "Moins de 7 000 ₪": 7000, "7 000 à 15 000 ₪": 15000, "15 000 à 22 000 ₪": 22000 };
+
+export function devisAutomatique(p = {}, catalogue = [], taux = REGLE_D4.taux) {
+  const formule = formuleConseillee(p.fonctions) || (FORMULES.includes(p.formuleEnvisagee) ? p.formuleEnvisagee : "") || "Essentielle";
+  const trouver = (nom) => catalogue.find((c) => c && c.activite === "digital" && c.nom === nom);
+  const prixDe = (c) => (c && typeof c.prix === "number" && c.prix > 0 ? c.prix : null);
+  const lignes = [];
+  const notes = [];
+  const base = trouver(`Formule ${formule}`);
+  let prixBase = prixDe(base);
+  if (prixBase === null && formule === "Sur mesure") {
+    prixBase = PRIX_DEPART_SUR_MESURE;
+    notes.push("Formule Sur mesure : prix de départ 22 000 ₪, à ajuster après l'étude.");
+  }
+  lignes.push({ libelle: `Formule ${formule}`, montant: prixBase || 0 });
+  const vus = new Set();
+  for (const f of p.fonctions || []) {
+    if ((COMPRIS[formule] || []).includes(f)) continue;
+    const nom = OPTION_DE[f];
+    if (!nom || vus.has(nom)) continue;
+    vus.add(nom);
+    const o = trouver(nom);
+    if (o && prixDe(o) !== null) lignes.push({ libelle: nom, montant: prixDe(o) });
+  }
+  if (p.typeProjet === "Amélioration d'un site existant") {
+    const o = trouver("Refonte graphique");
+    if (o && prixDe(o) !== null) lignes.push({ libelle: "Refonte graphique", montant: prixDe(o) });
+  }
+  if ((p.fonctions || []).includes("autre") && p.fonctionAutre) notes.push(`Fonction « ${p.fonctionAutre} » : à chiffrer toi-même (ligne libre).`);
+  if (formule === "Sur mesure") notes.push("Projet Sur mesure : propose d'abord l'étude approfondie (dès 450 ₪), déduite si le client commande sous 30 jours.");
+  const total = totalDevis(lignes);
+  const heures = total > 0 ? Math.round(total / (taux * (1 + REGLE_D4.marge / 100))) : 0;
+  const max = BUDGET_MAX[p.budget];
+  if (max && total > max) notes.push(`Attention : le budget du client (${p.budget}) est en dessous de ce devis (${String(total).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₪). À en parler à la consultation.`);
+  if (p.formuleEnvisagee && FORMULES.includes(p.formuleEnvisagee) && p.formuleEnvisagee !== formule) notes.push(`Le client pensait à la formule ${p.formuleEnvisagee} ; ses fonctions demandent la formule ${formule}.`);
+  return { formule, lignes: lignesPropres(lignes), total, heures, notes };
+}

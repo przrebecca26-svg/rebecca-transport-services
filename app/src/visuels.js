@@ -73,6 +73,10 @@ export const VISUELS = {
     "Sérénité": "/digital/maintenance-serenite.svg",
     "Confort": "/digital/maintenance-confort.svg",
     "Premium": "/digital/maintenance-premium.svg",
+    // 17 nov. 2026 : pictogrammes des etudes (meme style que les maintenances)
+    "Consultation initiale (30 min)": "/digital/etude-consultation.svg",
+    "Étude approfondie": "/digital/etude-approfondie.svg",
+    "Cahier des charges détaillé": "/digital/etude-cahier.svg",
   },
 };
 

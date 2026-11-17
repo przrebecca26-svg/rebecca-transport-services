@@ -44,3 +44,12 @@ test("chrono : récupérée → déposée (= fait) → rentrée, temps et ₪ pa
   egal(F.champsAnnulerEtape(d), { "chrono.aller.maison": "" });
   egal(F.texteMinutes(90), "1 h 30");
 });
+
+test("lien du site partout ; sans compte : créer son compte", () => {
+  for (const m of [F.messageMerci(simple(), 0), F.messageMerci(ar(), 150), F.messageRappelRetour(retour(), 0)]) {
+    vrai(m.includes("rebecca-services-netanya.netlify.app"));
+    vrai(m.includes("créer votre compte"));
+  }
+  const avecCompte = F.messageRappelRetour(retour({ uid: "u1" }), 0);
+  vrai(avecCompte.includes("netlify.app") && !avecCompte.includes("créer votre compte"));
+});

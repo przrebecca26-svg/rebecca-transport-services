@@ -10,6 +10,8 @@
 // Aller-retour = UNE demande : l'aller fait est note dans « allerFaitA » ; la demande passe « terminee »
 // seulement quand le retour est fait. Aller simple : « terminee » tout de suite.
 
+import { SITE, CODE_BIENVENUE } from "./ajoutManuel.js";
+
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 const HEURE_OK = /^\d{2}:\d{2}$/;
 const cents = (x) => Math.round(x * 100) / 100;
@@ -92,6 +94,11 @@ const jourLong = (date) => {
 const heureFr = (h) => String(h || "").replace(":", "h");
 const prenomDe = (nom) => String(nom || "").trim().split(/\s+/)[0] || "";
 const bonjour = (d) => (prenomDe(d.nom) ? `Bonjour ${prenomDe(d.nom)},` : "Bonjour,");
+// 17 nov. 2026, 11h33 : le lien du site dans TOUS les messages ; sans compte, l'invitation a creer son compte
+export function lignesSite(d, site = SITE) {
+  if (d && d.uid) return [`Retrouvez-moi sur mon site : ${site}`];
+  return [`N'hésitez pas à créer votre compte sur mon site avec ce numéro de téléphone : ${site}`, `Code ${CODE_BIENVENUE} : -10 ₪ sur votre prochaine réservation.`];
+}
 const versAeroport = (d) => d.service === "aeroport" && (d.details || {}).direction !== "depuis";
 
 // Message de remerciement apres le paiement. reste = ce qui reste a payer sur toute la course.
@@ -109,7 +116,7 @@ export function messageMerci(d, reste = 0) {
   } else {
     lignes.push("Au plaisir de vous revoir.");
   }
-  lignes.push("Rebecca");
+  lignes.push(...lignesSite(d), "Rebecca");
   return lignes.join("\n");
 }
 
@@ -124,7 +131,7 @@ export function messageRappelRetour(d, reste = 0) {
     "Vous me confirmez ? Prévenez-moi en cas de changement d'horaire.",
   ];
   if (reste > 0) lignes.push(`Reste à régler : ${cents(reste)} ₪.`);
-  lignes.push("À demain, Rebecca");
+  lignes.push(...lignesSite(d), "À demain, Rebecca");
   return lignes.join("\n");
 }
 

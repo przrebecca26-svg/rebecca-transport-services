@@ -308,7 +308,11 @@ export default function PaiementsCourse({ d }) {
       <h3>Paiements</h3>
       {texteAcompte && (
         <div className="tb-actions">
-          {waAcompte && <a className="tb-bouton" href={waAcompte} target="_blank" rel="noopener noreferrer" onClick={demanderAcompte}>💳 Demander l'acompte ({resteAcompte} ₪){d.acompteDemandeLe ? " · déjà envoyé" : ""}</a>}
+          {waAcompte ? (
+            <a className="tb-bouton" href={waAcompte} target="_blank" rel="noopener noreferrer" onClick={demanderAcompte}>💳 Demander l'acompte ({resteAcompte} ₪){d.acompteDemandeLe ? " · déjà envoyé" : ""}</a>
+          ) : (
+            <button type="button" className="tb-bouton" onClick={() => { demanderAcompte(); if (navigator.clipboard) navigator.clipboard.writeText(texteAcompte).then(() => setInfoAcompte("Message copié : colle-le dans WhatsApp ou par SMS.")).catch(() => {}); }}>💳 Copier le message d'acompte ({resteAcompte} ₪)</button>
+          )}
           {infoAcompte && <small className="tb-note">{infoAcompte}</small>}
         </div>
       )}

@@ -1,3 +1,4 @@
+import { avancementDe } from "./suiteClient.js";
 // SUIVI CLIENT - regles pures - Rebecca Services
 // Le client voit ses demandes dans « Historique » grace au document suivi/{id} (cree avec la demande).
 // Quand Rebecca change le statut ou le prix d'une demande, le suivi doit suivre (Lot B, seance B3).
@@ -32,5 +33,8 @@ export function miseAJourSuivi(d, suivi, mouvements = []) {
   const statut = statutSuiviAttendu(d, mouvements);
   if (statut && suivi.statut !== statut) champs.statut = statut;
   if (typeof d.prixFinal === "number" && suivi.prixFinal !== d.prixFinal) champs.prixFinal = d.prixFinal;
+  // 17 nov. 2026 : ou en est la course (en route, prise en charge, deposee...), visible dans « Mon historique »
+  const av = avancementDe(d);
+  if (av && suivi.avancement !== av) champs.avancement = av;
   return Object.keys(champs).length ? champs : null;
 }

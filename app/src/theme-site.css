@@ -162,3 +162,11 @@ html, body { background: #080709; }
 /* Pied de page */
 .theme-site footer { color: var(--g-texte-2); border-top: 1px solid rgba(185, 120, 112, 0.2); margin-top: 8px; padding-top: 14px; }
 .theme-site .compte-bonjour { font-family: var(--g-titre); font-weight: 800; }
+
+/* 17 nov. 2026 : avis publies sur la page d'accueil */
+.avis-publics h2 { font-size: 1.1rem; }
+.avis-liste { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+.avis-carte { flex: 0 0 78%; max-width: 320px; margin: 0; padding: 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.04); scroll-snap-align: start; }
+.avis-carte div { color: #e0a800; letter-spacing: 2px; }
+.avis-carte blockquote { margin: 6px 0; font-style: italic; }
+.avis-carte figcaption { font-weight: 700; font-size: 0.9rem; }

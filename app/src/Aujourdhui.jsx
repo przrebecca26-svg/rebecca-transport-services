@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { avisADemander, messageAvis, messageRappelRetour, messageRelance, rappelsDemain, recusAFaire, relancesClientes, resteDe } from "./pricing/finCourse.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
+import { messageRappelRdv, messageRelanceEpoxy, rappelsRdvDemain, relancesEpoxy } from "./pricing/suiteClient.js";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
@@ -118,11 +119,15 @@ function CourseDuJour({ d, sit, onOuvrir }) {
 // Un appui sur WhatsApp envoie aussi l'e-mail (si la cliente en a un) et note que c'est fait.
 function AFaire({ demandes, mouvements, jour }) {
   const [info, setInfo] = useState("");
+  const [commandes, setCommandes] = useState([]);
+  useEffect(() => onSnapshot(collection(db, "commandes"), (x) => setCommandes(x.docs.map((y) => ({ id: y.id, ...y.data() }))), () => {}), []);
+  const rdvs = rappelsRdvDemain(demandes, jour);
+  const epoxy = relancesEpoxy(commandes, jour);
   const rappels = rappelsDemain(demandes, jour);
   const avis = avisADemander(demandes, jour);
   const recus = recusAFaire(demandes);
   const relances = relancesClientes(demandes, jour);
-  if (!rappels.length && !avis.length && !recus.length && !relances.length) return null;
+  if (!rappels.length && !avis.length && !recus.length && !relances.length && !rdvs.length && !epoxy.length) return null;
   const noter = (d, champs) => updateDoc(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() }).catch(() => {});
   const envoyer = (d, sujet, texte, champs) => {
     noter(d, champs);
@@ -139,6 +144,32 @@ function AFaire({ demandes, mouvements, jour }) {
           <div key={"r" + d.id} className="tb-adresse">
             <div><p>{d.nom}</p><small>Retour {String(d.details.heureRetour || "").replace(":", "h")}{d.details.numeroVolRetour ? ` · vol ${d.details.numeroVolRetour}` : ""}</small></div>
             {wa ? <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => envoyer(d, SUJETS.rappel, texte, { rappelEnvoyeLe: jour })}>Envoyer</a> : <button className="tb-bouton tb-clair" onClick={() => envoyer(d, SUJETS.rappel, texte, { rappelEnvoyeLe: jour })}>Par e-mail</button>}
+          </div>
+        );
+      })}
+      {rdvs.length > 0 && <p className="aj-sous-titre">💅 Rendez-vous de demain à rappeler</p>}
+      {rdvs.map((d) => {
+        const texte = messageRappelRdv(d);
+        const wa = lienWhatsApp(d.telephone, texte);
+        return (
+          <div key={"b" + d.id} className="tb-adresse">
+            <div><p>{d.nom}</p><small>{d.serviceTitre} · {String(d.heure || "").replace(":", "h")}</small></div>
+            {wa ? <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => envoyer(d, SUJETS.rappelRdv, texte, { rappelEnvoyeLe: jour })}>Envoyer</a> : <button className="tb-bouton tb-clair" onClick={() => envoyer(d, SUJETS.rappelRdv, texte, { rappelEnvoyeLe: jour })}>Par e-mail</button>}
+          </div>
+        );
+      })}
+      {epoxy.length > 0 && <p className="aj-sous-titre">✨ Clientes Epoxy à relancer (commande il y a 2 à 3 mois)</p>}
+      {epoxy.map((c) => {
+        const texte = messageRelanceEpoxy(c);
+        const wa = lienWhatsApp(c.telephone, texte);
+        const noterC = () => updateDoc(doc(db, "commandes", c.id), { relanceLe: jour, majLe: serverTimestamp() }).catch(() => {});
+        return (
+          <div key={"e" + c.id} className="tb-adresse">
+            <div><p>{c.nom}</p><small>{c.produit}</small></div>
+            <div className="tb-actions">
+              {wa && <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => { noterC(); envoyerMailClient(c, SUJETS.relance, texte).then((x) => x && setInfo(x)).catch(() => {}); }}>Envoyer</a>}
+              <button className="tb-bouton tb-clair" onClick={noterC}>Pas pour elle</button>
+            </div>
           </div>
         );
       })}

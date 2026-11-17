@@ -166,6 +166,7 @@ export default function CompteHistorique({ client, onRefaire, onModifier }) {
             <p className="hist-quand">
               {dateFr(d.date)} à {d.heure}
             </p>
+            {d.avancement && <p className="hist-paye">🚗 {d.avancement}</p>}
             <p className="hist-prix">
               {prixAffiche(d)}
               {d.remise > 0 && <small> · code {d.codePromo} (−{d.remise} ₪)</small>}

@@ -11,7 +11,7 @@ import { libelleType, nomDe, vehiculesEffectifs } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import MonMoisVue from "./MonMoisVue.jsx";
 import EssenceVue, { enregistrerEssence, useEssence } from "./EssenceVue.jsx";
-import { kmWolt } from "./pricing/essence.js";
+import { kmWolt, heuresWolt } from "./pricing/essence.js";
 import { repartirStatsWolt } from "./pricing/repartitionWolt.js";
 import "./paiements.css";
 import "./finances.css";
@@ -254,7 +254,7 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
 }
 
 /* ---------- Vue Wolt (autres revenus) ---------- */
-const formulaireVide = () => ({ source: "Wolt", periode: "semaine", debut: aujourdhui(), fin: finProposee("semaine", aujourdhui()), livraisons: "", revenu: "", pourboire: "", detail: "", km: "" });
+const formulaireVide = () => ({ source: "Wolt", periode: "semaine", debut: aujourdhui(), fin: finProposee("semaine", aujourdhui()), livraisons: "", revenu: "", pourboire: "", detail: "", km: "", heures: "" });
 
 function AutresRevenus({ lignes: toutes, moi }) {
   const lignes = lignesDe(toutes, moi); // chacun son Wolt
@@ -311,7 +311,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
     setStatsFait("");
     if (l) {
       setEdition(l.id);
-      setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "", km: essence && essence.woltKm[l.id] ? String(essence.woltKm[l.id]) : "" });
+      setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "", km: essence && essence.woltKm[l.id] ? String(essence.woltKm[l.id]) : "", heures: essence && essence.woltHeures && essence.woltHeures[l.id] ? String(essence.woltHeures[l.id]) : "" });
     } else {
       setEdition(null);
       setForm(formulaireVide());
@@ -344,7 +344,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
       } else {
         id = (await addDoc(collection(db, "autresRevenus"), { ...v.ligne, ...champOperateur(moi), creeLe: serverTimestamp(), majLe: serverTimestamp() })).id;
       }
-      if (avecKm && (form.km || essence.woltKm[id])) await enregistrerEssence(kmWolt(essence, id, form.km));
+      if (avecKm && (form.km || essence.woltKm[id] || form.heures || (essence.woltHeures || {})[id])) await enregistrerEssence(heuresWolt(kmWolt(essence, id, form.km), id, form.heures));
       fermer();
     } catch {
       setErreur("Enregistrement impossible. Vérifie la connexion puis réessaie.");
@@ -460,6 +460,12 @@ function AutresRevenus({ lignes: toutes, moi }) {
             <label className="pm-champ">
               Kilomètres parcourus (pour ta vue Essence)
               <input inputMode="decimal" value={form.km} onChange={(e) => changer("km", e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="0" />
+            </label>
+          )}
+          {avecKm && (
+            <label className="pm-champ">
+              Heures travaillées (pour ton gain par heure)
+              <input inputMode="decimal" value={form.heures} onChange={(e) => changer("heures", e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="ex. 4,5" />
             </label>
           )}
           <div className="fi-deux">

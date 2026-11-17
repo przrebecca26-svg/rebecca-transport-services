@@ -139,7 +139,19 @@ export async function envoyerEmail(d) {
 // Envoie la demande. Le code Firebase n'est charge qu'a ce moment-la. Renvoie l'identifiant de la demande.
 // options.verrou = { date, cellules } pour un rendez-vous : le creneau est verrouille DANS la meme operation
 // (agendaJours/rebecca__date). S'il vient d'etre pris, rien n'est enregistre et l'erreur porte le code « creneau-pris ».
-export async function enregistrerDemande(demande, options = {}) {
+// 17 nov. 2026 : parrainage — la marraine (lien ?parrain=...) est notee dans les details de la demande
+function avecParrain(demande) {
+  try {
+    const o = JSON.parse(localStorage.getItem("rs-parrain") || "null");
+    if (!o || !o.p || Date.now() - o.le > 60 * 86400000 || o.p === demande.uid) return demande;
+    return { ...demande, details: { ...(demande.details || {}), parrain: String(o.p).slice(0, 128) } };
+  } catch {
+    return demande;
+  }
+}
+
+export async function enregistrerDemande(demandeBrute, options = {}) {
+  const demande = avecParrain(demandeBrute);
   const [{ db }, fs] = await Promise.all([import("./firebase.js"), import("firebase/firestore")]);
   const { addDoc, collection, doc, runTransaction, serverTimestamp } = fs;
 

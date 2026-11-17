@@ -21,6 +21,7 @@ import CatalogueSlim from "./components/CatalogueSlim.jsx";
 import CatalogueHair from "./components/CatalogueHair.jsx";
 import CatalogueDigital from "./components/CatalogueDigital.jsx";
 import BoutonsFlottants from "./components/BoutonsFlottants.jsx";
+import AvisPublics from "./components/AvisPublics.jsx";
 import "./client-commun.css";
 import "./theme-site.css";
 
@@ -412,6 +413,7 @@ export default function App() {
         {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
           <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />
         )}
+        {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && <AvisPublics />}
         {ecran.nom === "catalogue-nails" && (
           <CatalogueNails onRetour={() => aller({ nom: "accueil" })} />
         )}

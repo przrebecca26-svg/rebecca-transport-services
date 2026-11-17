@@ -2,6 +2,7 @@ import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.js
 import InfoVol from "./components/InfoVol.jsx";
 import FinCourseAgenda from "./FinCourseAgenda.jsx";
 import { messageEnfant, parentsAPrevenir } from "./pricing/finCourse.js";
+import { messageRetard } from "./pricing/suiteClient.js";
 import { texteDuree } from "./pricing/circulation.js";
 import { filtrerPersonne } from "./pricing/quiFait.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
@@ -506,6 +507,11 @@ function Etape({ e, date, journee, valide = null, familles = [] }) {
       )}
       {info && <p className="ag-fait-info">{info}</p>}
       {/* 17 nov. 2026 : ramassage fait -> prevenir les parents (« j'ai bien recupere… », « … est bien arrive(e) ») */}
+      {/* 17 nov. 2026, 12h03 : en retard -> prevenir les parents (10 min, modifiable dans WhatsApp) */}
+      {!fait && valide && e.genre === "arret" && parentsAPrevenir(familles, e.texte).map((p) => {
+        const wa = lienWhatsApp(p.telephone, messageRetard(p.prenoms, 10));
+        return wa ? <a key={"retard" + p.famille} className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">⏱ Retard ({p.nom || "parents"})</a> : null;
+      })}
       {fait && e.genre === "arret" && parentsAPrevenir(familles, e.texte).map((p) => {
         const wa = lienWhatsApp(p.telephone, messageEnfant(e.sorte, p.prenoms, fait === "oui" ? "" : fait, e.lieu));
         return wa ? <a key={p.famille} className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">💬 Prévenir {p.nom || "les parents"}</a> : null;

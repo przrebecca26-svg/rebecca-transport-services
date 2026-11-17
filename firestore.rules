@@ -1,4 +1,11 @@
 rules_version = '2';
+// Regles Rebecca Services v19 (17 novembre 2026) = v18 +
+//   - projetsDigital : demande de devis Digital (avec ou sans compte), lien de suivi personnel du client
+//     (lecture par son lien ; il peut seulement accepter son devis et remplir son dossier de lancement) ;
+//   - projetsDigitalPrive : notes et heures de Rebecca, jamais lisibles par le client ;
+//   - candidaturesPartenaires : inscriptions des futurs coursiers (page #/partenaire), lues par Rebecca seule ;
+//   - robots : compte « robot » des rappels envoyes tout seuls (tache programmee Netlify) : il lit les demandes,
+//     les paiements et l'e-mail des clientes, et note seulement « e-mail de rappel parti ».
 // Regles Rebecca Services v18 (17 novembre 2026) = v17 + PayPal comme moyen de paiement
 //   + paiementsDeclares : « J'ai paye » d'une cliente (creation libre, controlee) ; Rebecca et l'equipe confirment.
 // Regles Rebecca Services v17 (15 novembre 2026) = v16 + ramassage scolaire ouvert a tous (avec ou sans compte)
@@ -27,6 +34,13 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.token.email == "przrebecca26@gmail.com"
         && request.auth.token.email_verified == true;
+    }
+
+    // v19 : compte robot des rappels automatiques (fiche robots/{uid} creee par Rebecca dans Reglages)
+    function estRobot() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/robots/$(request.auth.uid))
+        && get(/databases/$(database)/documents/robots/$(request.auth.uid)).data.get("actif", false) == true;
     }
 
     // Compte client dont l'adresse e-mail est verifiee
@@ -489,8 +503,12 @@ service cloud.firestore {
     match /demandes/{id} {
       allow create: if demandeValide() || (gestion() && demandeManuelleValide());
       allow read: if estAdmin()
-        || (estMembre() && serviceEquipe(resource.data["service"]));
+        || (estMembre() && serviceEquipe(resource.data["service"]))
+        || estRobot();
       allow update: if estAdmin()
+        || (estRobot()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["rappelMailAutoLe"])
+          && request.resource.data.rappelMailAutoLe is string && request.resource.data.rappelMailAutoLe.size() == 10)
         || (estMembre()
           && serviceEquipe(resource.data["service"])
           && request.resource.data["service"] == resource.data["service"]);
@@ -552,11 +570,14 @@ service cloud.firestore {
     match /reglages/{id} {
       allow read: if true;
       allow write: if estAdmin();
+      // v19 : le robot note son dernier passage (jamais l'interrupteur « actif »)
+      allow update: if id == "rappelsAuto" && estRobot()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dernierPassage", "detail"]);
     }
 
     // Mouvements financiers : on peut lire et AJOUTER, jamais modifier ni supprimer
     match /mouvements/{id} {
-      allow read: if gestion();
+      allow read: if gestion() || estRobot();
       allow create: if gestion() && mouvementValide();
       allow update, delete: if false;
     }
@@ -594,7 +615,7 @@ service cloud.firestore {
 
     // Fiches clients : chaque client ne voit et ne modifie que SA fiche ; Rebecca (et un coequipier, v9) peut les lire.
     match /clients/{uid} {
-      allow read: if gestion() || (compteVerifie() && request.auth.uid == uid);
+      allow read: if gestion() || estRobot() || (compteVerifie() && request.auth.uid == uid);
       allow create: if request.auth != null && request.auth.uid == uid && ficheValide()
         && request.resource.data.creeLe == request.time && request.resource.data.accepteLe == request.time;
       allow update: if compteVerifie() && request.auth.uid == uid && ficheValide()
@@ -677,6 +698,86 @@ service cloud.firestore {
     // Notes privees sur un client (absences, blocage, pre-fiches...) : jamais visibles du client
     match /clientsAdmin/{uid} {
       allow read, write: if gestion();
+      allow get: if estRobot();
+    }
+
+    // ---------- v19 : Digital & Applications, partenaires, robot ----------
+
+    // Demande de devis Digital (questionnaire du site, avec ou sans compte). L'identifiant (aleatoire, 20 caracteres)
+    // sert de lien de suivi personnel : qui a le lien lit le projet. Le client peut seulement accepter le devis
+    // envoye et remplir son dossier de lancement. Rebecca seule liste, modifie et supprime.
+    function chaineMax(d, k, n) {
+      return d.get(k, "") is string && d.get(k, "").size() <= n;
+    }
+    function projetDigitalValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["statut","source","nom","entreprise","email","telephone","contact","pays","typeProjet","domaine","domaineAutre","description","fonctions","fonctionAutre","formuleEnvisagee","formuleConseillee","maintenanceSouhaitee","demarrage","budget","consentement","uid","creeLe"])
+        && d.keys().hasAll(["statut","source","nom","email","telephone","contact","pays","typeProjet","domaine","description","fonctions","demarrage","budget","consentement","creeLe"])
+        && d.statut == "nouvelle"
+        && d.source == "site"
+        && d.consentement == true
+        && d.creeLe == request.time
+        && (!("uid" in d) || (compteVerifie() && d.uid == request.auth.uid && nonBloque(request.auth.uid)))
+        && d.nom is string && d.nom.size() >= 2 && d.nom.size() <= 100
+        && d.email is string && d.email.size() >= 5 && d.email.size() <= 120
+        && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+        && d.contact in ["whatsapp", "appel", "email"]
+        && d.pays in ["israel", "france", "autre"]
+        && chaineMax(d, "entreprise", 120) && chaineMax(d, "typeProjet", 80) && chaineMax(d, "domaine", 80)
+        && chaineMax(d, "domaineAutre", 200) && chaineMax(d, "fonctionAutre", 200)
+        && d.description is string && d.description.size() >= 10 && d.description.size() <= 1500
+        && d.fonctions is list && d.fonctions.size() >= 1 && d.fonctions.size() <= 15
+        && chaineMax(d, "formuleEnvisagee", 40) && chaineMax(d, "formuleConseillee", 40) && chaineMax(d, "maintenanceSouhaitee", 40)
+        && chaineMax(d, "demarrage", 40) && chaineMax(d, "budget", 40);
+    }
+    function actionClientDigital() {
+      let avant = resource.data;
+      let apres = request.resource.data;
+      let cles = apres.diff(avant).affectedKeys();
+      return !(avant.statut in ["refuse", "abandonne"])
+        && (
+          // accepter le devis envoye (une seule fois)
+          (cles.hasOnly(["statut", "devisAccepteLe"]) && avant.statut == "devis_envoye" && apres.statut == "devis_accepte" && apres.devisAccepteLe == request.time)
+          // remplir son dossier de lancement
+          || (cles.hasOnly(["dossier", "dossierMajLe"]) && apres.dossier is map && apres.dossier.size() <= 40 && apres.dossierMajLe == request.time)
+        );
+    }
+    match /projetsDigital/{id} {
+      allow create: if projetDigitalValide();
+      allow get: if true;
+      allow list: if estAdmin();
+      allow update: if estAdmin() || actionClientDigital();
+      allow delete: if estAdmin();
+    }
+    match /projetsDigitalPrive/{id} {
+      allow read, write: if estAdmin();
+    }
+
+    // Candidatures « Devenir partenaire » (futurs coursiers) : tout le monde peut en envoyer une, Rebecca seule les lit
+    function candidatureValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["statut","prenom","nom","telephone","email","ville","zones","vehicules","permis","assurance","services","jours","dispos","statutFiscal","experience","message","majeur","consentement","creeLe"])
+        && d.keys().hasAll(["statut","prenom","nom","telephone","email","ville","vehicules","services","jours","majeur","consentement","creeLe"])
+        && d.statut == "nouvelle" && d.majeur == true && d.consentement == true && d.creeLe == request.time
+        && d.prenom is string && d.prenom.size() >= 2 && d.prenom.size() <= 60
+        && d.nom is string && d.nom.size() >= 2 && d.nom.size() <= 60
+        && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
+        && d.email is string && d.email.size() <= 120
+        && d.ville is string && d.ville.size() <= 80
+        && chaineMax(d, "zones", 200) && chaineMax(d, "dispos", 300) && chaineMax(d, "statutFiscal", 40)
+        && chaineMax(d, "experience", 600) && chaineMax(d, "message", 600)
+        && d.vehicules is list && d.vehicules.size() >= 1 && d.vehicules.size() <= 4
+        && d.services is list && d.services.size() >= 1 && d.services.size() <= 5
+        && d.jours is list && d.jours.size() >= 1 && d.jours.size() <= 6;
+    }
+    match /candidaturesPartenaires/{id} {
+      allow create: if candidatureValide();
+      allow read, update, delete: if estAdmin();
+    }
+
+    // Compte robot des rappels : seule Rebecca le cree ou le desactive
+    match /robots/{uid} {
+      allow read, write: if estAdmin();
     }
 
     // Reservee a Rebecca (reglages prives, plafond, rappels, sauvegardes) : jamais un coequipier

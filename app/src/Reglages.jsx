@@ -5,7 +5,8 @@ import { db } from "./firebase.js";
 import { oublierModele } from "./mailClient.js";
 import { MARGE_DEFAUT } from "./pricing/enchainement.js";
 import { PLAFOND_DEFAUT } from "./pricing/financesAnnee.js";
-import { MAX_SECTIONS, MAX_TEXTE, MAX_TITRE, SECTIONS_DEPART, sectionsValides } from "./textesLegaux.js";
+import { MAX_SECTIONS, MAX_TEXTE, MAX_TITRE, SECTIONS_DEPART, VERSION_TEXTE, sectionsValides } from "./textesLegaux.js";
+import ReglagesAuto from "./ReglagesAuto.jsx";
 import "./reglages.css";
 
 // Onglet « Reglages » de l'espace prive (Lot B, seance B5) :
@@ -152,6 +153,7 @@ function Textes() {
   const [modifie, setModifie] = useState(false);
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [depuisDepart, setDepuisDepart] = useState(false); // 17 nov. 2026 : nouveau texte de depart repris
 
   useEffect(
     () =>
@@ -199,6 +201,7 @@ function Textes() {
     toucher();
   };
   const texteDepart = () => {
+    setDepuisDepart(true);
     setSections(SECTIONS_DEPART.map((s) => ({ ...s })));
     toucher();
   };
@@ -226,6 +229,7 @@ function Textes() {
         sections: propres,
         statut,
         verifiePar: statut === "verifie" ? verifiePar.trim().slice(0, 80) : "",
+        version: depuisDepart ? VERSION_TEXTE : (doc0 && doc0.version) || "",
         majLe: serverTimestamp(),
       });
       setModifie(false);
@@ -242,6 +246,9 @@ function Textes() {
       <p className="tb-note">
         Le texte de la page publique « Confidentialité et conditions ». {doc0 ? "" : "Pour l'instant, c'est le texte de départ (jamais enregistré). "}Une ligne vide sépare deux paragraphes.
       </p>
+      {doc0 && doc0.version !== VERSION_TEXTE && (
+        <p className="dm-verif dm-alerte">Nouveau texte de départ du 17 novembre (toutes les activités, acomptes, paiements, e-mails, Digital, Epoxy) : touche « Remettre le texte de départ » tout en bas, relis, puis « Enregistrer le texte ».</p>
+      )}
       <p className={"rg-etat" + (doc0 && doc0.statut === "verifie" ? " rg-verifie" : "")}>
         {doc0 && doc0.statut === "verifie" ? `État : vérifié${doc0.verifiePar ? " par " + doc0.verifiePar : ""}` : "État : provisoire (le site affiche « Version provisoire »)"}
       </p>
@@ -446,6 +453,7 @@ export default function Reglages() {
       <PaiementEnLigne />
       <AvisSurLeSite />
       <EmailsClientes />
+      <ReglagesAuto />
       <Textes />
       <p className="tb-note tb-pad">Les tarifs, les durées et les horaires des activités deviendront modifiables ici au Lot C.</p>
     </section>

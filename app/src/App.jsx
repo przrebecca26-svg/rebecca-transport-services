@@ -24,6 +24,8 @@ import BoutonsFlottants from "./components/BoutonsFlottants.jsx";
 import AvisPublics from "./components/AvisPublics.jsx";
 import PagePaiement from "./components/PagePaiement.jsx";
 import { lireLienPaye } from "./pricing/suiteClient.js";
+import { lireLienProjet } from "./pricing/digital.js";
+import LienPartenaire from "./components/LienPartenaire.jsx";
 import "./client-commun.css";
 import "./theme-site.css";
 
@@ -31,6 +33,10 @@ import "./theme-site.css";
 const Admin = lazy(() => import("./Admin.jsx"));
 const Compte = lazy(() => import("./Compte.jsx"));
 const Legal = lazy(() => import("./Legal.jsx"));
+// 17 nov. 2026 : questionnaire de devis Digital, suivi d'un projet (#/projet/ID), inscription des partenaires (#/partenaire)
+const DemandeDigital = lazy(() => import("./components/DemandeDigital.jsx"));
+const SuiviProjet = lazy(() => import("./components/SuiviProjet.jsx"));
+const DevenirPartenaire = lazy(() => import("./components/DevenirPartenaire.jsx"));
 const enAdmin = () => window.location.hash.startsWith("#/admin");
 
 // Mise en page des espaces (sans toucher aux fichiers CSS deja en place)
@@ -363,6 +369,8 @@ export default function App() {
   const [lienRamassage, setLienRamassage] = useState(() => window.location.hash === "#/ramassage");
   // 17 nov. 2026 : page « Payer et me prevenir » (#/paye/...)
   const [lienPayeVu, setLienPayeVu] = useState(() => lireLienPaye(window.location.hash));
+  const [lienProjetVu, setLienProjetVu] = useState(() => lireLienProjet(window.location.hash));
+  const [lienPartenaire, setLienPartenaire] = useState(() => window.location.hash === "#/partenaire");
   useEffect(() => {
     const suivre = () => {
       setAdmin(enAdmin());
@@ -370,6 +378,8 @@ export default function App() {
       setLienBienvenue(lireLienBienvenue(window.location.hash));
       setLienRamassage(window.location.hash === "#/ramassage");
       setLienPayeVu(lireLienPaye(window.location.hash));
+      setLienProjetVu(lireLienProjet(window.location.hash));
+      setLienPartenaire(window.location.hash === "#/partenaire");
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -420,6 +430,32 @@ export default function App() {
         </main>
       </div>
     );
+  const quitterLien = () => {
+    window.location.hash = "";
+    setLienProjetVu(null);
+    setLienPartenaire(false);
+    aller({ nom: "accueil" });
+  };
+  if (lienProjetVu)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            <SuiviProjet id={lienProjetVu} onAccueil={quitterLien} />
+          </Suspense>
+        </main>
+      </div>
+    );
+  if (lienPartenaire)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            <DevenirPartenaire onAccueil={quitterLien} onLegal={() => { quitterLien(); aller({ nom: "legal" }); }} />
+          </Suspense>
+        </main>
+      </div>
+    );
   return (
     <div className="appli theme-site">
       <main>
@@ -443,7 +479,12 @@ export default function App() {
           <CatalogueHair onRetour={() => aller({ nom: "accueil" })} />
         )}
         {ecran.nom === "catalogue-digital" && (
-          <CatalogueDigital onRetour={() => aller({ nom: "accueil" })} />
+          <CatalogueDigital onRetour={() => aller({ nom: "accueil" })} onDevis={() => aller({ nom: "devis-digital" })} />
+        )}
+        {ecran.nom === "devis-digital" && (
+          <Suspense fallback={chargement}>
+            <DemandeDigital onRetour={() => aller({ nom: "catalogue-digital" })} onLegal={() => aller({ nom: "legal" })} />
+          </Suspense>
         )}
         {lienBienvenue && (
           <BienvenueRamassage
@@ -521,6 +562,7 @@ export default function App() {
         <button type="button" className="lien" onClick={() => aller({ nom: "legal" })}>
           Confidentialité et conditions
         </button>
+        <LienPartenaire />
       </footer>
       <BoutonsFlottants />
       {popup && ecran.nom === "accueil" && (

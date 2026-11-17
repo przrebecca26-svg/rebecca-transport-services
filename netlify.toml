@@ -1,0 +1,5 @@
+# 17 nov. 2026 : tache programmee des rappels par e-mail (dossier app/netlify/functions).
+# Les reglages de publication restent ceux de l interface Netlify.
+[functions]
+  directory = "app/netlify/functions"
+  node_bundler = "esbuild"

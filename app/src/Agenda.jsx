@@ -16,6 +16,7 @@ import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauVal
 import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
 import { useMaJournee } from "./maJournee.js";
+import TraficDuMatin from "./components/TraficDuMatin.jsx";
 import AddressField from "./components/AddressField.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
 import { cleLieu } from "./pricing/tournee.js";
@@ -1046,6 +1047,7 @@ export default function Agenda() {
     const m = {};
     for (const d of items || []) {
       if (!STATUTS[d.statut] || !/^\d{4}-\d{2}-\d{2}$/.test(d.date || "")) continue;
+      if (d.service === "digital") continue; // 17 nov. 2026 : un paiement de projet Digital n'est pas un rendez-vous
       (m[d.date] = m[d.date] || []).push(d);
       // Aller-retour : le retour un autre jour s'affiche aussi a sa date (16 nov. 2026)
       const r = retourAutreJour(d);
@@ -1122,6 +1124,7 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>
 
+      {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <TraficDuMatin jour={ref} fil={maJournee.fil(ref)} domicile={maJournee.domicile} />}
       {vue === "jour" && <JourListe equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} valide={tourneeOk && ref <= aujourdhui && ref >= ajouterJours(aujourdhui, -1) ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
       {vue === "semaine" && jours.map((j) => <JourListe key={j} titre equipier={moi !== ADMIN_ID} fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}

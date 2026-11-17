@@ -169,6 +169,21 @@ export const CATALOGUE_DEPART = [
   p("digital", "Maintenance", "Sérénité", 250, null, { description: "Par mois. 30 minutes incluses, réponse sous 3 jours ouvrés. Petites corrections." }),
   p("digital", "Maintenance", "Confort", 450, null, { description: "Par mois. 1 h 30 incluse, réponse sous 48 heures ouvrées. Corrections et petites modifications." }),
   p("digital", "Maintenance", "Premium", 750, null, { description: "Par mois. 3 heures incluses, réponse sous 24 heures ouvrées. Corrections, modifications et évolutions mineures." }),
+  // 17 nov. 2026 : etudes et options du dossier Digital (prix de depart provisoires du 5 nov.). AJOUTES A LA FIN :
+  // les identifiants des articles deja enregistres ne changent pas.
+  p("digital", "Études", "Consultation initiale (30 min)", 0, 30, { description: "Gratuite. Par téléphone ou visio, pour comprendre votre activité et votre besoin." }),
+  p("digital", "Études", "Étude approfondie", 450, null, { typePrix: "apartir", description: "Analyse des besoins, des fonctions et des contraintes techniques, choix de la formule. Déduite du développement si vous commandez dans les 30 jours." }),
+  p("digital", "Études", "Cahier des charges détaillé", 900, null, { typePrix: "apartir", description: "Document complet : pages, fonctions, utilisateurs, règles, planning. Selon la taille du projet. Déduit du développement si vous commandez dans les 30 jours." }),
+  p("digital", "Options", "Espace administrateur supplémentaire", 1500, null, { typePrix: "apartir", description: "Un espace privé de plus pour gérer une activité ou un service distinct." }),
+  p("digital", "Options", "Espace client avancé", 1500, null, { typePrix: "apartir", description: "Historique, favoris, informations et demandes gérées par le client." }),
+  p("digital", "Options", "Paiement en ligne", 1200, null, { typePrix: "apartir", description: "Solution de paiement adaptée, selon étude technique." }),
+  p("digital", "Options", "WhatsApp", 800, null, { typePrix: "apartir", description: "Boutons de contact et messages pré-remplis." }),
+  p("digital", "Options", "Google Maps", 1000, null, { typePrix: "apartir", description: "Carte, localisation, calcul de distances." }),
+  p("digital", "Options", "Fidélité et codes promo", 900, null, { typePrix: "apartir", description: "Réductions, avantages, programme de fidélité." }),
+  p("digital", "Options", "Abonnements", 1500, null, { typePrix: "apartir", description: "Souscription et suivi, selon étude technique." }),
+  p("digital", "Options", "Statistiques avancées", 1200, null, { typePrix: "apartir", description: "Tableaux de bord et indicateurs personnalisés." }),
+  p("digital", "Options", "Langue supplémentaire", 700, null, { typePrix: "apartir", description: "Interface traduite dans une nouvelle langue." }),
+  p("digital", "Options", "Refonte graphique", 1500, null, { typePrix: "apartir", description: "Modernisation de l'apparence d'un site existant." }),
 ];
 
 function EPOXY_DEPART() {

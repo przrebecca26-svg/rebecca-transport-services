@@ -152,6 +152,7 @@ export function useMaJournee(actif) {
   return {
     etat,
     fil,
+    domicile: d.domicile, // 17 nov. 2026 : trafic de ce matin (depart de la maison)
     retires,
     heureChangee,
     faitA: (date, e) => faitA(jours, date, cleEtape(e)),

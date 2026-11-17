@@ -252,3 +252,24 @@ export async function calculerTrajetSur(depart, arrivee, signal) {
   const km = Math.max(0.5, Math.round(distanceKm(depart, arrivee) * 1.4 * 10) / 10);
   return { km, minutes: Math.max(5, Math.round((km / 30) * 60)), source: "estimation", estime: true };
 }
+
+/* ---------- Trafic reel (17 nov. 2026) ----------
+   Duree d'un trajet en voiture avec le trafic prevu au depart (Google Routes API, « TRAFFIC_AWARE »).
+   Utilise la cle Google de Rebecca (Routes API a activer sur cette cle). Renvoie { avecTrafic, normal } en secondes. */
+export async function dureeAvecTrafic(de, vers, departIsoTexte, signal) {
+  if (!cleGoogle) throw new Error("Pas de clé Google");
+  const pt = (a) => ({ location: { latLng: { latitude: a.lat, longitude: a.lon } } });
+  const corps = { origin: pt(de), destination: pt(vers), travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE", languageCode: "fr" };
+  if (departIsoTexte && new Date(departIsoTexte).getTime() > Date.now()) corps.departureTime = departIsoTexte;
+  const rep = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+    method: "POST",
+    signal,
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": cleGoogle, "X-Goog-FieldMask": "routes.duration,routes.staticDuration" },
+    body: JSON.stringify(corps),
+  });
+  if (!rep.ok) throw new Error(rep.status === 403 ? "Routes API non activée sur la clé Google" : "Trafic indisponible");
+  const r = ((await rep.json()).routes || [])[0];
+  if (!r) throw new Error("Aucun itinéraire");
+  const s = (t) => parseFloat(String(t || "0").replace("s", "")) || 0;
+  return { avecTrafic: s(r.duration), normal: s(r.staticDuration) };
+}

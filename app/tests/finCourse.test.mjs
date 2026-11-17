@@ -96,3 +96,20 @@ test("compteur réel et coût du km d'après les pleins ; avance du retour", () 
   egal(F.avanceRetour(ar(), [{ resId: "r1", kind: "paiement", montant: 300 }]), 150);
   egal(F.avanceRetour(retour(), [{ resId: "r1", kind: "paiement", montant: 300 }]), 0);
 });
+
+test("lot 3 : livraison faite, relances, minimum, parents, refaire", () => {
+  vrai(F.messageLivraisonFaite({ nom: "Dan", service: "livraison", chrono: { simple: { depose: "15:10" } } }).includes("Votre livraison est faite ✅ (à 15h10)"));
+  const vieille = simple({ statut: "terminee", date: "2026-10-10", telephone: "050-1234567" });
+  egal(F.relancesClientes([vieille], "2026-11-17").length, 1);
+  egal(F.relancesClientes([vieille, simple({ id: "n", date: "2026-11-20", telephone: "0501234567" })], "2026-11-17").length, 0);
+  vrai(F.messageRelance(vieille).includes("prochain voyage"));
+  egal(F.alerteMinimum({ gainNet: 100, gainNetHeure: 50 }, 80, 200), { min: 80, conseille: 260 });
+  egal(F.alerteMinimum({ gainNet: 100, gainNetHeure: 90 }, 80, 200), null);
+  const fam = [{ id: "a", nom: "Alexia", telephone: "0521", enfants: [{ prenom: "Léa" }, { prenom: "Noa" }] }, { id: "m", categorie: "moi", telephone: "1", enfants: [{ prenom: "Shyrel" }] }];
+  const p = F.parentsAPrevenir(fam, "Déposer Léa, Noa et Shyrel");
+  egal(p.length, 1);
+  egal(p[0].prenoms, ["Léa", "Noa"]);
+  vrai(F.messageEnfant("depose", ["Léa", "Noa"], "08:25", "Gan").includes("Léa et Noa sont bien arrivés (Gan) à 08h25"));
+  const r = F.versRefaire(ar({ details: { typeTrajet: "ar", direction: "vers", depart: { label: "Rue X" }, heureRetour: "18:00", dateRetour: "2026-11-24" } }));
+  egal([r.prerempli.adresses.depart.label, r.prerempli.typeTrajet, r.prerempli.dateRetour, r.client.prenom, r.prerempli.prix], ["Rue X", "ar", "", "Naomie", "300"]);
+});

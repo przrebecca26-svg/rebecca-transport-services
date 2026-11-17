@@ -13,6 +13,7 @@ import { MARGE_DEFAUT, clePaire, datesDe, messageAutreHoraire, phrase, trajetsAC
 import { rattraperTousLesSuivis, synchroniserSuivi } from "./suiviClient.js";
 import PaiementsCourse from "./PaiementsCourse.jsx";
 import AjoutManuel, { Remerciement } from "./AjoutManuel.jsx";
+import { versRefaire } from "./pricing/finCourse.js";
 import { LIBELLE_ORIGINE, prenomDe } from "./pricing/ajoutManuel.js";
 import { messageDevisDemande } from "./pricing/devisRapide.js";
 import QuiFait from "./components/QuiFait.jsx";
@@ -301,6 +302,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
   const [avertissement, setAvertissement] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [modif, setModif] = useState(false);
+  const [refaire, setRefaire] = useState(false); // 17 nov. 2026 : « Refaire la même course »
   const ref = doc(db, "demandes", d.id);
 
   // Enregistre la demande, puis met a jour l'historique du client (si la demande vient d'un compte)
@@ -434,6 +436,22 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
     }
   };
 
+  if (refaire) {
+    const r = versRefaire(d);
+    return (
+      <AjoutManuel
+        mode="course"
+        demandes={toutes}
+        marge={marge}
+        prerempli={r.prerempli}
+        clientPrerempli={r.client}
+        onFermer={() => setRefaire(false)}
+        onOuvrirDemande={(id) => { setRefaire(false); aller("demandes", id); }}
+        onOuvrirFiche={(cle) => aller("clients", cle)}
+      />
+    );
+  }
+
   if (modif) {
     return (
       <section className="tb-detail">
@@ -466,6 +484,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
           {whatsapp ? <a className="tb-bouton" href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a> : <span className="tb-note">Numéro non reconnu pour WhatsApp</span>}
           {devis && <a className="tb-bouton tb-clair" href={devis} target="_blank" rel="noopener noreferrer">Renvoyer le devis</a>}
           {modifiable && <button className="tb-bouton tb-clair" onClick={() => setModif(true)}>Modifier le devis</button>}
+          {d.service !== "ramassage" && <button className="tb-bouton tb-clair" onClick={() => setRefaire(true)}>🔁 Refaire la même course</button>}
           {appel && <a className="tb-bouton tb-clair" href={appel}>Appeler</a>}
           {cle && <button className="tb-bouton tb-clair" onClick={() => aller("clients", cle)}>Fiche client</button>}
         </div>

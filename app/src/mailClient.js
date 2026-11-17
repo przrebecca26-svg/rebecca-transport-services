@@ -74,4 +74,5 @@ export const SUJETS = {
   rappel: "Petit rappel pour votre retour - Rebecca Services",
   enRoute: "Je suis en route - Rebecca Services",
   avis: "Votre avis compte - Rebecca Services",
+  relance: "Besoin de moi ? - Rebecca Services",
 };

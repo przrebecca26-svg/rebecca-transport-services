@@ -12,7 +12,7 @@ import { ajouterJours } from "./pricing/calendrier.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { useEssence } from "./EssenceVue.jsx";
 import {
-  ETAPES_CHRONO, avanceRetour, bilanTrajet, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageMerci,
+  ETAPES_CHRONO, avanceRetour, bilanTrajet, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageFin,
   messageAvis, messageEnRoute, messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
 } from "./pricing/finCourse.js";
 
@@ -78,7 +78,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     await enregistrer(champs);
     setCompteur(null);
   };
-  const lienMerci = lienWhatsApp(d.telephone, messageMerci(d, reste));
+  const lienMerci = lienWhatsApp(d.telephone, messageFin(d, reste));
 
   const enregistrer = async (champs) => {
     if (!champs) return;
@@ -122,7 +122,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       setMerci(true);
       // Merci par e-mail, tout seul, avec le reste a jour
       const resteApres = Math.max(0, Math.round((reste - (paiement ? paiement.montant : 0)) * 100) / 100);
-      mail(SUJETS.merci, messageMerci({ ...d, ...(r.champs || {}) }, resteApres));
+      mail(SUJETS.merci, messageFin({ ...d, ...(r.champs || {}) }, resteApres));
     } catch {
       setErreur("Enregistrement impossible. Vérifie la connexion puis réessaie.");
     }

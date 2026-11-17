@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot } from "firebase/firestore";
+import { alerteMinimum } from "./pricing/finCourse.js";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Champ from "./components/Champ.jsx";
@@ -39,6 +40,9 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
   const [ajout, setAjout] = useState(false);
   const [demandes, setDemandes] = useState([]);
   const reglages = useFermetures();
+  // 17 nov. 2026 : mon minimum de gain par heure (Reglages) -> alerte et prix conseille
+  const [minParHeure, setMinParHeure] = useState(0);
+  useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => setMinParHeure(x.exists() ? Number(x.data().minParHeure) || 0 : 0), () => {}), []);
   const changer = (nom, valeur) => setV((o) => ({ ...o, [nom]: valeur }));
 
   // Distance reelle (meme calcul que le site)
@@ -131,6 +135,10 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
         <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pret} manque={manque} quand={{ date: v.date, heure: v.heure }} />
       </div>
 
+      {calcule && renta && (() => {
+        const a = alerteMinimum(renta, minParHeure, resultat.total);
+        return a ? <p className="tdb-note dr-alerte-min" role="alert">⚠️ Sous ton minimum de {a.min} ₪/h.{a.conseille ? ` Prix conseillé : ${a.conseille} ₪.` : ""} (Réglages → Mon minimum)</p> : null;
+      })()}
       {calcule && renta && (
         <p className="tdb-note">Pour toi seulement : gain net estimé {renta.gainNet} ₪ ({renta.gainNetHeure} ₪ / heure, retour à vide compris).</p>
       )}

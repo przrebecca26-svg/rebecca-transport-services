@@ -6,6 +6,7 @@
 // L'essence perso est affichee pour info, jamais retiree du benefice.
 
 import { SERVICES } from "../services.js";
+import { faitDansPeriode, montantFait } from "./parts.js";
 import { avecCarburant, essenceDuMois, estCarburant } from "./essence.js";
 
 const cents = (x) => Math.round(x * 100) / 100;
@@ -44,10 +45,11 @@ export function monMois(mois, { demandes = [], mouvements = [], depenses = [], a
   }
   const wolt = autresRevenus.filter((r) => !r.operateur && String(r.debut || "").slice(0, 7) === mois).reduce((s, r) => s + nb(r.revenu), 0);
   const idsReste = [];
-  const reste = demandes.filter((d) => d.statut === "terminee" && String(d.date).slice(0, 7) === mois).reduce((s, d) => {
+  const pMois = { debut: `${mois}-01`, fin: `${mois}-31` };
+  const reste = demandes.filter((d) => faitDansPeriode(d, pMois)).reduce((s, d) => {
     const recu = mouvements.filter((m) => m.resId === d.id && (m.kind === "paiement" || m.kind === "correction")).reduce((t, m) => t + nb(m.montant), 0);
-    if (nb(d.prixFinal) - recu > 0) idsReste.push(d.id);
-    return s + Math.max(0, nb(d.prixFinal) - recu);
+    if (montantFait(d) - recu > 0.009) idsReste.push(d.id);
+    return s + Math.max(0, montantFait(d) - recu);
   }, 0);
   const dep = depenses.filter((x) => !x.operateur && String(x.date || "").slice(0, 7) === mois && !estCarburant(x));
   const parCat = {};

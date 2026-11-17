@@ -8,6 +8,7 @@
 // Km : seulement des km ESTIMES (les km reellement parcourus ne sont pas enregistres).
 
 import { SERVICES } from "../services.js";
+import { faitDansPeriode, montantFait, partsDans } from "./parts.js";
 
 export const ACTIVITES_TB = [
   { id: "coursier", titre: "Services coursier", etat: "active", icone: "coursier" },
@@ -49,11 +50,14 @@ export function indicateurs({ activite = null, demandes = [], mouvements = [], p
   const ids = new Set(siennes.map((d) => d.id));
 
   const demandesRecues = siennes.filter((d) => dans(dateCreation(d), periode)).length;
-  const terminees = siennes.filter((d) => d.statut === "terminee" && dans(d.date, periode));
+  // 17 nov. 2026 : un aller-retour compte trajet par trajet (aller fait = moitie du prix ce jour-la)
+  const terminees = siennes.filter((d) => faitDansPeriode(d, periode));
+  const nbParts = terminees.reduce((s, d) => s + partsDans(d, periode).length, 0);
+  const caFait = terminees.reduce((s, d) => s + montantFait(d, periode), 0);
   const fraisAnnulation = mouvements
     .filter((m) => m.kind === "annulation" && ids.has(m.resId) && dans(m.date, periode))
     .reduce((s, m) => s + nb(m.fraisRetenus), 0);
-  const caRealise = cents(terminees.reduce((s, d) => s + prixDe(d), 0) + fraisAnnulation);
+  const caRealise = cents(caFait + fraisAnnulation);
   const encaisse = cents(
     mouvements
       .filter((m) => ids.has(m.resId) && dans(m.date, periode))
@@ -63,12 +67,12 @@ export function indicateurs({ activite = null, demandes = [], mouvements = [], p
   const kmEstimes = Math.round(terminees.reduce((s, d) => s + nb(d.kmEstime), 0));
   return {
     demandesRecues,
-    prestationsTerminees: terminees.length,
+    prestationsTerminees: nbParts,
     caRealise,
     encaisse,
     pourboires,
     kmEstimes,
-    prixMoyen: terminees.length ? Math.round(terminees.reduce((s, d) => s + prixDe(d), 0) / terminees.length) : 0,
+    prixMoyen: nbParts ? Math.round(caFait / nbParts) : 0,
   };
 }
 
@@ -77,7 +81,7 @@ export function repartitionServices({ activite = null, demandes = [], periode = 
   const c = {};
   for (const d of demandes) {
     if (activite && activiteDe(d.service) !== activite) continue;
-    if (d.statut !== "terminee" || !dans(d.date, periode)) continue;
+    if (!faitDansPeriode(d, periode)) continue;
     c[d.service] = (c[d.service] || 0) + 1;
   }
   return SERVICES.filter((s) => c[s.id]).map((s) => ({ service: s.id, titre: s.titre, nombre: c[s.id] }));

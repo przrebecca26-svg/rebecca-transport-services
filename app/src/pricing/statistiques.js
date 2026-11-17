@@ -4,6 +4,7 @@
 // + argent garde apres annulation ; pourboires a part ; Wolt a part ; benefice = CA + Wolt - depenses.
 // Rapports : fichiers CSV (ouverts par Excel ou Numbers) et page imprimable (PDF depuis le telephone).
 
+import { faitDansPeriode, montantFait } from "./parts.js";
 import { periodeDe, decaler } from "./bilan.js";
 import { activiteDe } from "./financesAnnee.js";
 
@@ -50,8 +51,9 @@ export function indicateursPeriode(p, { demandes = [], mouvements = [], depenses
   const pourActivite = (d) => activite === "toutes" || activiteDe(d.service) === activite;
   const siennes = demandes.filter((d) => pourPersonne(d) && pourActivite(d));
   const ids = new Set(siennes.map((d) => d.id));
-  const terminees = siennes.filter((d) => d.statut === "terminee" && dans(d.date, p));
-  const caCourses = terminees.reduce((s, d) => s + prixDe(d), 0);
+  // 17 nov. 2026 : aller-retour compte trajet par trajet
+  const terminees = siennes.filter((d) => faitDansPeriode(d, p));
+  const caCourses = terminees.reduce((s, d) => s + montantFait(d, p), 0);
   const annulations = mouvements.filter((m) => m.kind === "annulation" && ids.has(m.resId) && dans(m.date, p)).reduce((s, m) => s + nb(m.fraisRetenus), 0);
   const encaisse = mouvements
     .filter((m) => ids.has(m.resId) && dans(m.date, p))

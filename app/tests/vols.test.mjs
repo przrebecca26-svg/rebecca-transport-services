@@ -50,8 +50,8 @@ test("aller-retour : le jour du retour, on suit le vol du retour dans l'autre se
 test("ville du vol : celle saisie, sinon celle du tableau", () => {
   const vol = V.volDeLaCourse(course());
   egal(V.villeDuVol(vol, V.etatDuVol(L({ CHLOC1T: "PARIS", CHLOCCT: "FRANCE", CHLOC1: "cdg" }), vol)), "vers Paris, France (CDG)");
-  egal(V.villeDuVol(vol, V.etatDuVol(L({ CHLOCCT: "FRANCE" }), vol)), "vers France");
-  egal(V.villeDuVol(V.volDeLaCourse(course({}, { villeVol: "Lyon" })), V.etatDuVol(L({ CHLOCCT: "FRANCE" }), vol)), "vers Lyon, France");
+  egal(V.villeDuVol(vol, V.etatDuVol(L({ CHLOC1T: "", CHLOCCT: "FRANCE" }), vol)), "vers France");
+  egal(V.villeDuVol(V.volDeLaCourse(course({}, { villeVol: "Lyon" })), V.etatDuVol(L({ CHLOC1T: "", CHLOCCT: "FRANCE" }), vol)), "vers Lyon, France");
   egal(V.etatDuVol(L({ CHCINT: "21-25", CHCKZN: "B" }), vol).comptoirs, "comptoirs 21-25, zone B");
   egal([V.iconeVol(vol), V.iconeVol({ sens: "arrivee" })], ["🛫", "🛬"]);
   egal(V.villeDuVol(vol, null), "");

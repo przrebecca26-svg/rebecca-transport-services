@@ -12,6 +12,7 @@
 
 import { SITE, CODE_BIENVENUE } from "./ajoutManuel.js";
 import { TARIFS } from "./config.js";
+import { partAller } from "./parts.js";
 
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 const HEURE_OK = /^\d{2}:\d{2}$/;
@@ -194,7 +195,8 @@ const ecart = (a, b) => {
 export const texteMinutes = (m) => (m == null ? "" : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`);
 
 // Prix de CE trajet : aller-retour = moitie du prix chacun
-export const prixTrajet = (d) => cents(estAllerRetour(d) ? prixDe(d) / 2 : prixDe(d));
+// 17 nov. 2026, 14h27 : aller et retour d'apres le detail du devis (ex. 250 / 260 avec un bagage au retour)
+export const prixTrajet = (d) => (!estAllerRetour(d) ? cents(prixDe(d)) : d.estRetour ? cents(prixDe(d) - partAller(d)) : partAller(d));
 
 // Temps passes et rentabilite du trajet
 export function bilanTrajet(d, parKm = null) {

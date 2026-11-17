@@ -3,7 +3,7 @@ import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID, attribueA } from "./pricing/equipe.js";
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
-import { avisADemander, messageAvis, messageRappelRetour, rappelsDemain, recusAFaire, resteDe } from "./pricing/finCourse.js";
+import { avisADemander, messageAvis, messageRappelRetour, messageRelance, rappelsDemain, recusAFaire, relancesClientes, resteDe } from "./pricing/finCourse.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
@@ -121,7 +121,8 @@ function AFaire({ demandes, mouvements, jour }) {
   const rappels = rappelsDemain(demandes, jour);
   const avis = avisADemander(demandes, jour);
   const recus = recusAFaire(demandes);
-  if (!rappels.length && !avis.length && !recus.length) return null;
+  const relances = relancesClientes(demandes, jour);
+  if (!rappels.length && !avis.length && !recus.length && !relances.length) return null;
   const noter = (d, champs) => updateDoc(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() }).catch(() => {});
   const envoyer = (d, sujet, texte, champs) => {
     noter(d, champs);
@@ -151,6 +152,20 @@ function AFaire({ demandes, mouvements, jour }) {
             <div className="tb-actions">
               {wa && <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => envoyer(d, SUJETS.avis, texte, { avisDemandeLe: jour })}>Envoyer</a>}
               <button className="tb-bouton tb-clair" onClick={() => noter(d, { avisDemandeLe: jour })}>Pas pour elle</button>
+            </div>
+          </div>
+        );
+      })}
+      {relances.length > 0 && <p className="aj-sous-titre">💌 Clientes à relancer (dernière course il y a 1 à 2 mois)</p>}
+      {relances.map((d) => {
+        const texte = messageRelance(d);
+        const wa = lienWhatsApp(d.telephone, texte);
+        return (
+          <div key={"l" + d.id} className="tb-adresse">
+            <div><p>{d.nom}</p><small>{d.serviceTitre} · {jourCourt(d.date)}</small></div>
+            <div className="tb-actions">
+              {wa && <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => envoyer(d, SUJETS.relance, texte, { relanceLe: jour })}>Envoyer</a>}
+              <button className="tb-bouton tb-clair" onClick={() => noter(d, { relanceLe: jour })}>Pas pour elle</button>
             </div>
           </div>
         );

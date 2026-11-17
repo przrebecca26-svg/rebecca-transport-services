@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes } from "./accesDemandes.js";
+import { avisADemander, rappelsDemain, recusAFaire, relancesClientes } from "./pricing/finCourse.js";
 
 // COMPTEURS DU MENU (15 nov. 2026, demande de Rebecca) : a cote de chaque rubrique, le nombre de choses a traiter,
 // pour savoir ou aller voir sans ouvrir chaque onglet.
@@ -29,5 +30,16 @@ export function useCompteurs(role) {
   const epoxy = useCompte(admin, () => query(collection(db, "commandes"), where("statut", "==", "en attente")));
   const acces = useCompte(admin, () => query(collection(db, "demandesEquipe"), where("statut", "==", "en_attente")));
   const recharges = useCompte(admin, () => query(collection(db, "recharges"), where("statut", "==", "en attente")));
-  return { demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges };
+  // 17 nov. 2026 : rappels, avis, relances et recus a faire (onglet Aujourd'hui du Tableau de bord)
+  const [aFaire, setAFaire] = useState(0);
+  useEffect(() => {
+    if (!admin) return undefined;
+    return onSnapshot(refDemandes(), (s) => {
+      const jour = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+      const toutes = s.docs.map((x) => ({ id: x.id, ...x.data() }));
+      const ids = new Set([...rappelsDemain(toutes, jour), ...avisADemander(toutes, jour), ...recusAFaire(toutes), ...relancesClientes(toutes, jour)].map((d) => d.id));
+      setAFaire(ids.size);
+    }, () => setAFaire(0));
+  }, [admin]);
+  return { tableau: aFaire, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges };
 }

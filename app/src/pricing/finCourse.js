@@ -320,3 +320,91 @@ export function avanceRetour(d, mouvements) {
   if (trajetDe(d) !== "aller") return 0;
   return cents(Math.max(0, encaisseDe(mouvements, d.id) - prixTrajet(d)));
 }
+
+/* ---------- Lot 3 (17 nov. 2026, 11h50) ---------- */
+const estCoursier = (d) => ["livraison", "courses", "demenagement"].includes(d && d.service);
+
+// Coursier : le merci dit que la livraison est faite (et l'heure de depose)
+export function messageLivraisonFaite(d) {
+  const h = chronoDe(d).depose || (HEURE_OK.test(d.faitA || "") ? d.faitA : "");
+  const quoi = d.service === "courses" ? "Vos courses sont livrées" : d.service === "demenagement" ? "Votre petit déménagement est terminé" : "Votre livraison est faite";
+  return [bonjour(d), `${quoi} ✅${h ? ` (à ${heureFr(h)})` : ""}`, "Merci de m'avoir fait confiance 🙏 Au plaisir de vous revoir.", ...lignesSite(d), "Rebecca"].join("\n");
+}
+
+// Relance d'une cliente 30 a 60 jours apres sa derniere course (une seule fois, et seulement sans course plus recente)
+const finDe = (d) => (estAllerRetour(d) && DATE_OK.test((d.details || {}).dateRetour || "") ? d.details.dateRetour : d.date);
+const telDe = (d) => String((d && d.telephone) || "").replace(/\D/g, "").slice(-9);
+export function relancesClientes(demandes, aujourdhui) {
+  if (!DATE_OK.test(aujourdhui || "")) return [];
+  const debut = plusJours(aujourdhui, -60);
+  const fin = plusJours(aujourdhui, -30);
+  const toutes = demandes || [];
+  const plusRecente = (d) => toutes.some((x) => x.id !== d.id && telDe(x) && telDe(x) === telDe(d) && String(x.date || "") > finDe(d) && x.statut !== "refusee" && x.statut !== "annulee");
+  const vus = new Set();
+  return toutes
+    .filter((d) => d.statut === "terminee" && d.service !== "ramassage" && !d.relanceLe && DATE_OK.test(finDe(d) || "") && finDe(d) >= debut && finDe(d) <= fin && telDe(d) && !plusRecente(d))
+    .sort((a, b) => finDe(b).localeCompare(finDe(a)))
+    .filter((d) => (vus.has(telDe(d)) ? false : (vus.add(telDe(d)), true)));
+}
+export function messageRelance(d) {
+  const texte = d.service === "aeroport"
+    ? "J'espère que vous allez bien ! Vous avez un prochain voyage en vue ? Je peux vous emmener à l'aéroport et venir vous chercher au retour."
+    : estCoursier(d)
+      ? "J'espère que vous allez bien ! Besoin d'une livraison, de courses ou d'un petit transport ? Je suis disponible."
+      : "J'espère que vous allez bien ! Besoin d'un transport ou d'un service ? Je suis disponible.";
+  return [bonjour(d), texte, "Réservez sur mon site ou répondez simplement à ce message.", ...lignesSite(d), "À bientôt, Rebecca"].join("\n");
+}
+
+// Prix minimum : gain net par heure du devis sous le minimum de Rebecca -> alerte et prix conseille
+export function alerteMinimum(renta, minParHeure, prix) {
+  const min = Number(minParHeure);
+  if (!renta || !(min > 0) || !(Number(renta.gainNetHeure) >= 0) || renta.gainNetHeure >= min) return null;
+  const heures = Number(renta.gainNet) > 0 && Number(renta.gainNetHeure) > 0 ? renta.gainNet / renta.gainNetHeure : null;
+  const conseille = heures && Number(prix) > 0 ? Math.ceil((Number(prix) + (min - renta.gainNetHeure) * heures) / 5) * 5 : null;
+  return { min, conseille };
+}
+
+// Ramassage scolaire : parents a prevenir quand un enfant est pris ou depose (fiches du Repertoire)
+export function parentsAPrevenir(familles, texte) {
+  const res = [];
+  for (const f of familles || []) {
+    if (f.categorie === "moi" || !String(f.telephone || "").trim()) continue;
+    const prenoms = (f.enfants || []).map((e) => String(e.prenom || "").trim()).filter((p) => p && new RegExp(`(^|[^\\p{L}])${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}]|$)`, "iu").test(texte || ""));
+    if (prenoms.length) res.push({ famille: f.id, nom: f.nom || "", telephone: f.telephone, prenoms });
+  }
+  return res;
+}
+export function messageEnfant(sorte, prenoms, heure, lieu) {
+  const qui = prenoms.length > 1 ? `${prenoms.slice(0, -1).join(", ")} et ${prenoms[prenoms.length - 1]}` : prenoms[0] || "votre enfant";
+  const pluriel = prenoms.length > 1;
+  const h = heureFr(heure);
+  const ligne = sorte === "prise"
+    ? `J'ai bien récupéré ${qui}${h ? ` à ${h}` : ""} 🚗`
+    : `${qui} ${pluriel ? "sont bien arrivés" : "est bien arrivé(e)"}${lieu ? ` (${lieu})` : ""}${h ? ` à ${h}` : ""} ✅`;
+  return ["Bonjour,", ligne, ...lignesSite({ uid: "famille" }), "Rebecca"].join("\n");
+}
+
+// « Refaire la meme course » : la course d'avant, prete pour « + Ajouter une course » (sans date, sans paiement)
+export function versRefaire(d) {
+  const v = d.details || {};
+  const adresses = {};
+  for (const [k, x] of Object.entries(v)) if (x && typeof x === "object" && typeof x.label === "string") adresses[k] = x;
+  const [prenom, ...reste] = String(d.nom || "").trim().split(/\s+/);
+  return {
+    prerempli: {
+      service: d.service,
+      heure: HEURE_OK.test(d.heure || "") ? d.heure : "",
+      adresses,
+      direction: v.direction === "depuis" ? "depuis" : "vers",
+      magasin: v.magasin || "",
+      typeTrajet: v.typeTrajet === "ar" ? "ar" : "simple",
+      dateRetour: "",
+      heureRetour: v.typeTrajet === "ar" ? v.heureRetour || "" : "",
+      prix: prixDe(d) > 0 ? String(prixDe(d)) : "",
+      etat: "afaire",
+    },
+    client: { prenom: prenom || "", nom: reste.join(" "), telephone: d.telephone || "" },
+  };
+}
+// Message de fin selon le service : livraison faite (coursier) ou merci (transport, aeroport...)
+export const messageFin = (d, reste = 0) => (estCoursier(d) && trajetDe(d) === "simple" ? messageLivraisonFaite(d) : messageMerci(d, reste));

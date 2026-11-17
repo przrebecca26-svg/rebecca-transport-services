@@ -328,11 +328,43 @@ function EmailsClientes() {
   );
 }
 
+/* ---------- Mon minimum par heure (17 nov. 2026) ---------- */
+function Minimum() {
+  const [valeur, setValeur] = useState("");
+  const [enBase, setEnBase] = useState(null);
+  const [message, setMessage] = useState(null);
+  useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => {
+    const n = x.exists() ? Number(x.data().minParHeure) || 0 : 0;
+    setEnBase(n);
+    setValeur((v) => v || (n ? String(n) : ""));
+  }, () => setEnBase(0)), []);
+  const enregistrer = async () => {
+    const n = lireNombre(valeur);
+    if (n == null || n < 0 || n > 1000) return setMessage({ erreur: true, texte: "Indique un montant en ₪ par heure (0 = pas d'alerte)." });
+    try {
+      await setDoc(doc(db, "reglages", "rentabilite"), { minParHeure: Math.round(n), majLe: serverTimestamp() });
+      setMessage({ texte: "Enregistré." });
+    } catch {
+      setMessage({ erreur: true, texte: "Enregistrement impossible. Vérifie la connexion." });
+    }
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>Mon minimum par heure</h3>
+      <p className="tb-note">Dans le Devis rapide, une alerte s'affiche quand une course te rapporterait moins que ce montant par heure (après essence, retour à vide compris), avec un prix conseillé. 0 = pas d'alerte.</p>
+      <label className="pm-champ">₪ par heure<input inputMode="numeric" value={valeur} onChange={(e) => { setValeur(e.target.value); setMessage(null); }} placeholder="ex. 80" /></label>
+      <div className="tb-actions"><button className="tb-bouton" disabled={String(enBase || "") === valeur.trim()} onClick={enregistrer}>Enregistrer</button></div>
+      <Message m={message} />
+    </div>
+  );
+}
+
 export default function Reglages() {
   return (
     <section className="tb-liste rg">
       <Marge />
       <Plafond />
+      <Minimum />
       <EmailsClientes />
       <Textes />
       <p className="tb-note tb-pad">Les tarifs, les durées et les horaires des activités deviendront modifiables ici au Lot C.</p>

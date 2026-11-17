@@ -1,0 +1,34 @@
+/* DIGITAL & APPLICATIONS (17 nov. 2026) : questionnaire, suivi du projet, fiche admin */
+.bouton-secondaire { background: transparent !important; border: 1px solid var(--g-rose, #F1AEB7) !important; color: var(--g-rose, #F1AEB7) !important; }
+.dg-etapes { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; opacity: .75; margin: 4px 0 12px; }
+.dg-conseil { padding: 12px; border-radius: 12px; border: 1px solid var(--g-bord, #3a3236); background: var(--g-carte-2, rgba(255,255,255,.04)); }
+.dg-lien { word-break: break-all; }
+.dg-bloc { padding: 16px; margin-top: 14px; }
+.dg-bloc h3 { margin-top: 0; }
+.dg-statut { font-weight: 800; font-size: 18px; margin: 0 0 4px; color: var(--g-rose, #F1AEB7); }
+.dg-note { padding: 10px 12px; border-radius: 10px; background: var(--g-carte-2, rgba(255,255,255,.05)); white-space: pre-line; }
+.dg-frise { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.dg-frise li { font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--g-bord, #3a3236); opacity: .55; }
+.dg-frise li.dg-fait { opacity: 1; border-color: var(--g-rose, #F1AEB7); }
+.dg-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.dg-table td { padding: 6px 0; border-bottom: 1px solid var(--g-bord, #3a3236); vertical-align: top; }
+.dg-montant { text-align: right; white-space: nowrap; padding-left: 12px !important; }
+.dg-total td { font-weight: 800; border-bottom: none; }
+.dg-echeance { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--g-bord, #3a3236); }
+.dg-echeance small { display: block; }
+.dg-echeance .bouton { width: auto; min-height: 40px; padding: 6px 16px; }
+.dg-paye { font-weight: 700; color: #7fc59a; }
+.dg-barre { height: 8px; border-radius: 999px; background: var(--g-carte-2, rgba(255,255,255,.08)); overflow: hidden; margin-bottom: 8px; }
+.dg-barre span { display: block; height: 100%; background: var(--g-rose, #F1AEB7); }
+.dg-cahier { list-style: none; padding: 0; margin: 0; }
+.dg-cahier li { padding: 5px 0; }
+/* Fait = barre et grise (demande de Rebecca, 13 nov.) */
+.dg-coche { text-decoration: line-through; opacity: .45; }
+.dg-section { border-top: 1px solid var(--g-bord, #3a3236); padding: 8px 0; }
+.dg-section > .lien { font-weight: 700; text-align: left; }
+/* Admin */
+.dg-ligne { display: grid; grid-template-columns: 1fr 110px 36px; gap: 6px; margin-bottom: 6px; }
+.dg-ligne input { min-width: 0; }
+.dg-tache { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.dg-tache input[type="text"] { flex: 1; min-width: 0; }
+.dg-liste-projet { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; }

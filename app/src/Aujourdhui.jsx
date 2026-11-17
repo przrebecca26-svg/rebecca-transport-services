@@ -151,6 +151,8 @@ function AFaire({ demandes, mouvements, jour }) {
   const noter = (d, champs) => updateDoc(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() }).catch(() => {});
   const envoyer = (d, sujet, texte, champs) => {
     noter(d, champs);
+    // 17 nov. 2026 : rappel deja parti tout seul par e-mail la veille au soir -> pas de deuxieme e-mail
+    if (d.rappelMailAutoLe && champs && champs.rappelEnvoyeLe) return setInfo("📧 L'e-mail de rappel est déjà parti tout seul (19h).");
     envoyerMailClient(d, sujet, texte).then((x) => x && setInfo(x)).catch(() => {});
   };
   return (

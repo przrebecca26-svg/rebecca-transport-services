@@ -1,0 +1,5 @@
+# 17 nov. 2026 : tache programmee des rappels par e-mail (netlify/functions/rappels-auto.mjs).
+# Les reglages de publication (commande, dossier publie) restent ceux de l'interface Netlify.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

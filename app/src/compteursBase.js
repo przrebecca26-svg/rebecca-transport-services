@@ -31,6 +31,9 @@ export function useCompteurs(role) {
   const epoxy = useCompte(admin, () => query(collection(db, "commandes"), where("statut", "==", "en attente")));
   const acces = useCompte(admin, () => query(collection(db, "demandesEquipe"), where("statut", "==", "en_attente")));
   const recharges = useCompte(admin, () => query(collection(db, "recharges"), where("statut", "==", "en attente")));
+  // 17 nov. 2026 : nouvelles demandes de devis Digital et nouvelles candidatures de partenaires
+  const digital = useCompte(admin, () => query(collection(db, "projetsDigital"), where("statut", "==", "nouvelle")));
+  const partenaires = useCompte(admin, () => query(collection(db, "candidaturesPartenaires"), where("statut", "==", "nouvelle")));
   // 17 nov. 2026 : rappels, avis, relances et recus a faire (onglet Aujourd'hui du Tableau de bord)
   const [aFaire, setAFaire] = useState(0);
   useEffect(() => {
@@ -48,5 +51,5 @@ export function useCompteurs(role) {
     if (!admin) return undefined;
     return onSnapshot(query(collection(db, "paiementsDeclares"), where("statut", "==", "a confirmer")), (s) => setDeclares(s.size), () => setDeclares(0));
   }, [admin]);
-  return { tableau: aFaire + declares, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges };
+  return { tableau: aFaire + declares, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges, "projets-digital": digital, partenaires };
 }

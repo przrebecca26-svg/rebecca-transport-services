@@ -1,102 +1,131 @@
+import { useEffect, useState } from "react";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
+import { ecouterCatalogue } from "../catalogueClient.js";
+import { libellePrix } from "../pricing/catalogue.js";
+import { CONDITIONS_COMMUNES, FICHES_FORMULES, FICHES_MAINTENANCE, messageConsultation } from "../pricing/digital.js";
 
-// Lien WhatsApp propre a chaque formule ou forfait : le message dit lequel interesse le client
+// PAGE DIGITAL & APPLICATIONS (17 nov. 2026)
+// Les prix viennent du catalogue (Reglages → Catalogue → Digital) : un seul endroit pour les changer.
+// Une fiche depliable par formule et par maintenance (contenu valide le 5 nov.), le questionnaire de devis,
+// la consultation gratuite de 30 min, et toujours le bouton WhatsApp.
 const demander = (quoi) => lienWhatsApp(WHATSAPP, `Bonjour Rebecca, je souhaite des informations sur : ${quoi} (Digital & Applications).`);
+const ICONES = { "Sérénité": "/digital/maintenance-serenite.svg", Confort: "/digital/maintenance-confort.svg", Premium: "/digital/maintenance-premium.svg" };
 
-function Demander({ quoi }) {
+function Fiche({ p, ouvert, basculer, children }) {
   return (
-    <a className="lien" href={demander(quoi)} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 8 }}>
-      Demander sur WhatsApp
-    </a>
+    <div className="carte-service" style={{ cursor: "default", flexDirection: "column", alignItems: "stretch" }}>
+      <button type="button" className="lien" onClick={basculer} aria-expanded={ouvert} style={{ textAlign: "left", display: "flex", justifyContent: "space-between", gap: 8, width: "100%" }}>
+        <strong>{p.nom}</strong>
+        <span className="prix">{libellePrix(p)}{p.categorie === "Maintenance" ? " / mois" : ""}</span>
+      </button>
+      {p.description && <small style={{ display: "block", marginTop: 4 }}>{p.description.replace(/^Par mois\.\s*/, "")}</small>}
+      {ouvert && <div style={{ marginTop: 8, fontSize: 14, lineHeight: 1.5 }}>{children}</div>}
+      <button type="button" className="lien" onClick={basculer} style={{ marginTop: 6, fontSize: 13 }}>{ouvert ? "Fermer le détail ▲" : "Voir le détail ▼"}</button>
+      <a className="lien" href={demander(p.nom)} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 4 }}>
+        Demander sur WhatsApp
+      </a>
+    </div>
   );
 }
 
-export default function CatalogueDigital({ onRetour }) {
+export default function CatalogueDigital({ onRetour, onDevis }) {
+  const [liste, setListe] = useState([]);
+  const [ouvert, setOuvert] = useState("");
+  useEffect(() => ecouterCatalogue("digital", (l) => setListe(l)), []);
+  const de = (cat) => liste.filter((p) => p.categorie === cat);
+  const basculer = (id) => setOuvert((o) => (o === id ? "" : id));
+  const consultation = lienWhatsApp(WHATSAPP, messageConsultation());
+
   return (
     <section className="catalogue-nails">
       <button className="lien" onClick={onRetour}>← Accueil</button>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <img src="/brand/logo-digital-applications.png" alt="" width={48} height={48} style={{ borderRadius: "50%" }} />
         <h2>Digital & Applications</h2>
-      <img src="/digital/hero.jpg" alt="Digital & Applications" style={{ width: "100%", maxWidth: 480, borderRadius: 12, margin: "12px 0" }} />
       </div>
-      <p>Création de sites web et d'applications professionnelles.</p>
+      <img src="/digital/hero.jpg" alt="Digital & Applications" style={{ width: "100%", maxWidth: 480, borderRadius: 12, margin: "12px 0" }} />
+      <p>Création de sites web et d'applications professionnelles, sur mesure, pour les indépendants et les entreprises.</p>
+
+      <div className="bloc" style={{ padding: 14 }}>
+        <p style={{ marginTop: 0 }}><strong>Parlons de votre projet.</strong> Chaque projet est étudié individuellement : les tarifs affichés sont indicatifs, un devis personnalisé est établi après analyse de vos besoins.</p>
+        <button type="button" className="bouton" onClick={onDevis}>Demander un devis</button>
+        <a className="bouton bouton-secondaire" href={consultation} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", marginTop: 8 }}>
+          Réserver ma consultation gratuite (30 min)
+        </a>
+      </div>
 
       <h3>Formules</h3>
-
-      <div className="carte-service" style={{ cursor: "default" }}>
-        <span className="corps">
-          <strong>Formule Essentielle</strong>
-          <small>dès 6 900 ₪ — Environ 6 semaines</small>
-          <small>Site web responsive, présentation des services, espace client, demandes et réservations, base de données, notifications.</small>
-          <Demander quoi="Formule Essentielle" />
-        </span>
-        <span className="prix">dès 6 900 ₪</span>
-      </div>
-
-      <div className="carte-service" style={{ cursor: "default" }}>
-        <span className="corps">
-          <strong>Formule Business</strong>
-          <small>dès 14 900 ₪ — Environ 6 à 10 semaines</small>
-          <small>Espace client et administration, gestion des clients, commandes et réservations, tableau de bord, gestion des tarifs, historique, automatisations et tests.</small>
-          <Demander quoi="Formule Business" />
-        </span>
-        <span className="prix">dès 14 900 ₪</span>
-      </div>
-
-      <div className="carte-service" style={{ cursor: "default" }}>
-        <span className="corps">
-          <strong>Formule Sur mesure</strong>
-          <small>dès 22 000 à 35 000 ₪ et plus — Environ 2 à 3 mois ou davantage</small>
-          <small>Architecture personnalisée, gestion avancée des droits, réservations complexes, paiements et API, automatisations, statistiques et fonctionnalités spécifiques.</small>
-          <Demander quoi="Formule Sur mesure" />
-        </span>
-        <span className="prix">Sur devis</span>
-      </div>
+      {de("Formules").map((p) => {
+        const f = FICHES_FORMULES[p.nom];
+        return (
+          <Fiche key={p.id} p={p} ouvert={ouvert === p.id} basculer={() => basculer(p.id)}>
+            {f ? (
+              <>
+                <p><strong>Pour qui :</strong> {f.pourQui}</p>
+                <p><strong>Délai indicatif :</strong> {f.delai}</p>
+                <p><strong>{f.inclusTitre || "Ce qui est inclus"} :</strong></p>
+                <ul>{f.inclus.map((x) => <li key={x}>{x}</li>)}</ul>
+              </>
+            ) : (
+              <p>{p.description}</p>
+            )}
+          </Fiche>
+        );
+      })}
 
       <h3>Forfaits de maintenance</h3>
-      <p style={{ fontSize: 14, color: "var(--gris)" }}>Facultatifs et distincts de la garantie corrective.</p>
+      <p style={{ fontSize: 14, color: "var(--gris)" }}>Facultatifs et distincts de la garantie corrective gratuite de 60 jours.</p>
+      {de("Maintenance").map((p) => {
+        const f = FICHES_MAINTENANCE[p.nom];
+        return (
+          <Fiche key={p.id} p={p} ouvert={ouvert === p.id} basculer={() => basculer(p.id)}>
+            {ICONES[p.nom] && <img src={ICONES[p.nom]} alt="" style={{ width: 56, height: 56, borderRadius: 8, float: "right", marginLeft: 8 }} />}
+            {f ? (
+              <>
+                <p><strong>Pour qui :</strong> {f.pourQui}</p>
+                <p><strong>Temps de travail inclus :</strong> {f.temps}</p>
+                <p><strong>Délai :</strong> {f.delai}</p>
+                <p><strong>Interventions :</strong> {f.interventions}</p>
+                <p style={{ clear: "both" }}>Chaque mois, un court résumé : ce qui a été fait et le temps utilisé. Un dépassement n'est facturé qu'après votre accord.</p>
+              </>
+            ) : (
+              <p>{p.description}</p>
+            )}
+          </Fiche>
+        );
+      })}
 
-      <div className="carte-service" style={{ cursor: "default" }}>
-        <img src="/digital/maintenance-serenite.svg" alt="Sérénité" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
-        <span className="corps">
-          <strong>Sérénité</strong>
-          <small>250 ₪/mois — 30 minutes incluses, réponse sous 3 jours ouvrés.</small>
-          <Demander quoi="Forfait de maintenance Sérénité" />
-        </span>
-        <span className="prix">250 ₪/mois</span>
-      </div>
+      {de("Études").length > 0 && <h3>Consultation et études</h3>}
+      {de("Études").map((p) => (
+        <div key={p.id} className="carte-service" style={{ cursor: "default" }}>
+          <span className="corps">
+            <strong>{p.nom}</strong>
+            <small>{p.description}</small>
+          </span>
+          <span className="prix">{p.prix === 0 ? "Gratuite" : libellePrix(p)}</span>
+        </div>
+      ))}
 
-      <div className="carte-service" style={{ cursor: "default" }}>
-        <img src="/digital/maintenance-confort.svg" alt="Confort" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
-        <span className="corps">
-          <strong>Confort</strong>
-          <small>450 ₪/mois — 1 h 30 incluse, réponse sous 48 heures ouvrées.</small>
-          <Demander quoi="Forfait de maintenance Confort" />
-        </span>
-        <span className="prix">450 ₪/mois</span>
-      </div>
-
-      <div className="carte-service" style={{ cursor: "default" }}>
-        <img src="/digital/maintenance-premium.svg" alt="Premium" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginRight: 8 }} />
-        <span className="corps">
-          <strong>Premium</strong>
-          <small>750 ₪/mois — 3 heures incluses, réponse sous 24 heures ouvrées.</small>
-          <Demander quoi="Forfait de maintenance Premium" />
-        </span>
-        <span className="prix">750 ₪/mois</span>
-      </div>
+      {de("Options").length > 0 && <h3>Options</h3>}
+      {de("Options").length > 0 && <p style={{ fontSize: 14, color: "var(--gris)" }}>Chaque option est évaluée et chiffrée dans le devis.</p>}
+      {de("Options").map((p) => (
+        <div key={p.id} className="carte-service" style={{ cursor: "default" }}>
+          <span className="corps">
+            <strong>{p.nom}</strong>
+            <small>{p.description}</small>
+          </span>
+          <span className="prix">{libellePrix(p).replace("À partir de", "dès")}</span>
+        </div>
+      ))}
 
       <h3>Conditions</h3>
       <ul style={{ fontSize: 14, lineHeight: 1.5 }}>
-        <li>Première consultation gratuite de 30 minutes.</li>
-        <li>Interventions supplémentaires : 200 à 350 ₪/heure.</li>
-        <li>Paiement : 40 % / 30 % / 30 %.</li>
-        <li>Options : administration, espace client, paiement, WhatsApp, Maps, fidélité, abonnements, statistiques, langues et refonte.</li>
+        {CONDITIONS_COMMUNES.map((x) => <li key={x}>{x}</li>)}
       </ul>
 
-      <a className="bouton" href={lienWhatsApp(WHATSAPP, "Bonjour Rebecca, je souhaite discuter d'un projet Digital & Applications.")} target="_blank" rel="noopener noreferrer">
+      <button type="button" className="bouton" onClick={onDevis}>Demander un devis</button>
+      <a className="lien" href={lienWhatsApp(WHATSAPP, "Bonjour Rebecca, je souhaite discuter d'un projet Digital & Applications.")} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 10 }}>
         Discuter du projet sur WhatsApp
       </a>
     </section>

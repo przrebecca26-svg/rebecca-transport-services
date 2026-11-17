@@ -13,6 +13,8 @@ import { useChargerRepertoire } from "./repertoireBase.js";
 import Demandes from "./Demandes.jsx";
 import Transferts, { useTransfertsATraiter } from "./Transferts.jsx";
 import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
+import ProjetsDigital from "./ProjetsDigital.jsx";
+import Partenaires from "./Partenaires.jsx";
 import Agenda from "./Agenda.jsx";
 import Clients from "./Clients.jsx";
 import Finances from "./Finances.jsx";
@@ -105,6 +107,8 @@ const RUBRIQUES = [
   { id: "demandes", label: "Demandes et missions" },
   { id: "transferts", label: "À accepter" }, // 12 nov. 2026 : courses proposees entre Rebecca et Jeremy
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true },
+  { id: "projets-digital", label: "Projets Digital", adminOnly: true }, // 17 nov. 2026 : devis, paiements 40/30/30, cahier des charges
+  { id: "partenaires", label: "Partenaires", adminOnly: true }, // 17 nov. 2026 : inscriptions des futurs coursiers
   { id: "agenda", label: "Calendrier" },
   { id: "repertoire", label: "Répertoire" }, // 12 nov. 2026 : mes lieux et les adresses des clientes (Rebecca et son equipe)
   { id: "equipe", label: "Équipe" },
@@ -281,6 +285,8 @@ export default function Admin() {
     else if (onglet === "repertoire") contenu = <Repertoire aller={aller} />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
     else if (onglet === "commandes-epoxy" && estAdmin) contenu = <CommandesEpoxy onRetour={() => setOnglet("demandes")} />;
+    else if (onglet === "projets-digital" && estAdmin) contenu = <ProjetsDigital />;
+    else if (onglet === "partenaires" && estAdmin) contenu = <Partenaires aller={aller} />;
     else if (onglet === "transferts") contenu = <Transferts {...props} />;
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;
     else if (onglet === "agenda") contenu = <Agenda {...props} />;

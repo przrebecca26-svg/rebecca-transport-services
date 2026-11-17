@@ -83,3 +83,10 @@
 .ag-etape.fait .ag-etape-ligne > span { text-decoration: line-through; opacity: 0.5; }
 .ag-etape.fait .ag-etape-ligne > b { opacity: 0.5; }
 .ag-fait-info { margin: 4px 0 0 62px; font-size: 13px; color: var(--g-succes, #239b68); }
+
+/* 17 nov. 2026 : fin de course depuis l'agenda (Récupérée → Déposée → Rentrée, Encaissé, merci) */
+.ag-fin { padding: 6px 12px 10px; border-top: 1px dashed rgba(0, 0, 0, 0.08); }
+.ag-fin-chrono { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+.ag-fin-trajet { font-weight: 700; opacity: 0.7; }
+.ag-fin-etape { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: rgba(35, 155, 104, 0.12); color: var(--g-succes, #239b68); font-weight: 600; }
+.ag-fin-bilan { font-size: 13px; margin: 6px 0 0; opacity: 0.85; }

@@ -1,5 +1,6 @@
 import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import InfoVol from "./components/InfoVol.jsx";
+import FinCourseAgenda from "./FinCourseAgenda.jsx";
 import { texteDuree } from "./pricing/circulation.js";
 import { filtrerPersonne } from "./pricing/quiFait.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
@@ -349,7 +350,7 @@ function Fermeture({ c }) {
   );
 }
 
-function Evenement({ d }) {
+function Evenement({ d, aujourdhui }) {
   const [ouvert, setOuvert] = useState(false);
   const st = STATUTS[d.statut] || { label: d.statut, classe: "attente" };
   const whatsapp = lienWhatsApp(d.telephone);
@@ -367,6 +368,8 @@ function Evenement({ d }) {
         </span>
         <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
       </button>
+      {/* 17 nov. 2026 : Récupérée → Déposée → Rentrée, Encaissé, merci WhatsApp, rappel de la veille */}
+      <FinCourseAgenda d={d} aujourdhui={aujourdhui} />
       {ouvert && (
         <div className="ag-detail">
           <p>{d.telephone} · Paiement prévu : {d.moyenPaiement}</p>
@@ -870,7 +873,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
   const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
     ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} />, etape: true })),
-    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} /> })),
+    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);
   // Les etapes qui se suivent sont regroupees dans une meme liste ; une course coupe la liste
@@ -1034,6 +1037,9 @@ export default function Agenda() {
       // Aller-retour : le retour un autre jour s'affiche aussi a sa date (16 nov. 2026)
       const r = retourAutreJour(d);
       if (r) (m[r.date] = m[r.date] || []).push(r);
+      // 17 nov. 2026 : aller-retour le meme jour -> le retour a aussi sa ligne (ses boutons Récupérée / Déposée / Rentrée)
+      const v = d.details || {};
+      if (!r && v.typeTrajet === "ar" && v.dateRetour === d.date && /^\d{2}:\d{2}$/.test(v.heureRetour || "")) m[d.date].push({ ...d, heure: v.heureRetour, serviceTitre: `${d.serviceTitre || ""} (retour)`, estRetour: true });
     }
     for (const k of Object.keys(m)) m[k].sort((a, b) => String(a.heure).localeCompare(String(b.heure)));
     return m;

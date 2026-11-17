@@ -316,7 +316,7 @@ function EmailsClientes() {
     <div className="tb-bloc">
       <h3>E-mails aux clientes</h3>
       <p className="tb-note">Merci, rappel de la veille, « je suis en route » et demande d'avis partent aussi par e-mail, tout seuls, quand la cliente a donné son adresse.</p>
-      <p className="tb-note">{enBase ? "✅ Activé." : "À faire une fois : sur emailjs.com → Email Templates → Create New Template. Sujet : {{sujet}} · Contenu : {{message}} · To Email : {{to_email}} · From Name : Rebecca Services. Enregistre, copie son identifiant (template_…) et colle-le ici."}</p>
+      <p className="tb-note">{enBase ? "✅ Activé." : "À faire une fois : sur emailjs.com → Email Templates → Create New Template. Sujet : {{sujet}} · Contenu : {{{message_html}}} · To Email : {{to_email}} · From Name : Rebecca Services. Enregistre, copie son identifiant (template_…) et colle-le ici."}</p>
       <label className="pm-champ">
         Identifiant du modèle
         <input value={valeur} maxLength={70} onChange={(e) => { setValeur(e.target.value); setMessage(null); }} placeholder="template_xxxxxxx" />

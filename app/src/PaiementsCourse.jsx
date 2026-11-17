@@ -19,6 +19,10 @@ import { MOYEN_CREDIT, champOperateur, faitPar, recuPar } from "./pricing/revers
 import { nomDe } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import { reglesAcompte } from "./pricing/acomptes.js";
+import { messageAcompte } from "./pricing/suiteClient.js";
+import { activiteDuService } from "./pricing/acomptes.js";
+import { lienWhatsApp } from "./pricing/navigation.js";
+import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import "./paiements.css";
 
 // Paiements, annulations et remboursements d'une course (espace prive de Rebecca).
@@ -129,6 +133,10 @@ export default function PaiementsCourse({ d }) {
     };
   }, []);
   const acompteRegles = reglesAcompte(d, regl);
+  // 17 nov. 2026, 16h22 : demander l'acompte avec les liens de paiement (PayPal...) apres la confirmation
+  const [liensPaiement, setLiensPaiement] = useState({});
+  const [infoAcompte, setInfoAcompte] = useState("");
+  useEffect(() => onSnapshot(doc(db, "reglages", "paiement"), (x) => setLiensPaiement(x.exists() ? x.data() : {}), () => {}), []);
   const reglages = { ...REGLAGES_PAR_DEFAUT, acomptePourcent: acompteRegles.acomptePourcent, acompteMinimum: acompteRegles.acompteMinimum };
   const res = { id: d.id, date: d.date, prixConvenu: prix, statut: d.statut };
   const sit = useMemo(() => situationCourse(res, mouvements || [], reglages), [d.id, d.date, d.statut, prix, mouvements, acompteRegles.libelle]);
@@ -160,6 +168,15 @@ export default function PaiementsCourse({ d }) {
   const modifiable = (d.statut === "acceptee" || d.statut === "terminee") && !annulation;
   const etat = annulation && d.statut === "acceptee" ? "annulation_a_finaliser" : sit.etat;
   const paiementsEnregistres = liste.some((m) => m.kind !== "remboursement_effectue");
+  const actRegl = regl.activites.find((x) => x.id === activiteDuService(d.service)) || {};
+  const delai = Number(actRegl.delaiAcompteHeures) > 0 ? Number(actRegl.delaiAcompteHeures) : 48;
+  const resteAcompte = Math.max(0, Math.round(((sit.acompte || 0) - sit.encaisse) * 100) / 100);
+  const texteAcompte = d.statut === "acceptee" && !annulation && sit.acompte > 0 && !sit.acompteRecu && resteAcompte > 0 ? messageAcompte(d, resteAcompte, liensPaiement, delai) : "";
+  const waAcompte = texteAcompte ? lienWhatsApp(d.telephone, texteAcompte) : null;
+  const demanderAcompte = () => {
+    updateDoc(doc(db, "demandes", d.id), { acompteDemandeLe: new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), majLe: serverTimestamp() }).catch(() => {});
+    envoyerMailClient(d, SUJETS.acompte, texteAcompte).then((x) => x && setInfoAcompte(x)).catch(() => {});
+  };
 
   const reinitialiser = () => {
     setErreur("");
@@ -289,6 +306,12 @@ export default function PaiementsCourse({ d }) {
   return (
     <div className="tb-bloc">
       <h3>Paiements</h3>
+      {texteAcompte && (
+        <div className="tb-actions">
+          {waAcompte && <a className="tb-bouton" href={waAcompte} target="_blank" rel="noopener noreferrer" onClick={demanderAcompte}>💳 Demander l'acompte ({resteAcompte} ₪){d.acompteDemandeLe ? " · déjà envoyé" : ""}</a>}
+          {infoAcompte && <small className="tb-note">{infoAcompte}</small>}
+        </div>
+      )}
       <p>
         <span className={"pm-etat pm-" + etat}>{ETATS[etat] || etat}</span>
       </p>

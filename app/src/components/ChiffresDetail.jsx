@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import DetailCourses from "./DetailCourses.jsx";
 import { dateCreation } from "../pricing/tableauBord.js";
 import { encaisseBrut } from "../pricing/comptes.js";
+import { faitDansPeriode, montantFait } from "../pricing/parts.js";
 
 // LES 4 CHIFFRES, CLIQUABLES (13 nov. 2026) - tableau de bord et page de chaque activite.
 // Un chiffre touche = la liste des courses qui le font, avec Ouvrir et Supprimer (courses de test).
@@ -16,14 +17,14 @@ export default function ChiffresDetail({ chiffres, demandes = [], recues = null,
   const dansP = (d) => !!d && d >= periode.debut && d <= periode.fin;
   const liste2 = (k) => {
     const annul = k === "ca" ? new Set(mouvements.filter((m) => m.kind === "annulation" && dansP(m.date)).map((m) => m.resId)) : new Set();
-    return demandes.filter((d) => (d.statut === "terminee" && dansP(d.date)) || annul.has(d.id));
+    return demandes.filter((d) => faitDansPeriode(d, periode) || annul.has(d.id));
   };
   const liste = useMemo(() => {
     if (!detail) return [];
     const mouv = (kinds) => new Set(mouvements.filter((m) => kinds.includes(m.kind) && dansP(m.date)).map((m) => m.resId));
     if (detail === "ca" || detail === "faites") {
       const annul = detail === "ca" ? mouv(["annulation"]) : new Set();
-      return demandes.filter((d) => (d.statut === "terminee" && dansP(d.date)) || annul.has(d.id));
+      return demandes.filter((d) => faitDansPeriode(d, periode) || annul.has(d.id));
     }
     if (detail === "encaisse") {
       const ids = mouv(["paiement", "correction", "remboursement_effectue"]);
@@ -31,14 +32,14 @@ export default function ChiffresDetail({ chiffres, demandes = [], recues = null,
     }
     if (detail === "recues") return (recues || demandes).filter((d) => dansP(dateCreation(d)));
     if (detail === "attente") return demandes.filter((d) => (d.statut === "en attente" || d.statut === "acceptee") && dansP(d.date));
-    if (detail === "reste") return demandes.filter((d) => d.statut === "terminee" && dansP(d.date) && (Number(d.prixFinal) || 0) - encaisseBrut(mouvements, d.id) > 0.009);
+    if (detail === "reste") return demandes.filter((d) => faitDansPeriode(d, periode) && montantFait(d) - encaisseBrut(mouvements, d.id) > 0.009);
     if (detail === "total" || detail === "rs") return liste2("ca");
     return [];
   }, [detail, demandes, recues, mouvements, periode.debut, periode.fin]); // eslint-disable-line react-hooks/exhaustive-deps
   const v = (x, argent) => (chiffres ? (argent ? shekels(x) : String(x)) : "…");
   const woltTotal = wolt.reduce((t, l) => t + (Number(l.revenu) || 0), 0);
   const enAttente = demandes.filter((d) => (d.statut === "en attente" || d.statut === "acceptee") && dansP(d.date)).length;
-  const reste = demandes.filter((d) => d.statut === "terminee" && dansP(d.date)).reduce((t, d) => t + Math.max(0, (Number(d.prixFinal) || 0) - encaisseBrut(mouvements, d.id)), 0);
+  const reste = demandes.filter((d) => faitDansPeriode(d, periode)).reduce((t, d) => t + Math.max(0, montantFait(d) - encaisseBrut(mouvements, d.id)), 0);
   const cases = general
     ? [
         ["total", "Chiffre d'affaires total", v(chiffres && chiffres.caRealise + woltTotal, true)],
@@ -46,7 +47,8 @@ export default function ChiffresDetail({ chiffres, demandes = [], recues = null,
         ["wolt", "Chiffre d'affaires Wolt", v(woltTotal, true)],
         ["faites", "Prestations terminées", v(chiffres && chiffres.prestationsTerminees)],
         ["attente", "Prestations en attente", v(enAttente)],
-        ["encaisse", "Encaissé (avec Wolt)", v(chiffres && chiffres.encaisse + woltTotal, true)],
+        // 17 nov. 2026 : « Argent reçu » = paiements recus dans la periode (meme payes d'avance), + Wolt seulement s'il y en a
+        ["encaisse", woltTotal ? "Argent reçu (Wolt compris)" : "Argent reçu", v(chiffres && chiffres.encaisse + woltTotal, true)],
         ["reste", "Reste à encaisser", v(reste, true)],
       ]
     : [

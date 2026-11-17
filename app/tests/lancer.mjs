@@ -32,6 +32,7 @@ await import("./vols.test.mjs");
 await import("./circulation.test.mjs");
 await import("./finCourse.test.mjs");
 await import("./suiteClient.test.mjs");
+await import("./parts.test.mjs");
 const r = bilan();
 console.log(`Tests reussis : ${r.ok} / ${r.ok + r.echecs.length}`);
 r.echecs.forEach((e) => console.log("ECHEC  " + e));

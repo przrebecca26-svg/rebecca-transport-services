@@ -31,4 +31,8 @@
 .dg-ligne input { min-width: 0; }
 .dg-tache { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .dg-tache input[type="text"] { flex: 1; min-width: 0; }
-.dg-liste-projet { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; }
+/* 17 nov. 2026 : la ligne d'un projet est un bouton : meme style que les autres lignes (pas de fond gris ni texte bleu) */
+.dg-liste-projet { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: transparent; color: inherit; font: inherit; border: 0; border-bottom: 1px solid var(--g-bord, #3a3236); padding: 10px 0; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.dg-liste-projet p { margin: 0; font-weight: 700; color: inherit; }
+.dg-liste-projet small { opacity: .7; }

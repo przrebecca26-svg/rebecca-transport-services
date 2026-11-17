@@ -161,3 +161,12 @@ test("départ conseillé et heure d'Israël", () => {
   egal(departIso("2026-07-01", 450), "2026-07-01T04:30:00.000Z");
   egal(secondes("754s"), 754);
 });
+
+import { validerPrestation } from "../src/pricing/catalogue.js";
+section("Catalogue Digital : durée facultative");
+test("formule Digital sans durée enregistrable, beauté toujours avec durée", () => {
+  const base = { activite: "digital", categorie: "Formules", nom: "Formule Essentielle", typePrix: "apartir", prix: "6900", dureeMinutes: "", publiee: true };
+  const r = validerPrestation(base);
+  egal([r.erreur, r.prestation && r.prestation.dureeMinutes], ["", null]);
+  vrai(validerPrestation({ ...base, activite: "nails", typePrix: "fixe" }).erreur.includes("Durée"));
+});

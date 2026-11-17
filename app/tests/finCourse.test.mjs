@@ -113,3 +113,13 @@ test("lot 3 : livraison faite, relances, minimum, parents, refaire", () => {
   const r = F.versRefaire(ar({ details: { typeTrajet: "ar", direction: "vers", depart: { label: "Rue X" }, heureRetour: "18:00", dateRetour: "2026-11-24" } }));
   egal([r.prerempli.adresses.depart.label, r.prerempli.typeTrajet, r.prerempli.dateRetour, r.client.prenom, r.prerempli.prix], ["Rue X", "ar", "", "Naomie", "300"]);
 });
+
+test("modifier les heures et le compteur après coup", () => {
+  const r = F.champsModifChrono(ar(), { depart: "07:40", prise: "08:00", depose: "08:45", maison: "09:30", kmDepart: "45210", kmMaison: "45266" });
+  egal(r.erreur, "");
+  egal(r.champs["chrono.aller.depose"], "08:45");
+  egal(r.champs.allerFaitA, "08:45");
+  egal(r.champs["chrono.aller.kmMaison"], 45266);
+  egal(r.champs["chrono.aller.kmDepose"], "");
+  vrai(!!F.champsModifChrono(ar(), { depart: "8h" }).erreur);
+});

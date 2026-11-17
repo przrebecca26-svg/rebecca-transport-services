@@ -278,7 +278,9 @@ export function validerPrestation(f) {
   if (sansPrix && prix !== null && !(prix >= 0 && prix <= 100000)) return { erreur: "Prix invalide." };
   if (prixMax !== null && !(prixMax >= (prix || 0) && prixMax <= 100000)) return { erreur: "Prix maximum invalide." };
   const commande = f.activite === "epoxy";
-  if (!commande && !(Number.isInteger(duree) && duree >= 5 && duree <= 600)) return { erreur: "Durée en minutes (5 à 600)." };
+  // 17 nov. 2026 : Digital = projets sur devis, la duree est facultative (ex. consultation 30 min, formules sans duree)
+  const dureeLibre = f.activite === "digital";
+  if (!commande && !(dureeLibre && duree === null) && !(Number.isInteger(duree) && duree >= 5 && duree <= 600)) return { erreur: "Durée en minutes (5 à 600)." };
   const variantes = (f.variantes || [])
     .map((v) => ({ nom: String(v.nom || "").trim(), prix: nombre(v.prix) }))
     .filter((v) => v.nom || v.prix !== null);
@@ -293,7 +295,7 @@ export function validerPrestation(f) {
     typePrix: f.typePrix,
     prix: prix === null ? null : prix,
     prixMax: prixMax === null ? null : prixMax,
-    dureeMinutes: commande ? null : duree,
+    dureeMinutes: commande || duree === null ? null : duree,
     option: f.option === true,
     variantes,
     publiee: f.publiee === true && f.typePrix !== "prive", // un prix prive n'est jamais publie (regles v12)

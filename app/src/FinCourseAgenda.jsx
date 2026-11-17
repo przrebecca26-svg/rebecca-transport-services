@@ -9,9 +9,11 @@ import { useEquipeContexte } from "./equipeContexte.jsx";
 import { synchroniserSuivi } from "./suiviClient.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
+import { SUJETS, envoyerMailClient } from "./mailClient.js";
+import { useEssence } from "./EssenceVue.jsx";
 import {
-  ETAPES_CHRONO, bilanTrajet, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageMerci,
-  messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
+  ETAPES_CHRONO, avanceRetour, bilanTrajet, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageMerci,
+  messageAvis, messageEnRoute, messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
 } from "./pricing/finCourse.js";
 
 // Fin d'une course directement depuis l'agenda (17 nov. 2026) :
@@ -29,24 +31,53 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const [merci, setMerci] = useState(false); // propose le message apres le paiement
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
+  const [infoMail, setInfoMail] = useState("");
+  const [compteur, setCompteur] = useState(null); // 17 nov. 2026, 11h38 : kilometrage lu sur le compteur
+  const essence = useEssence();
+  // 17 nov. 2026, 11h35 : chaque message part aussi par e-mail si la cliente en a donne un
+  const mail = (sujet, texte) => envoyerMailClient(d, sujet, texte).then((x) => x && setInfoMail(x)).catch(() => {});
+  const noter = (champs) => updateDoc(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() }).catch(() => {});
+  const envoyerRappel = () => {
+    mail(SUJETS.rappel, messageRappelRetour(d, reste));
+    noter({ rappelEnvoyeLe: aujourdhui });
+  };
   const visible = peutCocher(d, aujourdhui);
 
+  const ecoute = d.statut === "acceptee" || d.statut === "terminee"; // aussi pour le reste du rappel de la veille
   useEffect(() => {
-    if (!visible) return undefined;
+    if (!ecoute) return undefined;
     return onSnapshot(query(collection(db, "mouvements"), where("resId", "==", d.id)), (s) => setMouvements(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {});
-  }, [d.id, visible]);
+  }, [d.id, ecoute]);
 
   const trajet = trajetDe(d);
   const v = d.details || {};
   const reste = Math.max(0, Math.round((prixDe(d) - encaisseDe(mouvements, d.id)) * 100) / 100);
   // Rappel de la veille : sur le retour d'un aller-retour, la veille ou le jour meme, tant qu'il n'est pas fait
   const rappel = trajet === "retour" && !faitDe(d) && (d.date === ajouterJours(aujourdhui, 1) || d.date === aujourdhui) ? lienWhatsApp(d.telephone, messageRappelRetour(d, reste)) : null;
-  if (!visible) return rappel ? <div className="tb-actions"><a className="tb-bouton tb-clair" href={rappel} target="_blank" rel="noopener noreferrer">🔔 Rappel de la veille</a></div> : null;
+  const boutonRappel = rappel && (
+    <div className="tb-actions">
+      <a className="tb-bouton tb-clair" href={rappel} target="_blank" rel="noopener noreferrer" onClick={envoyerRappel}>🔔 Rappel de la veille{d.rappelEnvoyeLe ? " (déjà envoyé)" : ""}</a>
+      {infoMail && <small className="tb-note">{infoMail}</small>}
+    </div>
+  );
+  if (!visible) return boutonRappel || null;
 
   const c = chronoDe(d);
   const suivante = prochaineEtape(d);
   const fait = faitDe(d);
-  const bilan = bilanTrajet(d);
+  const cout = coutKm(essence ? essence.pleins : []);
+  const bilan = bilanTrajet(d, cout.parKm);
+  const avance = avanceRetour(d, mouvements);
+  const ouvrirCompteur = () => setCompteur(compteur ? null : { kmDepart: c.kmDepart || "", kmDepose: c.kmDepose || "", kmMaison: c.kmMaison || "" });
+  const enregistrerCompteur = async () => {
+    const champs = {};
+    for (const [k, v] of Object.entries(compteur)) {
+      const n = String(v || "").replace(/\D/g, "");
+      champs[`chrono.${trajet}.${k}`] = n ? Number(n) : "";
+    }
+    await enregistrer(champs);
+    setCompteur(null);
+  };
   const lienMerci = lienWhatsApp(d.telephone, messageMerci(d, reste));
 
   const enregistrer = async (champs) => {
@@ -62,6 +93,9 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     setEnCours(false);
   };
   const cocher = (etape) => enregistrer(champsEtape(d, etape, heureIsrael(), moi));
+  const lienEnRoute = c.depart && !c.prise ? lienWhatsApp(d.telephone, messageEnRoute(d)) : null;
+  const finTrajet = fait && trajet !== "aller";
+  const lienAvis = finTrajet && !d.avisDemandeLe ? lienWhatsApp(d.telephone, messageAvis(d)) : null;
   const annuler = () => enregistrer(champsAnnulerEtape(d));
 
   const ouvrirCaisse = () => {
@@ -80,9 +114,15 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     try {
       if (paiement) await addDoc(collection(db, "mouvements"), { ...paiement, creeLe: serverTimestamp() });
       if (Object.keys(r.champs).length) await updateDoc(doc(db, "demandes", d.id), { ...r.champs, majLe: serverTimestamp() });
-      if (paiement) synchroniserSuivi(d, [...mouvements, paiement]);
+      if (paiement) {
+        synchroniserSuivi(d, [...mouvements, paiement]);
+        await updateDoc(doc(db, "demandes", d.id), { recuAFaire: true, recuFaitLe: "", majLe: serverTimestamp() }).catch(() => {});
+      }
       setCaisse(null);
       setMerci(true);
+      // Merci par e-mail, tout seul, avec le reste a jour
+      const resteApres = Math.max(0, Math.round((reste - (paiement ? paiement.montant : 0)) * 100) / 100);
+      mail(SUJETS.merci, messageMerci({ ...d, ...(r.champs || {}) }, resteApres));
     } catch {
       setErreur("Enregistrement impossible. Vérifie la connexion puis réessaie.");
     }
@@ -98,6 +138,8 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       </div>
       <div className="tb-actions">
         {suivante && <button type="button" className="tb-bouton" disabled={enCours} onClick={() => cocher(suivante)}>{ETAPES_CHRONO.find((e) => e.id === suivante).bouton}</button>}
+        {suivante === "depart" && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => cocher("prise")}>📍 Récupérée</button>}
+        {lienEnRoute && <a className="tb-bouton tb-clair" href={lienEnRoute} target="_blank" rel="noopener noreferrer" onClick={() => mail(SUJETS.enRoute, messageEnRoute(d))}>💬 Je suis en route</a>}
         {(c.prise || fait) && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={ouvrirCaisse}>{caisse ? "Fermer" : reste > 0 ? `💰 Encaissé (reste ${reste} ₪)` : "💰 Encaissé ✓"}</button>}
         {(c.prise || fait) && <button type="button" className="ag-modifier" disabled={enCours} onClick={annuler}>Annuler la dernière étape</button>}
       </div>
@@ -122,9 +164,39 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           <a className="tb-bouton" href={lienMerci} target="_blank" rel="noopener noreferrer" onClick={() => setMerci(false)}>💬 Envoyer le merci (WhatsApp)</a>
         </div>
       )}
-      {rappel && <div className="tb-actions"><a className="tb-bouton tb-clair" href={rappel} target="_blank" rel="noopener noreferrer">🔔 Rappel de la veille</a></div>}
-      {moi === ADMIN_ID && bilan.total != null && (
-        <p className="ag-fin-bilan">⏱ {bilan.course != null ? `Course ${texteMinutes(bilan.course)}` : ""}{bilan.retourMaison != null ? ` · retour maison ${texteMinutes(bilan.retourMaison)}` : ""} · total {texteMinutes(bilan.total)}{bilan.parHeure ? ` · ${bilan.prix} ₪ → ≈ ${bilan.parHeure} ₪/h` : ""}</p>
+      {boutonRappel}
+      {lienAvis && (
+        <div className="tb-actions">
+          <a className="tb-bouton tb-clair" href={lienAvis} target="_blank" rel="noopener noreferrer" onClick={() => { mail(SUJETS.avis, messageAvis(d)); noter({ avisDemandeLe: aujourdhui }); }}>⭐ Demander un avis</a>
+        </div>
+      )}
+      {d.recuAFaire && !d.recuFaitLe && (
+        <div className="tb-actions">
+          <button type="button" className="ag-modifier" onClick={() => noter({ recuFaitLe: aujourdhui })}>🧾 Reçu à faire → c'est fait</button>
+        </div>
+      )}
+      {infoMail && !boutonRappel && <p className="tb-note">{infoMail}</p>}
+      {moi === ADMIN_ID && (c.prise || c.depart || fait) && (
+        <div className="tb-actions">
+          <button type="button" className="ag-modifier" onClick={ouvrirCompteur}>{compteur ? "Fermer" : "⛽ Compteur km"}</button>
+        </div>
+      )}
+      {compteur && (
+        <div className="ag-etape-actions">
+          <p className="tb-note">Recopie le kilométrage de tes photos du compteur (deux suffisent, ex. départ et retour à la maison).</p>
+          {[["kmDepart", "Au départ de la maison"], ["kmDepose", "À la dépose (ex. aéroport)"], ["kmMaison", "En rentrant à la maison"]].map(([k, l]) => (
+            <label key={k} className="ag-champ">{l}<input type="text" inputMode="numeric" value={compteur[k]} onChange={(x) => setCompteur({ ...compteur, [k]: x.target.value.replace(/\D/g, "") })} placeholder="ex. 45210" /></label>
+          ))}
+          <div className="tb-actions"><button type="button" className="tb-bouton" disabled={enCours} onClick={enregistrerCompteur}>Enregistrer</button></div>
+        </div>
+      )}
+      {moi === ADMIN_ID && avance > 0 && <p className="tb-note">💼 Déjà payé pour le retour : {avance} ₪ (avance, compté au retour).</p>}
+      {moi === ADMIN_ID && (bilan.total != null || bilan.kmReel) && (
+        <p className="ag-fin-bilan">
+          {bilan.total != null ? "⏱ " : ""}{[bilan.approche != null && `aller chez elle ${texteMinutes(bilan.approche)}`, bilan.course != null && `course ${texteMinutes(bilan.course)}`, bilan.retourMaison != null && `retour maison ${texteMinutes(bilan.retourMaison)}`].filter(Boolean).join(" · ")} {bilan.total != null ? `· total ${texteMinutes(bilan.total)}` : ""}
+          {bilan.parHeure ? <><br />💶 {bilan.prix} ₪ → ≈ {bilan.parHeure} ₪/h</> : null}
+          {bilan.km > 0 && bilan.gainReel != null ? <><br />⛽ essence ≈ {bilan.essence} ₪ ({bilan.km} km {bilan.kmReel ? "au compteur" : "estimés"}, {cout.parKm} ₪/km d'après {cout.source}) → gain réel {bilan.gainReel} ₪ sur ce trajet{bilan.gainReelParHeure ? ` · ≈ ${bilan.gainReelParHeure} ₪/h` : ""}</> : null}
+        </p>
       )}
       {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
     </div>

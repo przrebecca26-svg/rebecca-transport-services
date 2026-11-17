@@ -34,7 +34,7 @@ test("merci : aller-retour tout payé, en partie, aller simple", () => {
   egal(F.resteDe(ar(), [{ resId: "r1", kind: "paiement", montant: 150 }]), 150);
 });
 test("chrono : récupérée → déposée (= fait) → rentrée, temps et ₪ par heure", () => {
-  egal(F.prochaineEtape(ar()), "prise");
+  egal(F.prochaineEtape(ar()), "depart");
   egal(F.champsEtape(ar(), "prise", "08:50"), { "chrono.aller.prise": "08:50" });
   egal(F.champsEtape(ar(), "depose", "09:35"), { "chrono.aller.depose": "09:35", allerFaitA: "09:35" });
   const d = ar({ chrono: { aller: { prise: "08:50", depose: "09:35", maison: "10:20" } }, allerFaitA: "09:35" });
@@ -52,4 +52,47 @@ test("lien du site partout ; sans compte : créer son compte", () => {
   }
   const avecCompte = F.messageRappelRetour(retour({ uid: "u1" }), 0);
   vrai(avecCompte.includes("netlify.app") && !avecCompte.includes("créer votre compte"));
+});
+
+test("partie → récupérée : approche comptée, essence et gain réel", () => {
+  egal(F.prochaineEtape(ar()), "depart");
+  egal(F.prochaineEtape(ar({ chrono: { aller: { depart: "08:30" } } })), "prise");
+  const d = ar({ kmEstime: 25, chrono: { aller: { depart: "08:30", prise: "08:50", depose: "09:35", maison: "10:20" } }, allerFaitA: "09:35" });
+  const b = F.bilanTrajet(d);
+  egal([b.approche, b.course, b.retourMaison, b.total, b.parHeure], [20, 45, 45, 110, 82]);
+  egal(b.km, 50);
+  egal(b.essence, 36.14);
+  egal(b.gainReel, 113.86);
+});
+test("en route, avis : site toujours là", () => {
+  vrai(F.messageEnRoute(simple(), "09:00").includes("J'arrive vers 09h30"));
+  vrai(F.messageEnRoute(simple(), "10:00").includes("quelques minutes"));
+  vrai(F.messageAvis(simple()).includes("netlify.app"));
+  vrai(F.messageAvis(simple({ uid: "u" })).includes("Mon historique"));
+});
+test("listes : rappels de demain, avis à demander, reçus à faire", () => {
+  egal(F.rappelsDemain([ar(), ar({ id: "x", rappelEnvoyeLe: "2026-11-23" })], "2026-11-23").length, 1);
+  egal(F.rappelsDemain([ar()], "2026-11-20").length, 0);
+  const fini = simple({ statut: "terminee", date: "2026-11-15" });
+  egal(F.avisADemander([fini, { ...fini, id: "y", avisDemandeLe: "x" }], "2026-11-17").length, 1);
+  egal(F.avisADemander([ar({ statut: "terminee" })], "2026-11-18").length, 0); // retour pas encore passé
+  egal(F.recusAFaire([{ recuAFaire: true }, { recuAFaire: true, recuFaitLe: "x" }]).length, 1);
+});
+test("gain par heure par activité", () => {
+  const d = simple({ date: "2026-11-17", prixFinal: 120, chrono: { simple: { depart: "08:00", maison: "09:00" } } });
+  const r = F.rentabiliteDuMois([d], "2026-11", () => "transport");
+  egal([r.transport.trajets, r.transport.minutes, r.transport.parHeure], [1, 60, 120]);
+});
+
+test("compteur réel et coût du km d'après les pleins ; avance du retour", () => {
+  const d = ar({ kmEstime: 25, chrono: { aller: { depart: "08:30", maison: "10:20", kmDepart: "45210", kmDepose: "45238", kmMaison: "45266" } } });
+  egal(F.kmReelTrajet(d), 56);
+  const k = F.coutKm([{ date: "2026-11-01", montant: 380, litres: 47.3, compteur: 44700 }, { date: "2026-11-16", montant: 384, litres: 47.8, compteur: 45190 }]);
+  egal(k.source, "tes pleins (compteur)");
+  egal(k.parKm, 0.784);
+  const b = F.bilanTrajet(d, k.parKm);
+  egal([b.km, b.kmReel, b.essence], [56, true, 43.9]);
+  egal(F.coutKm([{ date: "2026-11-16", montant: 384, litres: 47.8 }]).source, "prix du litre de ton dernier plein");
+  egal(F.avanceRetour(ar(), [{ resId: "r1", kind: "paiement", montant: 300 }]), 150);
+  egal(F.avanceRetour(retour(), [{ resId: "r1", kind: "paiement", montant: 300 }]), 0);
 });

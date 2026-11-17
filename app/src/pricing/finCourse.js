@@ -11,6 +11,7 @@
 // seulement quand le retour est fait. Aller simple : « terminee » tout de suite.
 
 import { SITE, CODE_BIENVENUE } from "./ajoutManuel.js";
+import { TARIFS } from "./config.js";
 
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 const HEURE_OK = /^\d{2}:\d{2}$/;
@@ -99,6 +100,7 @@ export function lignesSite(d, site = SITE) {
   if (d && d.uid) return [`Retrouvez-moi sur mon site : ${site}`];
   return [`N'hésitez pas à créer votre compte sur mon site avec ce numéro de téléphone : ${site}`, `Code ${CODE_BIENVENUE} : -10 ₪ sur votre prochaine réservation.`];
 }
+const heureMaintenant = () => new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hour12: false });
 const versAeroport = (d) => d.service === "aeroport" && (d.details || {}).direction !== "depuis";
 
 // Message de remerciement apres le paiement. reste = ce qui reste a payer sur toute la course.
@@ -144,6 +146,7 @@ export function messageRappelRetour(d, reste = 0) {
    But : voir le temps passe a chaque fois et la rentabilite (₪ par heure) — pour Rebecca seulement. */
 
 export const ETAPES_CHRONO = [
+  { id: "depart", bouton: "🚗 Partie", libelle: "Partie" }, // 17 nov. 2026, 11h35 : le trajet maison -> cliente compte aussi
   { id: "prise", bouton: "📍 Récupérée", libelle: "Récupérée" },
   { id: "depose", bouton: "✓ Déposée", libelle: "Déposée" },
   { id: "maison", bouton: "🏠 Rentrée", libelle: "Rentrée à la maison" },
@@ -155,6 +158,7 @@ export const chronoDe = (d) => ((d && d.chrono) || {})[trajetDe(d)] || {};
 export function prochaineEtape(d) {
   const c = chronoDe(d);
   const fait = faitDe(d);
+  if (!c.depart && !c.prise && !fait) return "depart";
   if (!c.prise && !fait) return "prise";
   if (!c.depose && !fait) return "depose";
   if (!c.maison) return "maison";
@@ -193,12 +197,126 @@ export const texteMinutes = (m) => (m == null ? "" : m < 60 ? `${m} min` : `${Ma
 export const prixTrajet = (d) => cents(estAllerRetour(d) ? prixDe(d) / 2 : prixDe(d));
 
 // Temps passes et rentabilite du trajet
-export function bilanTrajet(d) {
+export function bilanTrajet(d, parKm = null) {
   const c = chronoDe(d);
+  const approche = ecart(c.depart, c.prise);
   const course = ecart(c.prise, c.depose);
   const retourMaison = ecart(c.depose, c.maison);
-  const total = course != null && retourMaison != null ? course + retourMaison : ecart(c.prise, c.maison);
+  const total = ecart(c.depart || c.prise, c.maison);
   const prix = prixTrajet(d);
   const parHeure = total && total > 0 && prix > 0 ? Math.round((prix * 60) / total) : null;
-  return { course, retourMaison, total, prix, parHeure };
+  const ess = essenceTrajet(d, CARBURANT, parKm);
+  const gainReel = prix > 0 ? cents(prix - ess.essence) : null;
+  return { approche, course, retourMaison, total, prix, parHeure, km: ess.km, kmReel: ess.kmReel, essence: ess.essence, gainReel, gainReelParHeure: total && total > 0 && gainReel != null ? Math.round((gainReel * 60) / total) : null };
+}
+
+/* ---------- Essence et gain reel d'un trajet (17 nov. 2026, 11h35) ----------
+   Estimation : km de la course (kmEstime) x 2 (on compte aussi le trajet a vide : aller chercher / rentrer),
+   essence = km x consommation x prix du litre (Reglages carburant). Sans km connus : 0. */
+export const CARBURANT = TARIFS.carburant;
+// 17 nov. 2026, 11h38 : compteur kilometrique note dans la course (depart, depose, maison) -> km reels ;
+// cout du km reel d'apres ses pleins (prix, litres, compteur) si on les a.
+export function kmReelTrajet(d) {
+  const c = chronoDe(d);
+  const lus = ["kmDepart", "kmPrise", "kmDepose", "kmMaison"].map((k) => Number(c[k])).filter((n) => Number.isFinite(n) && n > 0);
+  if (lus.length < 2) return null;
+  const km = Math.max(...lus) - Math.min(...lus);
+  return km > 0 && km < 2000 ? km : null;
+}
+// Cout d'un km : 2 pleins avec compteur -> litres du 2e / km entre les deux x prix du litre du 2e ;
+// sinon prix du litre de son dernier plein x consommation des reglages ; sinon les reglages.
+export function coutKm(pleins = [], carburant = CARBURANT) {
+  const avecLitres = (pleins || []).filter((p) => p && p.montant > 0 && p.litres > 0).sort((a, b) => (a.compteur || 0) - (b.compteur || 0) || String(a.date).localeCompare(String(b.date)));
+  const comptes = avecLitres.filter((p) => p.compteur > 0);
+  if (comptes.length >= 2) {
+    const [a, b] = comptes.slice(-2);
+    const km = b.compteur - a.compteur;
+    if (km > 20) return { parKm: Math.round(((b.litres * (b.montant / b.litres)) / km) * 1000) / 1000, source: "tes pleins (compteur)" };
+  }
+  const dernier = [...avecLitres].sort((a, b) => String(a.date).localeCompare(String(b.date))).pop();
+  const prixLitre = dernier ? dernier.montant / dernier.litres : carburant.prixLitre;
+  return { parKm: Math.round(((carburant.consommationLitres100km / 100) * prixLitre) * 1000) / 1000, source: dernier ? "prix du litre de ton dernier plein" : "réglages" };
+}
+export function essenceTrajet(d, carburant = CARBURANT, parKm = null) {
+  const reel = kmReelTrajet(d);
+  const km = reel != null ? reel : Number(d && d.kmEstime) > 0 ? cents(Number(d.kmEstime) * 2) : 0;
+  const cout = parKm != null ? parKm : (carburant.consommationLitres100km / 100) * carburant.prixLitre;
+  return { km, kmReel: reel != null, essence: cents(km * cout) };
+}
+
+/* ---------- Autres messages : en route, avis ---------- */
+export function messageEnRoute(d, maintenant = heureMaintenant()) {
+  const prevue = HEURE_OK.test(d.heure || "") && d.heure > maintenant ? d.heure : "";
+  return [
+    bonjour(d),
+    `Je suis en route 🚗 ${prevue ? `J'arrive vers ${heureFr(prevue)}.` : "J'arrive dans quelques minutes."}`,
+    ...lignesSite(d),
+    "À tout de suite, Rebecca",
+  ].join("\n");
+}
+export function messageAvis(d) {
+  return [
+    bonjour(d),
+    "Merci encore de m'avoir fait confiance 🙏",
+    d.uid
+      ? "Si vous avez un instant, votre avis m'aiderait beaucoup : laissez-moi quelques étoiles dans votre espace, rubrique « Mon historique »."
+      : "Si vous avez un instant, votre avis m'aiderait beaucoup : répondez simplement à ce message avec quelques mots.",
+    ...lignesSite(d),
+    "Au plaisir de vous revoir, Rebecca",
+  ].join("\n");
+}
+
+/* ---------- Listes « à envoyer / à faire » pour l'onglet Aujourd'hui ---------- */
+const plusJours = (date, n) => {
+  const [a, m, j] = date.split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, j + n, 12)).toISOString().slice(0, 10);
+};
+// Retours d'aller-retour prevus demain, rappel pas encore envoye
+export function rappelsDemain(demandes, aujourdhui) {
+  if (!DATE_OK.test(aujourdhui || "")) return [];
+  const demain = plusJours(aujourdhui, 1);
+  return (demandes || []).filter((d) => d.statut === "acceptee" && estAllerRetour(d) && (d.details || {}).dateRetour === demain && !d.rappelEnvoyeLe);
+}
+// Courses finies depuis 1 a 7 jours : demander un avis (une seule fois)
+export function avisADemander(demandes, aujourdhui) {
+  if (!DATE_OK.test(aujourdhui || "")) return [];
+  const debut = plusJours(aujourdhui, -7);
+  return (demandes || []).filter((d) => {
+    if (d.statut !== "terminee" || d.avisDemandeLe || d.service === "ramassage") return false;
+    const fin = estAllerRetour(d) && DATE_OK.test((d.details || {}).dateRetour || "") ? d.details.dateRetour : d.date;
+    return DATE_OK.test(fin || "") && fin >= debut && fin < aujourdhui;
+  });
+}
+// Paiements encaisses depuis l'agenda sans recu fait
+export const recusAFaire = (demandes) => (demandes || []).filter((d) => d.recuAFaire && !d.recuFaitLe);
+
+/* ---------- Gain par heure de chaque activite, sur un mois (« Mon mois ») ---------- */
+// groupeDe : fonction service -> groupe (monMois.js). Compte seulement les trajets dont le temps est note.
+export function rentabiliteDuMois(demandes, mois, groupeDe, parKm = null) {
+  const res = {};
+  for (const d of demandes || []) {
+    const trajets = estAllerRetour(d) ? [d, { ...d, estRetour: true, date: (d.details || {}).dateRetour || d.date }] : [d];
+    for (const t of trajets) {
+      if (String(t.date || "").slice(0, 7) !== mois) continue;
+      const b = bilanTrajet(t, parKm);
+      if (!b.total) continue;
+      const g = groupeDe(t.service);
+      const r = (res[g] = res[g] || { trajets: 0, minutes: 0, prix: 0, gainReel: 0 });
+      r.trajets++;
+      r.minutes += b.total;
+      r.prix = cents(r.prix + b.prix);
+      r.gainReel = cents(r.gainReel + (b.gainReel || 0));
+    }
+  }
+  for (const r of Object.values(res)) {
+    r.parHeure = r.minutes ? Math.round((r.prix * 60) / r.minutes) : null;
+    r.gainReelParHeure = r.minutes ? Math.round((r.gainReel * 60) / r.minutes) : null;
+  }
+  return res;
+}
+
+// Aller-retour paye d'avance : ce qui est deja encaisse pour le retour (compte quand le retour est fait)
+export function avanceRetour(d, mouvements) {
+  if (trajetDe(d) !== "aller") return 0;
+  return cents(Math.max(0, encaisseDe(mouvements, d.id) - prixTrajet(d)));
 }

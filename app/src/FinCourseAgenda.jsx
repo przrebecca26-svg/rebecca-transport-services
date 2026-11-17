@@ -177,7 +177,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           <label className="ag-champ">Pourboire (₪, à part)<input type="text" inputMode="decimal" value={caisse.pourboire} onChange={(x) => setCaisse({ ...caisse, pourboire: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="ag-champ">Moyen de paiement
             <select value={caisse.moyen} onChange={(x) => setCaisse({ ...caisse, moyen: x.target.value })}>
-              {TARIFS.moyensPaiement.map((m) => <option key={m}>{m}</option>)}
+              {TARIFS.moyensEncaissement.map((m) => <option key={m}>{m}</option>)}
             </select>
           </label>
           <div className="tb-actions">

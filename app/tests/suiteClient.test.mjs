@@ -45,3 +45,13 @@ test("message d'acompte avec le lien PayPal", () => {
   vrai(m.includes("PayPal : https://www.paypal.com/ncp/payment/WKZKM3DG5B6PS"));
   vrai(S.messageAcompte({ nom: "A" }, 20, {}).includes("Répondez-moi"));
 });
+
+test("« J'ai payé » : lien de la page et déclaration", () => {
+  const l = S.lienPaye({ id: "abc123", nom: "Naomie Cohen" }, 102, "acompte");
+  vrai(l.endsWith("/#/paye/abc123/102/acompte/Naomie"));
+  egal(S.lireLienPaye(l.slice(l.indexOf("#"))), { resId: "abc123", montant: 102, sorte: "acompte", prenom: "Naomie" });
+  egal(S.lireLienPaye("#/paye/x/0/acompte"), null);
+  vrai(S.messageAcompte({ id: "abc123", nom: "Naomie" }, 102, {}).includes("Payer et me prévenir en un clic"));
+  vrai(S.declarationValide({ resId: "abc123", montant: 102, moyen: "Bit", sorte: "acompte", prenom: "Naomie" }));
+  vrai(!S.declarationValide({ resId: "abc123", montant: 102, moyen: "Carte", sorte: "acompte", prenom: "" }));
+});

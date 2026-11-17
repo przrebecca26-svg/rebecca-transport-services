@@ -449,7 +449,7 @@ export default function PaiementsCourse({ d }) {
             <label className="pm-champ">
               Moyen de paiement
               <select value={moyen} onChange={(e) => setMoyen(e.target.value)}>
-                {TARIFS.moyensPaiement.map((m) => (
+                {TARIFS.moyensEncaissement.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>

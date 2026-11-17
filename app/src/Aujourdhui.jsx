@@ -6,6 +6,9 @@ import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc
 import { avisADemander, messageAvis, messageRappelRetour, messageRelance, rappelsDemain, recusAFaire, relancesClientes, resteDe } from "./pricing/finCourse.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { messageRappelRdv, messageRelanceEpoxy, rappelsRdvDemain, relancesEpoxy } from "./pricing/suiteClient.js";
+import { addDoc, where as ou } from "firebase/firestore";
+import { champOperateur } from "./pricing/reverser.js";
+import { synchroniserSuivi } from "./suiviClient.js";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
@@ -121,13 +124,30 @@ function AFaire({ demandes, mouvements, jour }) {
   const [info, setInfo] = useState("");
   const [commandes, setCommandes] = useState([]);
   useEffect(() => onSnapshot(collection(db, "commandes"), (x) => setCommandes(x.docs.map((y) => ({ id: y.id, ...y.data() }))), () => {}), []);
+  // 17 nov. 2026, 16h31 : « J'ai paye » des clientes (PayPal, Bit, Revolut...) -> Rebecca confirme d'un appui
+  const [declares, setDeclares] = useState([]);
+  useEffect(() => onSnapshot(query(collection(db, "paiementsDeclares"), ou("statut", "==", "a confirmer")), (x) => setDeclares(x.docs.map((y) => ({ id: y.id, ...y.data() }))), () => setDeclares([])), []);
+  const confirmer = async (p, ok) => {
+    try {
+      if (ok) {
+        const m = { kind: "paiement", resId: p.resId, date: jour, montant: p.montant, moyen: p.moyen, ...champOperateur(ADMIN_ID), creeLe: serverTimestamp() };
+        await addDoc(collection(db, "mouvements"), m);
+        const d = demandes.find((x) => x.id === p.resId);
+        if (d) synchroniserSuivi(d, [...mouvements, m]);
+      }
+      await updateDoc(doc(db, "paiementsDeclares", p.id), { statut: ok ? "confirme" : "pas recu", traiteLe: serverTimestamp() });
+      setInfo(ok ? `✅ ${p.montant} ₪ par ${p.moyen} noté dans la course.` : "Marqué « pas reçu ».");
+    } catch {
+      setInfo("Enregistrement impossible. Vérifie la connexion (et les règles Firebase v18).");
+    }
+  };
   const rdvs = rappelsRdvDemain(demandes, jour);
   const epoxy = relancesEpoxy(commandes, jour);
   const rappels = rappelsDemain(demandes, jour);
   const avis = avisADemander(demandes, jour);
   const recus = recusAFaire(demandes);
   const relances = relancesClientes(demandes, jour);
-  if (!rappels.length && !avis.length && !recus.length && !relances.length && !rdvs.length && !epoxy.length) return null;
+  if (!rappels.length && !avis.length && !recus.length && !relances.length && !rdvs.length && !epoxy.length && !declares.length) return null;
   const noter = (d, champs) => updateDoc(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() }).catch(() => {});
   const envoyer = (d, sujet, texte, champs) => {
     noter(d, champs);
@@ -144,6 +164,23 @@ function AFaire({ demandes, mouvements, jour }) {
           <div key={"r" + d.id} className="tb-adresse">
             <div><p>{d.nom}</p><small>Retour {String(d.details.heureRetour || "").replace(":", "h")}{d.details.numeroVolRetour ? ` · vol ${d.details.numeroVolRetour}` : ""}</small></div>
             {wa ? <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => envoyer(d, SUJETS.rappel, texte, { rappelEnvoyeLe: jour })}>Envoyer</a> : <button className="tb-bouton tb-clair" onClick={() => envoyer(d, SUJETS.rappel, texte, { rappelEnvoyeLe: jour })}>Par e-mail</button>}
+          </div>
+        );
+      })}
+      {declares.length > 0 && <p className="aj-sous-titre">💳 Paiements annoncés par les clientes — à confirmer</p>}
+      {declares.map((p) => {
+        const d = demandes.find((x) => x.id === p.resId);
+        const quand = p.creeLe && p.creeLe.toDate ? p.creeLe.toDate().toLocaleString("fr-FR", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+        return (
+          <div key={"p" + p.id} className="tb-adresse">
+            <div>
+              <p>{d ? d.nom : p.prenom || "Cliente"} · {p.montant} ₪ par {p.moyen}</p>
+              <small>{p.sorte === "acompte" ? "Acompte" : "Paiement"} · {d ? `${d.serviceTitre} · ${jourCourt(d.date)}` : "course introuvable"}{quand ? ` · annoncé le ${quand}` : ""}</small>
+            </div>
+            <div className="tb-actions">
+              <button className="tb-bouton" disabled={!d} onClick={() => confirmer(p, true)}>✓ Reçu</button>
+              <button className="tb-bouton tb-clair" onClick={() => confirmer(p, false)}>Pas reçu</button>
+            </div>
           </div>
         );
       })}

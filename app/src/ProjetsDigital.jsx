@@ -9,6 +9,7 @@ import {
   FORMULES, MAINTENANCES, PRIX_MAX_DEMANDE, QUESTIONS_DOSSIER, REGLE_D4, STATUTS, STATUTS_ACTIFS, aFournir, avancement, bilanEcheances, cahierDepuisTexte,
   cahierPropre, demandeEcheance, devisAutomatique, echeancier, enHeures, etatEcheance, finGarantie, libelleStatut, lienProjet, lignesPropres, maintenanceDuMois, messageDevis,
   messageLienSuivi, messagePaiementEcheance, prixConseille, resumeDemandeDigital, totalDevis,
+  shekels,
 } from "./pricing/digital.js";
 import "./digital.css";
 
@@ -18,7 +19,6 @@ import "./digital.css";
 // Chaque paiement demande devient une « course » Digital terminee : il compte dans Finances et le tableau de bord.
 // Les notes privees et les heures restent dans projetsDigitalPrive (jamais lisibles par le client).
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
-const shekels = (x) => `${String(Math.round((Number(x) || 0) * 100) / 100).replace(".", ",")} ₪`;
 const MOYENS = ["Virement", "Bit", "PayPal", "Revolut", "Espèces", "Carte bancaire"];
 const quand = (t) => (t && t.toDate ? t.toDate().toLocaleDateString("fr-FR", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", year: "2-digit" }) : "");
 

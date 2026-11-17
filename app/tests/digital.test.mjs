@@ -73,7 +73,7 @@ test("échéance = demande Digital terminée, comptée dans le CA digital", () =
 });
 test("message du devis", () => {
   const m = messageDevis({ id: "AbCdEf123456", nom: "Dana Levi", formule: "Essentielle", lignesDevis: [{ libelle: "Formule Essentielle", montant: 6900 }] });
-  vrai(m.includes("6900 ₪") && m.includes("#/projet/AbCdEf123456") && m.startsWith("Bonjour Dana,"));
+  vrai(m.includes("6 900 ₪") && m.includes("#/projet/AbCdEf123456") && m.startsWith("Bonjour Dana,"));
 });
 
 section("Digital : garantie, maintenance, cahier, dossier");
@@ -189,4 +189,8 @@ test("test de Rebecca : Sur mesure, budget trop petit signalé", () => {
   egal(d.formule, "Sur mesure");
   egal(d.lignes.map((l) => [l.libelle, l.montant]), [["Formule Sur mesure", 22000], ["Langue supplémentaire", 700]]);
   vrai(d.notes.some((n) => n.includes("budget")) && d.notes.some((n) => n.includes("Essentielle")));
+});
+import { shekels } from "../src/pricing/digital.js";
+test("montants lisibles", () => {
+  egal([shekels(22700), shekels(360), shekels(1234.5), shekels(-450)], ["22 700 ₪", "360 ₪", "1 234,50 ₪", "−450 ₪"]);
 });

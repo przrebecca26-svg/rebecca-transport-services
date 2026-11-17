@@ -5,6 +5,7 @@ import { lienPaye } from "../pricing/suiteClient.js";
 import {
   DOSSIER, ETAPES_CLIENT, MAX_REPONSE, aFournir, avancement, cahierPropre, dossierPropre, enHeures, etapeAtteinte, finGarantie, libelleStatut,
   lignesPropres, maintenanceDuMois, texteStatutClient, totalDevis,
+  shekels,
 } from "../pricing/digital.js";
 import "../digital.css";
 
@@ -13,7 +14,6 @@ import "../digital.css";
 // Rebecca (fait = barre et grise), la garantie, la maintenance, et il remplit son dossier de lancement.
 // Il ne peut rien changer d'autre (regles Firebase v19). Les notes privees de Rebecca sont ailleurs.
 const charger = () => Promise.all([import("../firebase.js"), import("firebase/firestore")]);
-const shekels = (x) => `${String(Math.round((Number(x) || 0) * 100) / 100).replace(".", ",")} ₪`;
 const jourFr = (d) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d || "")) return "";
   const [a, m, j] = d.split("-").map(Number);

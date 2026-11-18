@@ -47,3 +47,21 @@ export function motDePasseRobot(alea = () => Math.random()) {
   for (let i = 0; i < 24; i++) m += lettres[Math.floor(alea() * lettres.length)];
   return m;
 }
+
+/* ---------- Alerte « nouvelle demande » (18 nov. 2026, suggestion validée) ----------
+   Toutes les 5 minutes, la tâche Netlify « alerte-demandes » regarde les nouvelles demandes du site (en attente,
+   arrivées depuis moins de 24 h, pas encore signalées) et envoie UN e-mail à Rebecca : son iPhone sonne
+   (notification de l'application Mail ou Gmail). Elle n'est jamais prévenue deux fois pour la même demande. */
+export const SUJET_ALERTE = (n) => (n > 1 ? `🔔 ${n} nouvelles demandes - Rebecca Services` : "🔔 Nouvelle demande - Rebecca Services");
+export function demandesASignaler(demandes = [], maintenant = Date.now()) {
+  return demandes
+    .filter((d) => d && d.statut === "en attente" && d.source !== "manuel" && !d.alerteRebeccaLe)
+    .filter((d) => {
+      const t = Date.parse(d.creeLe || "");
+      return Number.isFinite(t) && maintenant - t < 24 * 3600 * 1000;
+    });
+}
+export function texteAlerte(liste = [], site) {
+  const lignes = liste.map((d) => `• ${d.serviceTitre || d.service} · ${d.nom || "?"} · ${d.date || ""} ${d.heure || ""}${typeof d.prixEstime === "number" ? ` · ${d.prixEstime} ₪` : ""}`);
+  return [liste.length > 1 ? `${liste.length} nouvelles demandes sur le site :` : "Nouvelle demande sur le site :", ...lignes, "", `Ouvre ton espace : ${site}/#/admin`].join("\n");
+}

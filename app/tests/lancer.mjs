@@ -6,6 +6,7 @@ await import("./digital.test.mjs");
 await import("./coursiers.test.mjs");
 await import("./fidelite.test.mjs");
 await import("./abonnement.test.mjs");
+await import("./rappelsAuto.test.mjs");
 await import("./reference.test.mjs");
 await import("./equipe.test.mjs");
 await import("./tableauBord.test.mjs");

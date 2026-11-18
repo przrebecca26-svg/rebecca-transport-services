@@ -448,3 +448,19 @@ export function apresChamps(d, champs) {
   }
   return res;
 }
+
+// LISTE DES DEMANDES (18 nov. 2026, 12h49) : d'un coup d'œil, l'état réel et l'argent de chaque course.
+// « En cours · retour à faire » quand l'aller d'un aller-retour est fait ; payé, pourboire, reste à encaisser.
+export function etatDansListe(d) {
+  if (d && d.statut === "acceptee" && estAllerRetour(d) && d.allerFaitA) return { label: "En cours · retour à faire", classe: "encours" };
+  return null;
+}
+export function argentDansListe(d, mouvements) {
+  if (!d || d.statut === "refusee" || d.statut === "en attente") return null;
+  const du = duDe(d);
+  const paye = encaisseDe(mouvements, d.id);
+  const pourboire = cents(nombre(d.pourboire));
+  if (d.statut === "annulee" && paye <= 0) return null;
+  const reste = cents(Math.max(0, du - paye));
+  return { du, paye, pourboire, reste, solde: reste <= 0 && du > 0 };
+}

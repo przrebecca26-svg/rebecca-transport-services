@@ -32,3 +32,9 @@ textarea.am-champ { resize: vertical; }
 .am .adresse { margin-top: 4px; }
 .cl-origines { margin: 0 0 10px; }
 .fc-avant { white-space: pre-wrap; }
+
+/* 18 nov. 2026 : payé / reste sur chaque carte, et « En cours · retour à faire » */
+.dm-argent { margin-top: 4px; font-size: 14px; color: var(--g-texte-2, #6b6266); }
+.dm-argent .dm-reste { color: var(--g-rose, #b4506a); }
+.dm-argent .dm-solde { color: #6fd8a8; }
+.tb-encours { background: rgba(241, 174, 183, 0.16); color: var(--g-rose, #b4506a); }

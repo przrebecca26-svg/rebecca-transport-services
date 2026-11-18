@@ -14,7 +14,7 @@ import { MARGE_DEFAUT, clePaire, datesDe, messageAutreHoraire, phrase, trajetsAC
 import { rattraperTousLesSuivis, synchroniserSuivi } from "./suiviClient.js";
 import PaiementsCourse from "./PaiementsCourse.jsx";
 import AjoutManuel, { Remerciement } from "./AjoutManuel.jsx";
-import { versRefaire } from "./pricing/finCourse.js";
+import { argentDansListe, etatDansListe, versRefaire } from "./pricing/finCourse.js";
 import { CADEAU_PARRAINAGE, cadeauAOffrir } from "./pricing/suiteClient.js";
 import { LIBELLE_ORIGINE, prenomDe } from "./pricing/ajoutManuel.js";
 import { messageDevisDemande } from "./pricing/devisRapide.js";
@@ -639,6 +639,9 @@ export default function Demandes({ aller, cible, membre = null }) {
   const { moi } = useEquipeContexte();
   const [personne, setPersonne] = useState("tous");
   const [items, setItems] = useState(null); // null = chargement
+  // 18 nov. 2026 : payé / reste à encaisser sur chaque carte de la liste (lecture refusée -> rien n'est affiché)
+  const [mvts, setMvts] = useState(null);
+  useEffect(() => onSnapshot(collection(db, "mouvements"), (x) => setMvts(x.docs.map((y) => ({ id: y.id, ...y.data() }))), () => setMvts(null)), []);
   const [erreur, setErreur] = useState("");
   const [filtre, setFiltre] = useState("en attente");
   const [activite, setActivite] = useState("toutes");
@@ -751,7 +754,9 @@ export default function Demandes({ aller, cible, membre = null }) {
       {visibles.length === 0 && <p className="admin-texte tb-pad">Aucune demande dans cette catégorie.</p>}
 
       {visibles.map((d) => {
-        const st = STATUTS[d.statut] || { label: d.statut, classe: "attente" };
+        const st = etatDansListe(d) || STATUTS[d.statut] || { label: d.statut, classe: "attente" };
+        const argent = mvts ? argentDansListe(d, mvts) : null;
+        const enShekels = (n) => `${(Math.round(n * 100) / 100).toLocaleString("fr-FR")} ₪`;
         return (
           <button key={d.id} className="tb-carte" onClick={() => setOuvert(d.id)}>
             <span className="tb-ligne">
@@ -763,6 +768,15 @@ export default function Demandes({ aller, cible, membre = null }) {
               <span>{d.nom}</span>
               <strong>{textePrix(d)}</strong>
             </span>
+            {argent && (
+              <span className="tb-ligne dm-argent">
+                <span>
+                  {argent.paye > 0 ? `Payé ${enShekels(argent.paye)}` : "Rien encaissé"}
+                  {argent.pourboire > 0 ? ` · pourboire ${enShekels(argent.pourboire)}` : ""}
+                </span>
+                {argent.solde ? <strong className="dm-solde">✓ Tout payé</strong> : argent.reste > 0 ? <strong className="dm-reste">Reste {enShekels(argent.reste)}</strong> : null}
+              </span>
+            )}
           </button>
         );
       })}

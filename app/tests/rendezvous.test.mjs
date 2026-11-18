@@ -82,3 +82,10 @@ section("Calendrier : trajets confies a Jeremy (creneaux par date)");
     egal(perso("2026-11-16"), []);
   });
 }
+
+// 18 nov. 2026 (tests) : a 10h40 le jour meme, les heures deja passees ne sont plus proposees
+test("aujourd'hui : pas d'heure passée", () => {
+  const liste = R.creneauxDuJour({ activite: NAILS, dureeMinutes: 60, date: MARDI, pas: 30, maintenantMs: Date.parse(MARDI + "T08:40:00Z") });
+  const libres = liste.filter((c) => c.libre).map((c) => c.heure);
+  vrai(libres.length > 0 && libres.every((h) => h >= "11:00"));
+});

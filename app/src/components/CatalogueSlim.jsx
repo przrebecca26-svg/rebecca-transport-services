@@ -78,6 +78,7 @@ export default function CatalogueSlim({ onRetour }) {
       activite,
       dureeMinutes: duree,
       date,
+      maintenantMs: Date.now(), // 18 nov. 2026 (tests) : plus d'heures deja passees aujourd'hui
       occupes,
       service: "slim",
     }).map((c) => (c.libre && !cellulesLibres(cellulesDe(c.heure, duree, margeRdv), prises) ? { ...c, libre: false } : c));

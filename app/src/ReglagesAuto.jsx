@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { motDePasseRobot } from "./pricing/rappelsAuto.js";
+import { VAPID_PUBLIQUE, etatTelephone, idAbonnement } from "./pricing/notifications.js";
 
 // RAPPELS ENVOYES TOUT SEULS (17 nov. 2026) - reglage a faire une seule fois.
 // Chaque soir vers 19h, Netlify envoie par e-mail les rappels de demain (retours d'aller-retour, rendez-vous beaute).
@@ -22,7 +23,7 @@ function AlerteDemandes() {
   if (!a) return null;
   const enregistrer = (actif) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setInfo("Adresse e-mail invalide.");
-    setDoc(doc(db, "reglages", "alerteDemandes"), { actif, email: email.trim().slice(0, 120), majLe: serverTimestamp() }).then(() => setInfo(actif ? "Activée ✓" : "Coupée.")).catch(() => setInfo("Enregistrement impossible."));
+    setDoc(doc(db, "reglages", "alerteDemandes"), { actif, email: email.trim().slice(0, 120), majLe: serverTimestamp() }, { merge: true }).then(() => setInfo(actif ? "Activée ✓" : "Coupée.")).catch(() => setInfo("Enregistrement impossible."));
   };
   return (
     <div className="tb-bloc">
@@ -33,6 +34,91 @@ function AlerteDemandes() {
         <input type="checkbox" checked={a.actif === true} onChange={() => enregistrer(!(a.actif === true))} />
         <span>{a.actif === true ? "Activée" : "Désactivée"}</span>
       </label>
+      {info && <p className="tb-note">{info}</p>}
+    </div>
+  );
+}
+
+// 18 nov. 2026 (soir) : NOTIFICATION sur l'iPhone à chaque nouvelle demande (icône « Rebecca admin »)
+const enOctets = (t) => {
+  const b = atob((t + "=".repeat((4 - (t.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(b, (c) => c.charCodeAt(0));
+};
+const enTexte = (buf) => (buf ? btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : "");
+function infosTelephone() {
+  const ua = navigator.userAgent || "";
+  return {
+    ios: /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1),
+    standalone: navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches),
+    push: "serviceWorker" in navigator && "PushManager" in window && "Notification" in window,
+    permission: "Notification" in window ? Notification.permission : "default",
+    appareil: /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : "Ordinateur",
+  };
+}
+
+function NotificationsTelephone() {
+  const [a, setA] = useState(null);
+  const [nb, setNb] = useState(0);
+  const [ceTel, setCeTel] = useState(false);
+  const [info, setInfo] = useState("");
+  const [occupe, setOccupe] = useState(false);
+  const t = infosTelephone();
+  const etat = etatTelephone(t);
+  useEffect(() => onSnapshot(doc(db, "reglages", "alerteDemandes"), (s) => setA(s.exists() ? s.data() : {}), () => setA({})), []);
+  useEffect(() => onSnapshot(collection(db, "notificationsPush"), (s) => setNb(s.size), () => setNb(0)), []);
+  useEffect(() => {
+    if (!t.push) return;
+    navigator.serviceWorker.getRegistration("/").then((r) => (r ? r.pushManager.getSubscription() : null)).then((s) => setCeTel(!!s)).catch(() => {});
+  }, []);
+  if (!a) return null;
+
+  const activer = async () => {
+    setInfo(""); setOccupe(true);
+    try {
+      const permission = await Notification.requestPermission(); // en premier : l'iPhone exige un toucher
+      if (permission !== "granted") throw new Error("refus");
+      const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      await navigator.serviceWorker.ready;
+      const ancien = await reg.pushManager.getSubscription();
+      const abo = ancien || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: enOctets(VAPID_PUBLIQUE) }));
+      await setDoc(doc(db, "notificationsPush", idAbonnement(abo.endpoint)), {
+        endpoint: abo.endpoint, p256dh: enTexte(abo.getKey("p256dh")), auth: enTexte(abo.getKey("auth")), appareil: t.appareil, creeLe: serverTimestamp(),
+      });
+      await setDoc(doc(db, "reglages", "alerteDemandes"), { notifications: true, majLe: serverTimestamp() }, { merge: true });
+      setCeTel(true);
+      setInfo("Activées ✓ Touche « Envoyer un test » pour vérifier.");
+    } catch (e) {
+      setInfo(e.message === "refus" ? "Tu as refusé les notifications. Pour les autoriser : Réglages de l'iPhone → Notifications → Rebecca admin." : "Activation impossible (règles Firebase v23 collées ?).");
+    }
+    setOccupe(false);
+  };
+  const retirer = async () => {
+    setInfo("");
+    try {
+      const reg = await navigator.serviceWorker.getRegistration("/");
+      const abo = reg && (await reg.pushManager.getSubscription());
+      if (abo) { await deleteDoc(doc(db, "notificationsPush", idAbonnement(abo.endpoint))); await abo.unsubscribe(); }
+      setCeTel(false); setInfo("Ce téléphone ne reçoit plus les notifications.");
+    } catch { setInfo("Impossible de retirer ce téléphone."); }
+  };
+  const basculer = () => setDoc(doc(db, "reglages", "alerteDemandes"), { notifications: !(a.notifications === true), majLe: serverTimestamp() }, { merge: true }).catch(() => setInfo("Enregistrement impossible."));
+  const tester = () => setDoc(doc(db, "reglages", "alerteDemandes"), { testDemande: new Date().toISOString(), majLe: serverTimestamp() }, { merge: true })
+    .then(() => setInfo("Test demandé : la notification arrive dans 2 minutes maximum (même téléphone verrouillé).")).catch(() => setInfo("Enregistrement impossible."));
+
+  return (
+    <div className="tb-bloc">
+      <h3>📲 Notifications sur mon téléphone</h3>
+      <p className="tb-note">À chaque nouvelle demande du site, une notification arrive sur l'écran verrouillé (2 minutes maximum). Tu la touches : ton espace s'ouvre.</p>
+      {etat === "icone" && <p className="tb-note">Sur iPhone, les notifications marchent seulement depuis l'icône : dans Safari, ouvre rebeccaservices.com/#/admin, touche Partager → « Sur l'écran d'accueil », puis ouvre l'icône « Rebecca admin » et reviens ici.</p>}
+      {etat === "impossible" && <p className="tb-note">Ce navigateur ne permet pas les notifications. Sur iPhone : iOS 16.4 ou plus récent, depuis l'icône de l'écran d'accueil.</p>}
+      {etat === "refuse" && <p className="tb-note">Les notifications sont refusées sur ce téléphone : Réglages de l'iPhone → Notifications → Rebecca admin → Autoriser.</p>}
+      {etat === "pret" && !ceTel && <button className="tb-bouton" disabled={occupe} onClick={activer}>🔔 Recevoir les notifications sur ce téléphone</button>}
+      {etat === "pret" && ceTel && <p className="tb-note">✓ Ce téléphone reçoit les notifications. <button className="tb-bouton tb-clair" onClick={retirer}>Retirer ce téléphone</button></p>}
+      <label className="rg-case">
+        <input type="checkbox" checked={a.notifications === true} onChange={basculer} />
+        <span>{a.notifications === true ? `Activées (${nb} téléphone${nb > 1 ? "s" : ""})` : "Désactivées"}</span>
+      </label>
+      {a.notifications === true && nb > 0 && <button className="tb-bouton tb-clair" onClick={tester}>Envoyer un test</button>}
       {info && <p className="tb-note">{info}</p>}
     </div>
   );
@@ -71,6 +157,7 @@ export default function ReglagesAuto() {
 
   return (
     <>
+    <NotificationsTelephone />
     <AlerteDemandes />
     <div className="tb-bloc">
       <h3>Rappels envoyés tout seuls</h3>

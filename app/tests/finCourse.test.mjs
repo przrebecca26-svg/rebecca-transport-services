@@ -123,3 +123,17 @@ test("modifier les heures et le compteur après coup", () => {
   egal(r.champs["chrono.aller.kmDepose"], "");
   vrai(!!F.champsModifChrono(ar(), { depart: "8h" }).erreur);
 });
+
+section("Liste des demandes : état et argent d'un coup d'œil");
+test("aller fait, retour à faire", () => {
+  const d = { statut: "acceptee", details: { typeTrajet: "ar" }, allerFaitA: "10:40" };
+  egal(F.etatDansListe(d).label, "En cours · retour à faire");
+  egal(F.etatDansListe({ ...d, allerFaitA: "" }), null);
+  egal(F.etatDansListe({ statut: "acceptee" }), null);
+});
+test("payé, pourboire, reste", () => {
+  const mv = [{ resId: "a", kind: "paiement", montant: 120 }, { resId: "b", kind: "paiement", montant: 510 }];
+  egal(F.argentDansListe({ id: "a", statut: "acceptee", prixFinal: 600 }, mv), { du: 600, paye: 120, pourboire: 0, reste: 480, solde: false });
+  egal(F.argentDansListe({ id: "b", statut: "acceptee", prixFinal: 510, pourboire: 10 }, mv), { du: 510, paye: 510, pourboire: 10, reste: 0, solde: true });
+  egal(F.argentDansListe({ id: "c", statut: "en attente", prixFinal: 100 }, mv), null);
+});

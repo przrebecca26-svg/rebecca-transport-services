@@ -2,7 +2,7 @@
 import { test, egal, vrai, section } from "./outils.mjs";
 import {
   commissionCourse, reglagesCommission, ligneCourse, compteCoursier, bornesMois, bornesSemaine, bilanFinDeMois, estBloque,
-  documentsRequis, decision, peutPasser, erreursCandidature, peutRecevoir, accepter, terminer, messageReleve,
+  documentsRequis, decision, tableauCoursier, peutPasser, erreursCandidature, peutRecevoir, accepter, terminer, messageReleve,
 } from "../src/pricing/coursiers.js";
 
 section("Coursiers : commission");
@@ -107,4 +107,18 @@ test("photo de preuve obligatoire", () => {
   vrai(terminer(m, { moyen: "bit" }).erreur);
   vrai(terminer(m, { photo: "data:image/jpeg;base64,AAA" }).erreur);
   egal(terminer(m, { photo: "data:image/jpeg;base64,AAA", moyen: "especes", pourboire: "5" }).maj.pourboire, 5);
+});
+
+section("Coursiers : tableau de bord");
+test("parts, pourcentages et moyens de paiement", () => {
+  const t = tableauCoursier({ courses, ...bornesMois("2026-11") });
+  egal(t.totalBrut, 110);
+  egal(t.partCoursier, 95);
+  egal(t.partRebecca, 15);
+  egal(t.pctRebecca, 13.6);
+  egal(t.parMoyen.map((m) => [m.label, m.nombre, m.montant]), [["Espèces", 1, 40], ["Bit", 1, 70]]);
+  egal(t.lignes[0].id, "b");
+  egal(t.lignes[0].argent, "Gardé en espèces");
+  egal(t.lignes[1].partCoursier, 61);
+  egal(t.resteAPayer, 55);
 });

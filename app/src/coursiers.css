@@ -1,0 +1,39 @@
+/* Tableau de bord d'un coursier partenaire (18 nov. 2026) - charte G1, pense iPhone d'abord */
+.cc { display: flex; flex-direction: column; gap: 12px; color: var(--g-texte, #f8f3f1); font-family: var(--g-sans, system-ui); }
+.cc-mois { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px; }
+.cc-mois strong { font-family: var(--g-titre, inherit); font-size: 17px; text-transform: capitalize; }
+.cc-fleche { width: 40px; height: 40px; border-radius: 20px; border: 1px solid var(--g-bord, #b97870); background: transparent; color: var(--g-rose, #f1aeb7); font-size: 22px; cursor: pointer; }
+.cc-reste { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 18px; background: var(--g-carte, #191518); border: 1px solid var(--g-bord, #b97870); }
+.cc-reste span { font-size: 13px; color: var(--g-texte-2, #b9aeb0); }
+.cc-reste strong { font-family: var(--g-titre, inherit); font-size: 22px; }
+.cc-reste.a-payer strong { color: var(--g-rose, #f1aeb7); }
+.cc-reste.doit { border-color: var(--g-alerte, #d85a68); }
+.cc-reste.doit strong { color: var(--g-alerte, #d85a68); }
+.cc-reste.ok strong { color: var(--g-succes, #239b68); }
+.cc-tuiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (min-width: 700px) { .cc-tuiles { grid-template-columns: repeat(4, 1fr); } }
+.cc-tuile { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 14px; background: var(--g-carte, #191518); border: 1px solid rgba(185, 120, 112, 0.3); }
+.cc-tuile span { font-size: 12px; color: var(--g-texte-2, #b9aeb0); }
+.cc-tuile strong { font-family: var(--g-titre, inherit); font-size: 19px; }
+.cc-tuile em { font-style: normal; font-size: 11px; color: var(--g-texte-2, #b9aeb0); }
+.cc-bloc { padding: 14px; border-radius: 18px; background: var(--g-carte, #191518); border: 1px solid rgba(185, 120, 112, 0.3); }
+.cc-bloc h3 { margin: 0 0 10px; font-family: var(--g-titre, inherit); font-size: 15px; }
+.cc-barre { height: 10px; border-radius: 5px; background: var(--g-cuivre, #b97870); overflow: hidden; }
+.cc-barre i { display: block; height: 100%; background: var(--g-rose, #f1aeb7); }
+.cc-parts p { margin: 8px 0 0; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cc-pastille { width: 10px; height: 10px; border-radius: 5px; display: inline-block; }
+.cc-pastille.coursier { background: var(--g-rose, #f1aeb7); }
+.cc-pastille.rebecca { background: var(--g-cuivre, #b97870); }
+.cc-note, .cc-gris { color: var(--g-texte-2, #b9aeb0); font-size: 13px; }
+.cc-note { margin: 10px 0 0; }
+.cc-moyen { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 8px 0; border-top: 1px solid rgba(185, 120, 112, 0.2); font-size: 14px; }
+.cc-moyen:first-of-type { border-top: 0; }
+.cc-course { display: block; width: 100%; text-align: left; padding: 10px 0; background: none; border: 0; border-top: 1px solid rgba(185, 120, 112, 0.2); color: inherit; font: inherit; cursor: pointer; }
+.cc-course:first-of-type { border-top: 0; }
+.cc-ligne { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; font-size: 14px; }
+.cc-date { color: var(--g-texte-2, #b9aeb0); }
+.cc-badge { justify-self: start; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.cc-badge.especes { background: rgba(35, 155, 104, 0.18); color: #6fd3a5; }
+.cc-badge.rebecca { background: rgba(241, 174, 183, 0.16); color: var(--g-rose, #f1aeb7); }
+.cc-detail { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 2px 62px; font-size: 13px; }
+.cc-whatsapp { text-align: center; text-decoration: none; }

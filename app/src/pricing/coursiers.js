@@ -243,3 +243,41 @@ export function terminer(mission, { photo, pourboire = 0, moyen } = {}) {
   if (!Number.isFinite(p) || p < 0 || p > 1000) return { erreur: "Pourboire invalide." };
   return { erreur: "", maj: { statut: "terminee", photoPreuve: photo, pourboire: arrondi(p), moyen, termineeLe: new Date().toISOString() } };
 }
+
+/* ---------- Tableau de bord d'un coursier (18 nov. 2026, 12h27) ----------
+   Le même tableau pour le coursier et pour Rebecca (qui clique sur un coursier) :
+   chaque course avec son prix, son moyen de paiement, sa part et celle de Rebecca ;
+   ce qu'il a déjà en main (espèces), ce que Rebecca a encaissé pour lui, ce qui reste à lui payer. */
+export function tableauCoursier({ courses = [], reglements = [], debut, fin }) {
+  const c = compteCoursier({ courses, reglements, debut, fin });
+  const lignes = c.lignes
+    .map((l) => ({
+      ...l,
+      total: arrondi(l.prix + l.pourboire),
+      partCoursier: arrondi(l.prix + l.pourboire - l.commission),
+      partRebecca: l.commission,
+      argent: l.parRebecca ? "Encaissé par Rebecca" : "Gardé en espèces",
+      moyenLabel: (MOYENS.find((m) => m.id === l.moyen) || { label: "Non précisé" }).label,
+    }))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const parMoyen = MOYENS.map((m) => {
+    const ls = lignes.filter((l) => l.moyen === m.id);
+    return { id: m.id, label: m.label, nombre: ls.length, montant: arrondi(ls.reduce((s, l) => s + l.total, 0)) };
+  }).filter((m) => m.nombre > 0);
+  const totalBrut = arrondi(c.chiffre + c.pourboires);
+  const pct = (x) => (totalBrut > 0 ? Math.round((x / totalBrut) * 1000) / 10 : 0);
+  const partCoursier = arrondi(totalBrut - c.commissions);
+  return {
+    ...c,
+    lignes,
+    parMoyen,
+    totalBrut,
+    partCoursier,
+    partRebecca: c.commissions,
+    pctCoursier: pct(partCoursier),
+    pctRebecca: pct(c.commissions),
+    // reste à payer : > 0 Rebecca doit au coursier, < 0 le coursier doit à Rebecca
+    resteAPayer: c.solde,
+    bilan: bilanFinDeMois(c),
+  };
+}

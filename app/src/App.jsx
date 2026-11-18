@@ -5,7 +5,8 @@ import PartageRamassage from "./components/PartageRamassage.jsx";
 import { lireLienPartage, lireLienBienvenue } from "./pricing/partageRamassage.js";
 import BienvenueRamassage, { CLE_INVITATION } from "./components/BienvenueRamassage.jsx";
 import FavoriBouton from "./components/FavoriBouton.jsx";
-import { ACTIVITES, SERVICES, activitesVisibles, servicesDe } from "./services.js";
+import { ACTIVITES, FORMULAIRES, SERVICES, activitesVisibles, servicesDe } from "./services.js";
+import { trajetsHabituels } from "./pricing/habituels.js";
 import { prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 import { etatDisponibilite } from "./pricing/disponibilite.js";
 import { useFermetures } from "./fermetures.js";
@@ -163,6 +164,17 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
   const dispo = etatDisponibilite();
   const ouvert = compteOuvert(client);
   const favoris = ouvert && Array.isArray(client.profil.favoris) ? client.profil.favoris.filter((f) => SERVICES.some((s) => s.id === f.service && activitesVisibles(acces).some((a) => a.id === s.activite))) : [];
+  // 18 nov. 2026 : trajets habituels tires de son historique (réserver en 2 touches)
+  const uidClient = ouvert && client.user ? client.user.uid : "";
+  const [suivis, setSuivis] = useState([]);
+  useEffect(() => {
+    if (!uidClient) return setSuivis([]);
+    Promise.all([import("./firebase.js"), import("firebase/firestore")])
+      .then(([{ db }, { collection, getDocs, query, where }]) => getDocs(query(collection(db, "suivi"), where("uid", "==", uidClient))))
+      .then((s) => setSuivis(s.docs.map((x) => ({ id: x.id, ...x.data() }))))
+      .catch(() => setSuivis([]));
+  }, [uidClient]);
+  const habituels = trajetsHabituels(suivis, favoris, FORMULAIRES).filter((f) => SERVICES.some((s) => s.id === f.service && activitesVisibles(acces).some((a) => a.id === s.activite)));
 
   return (
     <>
@@ -185,6 +197,19 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
           👤 {ouvert ? "Bonjour " + client.profil.prenom : "Mon compte"}
         </button>
       </div>
+
+      {habituels.length > 0 && (
+        <section className="accueil-favoris">
+          <h3>🔁 Réserver à nouveau</h3>
+          <div>
+            {habituels.map((f, i) => (
+              <button key={"h" + i} type="button" onClick={() => onFavori(f)}>
+                {f.nom}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {favoris.length > 0 && (
         <section className="accueil-favoris">

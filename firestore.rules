@@ -1,4 +1,7 @@
 rules_version = '2';
+// Regles Rebecca Services v25 (18 novembre 2026, 22h30) = v24 + paiements en retard, demande sans reponse,
+//   vols en retard et bilan de la semaine : le robot lit aussi les depenses et Wolt (bilan) et note
+//   « retard signale », « bilan envoye » et l'etat des vols deja signales. Il n'ecrit rien d'autre.
 // Regles Rebecca Services v24 (18 novembre 2026, 22h) = v23 + notifications de tout ce qui se passe sur le site
 //   et de ma journee : le robot (Netlify) peut LIRE les commandes Epoxy, paiements annonces, devis Digital,
 //   candidatures coursiers, ramassages, recharges et avis, ainsi que ma tournee (admin/tournee, admin/tourneeJours).
@@ -605,11 +608,14 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dernierPassage", "detail"]);
       // v23 : le robot note que la notification de test est partie (jamais l'interrupteur)
       allow update: if id == "alerteDemandes" && estRobot()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["testFait", "vuJusqua", "soirFait", "matinFait"])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["testFait", "vuJusqua", "soirFait", "matinFait", "retardFait", "semaineFait", "volsSignales"])
         && request.resource.data.get("testFait", "") is string && request.resource.data.get("testFait", "").size() <= 40
         && request.resource.data.get("vuJusqua", "") is string && request.resource.data.get("vuJusqua", "").size() <= 40
         && request.resource.data.get("soirFait", "") is string && request.resource.data.get("soirFait", "").size() <= 10
-        && request.resource.data.get("matinFait", "") is string && request.resource.data.get("matinFait", "").size() <= 10;
+        && request.resource.data.get("matinFait", "") is string && request.resource.data.get("matinFait", "").size() <= 10
+        && request.resource.data.get("retardFait", "") is string && request.resource.data.get("retardFait", "").size() <= 10
+        && request.resource.data.get("semaineFait", "") is string && request.resource.data.get("semaineFait", "").size() <= 10
+        && request.resource.data.get("volsSignales", "") is string && request.resource.data.get("volsSignales", "").size() <= 2100;
     }
 
     // v23 : telephones abonnes aux notifications (Rebecca seule ; le robot lit et efface un telephone desabonne)
@@ -635,6 +641,7 @@ service cloud.firestore {
     // Depenses : Rebecca lit tout ; un coequipier ne lit et n'ajoute que les siennes ; jamais modifiees ni supprimees
     match /depenses/{id} {
       allow read: if estAdmin() || (estMembre() && resource.data.get("operateur", "") == request.auth.uid);
+      allow read: if estRobot();
       allow create: if gestion() && depenseValide();
       allow update, delete: if false;
     }
@@ -642,6 +649,7 @@ service cloud.firestore {
     // Autres revenus (Wolt) : Rebecca lit tout ; chacun ajoute, corrige et supprime SES lignes
     match /autresRevenus/{id} {
       allow read: if estAdmin() || (estMembre() && resource.data.get("operateur", "") == request.auth.uid);
+      allow read: if estRobot();
       allow create: if gestion() && autreRevenuForme() && request.resource.data.creeLe == request.time;
       allow update: if gestion() && autreRevenuAMoi(resource.data) && autreRevenuForme() && request.resource.data.creeLe == resource.data.creeLe;
       allow delete: if estAdmin() || autreRevenuAMoi(resource.data);

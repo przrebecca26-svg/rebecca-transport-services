@@ -78,3 +78,25 @@ test("alertes du site", () => {
   egal(messageSite("demandes", { source: "manuel" }), null);
   vrai(messageSite("demandes", { service: "nails", serviceTitre: "Nails" }).titre.includes("rendez-vous"));
 });
+
+import { paiementsEnRetard, demandesSansReponse, semainePassee, signalVol } from "../src/pricing/planningNotif.js";
+section("Suggestions : retards, attente, vols, semaine");
+test("paiement en retard après 3 jours seulement", () => {
+  const d = [{ id: "a", statut: "terminee", nom: "S", date: "2026-11-15", prixFinal: 100 }, { id: "b", statut: "terminee", nom: "L", date: "2026-11-16", prixFinal: 100 }];
+  egal(paiementsEnRetard(d, [], "2026-11-18").map((x) => x.d.id), ["a"]);
+  egal(paiementsEnRetard(d, [{ kind: "paiement", resId: "a", date: "2026-11-15", montant: 100 }], "2026-11-18").length, 0);
+});
+test("sans réponse depuis 2 h : une seule fois, jamais la nuit", () => {
+  const now = Date.parse("2026-11-18T12:00:00Z");
+  const d = [{ id: "x", statut: "en attente", creeLe: new Date(now - 2 * 3600000 - 30000).toISOString() }];
+  egal(demandesSansReponse(d, now).length, 1);
+  egal(demandesSansReponse(d, now + 120000).length, 0);
+  egal(demandesSansReponse(d, Date.parse("2026-11-18T22:00:00Z")).length, 0);
+});
+test("semaine passée de dimanche à samedi", () => egal(semainePassee("2026-11-22"), { debut: "2026-11-15", fin: "2026-11-21" }));
+test("vol : 15 min de retard ou annulé", () => {
+  const vol = { sens: "arrivee", date: "2026-11-19", heure: "10:00", numero: { compagnie: "LY", numero: "001" } };
+  egal(signalVol({ CHSTOL: "2026-11-19T10:00:00", CHPTOL: "2026-11-19T10:05:00", CHRMINE: "ON TIME" }, vol), null);
+  egal(signalVol({ CHSTOL: "2026-11-19T10:00:00", CHPTOL: "2026-11-19T10:45:00", CHRMINE: "DELAYED" }, vol).cle, "r45");
+  egal(signalVol({ CHSTOL: "2026-11-19T10:00:00", CHPTOL: "2026-11-19T10:00:00", CHRMINE: "CANCELED" }, vol).cle, "annule");
+});

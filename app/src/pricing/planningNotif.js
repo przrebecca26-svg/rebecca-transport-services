@@ -122,3 +122,88 @@ export function messageSite(collection, d) {
   const m = s && s.texte(d || {});
   return m ? { ...m, corps: String(m.corps || "").slice(0, 300), tag: `${collection}-${(d || {}).id || ""}`, lien: "/admin#/admin" } : null;
 }
+
+/* ---------- 18 nov. 2026 (22h25) : les 4 suggestions validées (« Toutes ») ---------- */
+import { resteDe } from "./finCourse.js";
+import { volDeLaCourse, choisirVol, etatDuVol, volConsultable } from "./vols.js";
+import { indicateursPeriode } from "./statistiques.js";
+
+const jj = (date) => String(date || "").split("-").reverse().slice(0, 2).join("/");
+const euros = (n) => `${Math.round(Number(n) || 0).toLocaleString("fr-FR").replace(/ | /g, " ")} ₪`;
+
+// 1. Paiements en retard : course terminée depuis 3 jours ou plus, il reste à encaisser (une alerte par jour, à 10h)
+export function paiementsEnRetard(demandes = [], mouvements = [], aujourdhui, jours = 3) {
+  const limite = ajouterJours(aujourdhui, -jours);
+  return demandes
+    .filter((d) => d && d.statut === "terminee")
+    .map((d) => {
+      const fin = estAllerRetour(d) && DATE_OK.test((d.details || {}).dateRetour || "") ? d.details.dateRetour : d.date;
+      return { d, fin, reste: resteDe(d, mouvements) };
+    })
+    .filter((x) => DATE_OK.test(x.fin || "") && x.fin <= limite && x.reste > 0)
+    .sort((a, b) => (a.fin < b.fin ? -1 : 1));
+}
+export function messageRetards(liste, aujourdhui) {
+  if (!liste.length) return null;
+  const total = liste.reduce((s, x) => s + x.reste, 0);
+  const lignes = liste.slice(0, 8).map((x) => `${court(x.d.nom, 25)} · ${euros(x.reste)} (course du ${jj(x.fin)})`);
+  return { titre: `💸 ${liste.length} paiement${liste.length > 1 ? "s" : ""} en retard · ${euros(total)}`, corps: lignes.join("\n") + (liste.length > 8 ? `\n+ ${liste.length - 8} autre(s)` : ""), tag: `retards-${aujourdhui}`, lien: "/admin#/admin" };
+}
+
+// 2. Demande sans réponse depuis 2 heures (une seule fois par demande ; jamais entre 22h et 7h)
+export function demandesSansReponse(demandes = [], maintenantMs, heures = 2, pas = 2) {
+  const { min } = maintenantIsrael(maintenantMs);
+  if (min < 7 * 60 || min >= 22 * 60) return [];
+  const debut = maintenantMs - heures * 3600000 - pas * 60000;
+  const fin = maintenantMs - heures * 3600000;
+  return demandes
+    .filter((d) => d && d.statut === "en attente" && d.source !== "manuel")
+    .filter((d) => { const t = Date.parse(d.creeLe || ""); return Number.isFinite(t) && t > debut && t <= fin; })
+    .map((d) => ({ titre: `⏳ Sans réponse depuis ${heures} h`, corps: `${court(d.serviceTitre || d.service, 30)} · ${court(d.nom, 30)}${d.date ? ` · ${jj(d.date)} ${hFr(d.heure)}` : ""} : la cliente attend ta réponse`, tag: `attente-${d.id}`, lien: "/admin#/admin" }));
+}
+export const nbEnAttente = (demandes = []) => demandes.filter((d) => d && d.statut === "en attente" && d.source !== "manuel").length;
+
+// 3. Vols en retard : les courses aéroport d'aujourd'hui et demain (aller et retour)
+export function volsASuivre(demandes = [], aujourdhui) {
+  const liste = [];
+  for (const d of demandes) {
+    if (!d || d.statut !== "acceptee" || d.service !== "aeroport") continue;
+    const v = d.details || {};
+    const lignes = [{ ...d }];
+    if (estAllerRetour(d) && DATE_OK.test(v.dateRetour || "")) lignes.push({ ...d, estRetour: true, date: v.dateRetour, heure: v.heureRetour || d.heure });
+    for (const x of lignes) {
+      const vol = volDeLaCourse(x);
+      if (vol && volConsultable(vol, aujourdhui) && x.date >= aujourdhui) liste.push({ cle: `${d.id}${x.estRetour ? "-r" : ""}`, vol, d: x });
+    }
+  }
+  return liste;
+}
+// Etat a signaler : null si a l'heure (moins de 15 min d'ecart). Sinon une cle courte (« r45 », « annule »)
+export function signalVol(ligne, vol) {
+  if (!ligne) return null;
+  const e = etatDuVol(ligne, vol);
+  if (/annul/i.test(e.etat)) return { cle: "annule", e };
+  if (e.ecartMinutes >= 15) return { cle: `r${Math.round(e.ecartMinutes / 15) * 15}`, e };
+  return null;
+}
+export function messageVol(x, s) {
+  return { titre: s.cle === "annule" ? "✈️ Vol annulé" : `✈️ Vol en retard · ${s.e.etat.replace("Retard de ", "+")}`, corps: `${court(x.d.nom, 30)} · ${x.vol.texte.toUpperCase()} · ${s.e.texte}`.slice(0, 300), tag: `vol-${x.cle}`, lien: "/admin#/admin" };
+}
+export { choisirVol };
+
+// 4. Bilan de la semaine (dimanche soir) : la semaine de dimanche à samedi qui vient de finir
+export function semainePassee(aujourdhui) {
+  const w = jourDe(aujourdhui); // 0 = dimanche
+  const fin = ajouterJours(aujourdhui, -(w + 1)); // samedi dernier
+  return { debut: ajouterJours(fin, -6), fin };
+}
+export function messageSemaine(aujourdhui, { demandes = [], mouvements = [], depenses = [], autresRevenus = [] } = {}) {
+  const p = semainePassee(aujourdhui);
+  const r = indicateursPeriode(p, { demandes, mouvements, depenses, autresRevenus });
+  return {
+    titre: `📊 Ta semaine du ${jj(p.debut)} au ${jj(p.fin)}`,
+    corps: [`Chiffre d'affaires ${euros(r.chiffreAffaires)} · ${r.courses} prestation${r.courses > 1 ? "s" : ""}`, `Encaissé ${euros(r.encaisse)} · Wolt ${euros(r.wolt)} · pourboires ${euros(r.pourboires)}`, `Dépenses ${euros(r.depenses)} · Bénéfice ${euros(r.benefice)}`].join("\n"),
+    tag: `semaine-${p.fin}`,
+    lien: "/admin#/admin",
+  };
+}

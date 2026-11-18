@@ -128,6 +128,10 @@ function NotificationsTelephone() {
             ["notifSoir", "📅 À 19h : le résumé de demain (courses, RDV, trajets scolaires, rappels WhatsApp)"],
             ["notifMatin", "☀️ À 7h : ma journée, course par course"],
             ["notifAvant", "⏰ 15 minutes avant chaque course, RDV, trajet scolaire ou tâche"],
+            ["notifAttente", "⏳ Une demande attend ma réponse depuis 2 heures (jamais la nuit)"],
+            ["notifRetard", "💸 Chaque jour vers 10h : les paiements en retard (course finie depuis 3 jours, reste à encaisser)"],
+            ["notifVols", "✈️ Le vol d'une cliente est en retard ou annulé"],
+            ["notifSemaine", "📊 Le dimanche à 20h : le bilan de ma semaine"],
           ].map(([cle, texte]) => (
             <label key={cle} className="rg-case">
               <input type="checkbox" checked={a[cle] !== false} onChange={() => setDoc(doc(db, "reglages", "alerteDemandes"), { [cle]: a[cle] === false, majLe: serverTimestamp() }, { merge: true }).catch(() => setInfo("Enregistrement impossible."))} />

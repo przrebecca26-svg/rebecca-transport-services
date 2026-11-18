@@ -10,7 +10,8 @@
 //   7h la journee du jour, et 15 minutes avant chaque course. Regles Firebase v24.
 import { SUJET_ALERTE, demandesASignaler, documentRest, texteAlerte } from "../../src/pricing/rappelsAuto.js";
 import { messageTest } from "../../src/pricing/notifications.js";
-import { SOURCES_SITE, maintenantIsrael, messageMatin, messageSite, messageSoir, rappelsAvant } from "../../src/pricing/planningNotif.js";
+import { SOURCES_SITE, maintenantIsrael, messageMatin, messageSite, messageSoir, rappelsAvant, paiementsEnRetard, messageRetards, demandesSansReponse, nbEnAttente, volsASuivre, signalVol, messageVol, choisirVol, semainePassee, messageSemaine } from "../../src/pricing/planningNotif.js";
+import { adresseRecherche } from "../../src/pricing/vols.js";
 import { envoyerNotification } from "../outils/webPush.mjs";
 
 export const config = { schedule: "*/2 * * * *" };
@@ -95,8 +96,8 @@ const depuis = (collectionId, quand, limite = 20) => ({
   orderBy: [{ field: { fieldPath: "creeLe" }, direction: "ASCENDING" }],
   limit: limite,
 });
-const entreDates = (champ, du, au) => ({
-  from: [{ collectionId: "demandes" }],
+const entreDates = (champ, du, au, collectionId = "demandes") => ({
+  from: [{ collectionId }],
   where: { compositeFilter: { op: "AND", filters: [
     { fieldFilter: { field: { fieldPath: champ }, op: "GREATER_THAN_OR_EQUAL", value: { stringValue: du } } },
     { fieldFilter: { field: { fieldPath: champ }, op: "LESS_THAN_OR_EQUAL", value: { stringValue: au } } },
@@ -181,12 +182,89 @@ export default async function alerteDemandes() {
     const veutSoir = reglage.notifSoir !== false && min >= 19 * 60 && min < 23 * 60 && reglage.soirFait !== aujourdhui;
     const veutMatin = reglage.notifMatin !== false && min >= 7 * 60 && min < 11 * 60 && reglage.matinFait !== aujourdhui;
     const veutAvant = reglage.notifAvant !== false;
-    if (veutSoir || veutMatin || veutAvant) {
+    if (veutSoir || veutMatin || veutAvant || (reglage.notifVols !== false && min % 10 < 2)) {
       const demain = new Date(Date.parse(`${aujourdhui}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
       const donnees = await donneesJournee(entetes, aujourdhui, demain);
       if (veutSoir) { messages.push(messageSoir(aujourdhui, donnees)); await noter(entetes, { soirFait: aujourdhui }); }
-      if (veutMatin) { messages.push(messageMatin(aujourdhui, donnees)); await noter(entetes, { matinFait: aujourdhui }); }
+      if (veutMatin) {
+        const m = messageMatin(aujourdhui, donnees);
+        const attente = await requete(entetes, { from: [{ collectionId: "demandes" }], where: { fieldFilter: { field: { fieldPath: "statut" }, op: "EQUAL", value: { stringValue: "en attente" } } } });
+        const n = nbEnAttente(attente || []);
+        if (n) m.corps = `${m.corps}\n⏳ ${n} demande${n > 1 ? "s" : ""} en attente de ta réponse`;
+        messages.push(m);
+        await noter(entetes, { matinFait: aujourdhui });
+      }
       if (veutAvant) messages.push(...rappelsAvant(maintenant, donnees));
+
+      // 3. Vols en retard (toutes les 10 minutes) : alerte seulement quand l'état change
+      if (reglage.notifVols !== false && min % 10 < 2) {
+        let signales = {};
+        try { signales = JSON.parse(reglage.volsSignales || "{}") || {}; } catch { signales = {}; }
+        const suite = {};
+        for (const x of volsASuivre(donnees.demandes, aujourdhui).slice(0, 6)) {
+          try {
+            const r = await fetch(adresseRecherche(x.vol.numero.numero));
+            const lignes = r.ok ? (((await r.json()).result || {}).records || []) : [];
+            const sig = signalVol(choisirVol(lignes, x.vol), x.vol);
+            if (sig) {
+              suite[x.cle] = sig.cle;
+              if (signales[x.cle] !== sig.cle) messages.push(messageVol(x, sig));
+            }
+          } catch (e) {
+            journal.push(`vol ${x.cle} : ${e.message}`);
+            if (signales[x.cle]) suite[x.cle] = signales[x.cle];
+          }
+        }
+        const texte = JSON.stringify(suite).slice(0, 2000);
+        if (texte !== JSON.stringify(signales)) await noter(entetes, { volsSignales: texte });
+      }
+    }
+
+    // 4. Demande sans réponse depuis 2 heures (une fois)
+    if (reglage.notifAttente !== false) {
+      const t0 = new Date(maintenant - 2 * 3600000 - 2 * 60000).toISOString();
+      const t1 = new Date(maintenant - 2 * 3600000).toISOString();
+      const recentes = await requete(entetes, { from: [{ collectionId: "demandes" }], where: { compositeFilter: { op: "AND", filters: [
+        { fieldFilter: { field: { fieldPath: "creeLe" }, op: "GREATER_THAN", value: { timestampValue: t0 } } },
+        { fieldFilter: { field: { fieldPath: "creeLe" }, op: "LESS_THAN_OR_EQUAL", value: { timestampValue: t1 } } },
+      ] } } });
+      messages.push(...demandesSansReponse(recentes || [], maintenant));
+    }
+
+    // 5. Paiements en retard (une fois par jour, à partir de 10h)
+    if (reglage.notifRetard !== false && min >= 10 * 60 && min < 20 * 60 && reglage.retardFait !== aujourdhui) {
+      const du = new Date(Date.parse(`${aujourdhui}T12:00:00Z`) - 60 * 86400000).toISOString().slice(0, 10);
+      const du90 = new Date(Date.parse(`${aujourdhui}T12:00:00Z`) - 90 * 86400000).toISOString().slice(0, 10);
+      const [a, b, mv] = await Promise.all([
+        requete(entetes, entreDates("date", du, aujourdhui)),
+        requete(entetes, entreDates("details.dateRetour", du, aujourdhui)),
+        requete(entetes, entreDates("date", du90, aujourdhui, "mouvements")),
+      ]);
+      if (a && mv) {
+        const vus = new Map([...(a || []), ...(b || [])].map((d) => [d.id, d]));
+        const m = messageRetards(paiementsEnRetard([...vus.values()], mv, aujourdhui), aujourdhui);
+        if (m) messages.push(m);
+        await noter(entetes, { retardFait: aujourdhui });
+      }
+    }
+
+    // 6. Bilan de la semaine : dimanche soir, à partir de 20h
+    const dimanche = new Date(`${aujourdhui}T12:00:00Z`).getUTCDay() === 0;
+    if (reglage.notifSemaine !== false && dimanche && min >= 20 * 60 && min < 23 * 60 && reglage.semaineFait !== aujourdhui) {
+      const p = semainePassee(aujourdhui);
+      const avant = new Date(Date.parse(`${p.debut}T12:00:00Z`) - 30 * 86400000).toISOString().slice(0, 10);
+      const [a, b, mv, dep, wolt] = await Promise.all([
+        requete(entetes, entreDates("date", avant, p.fin)),
+        requete(entetes, entreDates("details.dateRetour", p.debut, p.fin)),
+        requete(entetes, entreDates("date", p.debut, p.fin, "mouvements")),
+        requete(entetes, entreDates("date", p.debut, p.fin, "depenses")),
+        requete(entetes, entreDates("debut", p.debut, p.fin, "autresRevenus")),
+      ]);
+      if (a && mv) {
+        const vus = new Map([...(a || []), ...(b || [])].map((d) => [d.id, d]));
+        messages.push(messageSemaine(aujourdhui, { demandes: [...vus.values()], mouvements: mv, depenses: dep || [], autresRevenus: wolt || [] }));
+        await noter(entetes, { semaineFait: aujourdhui });
+      }
     }
 
     if (messages.length) {

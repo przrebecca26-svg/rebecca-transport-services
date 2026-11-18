@@ -25,6 +25,7 @@ import AvisPublics from "./components/AvisPublics.jsx";
 import PagePaiement from "./components/PagePaiement.jsx";
 import { lireLienPaye } from "./pricing/suiteClient.js";
 import { lireLienProjet } from "./pricing/digital.js";
+import { lireLienPartenaire } from "./pricing/partenaires.js";
 import LienPartenaire from "./components/LienPartenaire.jsx";
 import InstallerAppli from "./components/InstallerAppli.jsx";
 import "./client-commun.css";
@@ -38,6 +39,7 @@ const Legal = lazy(() => import("./Legal.jsx"));
 const DemandeDigital = lazy(() => import("./components/DemandeDigital.jsx"));
 const SuiviProjet = lazy(() => import("./components/SuiviProjet.jsx"));
 const DevenirPartenaire = lazy(() => import("./components/DevenirPartenaire.jsx"));
+const SuiviPartenaire = lazy(() => import("./components/SuiviPartenaire.jsx"));
 const enAdmin = () => window.location.hash.startsWith("#/admin");
 
 // Mise en page des espaces (sans toucher aux fichiers CSS deja en place)
@@ -372,6 +374,7 @@ export default function App() {
   const [lienPayeVu, setLienPayeVu] = useState(() => lireLienPaye(window.location.hash));
   const [lienProjetVu, setLienProjetVu] = useState(() => lireLienProjet(window.location.hash));
   const [lienPartenaire, setLienPartenaire] = useState(() => window.location.hash === "#/partenaire");
+  const [suiviPartenaire, setSuiviPartenaire] = useState(() => lireLienPartenaire(window.location.hash));
   useEffect(() => {
     const suivre = () => {
       setAdmin(enAdmin());
@@ -381,6 +384,7 @@ export default function App() {
       setLienPayeVu(lireLienPaye(window.location.hash));
       setLienProjetVu(lireLienProjet(window.location.hash));
       setLienPartenaire(window.location.hash === "#/partenaire");
+      setSuiviPartenaire(lireLienPartenaire(window.location.hash));
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -435,6 +439,7 @@ export default function App() {
     window.location.hash = "";
     setLienProjetVu(null);
     setLienPartenaire(false);
+    setSuiviPartenaire("");
     aller({ nom: "accueil" });
   };
   if (lienProjetVu)
@@ -443,6 +448,16 @@ export default function App() {
         <main>
           <Suspense fallback={chargement}>
             <SuiviProjet id={lienProjetVu} onAccueil={quitterLien} />
+          </Suspense>
+        </main>
+      </div>
+    );
+  if (suiviPartenaire)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            <SuiviPartenaire id={suiviPartenaire} onAccueil={quitterLien} />
           </Suspense>
         </main>
       </div>

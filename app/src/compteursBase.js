@@ -33,7 +33,7 @@ export function useCompteurs(role) {
   const recharges = useCompte(admin, () => query(collection(db, "recharges"), where("statut", "==", "en attente")));
   // 17 nov. 2026 : nouvelles demandes de devis Digital et nouvelles candidatures de partenaires
   const digital = useCompte(admin, () => query(collection(db, "projetsDigital"), where("statut", "==", "nouvelle")));
-  const partenaires = useCompte(admin, () => query(collection(db, "candidaturesPartenaires"), where("statut", "==", "nouvelle")));
+  const partenaires = useCompte(admin, () => query(collection(db, "candidaturesPartenaires"), where("statut", "in", ["nouvelle", "soumis"])));
   // 17 nov. 2026 : rappels, avis, relances et recus a faire (onglet Aujourd'hui du Tableau de bord)
   const [aFaire, setAFaire] = useState(0);
   useEffect(() => {

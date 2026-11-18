@@ -9,7 +9,7 @@ export const config = { schedule: "*/5 * * * *" };
 const CLE_API = "AIzaSyDZOjiRg9tgHo620Dqw1PYJuBciJ80Enmg"; // cle publique du site (non secrete)
 const BASE = "https://firestore.googleapis.com/v1/projects/rebecca-transport/databases/(default)/documents";
 const EMAILJS = { service: "service_apqztvn", cle: "bdJTayNK-YJyKZ79V" };
-const SITE = "https://rebecca-services-netanya.netlify.app";
+const SITE = "https://rebeccaservices.com"; // 18 nov. 2026 : nom de domaine
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const echapper = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const enHtml = (t) => echapper(String(t || "").slice(0, 3000)).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>').replace(/\n/g, "<br>");

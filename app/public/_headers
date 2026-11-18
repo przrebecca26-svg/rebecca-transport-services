@@ -1,3 +1,15 @@
+# 18 nov. 2026 (securite) : protections pour toutes les pages du site
+#   - frame-ancestors 'none' + X-Frame-Options : aucun autre site ne peut afficher le site en cachette (piege au clic)
+#   - nosniff : le navigateur ne devine jamais le type d'un fichier
+#   - Referrer-Policy : les autres sites ne voient que « rebeccaservices.com », jamais le lien complet
+#     (liens personnels #/paye, #/partage...) ; la cle Google reconnait toujours le site
+#   - Permissions-Policy : position et appareil photo seulement pour le site lui-meme ; micro et paiement du navigateur coupes
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), camera=(self), microphone=(), payment=()
 # 17 nov. 2026 : la page principale est toujours redemandee (jamais l'ancienne version apres une publication)
 /
   Cache-Control: no-cache

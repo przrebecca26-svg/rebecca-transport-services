@@ -4,6 +4,8 @@ import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { FILTRES, compterOrigines, construireFiches, estSansCompte, filtrer, telNormalise } from "./pricing/clients.js";
 import { LIBELLE_ORIGINE } from "./pricing/ajoutManuel.js";
+import { messageRelance } from "./pricing/finCourse.js";
+import { lienWhatsApp } from "./pricing/navigation.js";
 import FicheClient from "./FicheClient.jsx";
 import AjoutManuel from "./AjoutManuel.jsx";
 import "./clients.css";
@@ -85,7 +87,9 @@ export default function Clients({ aller, cible }) {
     );
   }
 
-  const visibles = filtrer(fiches, filtre, texte);
+  const filtres = filtrer(fiches, filtre, texte);
+  // 👑 Fidèles : celles qui reviennent le plus (puis qui rapportent le plus) en premier
+  const visibles = filtre === "fideles" ? [...filtres].sort((a, b) => b.stats.nbTerminees - a.stats.nbTerminees || b.stats.chiffreAffaires - a.stats.chiffreAffaires) : filtres;
   const compte = (id) => filtrer(fiches, id, "").length;
   const origines = compterOrigines(fiches);
 
@@ -114,10 +118,14 @@ export default function Clients({ aller, cible }) {
         <p className="tb-note cl-origines">D'où viennent mes clients : {origines.map(([o, n]) => `${LIBELLE_ORIGINE[o] || o} ${n}`).join(" · ")}</p>
       )}
 
+      {filtre === "fideles" && <p className="tb-note">Clientes avec au moins 3 prestations terminées, de la plus fidèle à la moins fidèle.</p>}
+      {filtre === "perdues" && <p className="tb-note">Clientes sans rien depuis plus de 2 mois et sans rien de prévu : un message prêt pour les relancer.</p>}
       {visibles.length === 0 && <p className="admin-texte tb-pad">Aucun client trouvé.</p>}
 
       {visibles.map((f) => (
-        <button key={f.cle} className="tb-carte" onClick={() => setOuverte(f.cle)}>
+        <div key={f.cle}>
+        {filtre === "fideles" && <p className="tb-note" style={{ margin: "6px 0 0" }}>👑 {f.stats.nbTerminees} prestations · {Math.round(f.stats.chiffreAffaires)} ₪</p>}
+        <button className="tb-carte" onClick={() => setOuverte(f.cle)}>
           <span className="tb-ligne">
             <strong>{f.nom}</strong>
             <span className="cl-badges">
@@ -139,6 +147,10 @@ export default function Clients({ aller, cible }) {
             {f.stats.resteAPayer > 0 && <strong className="cl-reste">reste {Math.round(f.stats.resteAPayer)} ₪</strong>}
           </span>
         </button>
+        {filtre === "perdues" && f.telephone && f.demandes[0] && (
+          <a className="tb-bouton tb-clair" style={{ display: "inline-block", margin: "4px 0 8px" }} href={lienWhatsApp(f.telephone, messageRelance(f.demandes.find((d) => d.statut === "terminee") || f.demandes[0])) || "#"} target="_blank" rel="noreferrer">💬 Relancer sur WhatsApp</a>
+        )}
+        </div>
       ))}
     </section>
   );

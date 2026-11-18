@@ -97,7 +97,11 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     }
     setEnCours(false);
   };
-  const cocher = (etape) => enregistrer(champsEtape(d, etape, heureIsrael(), moi));
+  // Course déposée (ou RDV beauté fait) avec un reste à encaisser : la caisse s'ouvre toute seule, montant déjà rempli
+  const cocher = async (etape) => {
+    await enregistrer(champsEtape(d, etape, heureIsrael(), moi));
+    if (etape === "depose" && reste > 0) { setMerci(false); setCaisse(caisseVide()); }
+  };
   const lienEnRoute = c.depart && !c.prise ? lienWhatsApp(d.telephone, messageEnRoute(d)) : null;
   const finTrajet = fait && trajet !== "aller";
   const texteSms = messagePaiement(d, reste, liensPaiement);
@@ -106,10 +110,14 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const lienAvis = finTrajet && !d.avisDemandeLe ? lienWhatsApp(d.telephone, messageAvis(d)) : null;
   const annuler = () => enregistrer(champsAnnulerEtape(d));
 
+  // 18 nov. 2026 (suggestion validée) : encaisser en un geste. Le moyen choisi par la cliente est proposé d'office.
+  const moyenDefaut = TARIFS.moyensEncaissement.includes(d.moyenPaiement) ? d.moyenPaiement : TARIFS.moyensPaiement[0];
+  const moyensRapides = [...new Set([moyenDefaut, "Espèces", "Bit"])].filter((m) => TARIFS.moyensEncaissement.includes(m)).slice(0, 3);
+  const caisseVide = () => ({ recu: reste > 0 ? String(reste) : "", pourboire: "", ajout: "", moyen: moyenDefaut });
   const ouvrirCaisse = () => {
     setMerci(false);
     setErreur("");
-    setCaisse(caisse ? null : { recu: reste > 0 ? String(reste) : "", pourboire: "", ajout: "", moyen: TARIFS.moyensPaiement[0] });
+    setCaisse(caisse ? null : caisseVide());
   };
   // 17 nov. 2026, 14h29 : une partie d'un paiement deja saisi etait un pourboire -> correction negative + pourboire
   const passerEnPourboire = async () => {
@@ -129,8 +137,8 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     }
     setEnCours(false);
   };
-  const encaisser = async () => {
-    const r = preparerEncaissement(d, caisse, aujourdhui);
+  const encaisser = async (saisie = caisse) => {
+    const r = preparerEncaissement(d, saisie, aujourdhui);
     if (r.erreur) return setErreur(r.erreur);
     const paiement = r.paiement ? { ...r.paiement, ...champOperateur(moi) } : null;
     const err = paiement ? validerMouvement(paiement) : "";
@@ -172,6 +180,14 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       {trajet === "aller" && v.dateRetour && <p className="tb-note">Retour prévu le {v.dateRetour.split("-").reverse().join("/")}{v.heureRetour ? ` à ${v.heureRetour.replace(":", "h")}` : ""}.</p>}
       {caisse && (
         <div className="ag-etape-actions">
+          {reste > 0 && (
+            <div className="tb-actions">
+              {moyensRapides.map((m) => (
+                <button key={m} type="button" className="tb-bouton" disabled={enCours} onClick={() => encaisser({ recu: String(reste), pourboire: "", ajout: "", moyen: m })}>⚡ Payé {reste} ₪ · {m}</button>
+              ))}
+            </div>
+          )}
+          <p className="tb-note">Ou en détail (autre montant, pourboire, ajout) :</p>
           <p className="tb-note">Prix {trajet === "simple" ? "de la course" : "de l'aller-retour"} : {prixDe(d)} ₪{Number(d.ajustement) ? ` (ajout / déduction ${d.ajustement > 0 ? "+" : ""}${d.ajustement} ₪ → ${duDe(d)} ₪)` : ""} · déjà encaissé : {encaisseDe(mouvements, d.id)} ₪ · reste : {reste} ₪</p>
           <label className="ag-champ">Reçu pour la course (₪)<input type="text" inputMode="decimal" value={caisse.recu} onChange={(x) => setCaisse({ ...caisse, recu: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="ag-champ">Ajout / déduction (₪) — supplément pas prévu (ex. 20) ou remise (ex. -20)<input type="text" inputMode="text" value={caisse.ajout} onChange={(x) => setCaisse({ ...caisse, ajout: x.target.value.replace(/[^0-9.,\-−]/g, "") })} placeholder="0" /></label>
@@ -182,7 +198,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
             </select>
           </label>
           <div className="tb-actions">
-            <button type="button" className="tb-bouton" disabled={enCours} onClick={encaisser}>{enCours ? "Enregistrement…" : "Valider le paiement"}</button>
+            <button type="button" className="tb-bouton" disabled={enCours} onClick={() => encaisser()}>{enCours ? "Enregistrement…" : "Valider le paiement"}</button>
           </div>
           {encaisseDe(mouvements, d.id) > 0 && (
             <>

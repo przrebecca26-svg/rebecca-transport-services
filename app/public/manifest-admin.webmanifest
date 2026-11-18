@@ -1,0 +1,25 @@
+{
+  "id": "/?admin=1",
+  "name": "Rebecca admin",
+  "short_name": "Rebecca admin",
+  "description": "Espace privé de Rebecca Services : demandes, agenda, finances.",
+  "lang": "fr",
+  "start_url": "/?admin=1#/admin",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf6f2",
+  "theme_color": "#141214",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

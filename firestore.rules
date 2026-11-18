@@ -1,4 +1,8 @@
 rules_version = '2';
+// Regles Rebecca Services v23 (18 novembre 2026, soir) = v22 + notifications sur le telephone :
+//   - notificationsPush : chaque telephone de Rebecca abonne aux notifications (icone « Rebecca admin »).
+//     Rebecca seule ajoute ou retire un telephone ; le robot (Netlify) les lit et efface un telephone desabonne.
+//   - reglages/alerteDemandes : le robot note seulement « notification de test envoyee » (testFait).
 // Regles Rebecca Services v22 (18 novembre 2026, securite) = v21 + reglages/rentabilite (minimum en ₪ par heure)
 //   n'est plus lisible par tout le monde : seulement par Rebecca et l'equipe. Rien d'autre ne change.
 // Regles Rebecca Services v21 (18 novembre 2026) = v20 + coursiers partenaires, etape 3 :
@@ -593,6 +597,23 @@ service cloud.firestore {
       // v19 : le robot note son dernier passage (jamais l'interrupteur « actif »)
       allow update: if id == "rappelsAuto" && estRobot()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dernierPassage", "detail"]);
+      // v23 : le robot note que la notification de test est partie (jamais l'interrupteur)
+      allow update: if id == "alerteDemandes" && estRobot()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["testFait"])
+        && request.resource.data.testFait is string && request.resource.data.testFait.size() <= 30;
+    }
+
+    // v23 : telephones abonnes aux notifications (Rebecca seule ; le robot lit et efface un telephone desabonne)
+    match /notificationsPush/{id} {
+      allow read: if estAdmin() || estRobot();
+      allow delete: if estAdmin() || estRobot();
+      allow create, update: if estAdmin()
+        && request.resource.data.keys().hasOnly(["endpoint", "p256dh", "auth", "appareil", "creeLe"])
+        && request.resource.data.endpoint is string && request.resource.data.endpoint.size() <= 1000
+        && request.resource.data.endpoint.matches("https://.*")
+        && request.resource.data.p256dh is string && request.resource.data.p256dh.size() <= 200
+        && request.resource.data.auth is string && request.resource.data.auth.size() <= 100
+        && request.resource.data.appareil is string && request.resource.data.appareil.size() <= 80;
     }
 
     // Mouvements financiers : on peut lire et AJOUTER, jamais modifier ni supprimer

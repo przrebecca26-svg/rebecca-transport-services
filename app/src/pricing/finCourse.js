@@ -261,7 +261,9 @@ export function essenceTrajet(d, carburant = CARBURANT, parKm = null) {
 
 /* ---------- Autres messages : en route, avis ---------- */
 export function messageEnRoute(d, maintenant = heureMaintenant()) {
-  const prevue = HEURE_OK.test(d.heure || "") && d.heure > maintenant ? d.heure : "";
+  // 18 nov. 2026 : l'heure d'arrivee calculee au depart (position + temps de route) passe avant l'heure prevue
+  const eta = Object.values(d.arriveeEstimee || {}).find((h) => HEURE_OK.test(h || "") && h > maintenant);
+  const prevue = eta || (HEURE_OK.test(d.heure || "") && d.heure > maintenant ? d.heure : "");
   return [
     bonjour(d),
     `Je suis en route 🚗 ${prevue ? `J'arrive vers ${heureFr(prevue)}.` : "J'arrive dans quelques minutes."}`,

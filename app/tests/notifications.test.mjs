@@ -124,3 +124,23 @@ test("trajets habituels : sans doublon, sans les favoris, sans les annulés", ()
   egal("date" in r[0].details, false);
   egal(trajetsHabituels(s, [{ service: "aeroport", details: a("Maison, Netanya") }], F).length, 0);
 });
+
+import { genererCode, CODE_OK, normaliserCode, validerCarte, nouvelleCarte, utiliserCarte, lireLienCarte } from "../src/pricing/cartesCadeaux.js";
+section("Cartes cadeaux");
+test("code, lien et saisie du code", () => {
+  vrai(CODE_OK.test(genererCode()));
+  egal(normaliserCode("rs abcd 2345"), "RS-ABCD-2345");
+  egal(lireLienCarte("#/cadeau/AbCdEf1234567890xyzW"), "AbCdEf1234567890xyzW");
+  egal(lireLienCarte("#/cadeau"), null);
+});
+test("commande valide et solde qui baisse", () => {
+  const f = { montant: "150", idee: "Soin Nails", acheteurNom: "Léa", acheteurTel: "0541234567", pourNom: "Maman", moyen: "Bit" };
+  egal(Object.keys(validerCarte(f)).length, 0);
+  egal(Object.keys(validerCarte({ ...f, montant: "5" })), ["montant"]);
+  const c = { ...nouvelleCarte(f, "RS-AAAA-BBBB"), statut: "active" };
+  const u = utiliserCarte(c, 100, "2026-11-20", "d1");
+  egal([u.solde, u.statut, u.utilisations.length], [50, "active", 1]);
+  egal(utiliserCarte({ ...c, ...u }, 50, "2026-11-21").statut, "utilisee");
+  vrai(!!utiliserCarte({ ...c, ...u }, 60, "2026-11-21").erreur);
+  vrai(!!utiliserCarte({ ...c, statut: "a_payer" }, 10, "x").erreur);
+});

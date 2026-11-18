@@ -12,6 +12,15 @@ import { rafraichir } from "./client.js";
 // Espace entre les boutons et liens (Refaire, Modifier, Annuler, Favori)
 const BOUTONS = { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 18px" };
 
+// 18 nov. 2026 : minutes avant l'arrivee prevue de Rebecca (le jour meme), sinon 0
+function minutesAvant(heure, date) {
+  if (!/^\d{2}:\d{2}$/.test(heure || "")) return 0;
+  const jour = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+  if (date && date !== jour) return 0;
+  const [h, m] = new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hour12: false }).split(":").map(Number);
+  return Math.max(0, Number(heure.slice(0, 2)) * 60 + Number(heure.slice(3)) - (h * 60 + m));
+}
+
 // "Mon historique" : demandes, statuts, paiements. Refaire / modifier / annuler une demande. Avis, etoiles et pourboire apres chaque course.
 
 const millis = (t) => (t && typeof t.toMillis === "function" ? t.toMillis() : 0);
@@ -167,6 +176,7 @@ export default function CompteHistorique({ client, onRefaire, onModifier }) {
               {dateFr(d.date)} à {d.heure}
             </p>
             {d.avancement && <p className="hist-paye">🚗 {d.avancement}</p>}
+            {d.avancement && /en route/i.test(d.avancement) && minutesAvant(d.arriveeEstimee, d.date) > 0 && <p className="hist-paye">⏱️ Arrivée dans {minutesAvant(d.arriveeEstimee, d.date)} min environ</p>}
             <p className="hist-prix">
               {prixAffiche(d)}
               {d.remise > 0 && <small> · code {d.codePromo} (−{d.remise} ₪)</small>}

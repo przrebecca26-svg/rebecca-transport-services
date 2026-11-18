@@ -28,6 +28,7 @@ import { useCompteurs } from "./compteursBase.js";
 import SyncComptes from "./comptesBase.js";
 import ComptesEntreNous from "./ComptesEntreNous.jsx";
 import Statistiques, { Rapports } from "./Statistiques.jsx";
+import CartesCadeauxAdmin from "./components/CartesCadeauxAdmin.jsx";
 import CodesPromo from "./CodesPromo.jsx";
 import Reglages from "./Reglages.jsx";
 import EquipeAdmin, { MesModes, MesReglages, MesVehicules } from "./EquipeAdmin.jsx";
@@ -207,8 +208,9 @@ function ClientsEtPromos({ aller, cible, sousOnglet }) {
       <div className="tdb-sous-onglets">
         <button className={"tdb-pil" + (vue === "clients" ? " actif" : "")} onClick={() => setVue("clients")}>Clients</button>
         <button className={"tdb-pil" + (vue === "promos" ? " actif" : "")} onClick={() => setVue("promos")}>Codes promo</button>
+        <button className={"tdb-pil" + (vue === "cadeaux" ? " actif" : "")} onClick={() => setVue("cadeaux")}>🎁 Cartes cadeaux</button>
       </div>
-      {vue === "clients" ? <Clients key={"c" + (cible || "")} aller={aller} cible={cible} /> : <CodesPromo aller={aller} />}
+      {vue === "clients" ? <Clients key={"c" + (cible || "")} aller={aller} cible={cible} /> : vue === "cadeaux" ? <CartesCadeauxAdmin /> : <CodesPromo aller={aller} />}
     </>
   );
 }

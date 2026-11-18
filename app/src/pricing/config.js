@@ -235,7 +235,7 @@ export const TARIFS = {
   // Pas de paiement en ligne au lancement : on enregistre seulement le moyen et les sommes
   moyensPaiement: ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement"],
   // 17 nov. 2026 (regles v18) : moyens que Rebecca peut noter a l'encaissement (PayPal en plus des choix des clientes)
-  moyensEncaissement: ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement", "PayPal"],
+  moyensEncaissement: ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement", "PayPal", "Carte cadeau"], // 18 nov. 2026 : carte cadeau (code RS-XXXX-XXXX)
 };
 
 // Cout du kilometre = carburant + usure du vehicule

@@ -116,11 +116,13 @@ export const SOURCES_SITE = [
   { collection: "trajetsPartages", texte: (d) => ({ titre: "🎒 Demande de ramassage scolaire", corps: `${((d.familles || [])[0] || {}).nom || "Une famille"}${(d.familles || []).length > 1 ? ` + ${(d.familles || []).length - 1} famille(s)` : ""}` }) },
   { collection: "recharges", texte: (d) => ({ titre: "💳 Recharge de crédit annoncée", corps: `${d.montant} ₪ par ${d.moyen} · à confirmer` }) },
   { collection: "avis", texte: (d) => ({ titre: "⭐ Nouvel avis", corps: `${"★".repeat(Math.max(1, Math.min(5, d.etoiles || 5)))} ${court(d.commentaire, 120)}` }) },
+  { collection: "cartesCadeaux", texte: (d) => ({ titre: "🎁 Carte cadeau commandée", corps: `${d.montant} ₪ pour ${court(d.pourNom, 30)} · de ${court(d.acheteurNom, 30)} · paiement ${d.moyen}` }) },
+  { collection: "cartesCadeaux", champ: "annonceLe", cle: "cartesCadeauxPaye", texte: (d) => ({ titre: "💰 Carte cadeau payée (à confirmer)", corps: `${d.montant} ₪ par ${d.moyen} · ${court(d.acheteurNom, 30)} pour ${court(d.pourNom, 30)}` }) },
 ];
-export function messageSite(collection, d) {
-  const s = SOURCES_SITE.find((x) => x.collection === collection);
+export function messageSite(collection, d, cle = "") {
+  const s = SOURCES_SITE.find((x) => (cle ? x.cle === cle : x.collection === collection && !x.cle));
   const m = s && s.texte(d || {});
-  return m ? { ...m, corps: String(m.corps || "").slice(0, 300), tag: `${collection}-${(d || {}).id || ""}`, lien: "/admin#/admin" } : null;
+  return m ? { ...m, corps: String(m.corps || "").slice(0, 300), tag: `${cle || collection}-${(d || {}).id || ""}`, lien: "/admin#/admin" } : null;
 }
 
 /* ---------- 18 nov. 2026 (22h25) : les 4 suggestions validées (« Toutes ») ---------- */

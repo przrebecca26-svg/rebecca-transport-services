@@ -7,6 +7,7 @@ import { TYPES, decaler, libelle, periodeDe, suivantPossible } from "./pricing/b
 import { journalCsv, joursEntre, nomFichier, sauvegardeJson } from "./pricing/sauvegarde.js";
 import { faitPar } from "./pricing/reverser.js";
 import { lignesDe } from "./pricing/equipe.js";
+import SauvegardesAuto from "./components/SauvegardesAuto.jsx";
 import "./paiements.css";
 import "./depenses.css";
 import "./bilan.css";
@@ -208,6 +209,7 @@ export default function Bilan({ personne = "tous" }) {
             Journal des comptes (tableur)
           </button>
         </div>
+        <SauvegardesAuto />
         {erreurFichier && (
           <p className="admin-erreur" role="alert">
             {erreurFichier}

@@ -150,7 +150,11 @@ export function avancementDe(d) {
   const t = d && d.details && d.details.typeTrajet === "ar" ? (c.retour && Object.values(c.retour).some(Boolean) ? "retour" : "aller") : "simple";
   const x = c[t] || {};
   for (const id of ["maison", "depose", "prise", "depart"]) {
-    if (/^\d{2}:\d{2}$/.test(x[id] || "")) return `${t === "simple" ? "" : t === "aller" ? "Aller : " : "Retour : "}${TEXTES_AVANCEMENT[id]} à ${heureFr(x[id])}`;
+    if (/^\d{2}:\d{2}$/.test(x[id] || "")) {
+      // 18 nov. 2026 : suivi en direct, heure d'arrivee calculee au depart (position de Rebecca + temps de route)
+      const eta = id === "depart" && /^\d{2}:\d{2}$/.test((d.arriveeEstimee || {})[t] || "") ? ` · arrivée prévue vers ${heureFr(d.arriveeEstimee[t])}` : "";
+      return `${t === "simple" ? "" : t === "aller" ? "Aller : " : "Retour : "}${TEXTES_AVANCEMENT[id]} à ${heureFr(x[id])}${eta}`;
+    }
   }
   return "";
 }

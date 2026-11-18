@@ -400,6 +400,11 @@ export function valider(service, v) {
     }
   }
   Object.assign(erreurs, validerPassager(v));
+  // 19 nov. 2026 (tests) : un retour avant l'aller etait accepte (ex. aller le 20 a 9h, retour le 19 a 10h20)
+  if (v.typeTrajet === "ar" && /^\d{4}-\d{2}-\d{2}$/.test(v.date || "") && /^\d{4}-\d{2}-\d{2}$/.test(v.dateRetour || "")
+    && `${v.dateRetour}T${v.heureRetour || "23:59"}` <= `${v.date}T${v.heure || "00:00"}`) {
+    erreurs.dateRetour = "Le retour doit être après l'aller : vérifiez la date et l'heure du retour.";
+  }
   if (service === "ramassage" && v.frequence === "semaine" && ![0, 1, 2, 3, 4, 5].some((i) => v["jour" + i])) erreurs.jour0 = "Choisissez au moins un jour.";
   if (v.telephone && String(v.telephone).replace(/\D/g, "").length < 9) erreurs.telephone = "Numéro de téléphone trop court.";
   if (v.telDestinataire && String(v.telDestinataire).replace(/\D/g, "").length < 9) erreurs.telDestinataire = "Numéro de téléphone trop court.";

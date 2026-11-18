@@ -113,3 +113,11 @@ test("3 passagers : vrai supplement, pas « offert »", () => {
   const m = R.messageDevis("aeroport", v3, calculer(S.versDemande("aeroport", v3, { km: 40, minutes: 35 }, MAINTENANT)));
   vrai(m.includes("en plus") && !m.includes("offert"), m);
 });
+
+// 19 nov. 2026 (tests) : le retour ne peut pas etre avant l'aller
+test("aller-retour : retour avant l'aller refusé", () => {
+  const base = { typeTrajet: "ar", date: "2026-11-20", heure: "09:00" };
+  vrai(!!S.valider("transport", { ...base, dateRetour: "2026-11-19", heureRetour: "10:20" }).dateRetour);
+  vrai(!!S.valider("transport", { ...base, dateRetour: "2026-11-20", heureRetour: "08:00" }).dateRetour);
+  egal(S.valider("transport", { ...base, dateRetour: "2026-11-20", heureRetour: "18:00" }).dateRetour, undefined);
+});

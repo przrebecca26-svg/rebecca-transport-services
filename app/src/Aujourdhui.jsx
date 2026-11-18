@@ -1,3 +1,4 @@
+import { exportARappeler } from "./pricing/statistiques.js";
 import { retourAutreJour } from "./pricing/enchainement.js";
 import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID, attribueA } from "./pricing/equipe.js";
@@ -280,6 +281,39 @@ function AFaire({ demandes, mouvements, jour }) {
   );
 }
 
+// 18 nov. 2026 (suggestion validée) : du 1er au 5 du mois, rappel d'envoyer l'export du mois précédent au comptable
+const MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+function RappelComptable({ jour, aller }) {
+  const r = exportARappeler(jour);
+  const cle = r ? `rs-export-comptable-${r.mois}` : "";
+  const [fait, setFait] = useState(() => {
+    try {
+      return !!(cle && localStorage.getItem(cle));
+    } catch {
+      return false;
+    }
+  });
+  if (!r || fait) return null;
+  const marquer = () => {
+    try {
+      localStorage.setItem(cle, "1");
+    } catch {
+      /* sans importance */
+    }
+    setFait(true);
+  };
+  return (
+    <section className="tdb-bloc">
+      <p className="aj-sous-titre">📦 Export de {MOIS_FR[Number(r.mois.slice(5, 7)) - 1]} pour le comptable</p>
+      <p className="tb-note">Rapports et exports → choisis « Mois », un jour de {MOIS_FR[Number(r.mois.slice(5, 7)) - 1]}, puis « 📦 Tout pour le comptable ».</p>
+      <div className="tb-actions">
+        {aller && <button className="tb-bouton" onClick={() => aller("rapports")}>Ouvrir les rapports</button>}
+        <button className="tb-bouton tb-clair" onClick={marquer}>C'est envoyé</button>
+      </div>
+    </section>
+  );
+}
+
 export default function Aujourdhui({ aller }) {
   const [demandes, setDemandes] = useState(null);
   const [mouvements, setMouvements] = useState(null);
@@ -382,6 +416,7 @@ export default function Aujourdhui({ aller }) {
         </div>
       )}
 
+      {!equipier && <RappelComptable jour={jour} aller={aller} />}
       {!equipier && <AFaire demandes={demandes} mouvements={mouvements} jour={jour} />}
 
       {vue.aCloturer.length > 0 && (

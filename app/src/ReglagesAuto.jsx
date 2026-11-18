@@ -65,7 +65,9 @@ function NotificationsTelephone() {
   const t = infosTelephone();
   const etat = etatTelephone(t);
   useEffect(() => onSnapshot(doc(db, "reglages", "alerteDemandes"), (s) => setA(s.exists() ? s.data() : {}), () => setA({})), []);
-  useEffect(() => onSnapshot(collection(db, "notificationsPush"), (s) => setNb(s.size), () => setNb(0)), []);
+  useEffect(() => onSnapshot(collection(db, "notificationsPush"), (s) => setNb(s.size), () => setNb(-1)), []);
+  const [rapport, setRapport] = useState("");
+  useEffect(() => onSnapshot(doc(db, "reglages", "rappelsAuto"), (s) => { const d = (s.exists() && s.data().detail) || ""; setRapport(d.startsWith("📲") ? d : ""); }, () => {}), []);
   useEffect(() => {
     if (!t.push) return;
     navigator.serviceWorker.getRegistration("/").then((r) => (r ? r.pushManager.getSubscription() : null)).then((s) => setCeTel(!!s)).catch(() => {});
@@ -119,6 +121,9 @@ function NotificationsTelephone() {
         <span>{a.notifications === true ? `Activées (${nb} téléphone${nb > 1 ? "s" : ""})` : "Désactivées"}</span>
       </label>
       {a.notifications === true && nb > 0 && <button className="tb-bouton tb-clair" onClick={tester}>Envoyer un test</button>}
+      {nb === -1 && <p className="tb-note">⚠️ Lecture des téléphones refusée : les règles Firebase v23 ne sont pas encore publiées.</p>}
+      {a.testDemande && a.testDemande !== a.testFait && <p className="tb-note">⏳ Test en attente : le robot passe toutes les 2 minutes.</p>}
+      {rapport && <p className="tb-note">Dernier test : {rapport.replace(/^📲 Test /, "")}</p>}
       {info && <p className="tb-note">{info}</p>}
     </div>
   );

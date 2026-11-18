@@ -110,7 +110,7 @@ function NotificationsTelephone() {
   return (
     <div className="tb-bloc">
       <h3>📲 Notifications sur mon téléphone</h3>
-      <p className="tb-note">À chaque nouvelle demande du site, une notification arrive sur l'écran verrouillé (2 minutes maximum). Tu la touches : ton espace s'ouvre.</p>
+      <p className="tb-note">Une notification arrive sur l'écran verrouillé (2 minutes maximum) pour tout ce qui se passe sur le site, et pour ta journée. Tu la touches : ton espace s'ouvre.</p>
       {etat === "icone" && <p className="tb-note">Sur iPhone, les notifications marchent seulement depuis l'icône : dans Safari, ouvre rebeccaservices.com/admin, touche Partager → « Sur l'écran d'accueil », puis ouvre l'icône « Rebecca admin » et reviens ici.</p>}
       {etat === "impossible" && <p className="tb-note">Ce navigateur ne permet pas les notifications. Sur iPhone : iOS 16.4 ou plus récent, depuis l'icône de l'écran d'accueil.</p>}
       {etat === "refuse" && <p className="tb-note">Les notifications sont refusées sur ce téléphone : Réglages de l'iPhone → Notifications → Rebecca admin → Autoriser.</p>}
@@ -120,6 +120,22 @@ function NotificationsTelephone() {
         <input type="checkbox" checked={a.notifications === true} onChange={basculer} />
         <span>{a.notifications === true ? `Activées (${nb} téléphone${nb > 1 ? "s" : ""})` : "Désactivées"}</span>
       </label>
+      {a.notifications === true && (
+        <div style={{ marginTop: 8 }}>
+          <p className="tb-note">Ce que je reçois :</p>
+          {[
+            ["notifSite", "🔔 Tout ce qui arrive sur le site (demandes, rendez-vous, commandes Epoxy, paiements annoncés, devis Digital, ramassage, recharges, avis, coursiers)"],
+            ["notifSoir", "📅 À 19h : le résumé de demain (courses, RDV, trajets scolaires, rappels WhatsApp)"],
+            ["notifMatin", "☀️ À 7h : ma journée, course par course"],
+            ["notifAvant", "⏰ 15 minutes avant chaque course, RDV, trajet scolaire ou tâche"],
+          ].map(([cle, texte]) => (
+            <label key={cle} className="rg-case">
+              <input type="checkbox" checked={a[cle] !== false} onChange={() => setDoc(doc(db, "reglages", "alerteDemandes"), { [cle]: a[cle] === false, majLe: serverTimestamp() }, { merge: true }).catch(() => setInfo("Enregistrement impossible."))} />
+              <span>{texte}</span>
+            </label>
+          ))}
+        </div>
+      )}
       {a.notifications === true && nb > 0 && <button className="tb-bouton tb-clair" onClick={tester}>Envoyer un test</button>}
       {nb === -1 && <p className="tb-note">⚠️ Lecture des téléphones refusée : les règles Firebase v23 ne sont pas encore publiées.</p>}
       {a.testDemande && a.testDemande !== a.testFait && <p className="tb-note">⏳ Test en attente : le robot passe toutes les 2 minutes.</p>}

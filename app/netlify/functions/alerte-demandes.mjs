@@ -5,8 +5,12 @@
 // 18 nov. 2026 (soir) : + NOTIFICATION sur l'iPhone (icone « Rebecca admin »), toutes les 2 minutes.
 //   Les deux sont independantes : e-mail seul, notification seule, ou les deux (Réglages → Général).
 //   Variable Netlify en plus pour la notification : VAPID_PRIVEE (cle secrete, deja posee par Claude).
+// 18 nov. 2026 (22h) : notifications de TOUT ce qui se passe sur le site (demandes, rendez-vous, commandes Epoxy,
+//   paiements annonces, devis Digital, ramassage, recharges, avis, candidatures coursiers), + 19h le resume de demain,
+//   7h la journee du jour, et 15 minutes avant chaque course. Regles Firebase v24.
 import { SUJET_ALERTE, demandesASignaler, documentRest, texteAlerte } from "../../src/pricing/rappelsAuto.js";
-import { messageNotification, messageTest } from "../../src/pricing/notifications.js";
+import { messageTest } from "../../src/pricing/notifications.js";
+import { SOURCES_SITE, maintenantIsrael, messageMatin, messageSite, messageSoir, rappelsAvant } from "../../src/pricing/planningNotif.js";
 import { envoyerNotification } from "../outils/webPush.mjs";
 
 export const config = { schedule: "*/2 * * * *" };
@@ -74,6 +78,49 @@ async function notifier(entetes, messages) {
   return { envoyes, rapport };
 }
 
+// Lecture d'un document prive (json) par le robot
+async function lireJson(entetes, chemin) {
+  const r = await fetch(`${BASE}/${chemin}`, { headers: entetes });
+  if (!r.ok) return "";
+  return String((documentRest(await r.json()) || {}).json || "");
+}
+async function requete(entetes, structuredQuery) {
+  const r = await fetch(`${BASE}:runQuery`, { method: "POST", headers: entetes, body: JSON.stringify({ structuredQuery }) });
+  if (!r.ok) return null;
+  return (await r.json()).map((x) => documentRest(x.document)).filter(Boolean);
+}
+const depuis = (collectionId, quand, limite = 20) => ({
+  from: [{ collectionId }],
+  where: { fieldFilter: { field: { fieldPath: "creeLe" }, op: "GREATER_THAN", value: { timestampValue: quand } } },
+  orderBy: [{ field: { fieldPath: "creeLe" }, direction: "ASCENDING" }],
+  limit: limite,
+});
+const entreDates = (champ, du, au) => ({
+  from: [{ collectionId: "demandes" }],
+  where: { compositeFilter: { op: "AND", filters: [
+    { fieldFilter: { field: { fieldPath: champ }, op: "GREATER_THAN_OR_EQUAL", value: { stringValue: du } } },
+    { fieldFilter: { field: { fieldPath: champ }, op: "LESS_THAN_OR_EQUAL", value: { stringValue: au } } },
+  ] } },
+});
+async function noter(entetes, champs) {
+  const masque = Object.keys(champs).map((k) => `updateMask.fieldPaths=${k}`).join("&");
+  const fields = Object.fromEntries(Object.entries(champs).map(([k, v]) => [k, { stringValue: String(v) }]));
+  await fetch(`${BASE}/reglages/alerteDemandes?${masque}`, { method: "PATCH", headers: entetes, body: JSON.stringify({ fields }) });
+}
+// Donnees de la journee (aujourd'hui et demain) : courses acceptees + tournee + mes changements du jour + repertoire
+async function donneesJournee(entetes, aujourdhui, demain) {
+  const [a, b, tourneeJson, joursJson, repertoireJson] = await Promise.all([
+    requete(entetes, entreDates("date", aujourdhui, demain)),
+    requete(entetes, entreDates("details.dateRetour", aujourdhui, demain)),
+    lireJson(entetes, "admin/tournee"),
+    lireJson(entetes, "admin/tourneeJours"),
+    lireJson(entetes, "clientsAdmin/_repertoire"),
+  ]);
+  const vus = new Map();
+  for (const d of [...(a || []), ...(b || [])]) vus.set(d.id, d);
+  return { demandes: [...vus.values()], tourneeJson, joursJson, repertoireJson };
+}
+
 export default async function alerteDemandes() {
   if (!process.env.ROBOT_EMAIL || !process.env.ROBOT_MDP) return new Response("non configuré");
   // Réglage public : lu avant de connecter le robot (rien à faire si l'alerte et les notifications sont coupées)
@@ -83,50 +130,87 @@ export default async function alerteDemandes() {
   const parEmail = reglage.actif === true && EMAIL_OK.test(email);
   const parNotif = reglage.notifications === true && !!(process.env.VAPID_PRIVEE || (globalThis.Netlify && Netlify.env && Netlify.env.get("VAPID_PRIVEE")));
   const testEnAttente = reglage.notifications === true && typeof reglage.testDemande === "string" && reglage.testDemande !== reglage.testFait;
-  const test = parNotif && testEnAttente;
   if (!parEmail && !parNotif && !testEnAttente) return new Response("désactivé");
 
   const entetes = await connecterRobot();
   if (!entetes) return new Response("connexion du robot refusée");
+  const journal = [];
 
-  // Test demandé mais clé des notifications absente chez Netlify : on le dit dans Réglages
   if (testEnAttente && !parNotif) {
     await fetch(`${BASE}/reglages/rappelsAuto?updateMask.fieldPaths=detail`, {
       method: "PATCH", headers: entetes, body: JSON.stringify({ fields: { detail: { stringValue: "📲 Test : clé VAPID_PRIVEE introuvable chez Netlify (republier le site)" } } }),
     });
   }
-  // Bouton « Envoyer une notification de test » (Réglages) : envoyée une seule fois
-  if (test) {
-    const { rapport } = await notifier(entetes, [messageTest()]);
-    await fetch(`${BASE}/reglages/alerteDemandes?updateMask.fieldPaths=testFait`, {
-      method: "PATCH", headers: entetes, body: JSON.stringify({ fields: { testFait: { stringValue: reglage.testDemande } } }),
-    });
-    // Compte-rendu du test, lisible dans Réglages (case « detail » que le robot a deja le droit d'ecrire, sans nouvelle regle)
-    const quandTest = new Date().toLocaleString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" });
-    await fetch(`${BASE}/reglages/rappelsAuto?updateMask.fieldPaths=detail`, {
-      method: "PATCH", headers: entetes, body: JSON.stringify({ fields: { detail: { stringValue: `📲 Test ${quandTest} : ${rapport}`.slice(0, 400) } } }),
-    });
+
+  if (parNotif) {
+    const maintenant = Date.now();
+    const { date: aujourdhui, min } = maintenantIsrael(maintenant);
+    const messages = [];
+
+    // Bouton « Envoyer un test »
+    if (testEnAttente) {
+      const { rapport } = await notifier(entetes, [messageTest()]);
+      await noter(entetes, { testFait: reglage.testDemande });
+      const quandTest = new Date().toLocaleString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" });
+      await fetch(`${BASE}/reglages/rappelsAuto?updateMask.fieldPaths=detail`, {
+        method: "PATCH", headers: entetes, body: JSON.stringify({ fields: { detail: { stringValue: `📲 Test ${quandTest} : ${rapport}`.slice(0, 400) } } }),
+      });
+    }
+
+    // 1. Tout ce qui est arrivé sur le site depuis le dernier passage
+    if (reglage.notifSite !== false) {
+      const vu = typeof reglage.vuJusqua === "string" && reglage.vuJusqua ? reglage.vuJusqua : "";
+      if (!vu) {
+        await noter(entetes, { vuJusqua: new Date(maintenant).toISOString() }); // 1er passage : on part de maintenant
+      } else {
+        let plusRecent = vu;
+        for (const src of SOURCES_SITE) {
+          const docs = await requete(entetes, depuis(src.collection, vu));
+          if (!docs) { journal.push(`${src.collection} illisible`); continue; }
+          for (const d of docs) {
+            const m = messageSite(src.collection, d);
+            if (m) messages.push(m);
+            if (String(d.creeLe || "") > plusRecent) plusRecent = String(d.creeLe);
+          }
+        }
+        if (plusRecent !== vu) await noter(entetes, { vuJusqua: plusRecent });
+      }
+    }
+
+    // 2. Ma journée : 19h demain, 7h aujourd'hui, 15 minutes avant chaque course
+    const veutSoir = reglage.notifSoir !== false && min >= 19 * 60 && min < 23 * 60 && reglage.soirFait !== aujourdhui;
+    const veutMatin = reglage.notifMatin !== false && min >= 7 * 60 && min < 11 * 60 && reglage.matinFait !== aujourdhui;
+    const veutAvant = reglage.notifAvant !== false;
+    if (veutSoir || veutMatin || veutAvant) {
+      const demain = new Date(Date.parse(`${aujourdhui}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
+      const donnees = await donneesJournee(entetes, aujourdhui, demain);
+      if (veutSoir) { messages.push(messageSoir(aujourdhui, donnees)); await noter(entetes, { soirFait: aujourdhui }); }
+      if (veutMatin) { messages.push(messageMatin(aujourdhui, donnees)); await noter(entetes, { matinFait: aujourdhui }); }
+      if (veutAvant) messages.push(...rappelsAvant(maintenant, donnees));
+    }
+
+    if (messages.length) {
+      const { rapport } = await notifier(entetes, messages.slice(0, 15));
+      journal.push(rapport);
+    }
   }
 
-  // Seulement les demandes des dernières 24 h (lecture légère toutes les 2 minutes)
-  const depuis = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  const structuredQuery = { from: [{ collectionId: "demandes" }], where: { fieldFilter: { field: { fieldPath: "creeLe" }, op: "GREATER_THAN", value: { timestampValue: depuis } } } };
-  const r = await fetch(`${BASE}:runQuery`, { method: "POST", headers: entetes, body: JSON.stringify({ structuredQuery }) });
-  if (!r.ok) return new Response(`lecture refusée (${r.status})`);
-  const demandes = (await r.json()).map((x) => documentRest(x.document)).filter(Boolean);
-  const liste = demandesASignaler(demandes);
-  if (!liste.length) return new Response(test ? "test envoyé" : "rien de nouveau");
-
-  const notifs = parNotif ? (await notifier(entetes, liste.map(messageNotification))).envoyes : 0;
-  const mail = parEmail ? await envoyerEmail(liste, email) : false;
-  if (!mail && !notifs) return new Response("aucun envoi réussi");
-  const quand = new Date().toISOString();
-  for (const d of liste) {
-    await fetch(`${BASE}/demandes/${d.id}?updateMask.fieldPaths=alerteRebeccaLe`, {
-      method: "PATCH",
-      headers: entetes,
-      body: JSON.stringify({ fields: { alerteRebeccaLe: { stringValue: quand } } }),
-    });
+  // 3. E-mail « nouvelle demande » (comme avant)
+  if (parEmail) {
+    const quand24 = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const demandes = await requete(entetes, { from: [{ collectionId: "demandes" }], where: { fieldFilter: { field: { fieldPath: "creeLe" }, op: "GREATER_THAN", value: { timestampValue: quand24 } } } });
+    const liste = demandesASignaler(demandes || []);
+    if (liste.length && (await envoyerEmail(liste, email))) {
+      const quand = new Date().toISOString();
+      for (const d of liste) {
+        await fetch(`${BASE}/demandes/${d.id}?updateMask.fieldPaths=alerteRebeccaLe`, {
+          method: "PATCH",
+          headers: entetes,
+          body: JSON.stringify({ fields: { alerteRebeccaLe: { stringValue: quand } } }),
+        });
+      }
+      journal.push(`${liste.length} e-mail(s)`);
+    }
   }
-  return new Response(`${liste.length} demande(s) signalée(s) (e-mail : ${mail ? "oui" : "non"}, notifications : ${notifs})`);
+  return new Response(journal.join(" · ") || "rien de nouveau");
 }

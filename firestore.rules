@@ -1,4 +1,8 @@
 rules_version = '2';
+// Regles Rebecca Services v24 (18 novembre 2026, 22h) = v23 + notifications de tout ce qui se passe sur le site
+//   et de ma journee : le robot (Netlify) peut LIRE les commandes Epoxy, paiements annonces, devis Digital,
+//   candidatures coursiers, ramassages, recharges et avis, ainsi que ma tournee (admin/tournee, admin/tourneeJours).
+//   Il note seulement « vu jusqu'a », « resume du soir envoye » et « journee du matin envoyee ». Il n'ecrit rien d'autre.
 // Regles Rebecca Services v23 (18 novembre 2026, soir) = v22 + notifications sur le telephone :
 //   - notificationsPush : chaque telephone de Rebecca abonne aux notifications (icone « Rebecca admin »).
 //     Rebecca seule ajoute ou retire un telephone ; le robot (Netlify) les lit et efface un telephone desabonne.
@@ -500,7 +504,7 @@ service cloud.firestore {
     match /trajetsPartages/{id} {
       allow create: if partageValide();
       allow get: if true;
-      allow list: if estAdmin();
+      allow list: if estAdmin() || estRobot();
       allow update: if estAdmin()
         || (resource.data.statut == "en cours"
           && request.time < resource.data.creeLe + duration.value(14, "d")
@@ -555,6 +559,7 @@ service cloud.firestore {
     match /paiementsDeclares/{id} {
       allow create: if declarationValide();
       allow read, update: if gestion();
+      allow read: if estRobot();
       allow delete: if estAdmin();
     }
 
@@ -563,6 +568,7 @@ service cloud.firestore {
     match /commandes/{id} {
       allow create: if commandeEpoxyValide();
       allow read, update, delete: if estAdmin();
+      allow read: if estRobot();
     }
 
     // v13 : agenda des rendez-vous, un document par jour (rebecca__AAAA-MM-JJ) = quarts d'heure pris, sans nom
@@ -599,8 +605,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dernierPassage", "detail"]);
       // v23 : le robot note que la notification de test est partie (jamais l'interrupteur)
       allow update: if id == "alerteDemandes" && estRobot()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["testFait"])
-        && request.resource.data.testFait is string && request.resource.data.testFait.size() <= 30;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["testFait", "vuJusqua", "soirFait", "matinFait"])
+        && request.resource.data.get("testFait", "") is string && request.resource.data.get("testFait", "").size() <= 40
+        && request.resource.data.get("vuJusqua", "") is string && request.resource.data.get("vuJusqua", "").size() <= 40
+        && request.resource.data.get("soirFait", "") is string && request.resource.data.get("soirFait", "").size() <= 10
+        && request.resource.data.get("matinFait", "") is string && request.resource.data.get("matinFait", "").size() <= 10;
     }
 
     // v23 : telephones abonnes aux notifications (Rebecca seule ; le robot lit et efface un telephone desabonne)
@@ -699,6 +708,7 @@ service cloud.firestore {
     match /recharges/{id} {
       allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
       allow create: if compteVerifie() && rechargeValide();
+      allow read: if estRobot();
       allow update: if estAdmin()
         || (estMembre() && (request.resource.data.statut == "refusée" || request.resource.data.get("operateur", "") == request.auth.uid));
       allow delete: if estAdmin();
@@ -718,6 +728,7 @@ service cloud.firestore {
     match /avis/{avisId} {
       allow read: if gestion() || (compteVerifie() && resource.data.uid == request.auth.uid);
       allow create: if compteVerifie() && avisValide(avisId);
+      allow read: if estRobot();
       allow update: if false;
       allow delete: if estAdmin();
     }
@@ -786,7 +797,7 @@ service cloud.firestore {
     match /projetsDigital/{id} {
       allow create: if projetDigitalValide();
       allow get: if true;
-      allow list: if estAdmin();
+      allow list: if estAdmin() || estRobot();
       allow update: if estAdmin() || actionClientDigital();
       allow delete: if estAdmin();
     }
@@ -817,6 +828,7 @@ service cloud.firestore {
     match /candidaturesPartenaires/{id} {
       allow create: if candidatureValide();
       allow read, update, delete: if estAdmin();
+      allow read: if estRobot();
     }
 
     // v20 : suivi d'une candidature, lu avec le lien personnel du coursier (identifiant impossible a deviner)
@@ -908,6 +920,7 @@ service cloud.firestore {
     // Reservee a Rebecca (reglages prives, plafond, rappels, sauvegardes) : jamais un coequipier
     match /admin/{id} {
       allow read, write: if estAdmin();
+      allow get: if estRobot() && id in ["tournee", "tourneeJours"];
     }
 
     // ---------- v9 : equipe ----------

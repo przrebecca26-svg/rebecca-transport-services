@@ -45,3 +45,36 @@ test("clé publique VAPID au bon format", () => {
   egal(pub[0], 4);
   vrai(typeof jetonVapid === "function");
 });
+
+import { evenementsDuJour, messageSoir, messageMatin, rappelsAvant, messageSite, maintenantIsrael } from "../src/pricing/planningNotif.js";
+import { trajetPonctuel, ajouterTrajetCeJour } from "../src/pricing/tournee.js";
+section("Notifications de ma journée");
+const demJ = [
+  { id: "a", statut: "acceptee", service: "aeroport", serviceTitre: "Aéroport Ben Gourion", nom: "Sarah", date: "2026-11-19", heure: "06:30" },
+  { id: "b", statut: "acceptee", service: "nails", serviceTitre: "Nails", nom: "Dana", date: "2026-11-19", heure: "10:00" },
+  { id: "c", statut: "acceptee", service: "transport", serviceTitre: "Transport", nom: "Léa", date: "2026-11-17", heure: "09:00", details: { typeTrajet: "ar", dateRetour: "2026-11-19", heureRetour: "18:00" } },
+  { id: "d", statut: "en attente", service: "livraison", nom: "X", date: "2026-11-19", heure: "11:00" },
+];
+const p = trajetPonctuel({ date: "2026-11-19", sens: "recuperer", heure: "12:45", de: { label: "École", lat: 32.3, lon: 34.85 }, a: { label: "Maison", lat: 32.31, lon: 34.86 }, nom: "Shyrel" });
+const joursJ = JSON.stringify(ajouterTrajetCeJour({}, "2026-11-19", p));
+test("journée : courses acceptées, retour d'aller-retour, trajet scolaire, dans l'ordre", () => {
+  egal(evenementsDuJour("2026-11-19", { demandes: demJ, joursJson: joursJ }).map((e) => e.heure), ["06:30", "10:00", "12:45", "18:00"]);
+});
+test("19h : résumé de demain", () => {
+  const m = messageSoir("2026-11-18", { demandes: demJ, joursJson: joursJ });
+  vrai(m.corps.includes("2 courses") && m.corps.includes("1 RDV beauté") && m.corps.includes("1 trajet scolaire"), m.corps);
+});
+test("7h : la journée course par course", () => {
+  vrai(messageMatin("2026-11-19", { demandes: demJ }).corps.startsWith("06h30 ✈️"));
+});
+test("15 minutes avant, une seule fois", () => {
+  egal(rappelsAvant(Date.parse("2026-11-19T04:15:30Z"), { demandes: demJ }).length, 1);
+  egal(rappelsAvant(Date.parse("2026-11-19T04:17:30Z"), { demandes: demJ }).length, 0);
+  egal(rappelsAvant(Date.parse("2026-11-19T04:13:30Z"), { demandes: demJ }).length, 0);
+});
+test("heure d'Israël", () => egal(maintenantIsrael(Date.parse("2026-11-19T17:00:00Z")).min, 19 * 60));
+test("alertes du site", () => {
+  vrai(messageSite("paiementsDeclares", { id: "x", montant: 120, moyen: "Bit", sorte: "acompte", prenom: "Sarah" }).corps.includes("120 ₪ par Bit"));
+  egal(messageSite("demandes", { source: "manuel" }), null);
+  vrai(messageSite("demandes", { service: "nails", serviceTitre: "Nails" }).titre.includes("rendez-vous"));
+});

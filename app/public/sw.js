@@ -14,13 +14,13 @@ self.addEventListener("push", (e) => {
     icon: "/apple-touch-icon.png",
     badge: "/apple-touch-icon.png",
     tag: m.tag || undefined,
-    data: { lien: m.lien || "/?admin=1#/admin" },
+    data: { lien: m.lien || "/admin#/admin" },
   }));
 });
 
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const lien = new URL((e.notification.data && e.notification.data.lien) || "/?admin=1#/admin", self.location.origin).href;
+  const lien = new URL((e.notification.data && e.notification.data.lien) || "/admin#/admin", self.location.origin).href;
   e.waitUntil((async () => {
     const fenetres = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const f of fenetres) {

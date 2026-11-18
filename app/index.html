@@ -8,23 +8,25 @@
     <title>Rebecca Services</title>
     <link rel="icon" type="image/png" href="/icon-512.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" id="manifeste" href="/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Rebecca" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <!-- 18 nov. 2026 : deux icones sur l'iPhone. Depuis l'espace prive (#/admin), « Sur l'ecran d'accueil » installe
-         « Rebecca admin » (qui s'ouvre toujours sur l'espace prive) ; depuis le site, l'icone des clientes. -->
+    <!-- 18 nov. 2026 : deux icones sur l'iPhone.
+         rebeccaservices.com/admin → « Sur l'ecran d'accueil » installe « Rebecca admin » (s'ouvre sur l'espace prive).
+         rebeccaservices.com → l'icone des clientes. Le bon « manifeste » est ecrit AVANT que Safari le lise. -->
     <script>
       (function () {
-        var admin = location.hash.indexOf("#/admin") === 0 || /[?&]admin=1/.test(location.search);
-        if (/[?&]admin=1/.test(location.search) && (!location.hash || location.hash === "#/" || location.hash === "#")) location.replace("/?admin=1#/admin");
-        if (!admin) return;
-        document.getElementById("manifeste").setAttribute("href", "/manifest-admin.webmanifest");
-        var t = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-        if (t) t.setAttribute("content", "Rebecca admin");
+        var estAdmin = function () { return /^\/admin/.test(location.pathname) || /[?&]admin=1/.test(location.search) || location.hash.indexOf("#/admin") === 0; };
+        var admin = estAdmin();
+        if (admin && (!location.hash || location.hash === "#" || location.hash === "#/")) history.replaceState(null, "", location.pathname + location.search + "#/admin");
+        document.write('<link rel="manifest" id="manifeste" href="' + (admin ? "/manifest-admin.webmanifest" : "/manifest.webmanifest") + '" />');
+        document.write('<meta name="apple-mobile-web-app-title" content="' + (admin ? "Rebecca admin" : "Rebecca") + '" />');
+        window.addEventListener("hashchange", function () {
+          var l = document.getElementById("manifeste");
+          if (l) l.setAttribute("href", estAdmin() ? "/manifest-admin.webmanifest" : "/manifest.webmanifest");
+        });
       })();
     </script>
   </head>

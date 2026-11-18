@@ -12,6 +12,17 @@ export default function PagePaiement({ lien, onAccueil }) {
   const [envoye, setEnvoye] = useState("");
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
+  // 18 nov. 2026 : une cliente avait annoncé le même acompte 4 fois. On retient sur son téléphone
+  // qu'elle a déjà prévenu Rebecca pour ce paiement : les boutons ne reviennent pas.
+  const cle = `paye-${lien.resId}-${lien.montant}-${lien.sorte}`;
+  useEffect(() => {
+    try {
+      const deja = localStorage.getItem(cle);
+      if (deja) setEnvoye(deja);
+    } catch {
+      /* navigation privée */
+    }
+  }, [cle]);
 
   useEffect(() => {
     charger()
@@ -21,6 +32,7 @@ export default function PagePaiement({ lien, onAccueil }) {
   }, []);
 
   const declarer = async (moyen) => {
+    if (enCours || envoye) return;
     setErreur("");
     setEnCours(true);
     try {
@@ -35,6 +47,12 @@ export default function PagePaiement({ lien, onAccueil }) {
         creeLe: serverTimestamp(),
       });
       setEnvoye(moyen);
+      try {
+        localStorage.setItem(cle, moyen);
+      } catch {
+        /* navigation privée */
+      }
+      return;
     } catch {
       setErreur("L'envoi n'a pas marché. Vérifiez la connexion puis réessayez, ou répondez simplement à Rebecca sur WhatsApp.");
     }
@@ -54,6 +72,7 @@ export default function PagePaiement({ lien, onAccueil }) {
       {envoye ? (
         <>
           <p>Merci ! Rebecca est prévenue de votre paiement par {envoye} ({montant} ₪). Elle le confirme dès réception ✅</p>
+          <p className="aide">Inutile de la prévenir une deuxième fois. Une erreur de moyen de paiement ? Écrivez-lui simplement sur WhatsApp.</p>
           <button type="button" className="bouton" onClick={onAccueil}>Voir le site</button>
         </>
       ) : (

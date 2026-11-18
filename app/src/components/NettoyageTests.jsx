@@ -18,6 +18,9 @@ export default function NettoyageTests({ items }) {
   const [coches, setCoches] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [info, setInfo] = useState("");
+  // 18 nov. 2026 : la fenêtre de confirmation du navigateur ne s'affiche pas dans certains navigateurs
+  // (application Google, Instagram…) et le bouton ne faisait rien -> confirmation dans la page, en 2 appuis.
+  const [aConfirmer, setAConfirmer] = useState(false);
   const choix = coches || new Set(candidates.map((d) => d.id));
   if (!candidates.length && !info) return null;
 
@@ -30,7 +33,7 @@ export default function NettoyageTests({ items }) {
   const supprimer = async () => {
     const liste = candidates.filter((d) => choix.has(d.id));
     if (!liste.length) return;
-    if (!window.confirm(`Supprimer définitivement ${liste.length} demande${liste.length > 1 ? "s" : ""} de test ?`)) return;
+    setAConfirmer(false);
     setEnCours(true);
     setInfo("");
     let ok = 0;
@@ -70,7 +73,15 @@ export default function NettoyageTests({ items }) {
               <span>{d.serviceTitre} · {d.nom} · {jourCourt(d.date)} · <em>{d.statut}</em></span>
             </label>
           ))}
-          <button className="tb-bouton tb-danger" disabled={enCours || !choix.size} onClick={supprimer}>{enCours ? "Suppression…" : `Supprimer les ${choix.size} cochées`}</button>
+          {!aConfirmer ? (
+            <button className="tb-bouton tb-danger" disabled={enCours || !choix.size} onClick={() => setAConfirmer(true)}>{enCours ? "Suppression…" : `Supprimer les ${choix.size} cochées`}</button>
+          ) : (
+            <div className="tb-actions" style={{ flexWrap: "wrap", alignItems: "center" }}>
+              <p className="tb-note" style={{ width: "100%" }}>Supprimer définitivement {choix.size} demande{choix.size > 1 ? "s" : ""} de test ? Elles disparaîtront de partout.</p>
+              <button className="tb-bouton tb-danger" onClick={supprimer}>Oui, supprimer</button>
+              <button className="tb-bouton tb-clair" onClick={() => setAConfirmer(false)}>Annuler</button>
+            </div>
+          )}
         </>
       )}
       {info && <p className="tb-note">{info}</p>}

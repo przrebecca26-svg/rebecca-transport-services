@@ -127,20 +127,36 @@ function AFaire({ demandes, mouvements, jour }) {
   // 17 nov. 2026, 16h31 : « J'ai paye » des clientes (PayPal, Bit, Revolut...) -> Rebecca confirme d'un appui
   const [declares, setDeclares] = useState([]);
   useEffect(() => onSnapshot(query(collection(db, "paiementsDeclares"), ou("statut", "==", "a confirmer")), (x) => setDeclares(x.docs.map((y) => ({ id: y.id, ...y.data() }))), () => setDeclares([])), []);
-  const confirmer = async (p, ok) => {
+  // 18 nov. 2026 : une cliente peut toucher « J'ai payé » plusieurs fois (ou par plusieurs moyens).
+  // Les annonces d'un même paiement (même course, même montant, même sorte) sont regroupées :
+  // un seul « Reçu » note UN paiement et range toutes les annonces ; si le paiement est déjà noté, « doublon ».
+  const confirmer = async (groupe, moyen) => {
+    const p = groupe.annonces[0];
     try {
-      if (ok) {
-        const m = { kind: "paiement", resId: p.resId, date: jour, montant: p.montant, moyen: p.moyen, ...champOperateur(ADMIN_ID), creeLe: serverTimestamp() };
+      if (moyen) {
+        const m = { kind: "paiement", resId: p.resId, date: jour, montant: p.montant, moyen, ...champOperateur(ADMIN_ID), creeLe: serverTimestamp() };
         await addDoc(collection(db, "mouvements"), m);
         const d = demandes.find((x) => x.id === p.resId);
         if (d) synchroniserSuivi(d, [...mouvements, m]);
       }
-      await updateDoc(doc(db, "paiementsDeclares", p.id), { statut: ok ? "confirme" : "pas recu", traiteLe: serverTimestamp() });
-      setInfo(ok ? `✅ ${p.montant} ₪ par ${p.moyen} noté dans la course.` : "Marqué « pas reçu ».");
+      const statut = moyen ? "confirme" : groupe.dejaNote ? "doublon" : "pas recu";
+      await Promise.all(groupe.annonces.map((a, i) => updateDoc(doc(db, "paiementsDeclares", a.id), { statut: moyen && i > 0 ? "doublon" : statut, traiteLe: serverTimestamp() })));
+      setInfo(moyen ? `✅ ${p.montant} ₪ par ${moyen} noté dans la course.` : groupe.dejaNote ? "Doublon retiré." : "Marqué « pas reçu ».");
     } catch {
       setInfo("Enregistrement impossible. Vérifie la connexion (et les règles Firebase v18).");
     }
   };
+  const groupes = Object.values(
+    declares.reduce((acc, p) => {
+      const cle = `${p.resId}|${p.montant}|${p.sorte}`;
+      (acc[cle] = acc[cle] || { cle, annonces: [] }).annonces.push(p);
+      return acc;
+    }, {}),
+  ).map((g) => {
+    const p = g.annonces[0];
+    const dejaNote = mouvements.some((m) => m.resId === p.resId && m.kind === "paiement" && Math.abs((Number(m.montant) || 0) - Number(p.montant)) < 0.01);
+    return { ...g, dejaNote, moyens: [...new Set(g.annonces.map((a) => a.moyen))] };
+  });
   const rdvs = rappelsRdvDemain(demandes, jour);
   const epoxy = relancesEpoxy(commandes, jour);
   const rappels = rappelsDemain(demandes, jour);
@@ -170,18 +186,29 @@ function AFaire({ demandes, mouvements, jour }) {
         );
       })}
       {declares.length > 0 && <p className="aj-sous-titre">💳 Paiements annoncés par les clientes — à confirmer</p>}
-      {declares.map((p) => {
+      {groupes.map((g) => {
+        const p = g.annonces[0];
         const d = demandes.find((x) => x.id === p.resId);
-        const quand = p.creeLe && p.creeLe.toDate ? p.creeLe.toDate().toLocaleString("fr-FR", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+        const derniere = g.annonces.reduce((a, b) => ((b.creeLe && b.creeLe.toMillis ? b.creeLe.toMillis() : 0) > (a.creeLe && a.creeLe.toMillis ? a.creeLe.toMillis() : 0) ? b : a), p);
+        const quand = derniere.creeLe && derniere.creeLe.toDate ? derniere.creeLe.toDate().toLocaleString("fr-FR", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
         return (
-          <div key={"p" + p.id} className="tb-adresse">
+          <div key={"p" + g.cle} className="tb-adresse">
             <div>
-              <p>{d ? d.nom : p.prenom || "Cliente"} · {p.montant} ₪ par {p.moyen}</p>
-              <small>{p.sorte === "acompte" ? "Acompte" : "Paiement"} · {d ? `${d.serviceTitre} · ${jourCourt(d.date)}` : "course introuvable"}{quand ? ` · annoncé le ${quand}` : ""}</small>
+              <p>{d ? d.nom : p.prenom || "Cliente"} · {p.montant} ₪ par {g.moyens.join(" ou ")}</p>
+              <small>{p.sorte === "acompte" ? "Acompte" : "Paiement"} · {d ? `${d.serviceTitre} · ${jourCourt(d.date)}` : "course introuvable"}{quand ? ` · annoncé le ${quand}` : ""}{g.annonces.length > 1 ? ` · annoncé ${g.annonces.length} fois (un seul paiement)` : ""}</small>
+              {g.dejaNote && <small><br />✓ Un paiement de {p.montant} ₪ est déjà noté dans cette course : c'est sûrement un doublon.</small>}
             </div>
             <div className="tb-actions">
-              <button className="tb-bouton" disabled={!d} onClick={() => confirmer(p, true)}>✓ Reçu</button>
-              <button className="tb-bouton tb-clair" onClick={() => confirmer(p, false)}>Pas reçu</button>
+              {g.dejaNote ? (
+                <button className="tb-bouton" onClick={() => confirmer(g, "")}>Retirer le doublon</button>
+              ) : (
+                <>
+                  {g.moyens.map((m) => (
+                    <button key={m} className="tb-bouton" disabled={!d} onClick={() => confirmer(g, m)}>✓ Reçu{g.moyens.length > 1 ? ` par ${m}` : ""}</button>
+                  ))}
+                  <button className="tb-bouton tb-clair" onClick={() => confirmer(g, "")}>Pas reçu</button>
+                </>
+              )}
             </div>
           </div>
         );

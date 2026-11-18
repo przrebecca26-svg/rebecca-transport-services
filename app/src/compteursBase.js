@@ -49,7 +49,7 @@ export function useCompteurs(role) {
   const [declares, setDeclares] = useState(0);
   useEffect(() => {
     if (!admin) return undefined;
-    return onSnapshot(query(collection(db, "paiementsDeclares"), where("statut", "==", "a confirmer")), (s) => setDeclares(s.size), () => setDeclares(0));
+    return onSnapshot(query(collection(db, "paiementsDeclares"), where("statut", "==", "a confirmer")), (s) => setDeclares(new Set(s.docs.map((x) => { const p = x.data(); return `${p.resId}|${p.montant}|${p.sorte}`; })).size), () => setDeclares(0));
   }, [admin]);
   return { tableau: aFaire + declares, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges, "projets-digital": digital, partenaires };
 }

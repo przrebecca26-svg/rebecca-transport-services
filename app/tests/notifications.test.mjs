@@ -144,3 +144,11 @@ test("commande valide et solde qui baisse", () => {
   vrai(!!utiliserCarte({ ...c, ...u }, 60, "2026-11-21").erreur);
   vrai(!!utiliserCarte({ ...c, statut: "a_payer" }, 10, "x").erreur);
 });
+
+import { messageEnfant } from "../src/pricing/finCourse.js";
+section("Suivi en direct du ramassage");
+test("message aux parents avec l'heure d'arrivée prévue", () => {
+  const m = messageEnfant("prise", ["Joy", "Liel"], "12:45", "École", "13:05", "Maison");
+  vrai(m.includes("J'ai bien récupéré Joy et Liel à 12h45") && m.includes("Arrivée prévue (Maison) vers 13h05"), m);
+  vrai(!messageEnfant("depose", ["Joy"], "13:05", "Maison", "13:30").includes("Arrivée prévue"));
+});

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { arrayUnion, collection, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { arrayUnion, collection, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { TARIFS } from "./pricing/config.js";
 import { WHATSAPP } from "./contact.js";
@@ -36,6 +36,7 @@ function Avis({ suivi, onFait }) {
   const [pourboire, setPourboire] = useState("");
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
+  const [, setTic] = useState(0);
   const [fait, setFait] = useState(false);
 
   useEffect(() => setErreur(""), [etoiles, commentaire, pourboire]);
@@ -116,6 +117,11 @@ export default function CompteHistorique({ client, onRefaire, onModifier }) {
   };
   useEffect(() => {
     charger();
+    // 18 nov. 2026 : suivi en direct : l'historique se met a jour tout seul (« Rebecca est en route · arrivée dans 8 min »)
+    const stop = onSnapshot(query(collection(db, "suivi"), where("uid", "==", user.uid)), (s) => setSuivis(s.docs.map((x) => ({ id: x.id, ...x.data() })).sort((p, q) => millis(q.creeLe) - millis(p.creeLe))), () => {});
+    // le compte a rebours des minutes avance tout seul
+    const t = setInterval(() => setTic((n) => n + 1), 30000);
+    return () => { stop(); clearInterval(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

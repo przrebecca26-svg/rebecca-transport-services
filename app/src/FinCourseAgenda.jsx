@@ -8,7 +8,7 @@ import { champOperateur } from "./pricing/reverser.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import { synchroniserSuivi } from "./suiviClient.js";
-import { calculerTrajetSur, dureeAvecTrafic, positionActuelle } from "./routing.js";
+import { heureArrivee } from "./arrivee.js";
 import { getDocs } from "firebase/firestore";
 import { normaliserCode, utiliserCarte } from "./pricing/cartesCadeaux.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
@@ -42,16 +42,7 @@ function adresseDePrise(d, trajet) {
   }
   return null;
 }
-async function calculerArrivee(d, trajet) {
-  const vers = adresseDePrise(d, trajet);
-  if (!vers) return "";
-  const ici = await positionActuelle();
-  let minutes = null;
-  try { minutes = Math.round((await dureeAvecTrafic(ici, vers)).avecTrafic / 60); } catch { minutes = null; }
-  if (!(minutes > 0)) minutes = (await calculerTrajetSur(ici, vers)).minutes;
-  const t = new Date(Date.now() + Math.max(1, minutes) * 60000);
-  return t.toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hour12: false });
-}
+const calculerArrivee = (d, trajet) => heureArrivee(adresseDePrise(d, trajet));
 
 export default function FinCourseAgenda({ d, aujourdhui }) {
   const { moi } = useEquipeContexte();

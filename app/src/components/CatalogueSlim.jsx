@@ -15,6 +15,17 @@ import { WHATSAPP } from "../contact.js";
 
 // Photos à ajouter plus tard
 const PHOTOS = VISUELS.slim;
+// Contre-indications de la notice du fabricant de l'appareil (LW-102, page 14 « Not Suitable Crowds »)
+export const CONTRE_INDICATIONS_SLIM = [
+  "Femmes enceintes, enfants et personnes âgées",
+  "Maladie cardiaque, surtout avec un pacemaker",
+  "Opération il y a moins de 3 mois, ou plaie sur la peau",
+  "Cancer",
+  "Pendant les règles",
+  "Maladie de peau",
+  "Métal implanté dans le corps",
+  "Hypertension, diabète, maladie de l'estomac",
+];
 
 // Catalogue et réservation pour Prestige Slim & Lift
 export default function CatalogueSlim({ onRetour }) {
@@ -208,8 +219,15 @@ export default function CatalogueSlim({ onRetour }) {
       </div>
       <p>Choisissez une prestation pour réserver.</p>
       <div style={{ background: "#191518", padding: 12, borderRadius: 8, margin: "12px 0", fontSize: 14 }}>
-        <strong>Important :</strong> Ces soins ne remplacent pas un avis médical. 
-        Des précautions s'appliquent (grossesse, problèmes de santé, etc.). Merci de les signaler avant le rendez-vous.
+        <strong>Important :</strong> Ces soins ne remplacent pas un avis médical. Un questionnaire de santé est rempli sur papier au premier rendez-vous.
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: "pointer" }}>Qui ne peut pas faire ces soins ? (notice de l'appareil)</summary>
+          {/* 18 nov. 2026 : liste de la notice du fabricant (LW-102, page 14), comparée par Claude à la demande de Rebecca */}
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+            {CONTRE_INDICATIONS_SLIM.map((c) => <li key={c}>{c}</li>)}
+          </ul>
+          <p style={{ margin: "8px 0 0" }}>Vous êtes concernée ? Prévenez-moi avant de réserver : on en parle ensemble. Au maximum 2 à 3 séances par semaine.</p>
+        </details>
       </div>
       <Galerie photos={galerie} titre={"Avant / après et réalisations"} />
       {categories.map((cat) => (

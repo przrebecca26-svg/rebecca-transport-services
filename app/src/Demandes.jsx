@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { texteDuree } from "./pricing/circulation.js";
 import InfoVol from "./components/InfoVol.jsx";
 import NettoyageTests from "./components/NettoyageTests.jsx";
+import ProposerCoursier from "./components/ProposerCoursier.jsx";
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ModifierDevis } from "./SimulateurDevis.jsx";
 import { db } from "./firebase.js";
@@ -594,6 +595,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
 
       <Regroupement d={d} toutes={toutes} aller={aller} />
 
+      {moi === "rebecca" && (d.statut === "acceptee" || d.coursierPartenaire) ? <ProposerCoursier d={d} /> : null}
+
       <PaiementsCourse d={d} />
 
       <CadeauParrainage d={d} />
@@ -771,7 +774,7 @@ export default function Demandes({ aller, cible, membre = null }) {
             {argent && (
               <span className="tb-ligne dm-argent">
                 <span>
-                  {argent.paye > 0 ? `Payé ${enShekels(argent.paye)}` : "Rien encaissé"}
+                  {d.payeAuCoursier ? `Payé en espèces à ${argent.coursier || "le coursier"}` : argent.paye > 0 ? `Payé ${enShekels(argent.paye)}` : "Rien encaissé"}
                   {argent.pourboire > 0 ? ` · pourboire ${enShekels(argent.pourboire)}` : ""}
                 </span>
                 {argent.solde ? <strong className="dm-solde">✓ Tout payé</strong> : argent.reste > 0 ? <strong className="dm-reste">Reste {enShekels(argent.reste)}</strong> : null}

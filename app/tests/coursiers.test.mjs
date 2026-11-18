@@ -148,3 +148,29 @@ test("lien de suivi et anciens statuts", () => {
   egal(libelleCandidature("acceptee"), "Approuvé");
   vrai(messageDecision({ id: "AbCdEf1234567890", prenom: "Dan" }, "complement_demande", "permis flou", "https://x.app").includes("https://x.app/#/partenaire/AbCdEf1234567890"));
 });
+
+section("Coursiers : missions (étape 3)");
+import { missionDepuisDemande, soldeCumule, moyenMouvement, etapeSuivante, lireAccesCoursier } from "../src/pricing/coursiers.js";
+test("mission depuis une livraison, sans e-mail ni notes", () => {
+  const d = { id: "d1", service: "livraison", serviceTitre: "Livraison", nom: "Dana Levi", email: "dana@x.com", telephone: "0541112222", date: "2026-11-20", heure: "10:00", prixFinal: 60, notePrivee: "secret", details: { recuperation: { label: "Herzl 1, Netanya", lat: 32.3, lon: 34.8 }, livraison: { label: "Weizmann 5" }, destinataire: "Avi", telDestinataire: "0523334444", typeColis: "Clés" } };
+  const r = missionDepuisDemande(d, { coursiers: ["u1", "u2", "u1"] });
+  egal(r.erreur, "");
+  egal(r.mission.proposeeA, ["u1", "u2"]);
+  egal(r.mission.commission.montant, 9);
+  egal(r.mission.client, "Dana");
+  vrai(!JSON.stringify(r.mission).includes("dana@x.com"));
+  vrai(!JSON.stringify(r.mission).includes("secret"));
+  vrai(missionDepuisDemande({ ...d, service: "transport" }, { coursiers: ["u1"] }).erreur);
+  vrai(missionDepuisDemande({ ...d, prixFinal: undefined }, { coursiers: ["u1"] }).erreur);
+  vrai(missionDepuisDemande(d, { coursiers: [] }).erreur);
+  egal(missionDepuisDemande(d, { coursiers: ["u1"], commercantValide: true }).mission.commission.montant, 4.8);
+});
+test("solde cumulé, moyens, étapes, lien d'accès", () => {
+  const ms = [{ id: "a", date: "2026-11-02", statut: "terminee", prix: 60, moyen: "bit", commission: { montant: 9 } }, { id: "b", date: "2026-10-02", statut: "terminee", prix: 100, moyen: "especes", commission: { montant: 15 } }];
+  egal(soldeCumule(ms, []), 36);
+  egal(soldeCumule(ms, [{ date: "2026-11-30", sens: "vers_coursier", montant: 36 }]), 0);
+  egal(moyenMouvement("carte"), "Carte bancaire");
+  egal(etapeSuivante({ statut: "acceptee" }), "partie");
+  egal(etapeSuivante({ statut: "acceptee", partieLe: 1, recupereeLe: 1 }), "livree");
+  egal(lireAccesCoursier("#/admin?coursier=AbCdEf1234567890"), "AbCdEf1234567890");
+});

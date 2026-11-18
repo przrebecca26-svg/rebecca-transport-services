@@ -133,7 +133,12 @@ test("aller fait, retour à faire", () => {
 });
 test("payé, pourboire, reste", () => {
   const mv = [{ resId: "a", kind: "paiement", montant: 120 }, { resId: "b", kind: "paiement", montant: 510 }];
-  egal(F.argentDansListe({ id: "a", statut: "acceptee", prixFinal: 600 }, mv), { du: 600, paye: 120, pourboire: 0, reste: 480, solde: false });
-  egal(F.argentDansListe({ id: "b", statut: "acceptee", prixFinal: 510, pourboire: 10 }, mv), { du: 510, paye: 510, pourboire: 10, reste: 0, solde: true });
+  egal(F.argentDansListe({ id: "a", statut: "acceptee", prixFinal: 600 }, mv), { du: 600, paye: 120, pourboire: 0, reste: 480, solde: false, coursier: "" });
+  egal(F.argentDansListe({ id: "b", statut: "acceptee", prixFinal: 510, pourboire: 10 }, mv), { du: 510, paye: 510, pourboire: 10, reste: 0, solde: true, coursier: "" });
   egal(F.argentDansListe({ id: "c", statut: "en attente", prixFinal: 100 }, mv), null);
+});
+test("payé en espèces au coursier partenaire : rien à encaisser", () => {
+  const d = { id: "z", statut: "terminee", prixFinal: 60, payeAuCoursier: true, coursierPartenaire: { prenom: "Dan" } };
+  egal(F.resteDe(d, []), 0);
+  egal(F.argentDansListe(d, []).coursier, "Dan");
 });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase.js";
 import { definirEquipier } from "./accesDemandes.js";
 import { NOM } from "./contact.js";
@@ -15,6 +15,8 @@ import Transferts, { useTransfertsATraiter } from "./Transferts.jsx";
 import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
 import ProjetsDigital from "./ProjetsDigital.jsx";
 import Partenaires from "./Partenaires.jsx";
+import EspaceCoursier from "./EspaceCoursier.jsx";
+import { lireAccesCoursier } from "./pricing/coursiers.js";
 import Agenda from "./Agenda.jsx";
 import Clients from "./Clients.jsx";
 import Finances from "./Finances.jsx";
@@ -158,6 +160,30 @@ function useEquipe(user, estAdmin) {
   return etat;
 }
 
+// 18 nov. 2026 : coursier partenaire (fiche coursiers/{uid}). Jamais membre de l'equipe : il n'a que son espace.
+function useCoursier(user, estAdmin) {
+  const [fiche, setFiche] = useState(undefined);
+  const uid = user && !estAdmin && user.emailVerified ? user.uid : null;
+  useEffect(() => {
+    if (!uid) {
+      setFiche(null);
+      return undefined;
+    }
+    return onSnapshot(doc(db, "coursiers", uid), (s) => setFiche(s.exists() ? s.data() : null), () => setFiche(null));
+  }, [uid]);
+  return fiche;
+}
+const MEMO_COURSIER = "rs-acces-coursier";
+function accesCoursier() {
+  const id = lireAccesCoursier(window.location.hash);
+  try {
+    if (id) sessionStorage.setItem(MEMO_COURSIER, id);
+    return id || sessionStorage.getItem(MEMO_COURSIER) || "";
+  } catch {
+    return id;
+  }
+}
+
 // Rubrique pas encore construite : message clair, jamais de faux chiffres
 function Bientot({ titre, texte, bouton, aller }) {
   return (
@@ -243,6 +269,18 @@ export default function Admin() {
 
   const estAdmin = !!user && user.email === ADMIN_EMAIL && user.emailVerified;
   const equipe = useEquipe(user, estAdmin);
+  const coursier = useCoursier(user, estAdmin);
+  const lierCoursier = async () => {
+    setErreur("");
+    const candidature = accesCoursier();
+    try {
+      const suivi = await getDoc(doc(db, "suiviPartenaires", candidature));
+      if (!suivi.exists() || suivi.data().statut !== "approuve") return setErreur("Ta candidature n'est pas encore approuvée. Vois avec Rebecca.");
+      await setDoc(doc(db, "coursiers", user.uid), { candidature, prenom: suivi.data().prenom || "", email: user.email || "", statut: "a_activer", disponible: false, creeLe: serverTimestamp() });
+    } catch {
+      setErreur("Liaison impossible pour l'instant. Réessaie ou préviens Rebecca.");
+    }
+  };
   const donneesEquipe = useEquipeDonnees(); // J3 : equipe et vehicules (lecture refusee avant les regles v9 = Rebecca seule)
   const role = user ? roleDe({ estAdmin, fiche: equipe.fiche, demande: equipe.demande }) : "aucun";
   useChargerRepertoire(role === "admin" || role === "equipe"); // repertoire d'adresses : charge une fois pour tous les champs d'adresse
@@ -270,6 +308,9 @@ export default function Admin() {
   // 15 nov. 2026 : nombre de choses a traiter a cote de chaque rubrique du menu
   const compteurs = { ...useCompteurs(role), transferts: aTraiter };
   const totalATraiter = Object.values(compteurs).reduce((n, x) => n + (x || 0), 0);
+  // 18 nov. 2026 : espace d'un coursier partenaire actif (rien d'autre)
+  if (coursier && coursier.statut === "actif") return <EspaceCoursier uid={user.uid} fiche={coursier} deconnecter={deconnecter} />;
+
   if (role === "admin" || role === "equipe") {
     const membre = role === "equipe" ? equipe.fiche : null;
     const moi = membre ? membre.id : ADMIN_ID;
@@ -378,7 +419,24 @@ export default function Admin() {
 
         {user && !estAdmin && user.emailVerified && !equipe.pret && <p className="admin-texte">Chargement…</p>}
 
-        {user && !estAdmin && user.emailVerified && equipe.pret && role === "aucun" && (
+        {user && !estAdmin && user.emailVerified && coursier && coursier.statut !== "actif" && (
+          <>
+            <p className="admin-texte"><strong>{coursier.statut === "suspendu" ? "Ton compte de coursier est suspendu." : "Compte coursier lié ✓"}</strong></p>
+            <p className="admin-texte">{coursier.statut === "suspendu" ? "Vois avec Rebecca." : "Rebecca active ton espace : cette page s'ouvrira toute seule ensuite."}</p>
+            <button className="admin-bouton admin-secondaire" onClick={deconnecter}>Se déconnecter</button>
+          </>
+        )}
+
+        {user && !estAdmin && user.emailVerified && !coursier && coursier !== undefined && equipe.pret && role === "aucun" && accesCoursier() && (
+          <>
+            <p className="admin-texte">Tu es coursier partenaire de Rebecca Services ? Lie ce compte ({user.email}) à ta candidature approuvée.</p>
+            <button className="admin-bouton" onClick={lierCoursier}>Lier mon compte coursier</button>
+            <button className="admin-bouton admin-secondaire" onClick={deconnecter}>Se déconnecter</button>
+            {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}
+          </>
+        )}
+
+        {user && !estAdmin && user.emailVerified && !coursier && coursier !== undefined && equipe.pret && role === "aucun" && !accesCoursier() && (
           <>
             <p className="admin-texte">Ce compte ({user.email}) n'a pas encore accès à l'espace privé.</p>
             <p className="admin-texte">Tu fais partie de l'équipe ? Envoie une demande d'accès : Rebecca l'activera.</p>

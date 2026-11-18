@@ -285,3 +285,94 @@ export function tableauCoursier({ courses = [], reglements = [], debut, fin }) {
     bilan: bilanFinDeMois(c),
   };
 }
+
+/* ---------- Étape 3 (18 nov. 2026) : missions des coursiers partenaires ----------
+   Rebecca propose une course (livraison / courses) à un ou plusieurs coursiers : une « mission » est créée
+   avec SEULEMENT ce qu'il faut pour la faire (jamais l'e-mail ni les notes de la cliente). La commission est
+   calculée et figée à ce moment-là. Le premier qui accepte la prend. */
+const adr = (a) => (a && typeof a === "object" ? { label: String(a.label || "").slice(0, 200), ...(typeof a.lat === "number" && typeof a.lon === "number" ? { lat: a.lat, lon: a.lon } : {}) } : null);
+const DEPART_COURSES = { label: "Magasin (voir les détails)" };
+
+export function missionDepuisDemande(d, { coursiers = [], reglages, commercantValide = false } = {}) {
+  if (!d || !SERVICES_PARTENAIRE.includes(d.service)) return { erreur: "Seules les livraisons et les courses peuvent être confiées à un coursier partenaire." };
+  const prix = typeof d.prixFinal === "number" ? d.prixFinal : typeof d.prixEstime === "number" ? d.prixEstime : NaN;
+  if (!Number.isFinite(prix) || prix <= 0) return { erreur: "Fixe d'abord le prix de la course." };
+  const ids = [...new Set(coursiers)].filter(Boolean);
+  if (!ids.length) return { erreur: "Choisis au moins un coursier." };
+  const v = d.details || {};
+  const livraison = d.service === "livraison";
+  const lignes = livraison
+    ? [`${v.typeColis || "Colis"}${v.nbColis ? ` × ${v.nbColis}` : ""}`, ...[2, 3, 4, 5].filter((n) => v["arretL" + n] && v["arretL" + n].label).map((n) => `Livraison ${n} : ${v["arretL" + n].label}`)]
+    : [`${v.typePrestation === "courses" ? "Faire les courses" : "Récupérer des achats payés"} · ${v.articles || "?"} article(s) · magasin : ${v.magasin || "?"}`, v.liste ? `Liste : ${v.liste}` : "", v.avanceArgent ? `Achats avancés (ticket estimé ${v.montantTicket || "?"} ₪)` : ""];
+  if (v.infos) lignes.push(`Instructions : ${v.infos}`);
+  if (v.urgence) lignes.push("URGENT");
+  const commission = commissionCourse(prix, { commercantValide, reglages });
+  return {
+    erreur: "",
+    mission: {
+      demande: d.id,
+      service: d.service,
+      titre: d.serviceTitre || (livraison ? "Livraison" : "Courses et achats"),
+      date: d.date || "",
+      heure: d.heure || "",
+      depart: adr(livraison ? v.recuperation : DEPART_COURSES),
+      arrivee: adr(v.livraison),
+      details: lignes.filter(Boolean).join("\n").slice(0, 1500),
+      client: String(d.nom || "").split(" ")[0].slice(0, 40),
+      telClient: String(d.telephone || "").slice(0, 30),
+      destinataire: livraison ? String(v.destinataire || "").slice(0, 80) : "",
+      telDestinataire: livraison ? String(v.telDestinataire || "").slice(0, 30) : "",
+      prix: arrondi(prix),
+      commercantValide: !!commercantValide,
+      commission: { taux: commission.taux, minimum: commission.minimum, montant: commission.montant, type: commission.type },
+      proposeeA: ids,
+      statut: "proposee",
+    },
+  };
+}
+
+// Une mission terminée vue par le compte du coursier
+export const courseDeMission = (m) => ({
+  id: m.id,
+  date: (m.date || "").slice(0, 10),
+  statut: m.statut === "terminee" ? "terminee" : m.statut,
+  prix: m.prix,
+  pourboire: m.pourboire || 0,
+  moyen: m.moyen,
+  commission: m.commission,
+});
+
+// Tout ce qui n'a pas encore été réglé (pour le blocage et le « reste à payer » cumulé)
+export function soldeCumule(missions = [], reglements = []) {
+  return compteCoursier({ courses: missions.map(courseDeMission), reglements, debut: "2000-01-01", fin: "2999-12-31" }).solde;
+}
+
+// Moyen du coursier -> moyen des paiements de Rebecca (mouvements)
+const VERS_MOUVEMENT = { bit: "Bit", revolut: "Revolut", paypal: "PayPal", carte: "Carte bancaire", especes: "Espèces" };
+export const moyenMouvement = (m) => VERS_MOUVEMENT[m] || "";
+
+// Étapes d'une mission acceptée : partie -> récupérée -> livrée (terminer, avec photo)
+export function etapeSuivante(m) {
+  if (!m || m.statut !== "acceptee") return "";
+  if (!m.partieLe) return "partie";
+  if (!m.recupereeLe) return "recuperee";
+  return "livree";
+}
+
+export function messageProposition(m, prenom = "") {
+  return [
+    `Bonjour ${prenom}, nouvelle course Rebecca Services 🛵`,
+    `${m.titre} · ${m.date} ${m.heure}`,
+    m.depart && m.depart.label ? `De : ${m.depart.label}` : "",
+    m.arrivee && m.arrivee.label ? `À : ${m.arrivee.label}` : "",
+    `Prix : ${m.prix} ₪ (commission ${m.commission.montant} ₪)`,
+    "Ouvre ton espace coursier pour l'accepter : le premier qui accepte la prend.",
+  ].filter(Boolean).join("\n");
+}
+
+// Lien d'accès envoyé au coursier approuvé (il se connecte, puis Rebecca active son compte)
+export const lienAccesCoursier = (candidature, site = "https://rebecca-services-netanya.netlify.app") => `${site}/#/admin?coursier=${candidature}`;
+export function lireAccesCoursier(hash) {
+  const m = /[?&]coursier=([A-Za-z0-9]{10,40})/.exec(hash || "");
+  return m ? m[1] : "";
+}

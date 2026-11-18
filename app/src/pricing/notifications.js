@@ -20,11 +20,11 @@ export function messageNotification(d = {}) {
   const icone = ICONES[d.service] || "🔔";
   const prix = typeof d.prixEstime === "number" ? `${d.prixEstime} ₪` : "";
   const corps = [d.serviceTitre || d.service || "Demande", d.nom, dateCourte(d.date, d.heure), prix].filter(Boolean).join(" · ");
-  return { titre: `${icone} Nouvelle demande`, corps: corps.slice(0, 180), tag: `demande-${d.id || ""}`, lien: "/?admin=1#/admin" };
+  return { titre: `${icone} Nouvelle demande`, corps: corps.slice(0, 180), tag: `demande-${d.id || ""}`, lien: "/admin#/admin" };
 }
 
 export function messageTest() {
-  return { titre: "🔔 Rebecca Services", corps: "C'est bon ! Les notifications arrivent bien sur ce téléphone.", tag: "test", lien: "/?admin=1#/admin" };
+  return { titre: "🔔 Rebecca Services", corps: "C'est bon ! Les notifications arrivent bien sur ce téléphone.", tag: "test", lien: "/admin#/admin" };
 }
 
 // Identifiant stable d'un telephone abonne (meme telephone = meme fiche, jamais en double)

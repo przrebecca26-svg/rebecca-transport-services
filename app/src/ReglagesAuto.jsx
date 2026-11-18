@@ -109,7 +109,7 @@ function NotificationsTelephone() {
     <div className="tb-bloc">
       <h3>📲 Notifications sur mon téléphone</h3>
       <p className="tb-note">À chaque nouvelle demande du site, une notification arrive sur l'écran verrouillé (2 minutes maximum). Tu la touches : ton espace s'ouvre.</p>
-      {etat === "icone" && <p className="tb-note">Sur iPhone, les notifications marchent seulement depuis l'icône : dans Safari, ouvre rebeccaservices.com/#/admin, touche Partager → « Sur l'écran d'accueil », puis ouvre l'icône « Rebecca admin » et reviens ici.</p>}
+      {etat === "icone" && <p className="tb-note">Sur iPhone, les notifications marchent seulement depuis l'icône : dans Safari, ouvre rebeccaservices.com/admin, touche Partager → « Sur l'écran d'accueil », puis ouvre l'icône « Rebecca admin » et reviens ici.</p>}
       {etat === "impossible" && <p className="tb-note">Ce navigateur ne permet pas les notifications. Sur iPhone : iOS 16.4 ou plus récent, depuis l'icône de l'écran d'accueil.</p>}
       {etat === "refuse" && <p className="tb-note">Les notifications sont refusées sur ce téléphone : Réglages de l'iPhone → Notifications → Rebecca admin → Autoriser.</p>}
       {etat === "pret" && !ceTel && <button className="tb-bouton" disabled={occupe} onClick={activer}>🔔 Recevoir les notifications sur ce téléphone</button>}

@@ -1,10 +1,10 @@
 {
-  "id": "/?admin=1",
+  "id": "/admin",
   "name": "Rebecca admin",
   "short_name": "Rebecca admin",
   "description": "Espace privé de Rebecca Services : demandes, agenda, finances.",
   "lang": "fr",
-  "start_url": "/?admin=1#/admin",
+  "start_url": "/admin#/admin",
   "scope": "/",
   "display": "standalone",
   "background_color": "#faf6f2",

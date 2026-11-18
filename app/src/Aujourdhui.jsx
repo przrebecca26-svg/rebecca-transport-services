@@ -1,3 +1,6 @@
+import { abonnementsDus, courseAbonnement, messageAbonnement, nomMois } from "./pricing/abonnement.js";
+import { useRepertoire } from "./repertoireBase.js";
+import { lienPaye } from "./pricing/suiteClient.js";
 import { exportARappeler } from "./pricing/statistiques.js";
 import { retourAutreJour } from "./pricing/enchainement.js";
 import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
@@ -7,7 +10,7 @@ import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc
 import { avisADemander, messageAvis, messageRappelRetour, messageRelance, rappelsDemain, recusAFaire, relancesClientes, resteDe } from "./pricing/finCourse.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { messageRappelRdv, messageRelanceEpoxy, rappelsRdvDemain, relancesEpoxy } from "./pricing/suiteClient.js";
-import { addDoc, where as ou } from "firebase/firestore";
+import { addDoc, setDoc, where as ou } from "firebase/firestore";
 import { champOperateur } from "./pricing/reverser.js";
 import { synchroniserSuivi } from "./suiviClient.js";
 import { db } from "./firebase.js";
@@ -281,6 +284,45 @@ function AFaire({ demandes, mouvements, jour }) {
   );
 }
 
+// 18 nov. 2026 (suggestion validée) : abonnement mensuel du ramassage dû ce mois-ci
+function AbonnementsDuMois({ demandes, mouvements, jour }) {
+  const { familles = [] } = useRepertoire();
+  const [info, setInfo] = useState("");
+  const dus = abonnementsDus(familles, jour)
+    .map((a) => ({ ...a, d: demandes.find((x) => x.id === a.id) }))
+    .filter((a) => !a.d || resteDe(a.d, mouvements) > 0);
+  if (!dus.length) return null;
+  const preparer = async (a) => {
+    const c = courseAbonnement(a.famille, a.mois);
+    if (!c) return setInfo(`Ajoute le téléphone de ${a.famille.nom || "la famille"} dans sa fiche (Répertoire).`);
+    try {
+      await setDoc(doc(db, "demandes", a.id), { ...c, creeLe: serverTimestamp(), majLe: serverTimestamp() });
+      setInfo(`Abonnement de ${a.famille.nom} : ${a.montant} ₪ à encaisser ✓`);
+    } catch {
+      setInfo("Enregistrement impossible. Vérifie la connexion.");
+    }
+  };
+  return (
+    <section className="tdb-bloc">
+      <p className="aj-sous-titre">🚸 Abonnements du ramassage à encaisser</p>
+      {dus.map((a) => {
+        const reste = a.d ? resteDe(a.d, mouvements) : a.montant;
+        const lien = a.d ? lienWhatsApp(a.famille.telephone || a.famille.telephone2, messageAbonnement(a.famille, a.mois, reste, lienPaye(a.d, reste, "solde"))) : null;
+        return (
+          <div key={a.id} className="tb-adresse">
+            <div><p>{a.famille.nom} · {nomMois(a.mois)}</p><small>{reste} ₪{a.d ? " · à encaisser" : " · pas encore préparé"}</small></div>
+            <div className="tb-actions">
+              {!a.d && <button className="tb-bouton" onClick={() => preparer(a)}>Préparer le mois</button>}
+              {lien && <a className="tb-bouton" href={lien} target="_blank" rel="noopener noreferrer">Envoyer le rappel</a>}
+            </div>
+          </div>
+        );
+      })}
+      {info && <p className="tb-note" role="status">{info}</p>}
+    </section>
+  );
+}
+
 // 18 nov. 2026 (suggestion validée) : du 1er au 5 du mois, rappel d'envoyer l'export du mois précédent au comptable
 const MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 function RappelComptable({ jour, aller }) {
@@ -417,6 +459,7 @@ export default function Aujourdhui({ aller }) {
       )}
 
       {!equipier && <RappelComptable jour={jour} aller={aller} />}
+      {!equipier && demandes && mouvements && <AbonnementsDuMois demandes={demandes} mouvements={mouvements} jour={jour} />}
       {!equipier && <AFaire demandes={demandes} mouvements={mouvements} jour={jour} />}
 
       {vue.aCloturer.length > 0 && (

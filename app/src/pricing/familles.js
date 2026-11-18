@@ -61,7 +61,7 @@ export const enfantSansPlanning = () => ({ id: nouvelIdFiche(), prenom: "", age:
 export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", age: "enfant", naissance: "", ageAnnees: 0, ageNote: 0, rdv: [rdvVide("ecole")] });
 // nom2 / telephone2 : l'autre parent (facultatif)
 // forfaitJour : prix a la journee de cette famille (ex. Alexia 70 ₪), 0 = pas de forfait (13 nov. 2026)
-export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", forfaitJour: 0, categorie: "clientes", membres: [], enfants: [enfantFicheVide()] });
+export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", forfaitJour: 0, abonnementMois: 0, jourPaiement: 1, categorie: "clientes", membres: [], enfants: [enfantFicheVide()] });
 
 // Nettoie ce qui vient de la base
 export function lireFamilles(liste) {
@@ -83,6 +83,9 @@ export function lireFamilles(liste) {
       du: date(f.du),
       au: date(f.au),
       forfaitJour: lireForfait(f.forfaitJour),
+      // 18 nov. 2026 : abonnement mensuel du ramassage (₪ par mois) et jour du mois ou il est du
+      abonnementMois: lireForfait(f.abonnementMois),
+      jourPaiement: Math.min(28, Math.max(1, Math.round(Number(f.jourPaiement)) || 1)),
       // 13 nov. 2026 : categorie du Repertoire (moi, famille et amis, clientes) et autres membres (mari, mere, niece...)
       categorie: ["moi", "proches", "clientes"].includes(f.categorie) ? f.categorie : /\bmoi\b/i.test(String(f.nom || "")) ? "moi" : "clientes",
       membres: (Array.isArray(f.membres) ? f.membres : [])

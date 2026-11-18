@@ -181,7 +181,8 @@ export async function enregistrerDemande(demandeBrute, options = {}) {
       if (verrou.cellules.some((c) => prises[c] === true)) throw Object.assign(new Error("Créneau déjà pris"), { code: "creneau-pris" });
     }
     // 2. Ecritures
-    if (agendaRef) tx.set(agendaRef, { cells: Object.fromEntries(verrou.cellules.map((c) => [c, true])), majLe: serverTimestamp() }, { merge: true });
+    // 18 nov. 2026 (securite) : le creneau n'est retenu qu'avec une vraie demande, enregistree dans la meme operation
+    if (agendaRef) tx.set(agendaRef, { cells: Object.fromEntries(verrou.cellules.map((c) => [c, true])), majLe: serverTimestamp(), demande: ref.id }, { merge: true });
     tx.set(ref, { ...demande, creeLe: serverTimestamp() });
     if (demande.uid) tx.set(suiviRef, { ...construireSuivi(demande), creeLe: serverTimestamp(), majLe: serverTimestamp() });
     if (usageRef) {

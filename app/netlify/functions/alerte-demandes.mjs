@@ -124,17 +124,16 @@ async function donneesJournee(entetes, aujourdhui, demain) {
 
 export default async function alerteDemandes() {
   if (!process.env.ROBOT_EMAIL || !process.env.ROBOT_MDP) return new Response("non configuré");
-  // Réglage public : lu avant de connecter le robot (rien à faire si l'alerte et les notifications sont coupées)
-  const brut = await fetch(`${BASE}/reglages/alerteDemandes?key=${CLE_API}`);
+  // 18 nov. 2026 (securite) : ce reglage n'est plus public (adresse e-mail) : le robot se connecte d'abord
+  const entetes = await connecterRobot();
+  if (!entetes) return new Response("connexion du robot refusée");
+  const brut = await fetch(`${BASE}/reglages/alerteDemandes`, { headers: entetes });
   const reglage = (brut.ok ? documentRest(await brut.json()) : null) || {};
   const email = String(reglage.email || "").trim();
   const parEmail = reglage.actif === true && EMAIL_OK.test(email);
   const parNotif = reglage.notifications === true && !!(process.env.VAPID_PRIVEE || (globalThis.Netlify && Netlify.env && Netlify.env.get("VAPID_PRIVEE")));
   const testEnAttente = reglage.notifications === true && typeof reglage.testDemande === "string" && reglage.testDemande !== reglage.testFait;
   if (!parEmail && !parNotif && !testEnAttente) return new Response("désactivé");
-
-  const entetes = await connecterRobot();
-  if (!entetes) return new Response("connexion du robot refusée");
   const journal = [];
 
   if (testEnAttente && !parNotif) {

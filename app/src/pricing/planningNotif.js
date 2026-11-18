@@ -77,7 +77,7 @@ export function messageSoir(aujourdhui, donnees) {
   const liste = evenementsDuJour(demain, donnees);
   const rappels = rappelsDemain(donnees.demandes || [], aujourdhui).length + rappelsRdvDemain(donnees.demandes || [], aujourdhui).length;
   const resume = compter(liste) || "rien de prévu";
-  const premier = liste[0] ? ` · 1ʳᵉ à ${hFr(liste[0].heure)}` : "";
+  const premier = liste[0] ? ` · première à ${hFr(liste[0].heure)}` : "";
   return {
     titre: "📅 Demain",
     corps: `Demain : ${resume}${premier}${rappels ? ` · ${rappels} rappel${rappels > 1 ? "s" : ""} WhatsApp à envoyer` : ""}.`,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { SITE } from "./site.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { OSEK, STATUTS_CANDIDATURE, VEHICULE_UNIQUE, docsPour, libelleCandidature, lienSuiviPartenaire, messageDecision, resumeCandidature, statutDe } from "./pricing/partenaires.js";
 import { STATUTS_CANDIDATURE as REGLES_STATUTS, decision, reglagesCommission, soldeCumule, courseDeMission, estBloque, lienAccesCoursier } from "./pricing/coursiers.js";
@@ -312,7 +313,7 @@ export default function Partenaires({ aller }) {
     <section className="tb-pad">
       <div className="tb-bloc">
         <h3>Devenir coursier partenaire</h3>
-        <p className="tb-note">Page d'inscription : <a href="#/partenaire" target="_blank" rel="noopener noreferrer">ouvrir la page</a> (lien direct : rebecca-services-netanya.netlify.app/#/partenaire). Seulement livraisons et courses.</p>
+        <p className="tb-note">Page d'inscription : <a href="#/partenaire" target="_blank" rel="noopener noreferrer">ouvrir la page</a> (lien direct : {SITE.replace("https://", "")}/#/partenaire). Seulement livraisons et courses.</p>
         <label className="rg-case">
           <input type="checkbox" checked={ouvert} onChange={basculer} />
           <span>{ouvert ? "Visible sur le site (lien en bas de page)" : "Cachée : aucun lien sur le site (tu peux la tester avec le lien direct)"}</span>

@@ -1,3 +1,4 @@
+import { SITE } from "../site.js";
 // COURSIERS PARTENAIRES - Rebecca Services (validé par Rebecca le 18 nov. 2026)
 // Règles :
 //  - un coursier partenaire ne fait QUE des livraisons et des courses (jamais transport de personnes,
@@ -371,7 +372,7 @@ export function messageProposition(m, prenom = "") {
 }
 
 // Lien d'accès envoyé au coursier approuvé (il se connecte, puis Rebecca active son compte)
-export const lienAccesCoursier = (candidature, site = "https://rebecca-services-netanya.netlify.app") => `${site}/#/admin?coursier=${candidature}`;
+export const lienAccesCoursier = (candidature, site = SITE) => `${site}/#/admin?coursier=${candidature}`;
 export function lireAccesCoursier(hash) {
   const m = /[?&]coursier=([A-Za-z0-9]{10,40})/.exec(hash || "");
   return m ? m[1] : "";

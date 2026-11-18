@@ -102,6 +102,12 @@ const jourLong = (date) => {
 const heureFr = (h) => String(h || "").replace(":", "h");
 const prenomDe = (nom) => String(nom || "").trim().split(/\s+/)[0] || "";
 const bonjour = (d) => (prenomDe(d.nom) ? `Bonjour ${prenomDe(d.nom)},` : "Bonjour,");
+// 18 nov. 2026 (suggestion validée) : lien « Laisser un avis Google » réglé par Rebecca (Réglages → Paiements)
+let LIEN_AVIS_GOOGLE = "";
+export const definirLienAvisGoogle = (l) => {
+  LIEN_AVIS_GOOGLE = /^https:\/\/\S+$/.test(String(l || "").trim()) ? String(l).trim() : "";
+};
+export const ligneAvisGoogle = () => (LIEN_AVIS_GOOGLE ? [`⭐ Un petit avis Google m'aiderait beaucoup : ${LIEN_AVIS_GOOGLE}`] : []);
 // 17 nov. 2026, 11h33 : le lien du site dans TOUS les messages ; sans compte, l'invitation a creer son compte
 export function lignesSite(d, site = SITE) {
   if (d && d.uid) return [`Retrouvez-moi sur mon site : ${site}`];
@@ -125,6 +131,7 @@ export function messageMerci(d, reste = 0) {
   } else {
     lignes.push("Au plaisir de vous revoir.");
   }
+  if (t !== "aller") lignes.push(...ligneAvisGoogle());
   lignes.push(...lignesSite(d), "Rebecca");
   return lignes.join("\n");
 }
@@ -269,6 +276,7 @@ export function messageAvis(d) {
     d.uid
       ? "Si vous avez un instant, votre avis m'aiderait beaucoup : laissez-moi quelques étoiles dans votre espace, rubrique « Mon historique »."
       : "Si vous avez un instant, votre avis m'aiderait beaucoup : répondez simplement à ce message avec quelques mots.",
+    ...ligneAvisGoogle(),
     ...lignesSite(d),
     "Au plaisir de vous revoir, Rebecca",
   ].join("\n");
@@ -336,7 +344,7 @@ const estCoursier = (d) => ["livraison", "courses", "demenagement"].includes(d &
 export function messageLivraisonFaite(d) {
   const h = chronoDe(d).depose || (HEURE_OK.test(d.faitA || "") ? d.faitA : "");
   const quoi = d.service === "courses" ? "Vos courses sont livrées" : d.service === "demenagement" ? "Votre petit déménagement est terminé" : "Votre livraison est faite";
-  return [bonjour(d), `${quoi} ✅${h ? ` (à ${heureFr(h)})` : ""}`, "Merci de m'avoir fait confiance 🙏 Au plaisir de vous revoir.", ...lignesSite(d), "Rebecca"].join("\n");
+  return [bonjour(d), `${quoi} ✅${h ? ` (à ${heureFr(h)})` : ""}`, "Merci de m'avoir fait confiance 🙏 Au plaisir de vous revoir.", ...ligneAvisGoogle(), ...lignesSite(d), "Rebecca"].join("\n");
 }
 
 // Relance d'une cliente 30 a 60 jours apres sa derniere course (une seule fois, et seulement sans course plus recente)

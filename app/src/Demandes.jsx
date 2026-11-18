@@ -3,6 +3,7 @@ import { texteDuree } from "./pricing/circulation.js";
 import InfoVol from "./components/InfoVol.jsx";
 import NettoyageTests from "./components/NettoyageTests.jsx";
 import ProposerCoursier from "./components/ProposerCoursier.jsx";
+import { champsOffrir, etatFidelite, messageFidelite } from "./pricing/fidelite.js";
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ModifierDevis } from "./SimulateurDevis.jsx";
 import { db } from "./firebase.js";
@@ -297,6 +298,31 @@ function Regroupement({ d, toutes, aller }) {
 }
 
 // 17 nov. 2026 : parrainage — course terminee d'une amie venue avec un lien -> credit offert a la marraine
+// 18 nov. 2026 (suggestion validée) : la 10e course est offerte
+function Fidelite({ d, toutes, admin }) {
+  const [info, setInfo] = useState("");
+  const f = etatFidelite(d, toutes || []);
+  if (!f) return null;
+  const offrir = async () => {
+    try {
+      await updateDoc(doc(db, "demandes", d.id), { ...champsOffrir(d), ajustementLe: new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), majLe: serverTimestamp() });
+      setInfo("Course offerte ✓ (le prix est déduit : rien à encaisser).");
+    } catch {
+      setInfo("Impossible pour l'instant.");
+    }
+  };
+  if (!f.offerte) return <p className="tb-note">🎁 Fidélité : {f.rang}{f.rang === 1 ? "re" : "e"} course de ce client · encore {f.encore} avant sa course offerte.</p>;
+  const lien = lienWhatsApp(d.telephone, messageFidelite(prenomDe(d.nom)));
+  return (
+    <div className="tb-bloc">
+      <h3>🎁 {f.rang}e course : offerte !</h3>
+      {f.deja ? <p className="tb-note">Déjà offerte ✓</p> : admin ? <button className="tb-bouton" onClick={offrir}>Offrir cette course</button> : <p className="tb-note">Rebecca peut l'offrir depuis son espace.</p>}
+      {lien && <a className="tb-bouton tb-clair" href={lien} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 6 }}>Le dire au client sur WhatsApp</a>}
+      {info && <p className="tb-note" role="status">{info}</p>}
+    </div>
+  );
+}
+
 function CadeauParrainage({ d }) {
   const [marraine, setMarraine] = useState(null);
   const [info, setInfo] = useState("");
@@ -598,6 +624,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
       {moi === "rebecca" && (d.statut === "acceptee" || d.coursierPartenaire) ? <ProposerCoursier d={d} /> : null}
 
       <PaiementsCourse d={d} />
+
+      <Fidelite d={d} toutes={toutes} admin={moi === "rebecca"} />
 
       <CadeauParrainage d={d} />
 

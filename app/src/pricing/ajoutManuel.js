@@ -13,7 +13,8 @@ import { SERVICES } from "../services.js";
 import { TARIFS } from "./config.js";
 import { telNormalise } from "./clients.js";
 
-export const SITE = "https://rebecca-services-netanya.netlify.app";
+export { SITE } from "../site.js";
+import { SITE } from "../site.js";
 export const CODE_BIENVENUE = "BIENVENUE10";
 
 export const ORIGINES = [

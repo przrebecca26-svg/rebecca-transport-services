@@ -4,7 +4,8 @@
 // Sources : questionnaire-devis-digital (5 nov.), digital-d3 (garantie, maintenance), digital-d4 (regle des devis),
 // dossier Digital du 13 nov. Les prix viennent du catalogue (Reglages → Catalogue → Digital), jamais d'ici.
 
-export const SITE = "https://rebecca-services-netanya.netlify.app";
+export { SITE } from "../site.js";
+import { SITE } from "../site.js";
 
 /* ---------- Questionnaire 1 : demande de devis ---------- */
 

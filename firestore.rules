@@ -1,4 +1,9 @@
 rules_version = '2';
+// Regles Rebecca Services v20 (18 novembre 2026) = v19 + coursiers partenaires, etape 2 :
+//   - candidaturesPartenaires : inscription complete (osek, paiement, reglement, documents) au statut « soumis » ;
+//   - suiviPartenaires : ce que le coursier voit avec son lien #/partenaire/ID (prenom, statut, motif, documents
+//     a refaire) ; il peut seulement renvoyer ses documents quand Rebecca demande un complement ;
+//   - documentsPartenaires : photos des documents (texte base64), envoyees par le coursier, lues par Rebecca SEULE.
 // Regles Rebecca Services v19 (17 novembre 2026) = v18 +
 //   - projetsDigital : demande de devis Digital (avec ou sans compte), lien de suivi personnel du client
 //     (lecture par son lien ; il peut seulement accepter son devis et remplir son dossier de lancement) ;
@@ -756,9 +761,12 @@ service cloud.firestore {
     // Candidatures « Devenir partenaire » (futurs coursiers) : tout le monde peut en envoyer une, Rebecca seule les lit
     function candidatureValide() {
       let d = request.resource.data;
-      return d.keys().hasOnly(["statut","prenom","nom","telephone","email","ville","zones","vehicules","permis","assurance","services","jours","dispos","statutFiscal","experience","message","majeur","consentement","creeLe"])
+      return d.keys().hasOnly(["statut","version","prenom","nom","telephone","email","ville","zones","vehicules","permis","assurance","services","jours","dispos","statutFiscal","osek","paiement","documentsEnvoyes","experience","message","reglement","majeur","consentement","creeLe"])
         && d.keys().hasAll(["statut","prenom","nom","telephone","email","ville","vehicules","services","jours","majeur","consentement","creeLe"])
-        && d.statut == "nouvelle" && d.majeur == true && d.consentement == true && d.creeLe == request.time
+        && (d.statut == "nouvelle" || (d.statut == "soumis" && d.version == 2 && d.reglement == true
+              && d.osek in ["patour","mourche"] && d.paiement is string && d.paiement.size() >= 4 && d.paiement.size() <= 200
+              && d.documentsEnvoyes is list && d.documentsEnvoyes.size() <= 8))
+        && d.majeur == true && d.consentement == true && d.creeLe == request.time
         && d.prenom is string && d.prenom.size() >= 2 && d.prenom.size() <= 60
         && d.nom is string && d.nom.size() >= 2 && d.nom.size() <= 60
         && d.telephone is string && d.telephone.size() >= 3 && d.telephone.size() <= 30
@@ -773,6 +781,37 @@ service cloud.firestore {
     match /candidaturesPartenaires/{id} {
       allow create: if candidatureValide();
       allow read, update, delete: if estAdmin();
+    }
+
+    // v20 : suivi d'une candidature, lu avec le lien personnel du coursier (identifiant impossible a deviner)
+    match /suiviPartenaires/{id} {
+      allow create: if estAdmin() || request.resource.data.keys().hasOnly(["statut","prenom","motif","documentsDemandes","creeLe"])
+        && request.resource.data.statut == "soumis"
+        && request.resource.data.prenom is string && request.resource.data.prenom.size() <= 60
+        && request.resource.data.motif == "" && request.resource.data.documentsDemandes == []
+        && request.resource.data.creeLe == request.time
+        && getAfter(/databases/$(database)/documents/candidaturesPartenaires/$(id)).data.statut == "soumis";
+      allow get: if true;
+      allow list: if estAdmin();
+      // le coursier renvoie ses documents : complement demande -> envoyee, rien d'autre ne change
+      allow update: if estAdmin()
+        || (resource.data.statut == "complement_demande" && request.resource.data.statut == "soumis"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut","renvoyeLe"])
+            && request.resource.data.renvoyeLe == request.time);
+      allow delete: if estAdmin();
+    }
+
+    // v20 : documents des coursiers (photos), jamais lisibles par quelqu'un d'autre que Rebecca
+    match /documentsPartenaires/{id} {
+      allow create: if request.resource.data.keys().hasOnly(["candidature","type","image","creeLe"])
+        && request.resource.data.candidature is string
+        && id.matches(request.resource.data.candidature + "_[a-zA-Z]{2,20}_[0-9]{10,16}")
+        && request.resource.data.type in ["identite","osek","permis","rishayon","assurance","topcase","photoVelo"]
+        && request.resource.data.image is string && request.resource.data.image.size() <= 700000
+        && request.resource.data.creeLe == request.time
+        && exists(/databases/$(database)/documents/suiviPartenaires/$(request.resource.data.candidature))
+        && get(/databases/$(database)/documents/suiviPartenaires/$(request.resource.data.candidature)).data.statut in ["soumis","complement_demande"];
+      allow read, delete: if estAdmin();
     }
 
     // Compte robot des rappels : seule Rebecca le cree ou le desactive

@@ -178,6 +178,7 @@ export function documentsRequis(vehicule) {
   if (vehicule === "voiture") return [...base, { id: "permis", label: "Permis de conduire" }, { id: "rishayon", label: "Carte grise (rishayon rekhev)" }, { id: "assurance", label: "Assurance du véhicule" }];
   if (vehicule === "scooter") return [...base, { id: "permis", label: "Permis moto / scooter" }, { id: "rishayon", label: "Carte grise (rishayon rekhev)" }, { id: "assurance", label: "Assurance du véhicule" }, { id: "topcase", label: "Photo du top-case" }];
   if (vehicule === "velo") return [...base, { id: "photoVelo", label: "Photo du vélo électrique" }];
+  // pied : seulement la pièce d identité et l osek
   return base;
 }
 

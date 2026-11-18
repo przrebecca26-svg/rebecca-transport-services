@@ -124,3 +124,27 @@ test("parts, pourcentages et moyens de paiement", () => {
   egal(t.lignes[1].partCoursier, 61);
   egal(t.resteAPayer, 55);
 });
+
+section("Coursiers : inscription complète (étape 2)");
+import { erreursInscription, construireInscription, lireLienPartenaire, statutDe, libelleCandidature, messageDecision, SERVICES_PARTENAIRE as SP } from "../src/pricing/partenaires.js";
+const insc = { prenom: "Dan", nom: "Cohen", telephone: "054 123 4567", email: "dan@exemple.com", ville: "Netanya", vehicule: "scooter", services: ["livraison"], jours: ["Lundi"], osek: "patour", paiement: "Bit 0541234567", documents: { identite: "x", osek: "x", permis: "x", rishayon: "x", assurance: "x", topcase: "x" }, reglement: true, majeur: true, consentement: true };
+test("formulaire complet", () => {
+  egal(erreursInscription(insc), {});
+  vrai(erreursInscription({ ...insc, documents: { identite: "x" } }).documents.includes("top-case"));
+  vrai(erreursInscription({ ...insc, osek: "" }).osek);
+  vrai(erreursInscription({ ...insc, reglement: false }).reglement);
+  egal(erreursInscription({ ...insc, vehicule: "pied", documents: { identite: "x", osek: "x" } }), {});
+});
+test("seulement livraisons et courses", () => {
+  egal(SP.map((s) => s.v), ["livraison", "courses"]);
+  egal(construireInscription({ ...insc, services: ["livraison", "transport"] }).services, ["livraison"]);
+  egal(construireInscription(insc).documentsEnvoyes, ["identite", "osek", "permis", "rishayon", "assurance", "topcase"]);
+  egal(construireInscription(insc).statut, "soumis");
+});
+test("lien de suivi et anciens statuts", () => {
+  egal(lireLienPartenaire("#/partenaire/AbCdEf1234567890"), "AbCdEf1234567890");
+  egal(lireLienPartenaire("#/partenaire"), "");
+  egal(statutDe({ statut: "nouvelle" }), "soumis");
+  egal(libelleCandidature("acceptee"), "Approuvé");
+  vrai(messageDecision({ id: "AbCdEf1234567890", prenom: "Dan" }, "complement_demande", "permis flou", "https://x.app").includes("https://x.app/#/partenaire/AbCdEf1234567890"));
+});

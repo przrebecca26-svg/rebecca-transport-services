@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { texteDuree } from "./pricing/circulation.js";
 import InfoVol from "./components/InfoVol.jsx";
+import NettoyageTests from "./components/NettoyageTests.jsx";
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ModifierDevis } from "./SimulateurDevis.jsx";
 import { db } from "./firebase.js";
@@ -746,6 +747,7 @@ export default function Demandes({ aller, cible, membre = null }) {
         </button>
       </div>
 
+      {!membre && <NettoyageTests items={items} />}
       {visibles.length === 0 && <p className="admin-texte tb-pad">Aucune demande dans cette catégorie.</p>}
 
       {visibles.map((d) => {

@@ -9,6 +9,35 @@ import { motDePasseRobot } from "./pricing/rappelsAuto.js";
 const CLE_API = "AIzaSyDZOjiRg9tgHo620Dqw1PYJuBciJ80Enmg"; // cle publique du site
 const EMAIL_ROBOT = "robot.rappels@rebecca-services-netanya.netlify.app";
 
+// 18 nov. 2026 (suggestion validée) : e-mail à Rebecca à chaque nouvelle demande du site (toutes les 5 minutes)
+function AlerteDemandes() {
+  const [a, setA] = useState(null);
+  const [email, setEmail] = useState("");
+  const [info, setInfo] = useState("");
+  useEffect(() => onSnapshot(doc(db, "reglages", "alerteDemandes"), (s) => {
+    const v = s.exists() ? s.data() : {};
+    setA(v);
+    setEmail((e) => e || v.email || "rebecca.services.transport@gmail.com");
+  }, () => setA({})), []);
+  if (!a) return null;
+  const enregistrer = (actif) => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setInfo("Adresse e-mail invalide.");
+    setDoc(doc(db, "reglages", "alerteDemandes"), { actif, email: email.trim().slice(0, 120), majLe: serverTimestamp() }).then(() => setInfo(actif ? "Activée ✓" : "Coupée.")).catch(() => setInfo("Enregistrement impossible."));
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>🔔 Me prévenir à chaque nouvelle demande</h3>
+      <p className="tb-note">Toutes les 5 minutes, s'il y a une nouvelle demande sur le site, un e-mail part vers cette adresse : ton iPhone sonne (active les notifications de Mail ou Gmail pour cette adresse). Même compte robot que les rappels du soir.</p>
+      <label className="pm-champ">Adresse qui reçoit l'alerte<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+      <label className="rg-case">
+        <input type="checkbox" checked={a.actif === true} onChange={() => enregistrer(!(a.actif === true))} />
+        <span>{a.actif === true ? "Activée" : "Désactivée"}</span>
+      </label>
+      {info && <p className="tb-note">{info}</p>}
+    </div>
+  );
+}
+
 export default function ReglagesAuto() {
   const [r, setR] = useState(null);
   const [robot, setRobot] = useState(null);
@@ -41,6 +70,8 @@ export default function ReglagesAuto() {
   const passage = r.dernierPassage ? new Date(r.dernierPassage).toLocaleString("fr-FR", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
 
   return (
+    <>
+    <AlerteDemandes />
     <div className="tb-bloc">
       <h3>Rappels envoyés tout seuls</h3>
       <p className="tb-note">Chaque soir vers 19h, un e-mail part tout seul aux clientes qui ont un retour d'aller-retour ou un rendez-vous beauté le lendemain. WhatsApp reste à envoyer toi-même dans « Aujourd'hui » : il ne peut pas partir sans toi. L'e-mail n'est jamais envoyé deux fois.</p>
@@ -69,5 +100,6 @@ export default function ReglagesAuto() {
       </ol>
       {info && <p className="tb-note">{info}</p>}
     </div>
+    </>
   );
 }

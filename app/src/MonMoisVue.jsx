@@ -5,6 +5,7 @@ import { woltParHeure } from "./pricing/suiteClient.js";
 import { useEssence } from "./EssenceVue.jsx";
 import { useKmReel } from "./kmReel.js";
 import DetailCourses from "./components/DetailCourses.jsx";
+import ObjectifMois from "./components/ObjectifMois.jsx";
 
 // MON MOIS (13 nov. 2026) - Finances, premier onglet : ce que je gagne vraiment, mois par mois, en un coup d'oeil.
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
@@ -65,6 +66,8 @@ export default function MonMoisVue({ donnees, aller }) {
         </p>
         <p className="tb-note">= ce que j'ai encaissé − essence de travail − dépenses.</p>
       </div>
+
+      <ObjectifMois mois={mois} gagne={r.totalGagne} />
 
       <div className="tb-bloc">
         <h3>J'ai encaissé · {shekels(r.totalGagne)}</h3>

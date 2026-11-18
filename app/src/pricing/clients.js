@@ -160,7 +160,17 @@ export const FILTRES = [
   { id: "transport", label: "Transport" },
   { id: "credit", label: "Recharges" },
   { id: "bloques", label: "Bloqués" },
+  // 18 nov. 2026 (suggestion validée) : clientes fidèles et clientes perdues de vue
+  { id: "fideles", label: "👑 Fidèles" },
+  { id: "perdues", label: "💤 Perdues de vue" },
 ];
+
+// Fidèle : au moins 3 prestations terminées. Perdue de vue : au moins une prestation, rien depuis 2 mois, rien de prévu.
+export const SEUIL_FIDELE = 3;
+const aujourdhuiIsrael = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+const ilYA = (jour, n) => new Date(Date.parse(`${jour}T12:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
+export const estFidele = (f) => f.stats.nbTerminees >= SEUIL_FIDELE;
+export const estPerdue = (f, jour = aujourdhuiIsrael()) => f.stats.nbTerminees >= 1 && f.stats.nbAVenir === 0 && !!f.derniereDate && f.derniereDate < ilYA(jour, 60);
 
 export function filtrer(fiches, filtre, texte) {
   const q = sansAccents(texte);
@@ -171,6 +181,8 @@ export function filtrer(fiches, filtre, texte) {
     if (filtre === "transport" && !f.transport) return false;
     if (filtre === "credit" && f.rechargesEnAttente === 0) return false;
     if (filtre === "bloques" && !f.bloque) return false;
+    if (filtre === "fideles" && !estFidele(f)) return false;
+    if (filtre === "perdues" && !estPerdue(f)) return false;
     if (!q) return true;
     if (f.recherche.includes(q)) return true;
     return chiffres.length >= 3 && telNormalise(f.telephone).includes(chiffres.replace(/^972/, "0"));

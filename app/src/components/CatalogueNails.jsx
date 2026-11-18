@@ -5,6 +5,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase.js";
 import { CATALOGUE_DEPART, ACTIVITES_DEPART, avecAjustement, libellePrix, libelleDuree } from "../pricing/catalogue.js";
 import { creneauxDuJour, cellulesDe, cellulesLibres, idAgenda } from "../pricing/rendezvous.js";
+import ProchainsCreneaux from "./ProchainsCreneaux.jsx";
 import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande, messageEchec } from "../demandes.js";
 import { ecouterCatalogue, ecouterPhotos } from "../catalogueClient.js";
@@ -200,6 +201,7 @@ export default function CatalogueNails({ onRetour }) {
             {total && total.lignes.length > 0 && <p><strong>Total estimé : {total.aPartirDe ? "à partir de " : ""}{total.prix} ₪ · {total.minutes} min</strong>{total.aPartirDe ? <><br /><small>Le prix exact du nail art dépend du motif : Rebecca vous le confirme.</small></> : null}</p>}
           </div>
         )}
+        {selection && activite && !heure && <ProchainsCreneaux activite={activite} duree={dureeTotale} occupes={occupes} service="nails" marge={margeRdv} onChoisir={(d, h) => { setDate(d); setTimeout(() => setHeure(h), 700); }} />}
         <label>
           Date
           <br /><input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)} />

@@ -100,3 +100,27 @@ test("vol : 15 min de retard ou annulé", () => {
   egal(signalVol({ CHSTOL: "2026-11-19T10:00:00", CHPTOL: "2026-11-19T10:45:00", CHRMINE: "DELAYED" }, vol).cle, "r45");
   egal(signalVol({ CHSTOL: "2026-11-19T10:00:00", CHPTOL: "2026-11-19T10:00:00", CHRMINE: "CANCELED" }, vol).cle, "annule");
 });
+
+import { objectifDuMois, joursDeTravailRestants } from "../src/pricing/objectif.js";
+import { trajetsHabituels } from "../src/pricing/habituels.js";
+section("Objectif du mois et trajets habituels");
+test("objectif : barre, reste, par jour de travail sans samedi", () => {
+  egal(joursDeTravailRestants("2026-11", "2026-11-28"), 2); // 28 = samedi exclu : 29, 30
+  const o = objectifDuMois(3000, 8000, "2026-11", "2026-11-18");
+  egal([o.pct, o.reste, o.atteint], [38, 5000, false]);
+  egal(objectifDuMois(100, 0, "2026-11", "2026-11-18"), null);
+});
+test("trajets habituels : sans doublon, sans les favoris, sans les annulés", () => {
+  const F = { aeroport: [{ name: "adresse", type: "adresse" }, { name: "nb", type: "nombre" }] };
+  const a = (l) => ({ adresse: { label: l, lat: 1, lon: 1 }, nb: 2, date: "2026-11-01" });
+  const s = [
+    { service: "aeroport", serviceTitre: "Aéroport", date: "2026-11-10", statut: "terminée", details: a("Maison, Netanya") },
+    { service: "aeroport", serviceTitre: "Aéroport", date: "2026-11-05", statut: "terminée", details: a("Maison, Netanya") },
+    { service: "aeroport", serviceTitre: "Aéroport", date: "2026-11-04", statut: "refusée", details: a("Hôtel, Tel Aviv") },
+  ];
+  const r = trajetsHabituels(s, [], F);
+  egal(r.length, 1);
+  egal(r[0].nom, "Aéroport · Maison");
+  egal("date" in r[0].details, false);
+  egal(trajetsHabituels(s, [{ service: "aeroport", details: a("Maison, Netanya") }], F).length, 0);
+});

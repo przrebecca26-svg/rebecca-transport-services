@@ -48,25 +48,30 @@ async function envoyerEmail(liste, email) {
   return envoi.ok;
 }
 
-// Envoie chaque message a chaque telephone abonne ; un telephone desabonne est efface. Renvoie le nombre envoye.
+// Envoie chaque message a chaque telephone abonne ; un telephone desabonne est efface.
+// Renvoie { envoyes, compte-rendu } (le compte-rendu du test s'affiche dans Réglages → Notifications).
 async function notifier(entetes, messages) {
   const r = await fetch(`${BASE}/notificationsPush?pageSize=20`, { headers: entetes });
-  if (!r.ok) return 0;
+  if (!r.ok) return { envoyes: 0, rapport: `lecture des téléphones refusée (${r.status}) : règles v23 ?` };
   const abonnes = ((await r.json()).documents || []).map(documentRest).filter((a) => a && a.endpoint && a.p256dh && a.auth);
+  if (!abonnes.length) return { envoyes: 0, rapport: "aucun téléphone abonné" };
   let envoyes = 0;
+  const notes = [];
   for (const a of abonnes) {
     for (const m of messages) {
       try {
         const res = await envoyerNotification(a, m, process.env.VAPID_PRIVEE);
         if (res.ok) envoyes++;
+        else notes.push(`${a.appareil || "?"} : refus ${res.statut} ${res.raison}`.trim());
         if (res.expire) { await fetch(`${BASE}/notificationsPush/${a.id}`, { method: "DELETE", headers: entetes }); break; }
-        if (!res.ok) console.log(`Notification refusée (${res.statut}) pour ${a.id}`);
       } catch (e) {
-        console.log(`Notification impossible pour ${a.id} : ${e.message}`);
+        notes.push(`${a.appareil || "?"} : ${e.message}`);
       }
     }
   }
-  return envoyes;
+  const rapport = `${envoyes} envoyée(s) sur ${abonnes.length} téléphone(s)${notes.length ? " · " + notes.join(" · ") : ""}`;
+  console.log("Notifications :", rapport);
+  return { envoyes, rapport };
 }
 
 export default async function alerteDemandes() {
@@ -85,9 +90,14 @@ export default async function alerteDemandes() {
 
   // Bouton « Envoyer une notification de test » (Réglages) : envoyée une seule fois
   if (test) {
-    await notifier(entetes, [messageTest()]);
+    const { rapport } = await notifier(entetes, [messageTest()]);
     await fetch(`${BASE}/reglages/alerteDemandes?updateMask.fieldPaths=testFait`, {
       method: "PATCH", headers: entetes, body: JSON.stringify({ fields: { testFait: { stringValue: reglage.testDemande } } }),
+    });
+    // Compte-rendu du test, lisible dans Réglages (case « detail » que le robot a deja le droit d'ecrire, sans nouvelle regle)
+    const quandTest = new Date().toLocaleString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" });
+    await fetch(`${BASE}/reglages/rappelsAuto?updateMask.fieldPaths=detail`, {
+      method: "PATCH", headers: entetes, body: JSON.stringify({ fields: { detail: { stringValue: `📲 Test ${quandTest} : ${rapport}`.slice(0, 400) } } }),
     });
   }
 
@@ -100,7 +110,7 @@ export default async function alerteDemandes() {
   const liste = demandesASignaler(demandes);
   if (!liste.length) return new Response(test ? "test envoyé" : "rien de nouveau");
 
-  const notifs = parNotif ? await notifier(entetes, liste.map(messageNotification)) : 0;
+  const notifs = parNotif ? (await notifier(entetes, liste.map(messageNotification))).envoyes : 0;
   const mail = parEmail ? await envoyerEmail(liste, email) : false;
   if (!mail && !notifs) return new Response("aucun envoi réussi");
   const quand = new Date().toISOString();

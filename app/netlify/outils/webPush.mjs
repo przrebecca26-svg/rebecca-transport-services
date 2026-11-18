@@ -66,5 +66,7 @@ export async function envoyerNotification(abonnement, message, clePriveeB64) {
     },
     body: corps,
   });
-  return { ok: r.ok, statut: r.status, expire: r.status === 404 || r.status === 410 };
+  let raison = "";
+  if (!r.ok) { try { raison = (await r.text()).slice(0, 120); } catch { raison = ""; } }
+  return { ok: r.ok, statut: r.status, raison, expire: r.status === 404 || r.status === 410 };
 }

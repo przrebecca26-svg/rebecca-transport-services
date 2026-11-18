@@ -265,8 +265,10 @@ export function tableauCoursier({ courses = [], reglements = [], debut, fin }) {
     return { id: m.id, label: m.label, nombre: ls.length, montant: arrondi(ls.reduce((s, l) => s + l.total, 0)) };
   }).filter((m) => m.nombre > 0);
   const totalBrut = arrondi(c.chiffre + c.pourboires);
-  const pct = (x) => (totalBrut > 0 ? Math.round((x / totalBrut) * 1000) / 10 : 0);
+  // Pourcentages calculés sur le prix des courses seulement (les pourboires sont à part, 100 % coursier)
+  const pct = (x) => (c.chiffre > 0 ? Math.round((x / c.chiffre) * 1000) / 10 : 0);
   const partCoursier = arrondi(totalBrut - c.commissions);
+  const partCoursierCourses = arrondi(c.chiffre - c.commissions);
   return {
     ...c,
     lignes,
@@ -274,7 +276,8 @@ export function tableauCoursier({ courses = [], reglements = [], debut, fin }) {
     totalBrut,
     partCoursier,
     partRebecca: c.commissions,
-    pctCoursier: pct(partCoursier),
+    partCoursierCourses,
+    pctCoursier: pct(partCoursierCourses),
     pctRebecca: pct(c.commissions),
     // reste à payer : > 0 Rebecca doit au coursier, < 0 le coursier doit à Rebecca
     resteAPayer: c.solde,

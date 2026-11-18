@@ -115,7 +115,9 @@ test("parts, pourcentages et moyens de paiement", () => {
   egal(t.totalBrut, 110);
   egal(t.partCoursier, 95);
   egal(t.partRebecca, 15);
-  egal(t.pctRebecca, 13.6);
+  egal(t.pctRebecca, 15);
+  egal(t.pctCoursier, 85);
+  egal(t.partCoursierCourses, 85);
   egal(t.parMoyen.map((m) => [m.label, m.nombre, m.montant]), [["Espèces", 1, 40], ["Bit", 1, 70]]);
   egal(t.lignes[0].id, "b");
   egal(t.lignes[0].argent, "Gardé en espèces");

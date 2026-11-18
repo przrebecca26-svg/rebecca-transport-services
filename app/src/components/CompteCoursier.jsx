@@ -51,8 +51,9 @@ export default function CompteCoursier({ nom = "", telephone = "", courses = [],
           <i style={{ width: `${t.pctCoursier}%` }} />
         </div>
         <div className="cc-parts">
-          <p><span className="cc-pastille coursier" />Part de {vueAdmin ? nom || "coursier" : "toi"} : <strong>{shekels(t.partCoursier)}</strong> ({t.pctCoursier.toLocaleString("fr-FR")} %)</p>
+          <p><span className="cc-pastille coursier" />Part de {vueAdmin ? nom || "coursier" : "toi"} sur les courses : <strong>{shekels(t.partCoursierCourses)}</strong> ({t.pctCoursier.toLocaleString("fr-FR")} %)</p>
           <p><span className="cc-pastille rebecca" />Commission Rebecca : <strong>{shekels(t.partRebecca)}</strong> ({t.pctRebecca.toLocaleString("fr-FR")} %)</p>
+          {t.pourboires > 0 && <p className="cc-gris">+ Pourboires : {shekels(t.pourboires)} (100 % pour {toi}) → total pour {toi} : {shekels(t.partCoursier)}</p>}
         </div>
         {(t.versesAuCoursier > 0 || t.payesParCoursier > 0) && (
           <p className="cc-note">Déjà réglé ce mois-ci : {t.versesAuCoursier > 0 && `${shekels(t.versesAuCoursier)} versés par Rebecca`}{t.versesAuCoursier > 0 && t.payesParCoursier > 0 && " · "}{t.payesParCoursier > 0 && `${shekels(t.payesParCoursier)} payés à Rebecca`}</p>

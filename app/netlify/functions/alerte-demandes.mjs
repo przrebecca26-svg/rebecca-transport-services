@@ -90,10 +90,10 @@ async function requete(entetes, structuredQuery) {
   if (!r.ok) return null;
   return (await r.json()).map((x) => documentRest(x.document)).filter(Boolean);
 }
-const depuis = (collectionId, quand, limite = 20) => ({
+const depuis = (collectionId, quand, limite = 20, champ = "creeLe") => ({
   from: [{ collectionId }],
-  where: { fieldFilter: { field: { fieldPath: "creeLe" }, op: "GREATER_THAN", value: { timestampValue: quand } } },
-  orderBy: [{ field: { fieldPath: "creeLe" }, direction: "ASCENDING" }],
+  where: { fieldFilter: { field: { fieldPath: champ }, op: "GREATER_THAN", value: { timestampValue: quand } } },
+  orderBy: [{ field: { fieldPath: champ }, direction: "ASCENDING" }],
   limit: limite,
 });
 const entreDates = (champ, du, au, collectionId = "demandes") => ({
@@ -166,12 +166,13 @@ export default async function alerteDemandes() {
       } else {
         let plusRecent = vu;
         for (const src of SOURCES_SITE) {
-          const docs = await requete(entetes, depuis(src.collection, vu));
+          const champ = src.champ || "creeLe";
+          const docs = await requete(entetes, depuis(src.collection, vu, 20, champ));
           if (!docs) { journal.push(`${src.collection} illisible`); continue; }
           for (const d of docs) {
-            const m = messageSite(src.collection, d);
+            const m = messageSite(src.collection, d, src.cle || "");
             if (m) messages.push(m);
-            if (String(d.creeLe || "") > plusRecent) plusRecent = String(d.creeLe);
+            if (String(d[champ] || "") > plusRecent) plusRecent = String(d[champ]);
           }
         }
         if (plusRecent !== vu) await noter(entetes, { vuJusqua: plusRecent });

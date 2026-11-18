@@ -1,4 +1,9 @@
 rules_version = '2';
+// Regles Rebecca Services v26 (18 novembre 2026, 23h) = v25 + cartes cadeaux, sauvegarde automatique chaque semaine :
+//   - cartesCadeaux : une cliente commande une carte (« a payer ») et annonce son paiement ; Rebecca (et l'equipe pour
+//     encaisser avec le code) active et deduit le solde. Lien #/cadeau/ID (identifiant impossible a deviner).
+//   - « Carte cadeau » devient un moyen de paiement des mouvements.
+//   - sauvegardes : copie complete faite par le robot le dimanche soir (le robot lit tout, ecrit seulement ici).
 // Regles Rebecca Services v25 (18 novembre 2026, 22h30) = v24 + paiements en retard, demande sans reponse,
 //   vols en retard et bilan de la semaine : le robot lit aussi les depenses et Wolt (bilan) et note
 //   « retard signale », « bilan envoye » et l'etat des vols deja signales. Il n'ecrit rien d'autre.
@@ -260,7 +265,7 @@ service cloud.firestore {
     // ---------- Mouvements financiers : JAMAIS modifies ni supprimes ----------
 
     function moyenValide(m) {
-      return m in ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement", "PayPal"];
+      return m in ["Espèces", "Carte bancaire", "Revolut", "Bit", "Virement", "PayPal", "Carte cadeau"];
     }
 
     // v9 : une course peut etre payee avec le credit prepaye du client (paiement seulement)
@@ -920,6 +925,42 @@ service cloud.firestore {
       allow create, update, delete: if estAdmin();
     }
 
+    // v26 : cartes cadeaux
+    function carteValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["statut","code","montant","solde","idee","acheteurNom","acheteurTel","pourNom","pourTel","message","moyen","creeLe"])
+        && d.statut == "a_payer"
+        && d.code is string && d.code.matches("^RS-[A-Z0-9]{4}-[A-Z0-9]{4}$")
+        && d.montant is number && d.montant >= 20 && d.montant <= 5000 && d.solde == d.montant
+        && d.idee is string && d.idee.size() <= 40
+        && d.acheteurNom is string && d.acheteurNom.size() >= 1 && d.acheteurNom.size() <= 60
+        && d.acheteurTel is string && d.acheteurTel.size() >= 9 && d.acheteurTel.size() <= 30
+        && d.pourNom is string && d.pourNom.size() >= 1 && d.pourNom.size() <= 60
+        && d.pourTel is string && d.pourTel.size() <= 30
+        && d.message is string && d.message.size() <= 300
+        && d.moyen in ["PayPal", "Bit", "Revolut", "Espèces"]
+        && d.creeLe == request.time;
+    }
+    match /cartesCadeaux/{id} {
+      allow create: if carteValide();
+      allow get: if true;
+      allow list: if gestion() || estRobot();
+      allow update: if gestion()
+        || (resource.data.statut in ["a_payer", "paiement_annonce"] && request.resource.data.statut == "paiement_annonce"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "moyen", "annonceLe"])
+            && request.resource.data.moyen in ["PayPal", "Bit", "Revolut", "Espèces"]
+            && request.resource.data.annonceLe == request.time);
+      allow delete: if estAdmin();
+    }
+
+    // v26 : sauvegardes automatiques (robot, le dimanche soir) : Rebecca les lit et les supprime
+    match /sauvegardes/{id} {
+      allow read, delete: if estAdmin() || estRobot();
+      allow create: if estRobot()
+        && request.resource.data.keys().hasOnly(["date", "partie", "parties", "taille", "json"])
+        && request.resource.data.json is string && request.resource.data.json.size() <= 1000000;
+    }
+
     // Compte robot des rappels : seule Rebecca le cree ou le desactive
     match /robots/{uid} {
       allow read, write: if estAdmin();
@@ -1033,8 +1074,9 @@ service cloud.firestore {
     }
 
     // Tout le reste : Rebecca peut lire, mais rien d'autre n'est ecrit sans regle precise
+    // v26 : le robot aussi peut tout lire (sauvegarde complete du dimanche soir), sans rien ecrire
     match /{document=**} {
-      allow read: if estAdmin();
+      allow read: if estAdmin() || estRobot();
     }
   }
 }

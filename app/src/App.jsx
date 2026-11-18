@@ -29,6 +29,9 @@ import { lireLienProjet } from "./pricing/digital.js";
 import { lireLienPartenaire } from "./pricing/partenaires.js";
 import LienPartenaire from "./components/LienPartenaire.jsx";
 import InstallerAppli from "./components/InstallerAppli.jsx";
+import { lireLienCarte } from "./pricing/cartesCadeaux.js";
+const OffrirCarte = lazy(() => import("./components/CarteCadeau.jsx"));
+const VoirCarte = lazy(() => import("./components/CarteCadeau.jsx").then((m) => ({ default: m.VoirCarte })));
 import "./client-commun.css";
 import "./theme-site.css";
 
@@ -400,6 +403,8 @@ export default function App() {
   const [lienProjetVu, setLienProjetVu] = useState(() => lireLienProjet(window.location.hash));
   const [lienPartenaire, setLienPartenaire] = useState(() => window.location.hash === "#/partenaire");
   const [suiviPartenaire, setSuiviPartenaire] = useState(() => lireLienPartenaire(window.location.hash));
+  // 18 nov. 2026 : carte cadeau (#/cadeau = offrir, #/cadeau/ID = voir sa carte)
+  const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
   useEffect(() => {
     const suivre = () => {
       setAdmin(enAdmin());
@@ -410,6 +415,7 @@ export default function App() {
       setLienProjetVu(lireLienProjet(window.location.hash));
       setLienPartenaire(window.location.hash === "#/partenaire");
       setSuiviPartenaire(lireLienPartenaire(window.location.hash));
+      setLienCadeau(window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash));
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -477,6 +483,16 @@ export default function App() {
         </main>
       </div>
     );
+  if (lienCadeau && !admin)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            {lienCadeau === "offrir" ? <OffrirCarte onAccueil={quitterLien} /> : <VoirCarte id={lienCadeau} onAccueil={quitterLien} />}
+          </Suspense>
+        </main>
+      </div>
+    );
   if (suiviPartenaire)
     return (
       <div className="appli theme-site">
@@ -502,6 +518,12 @@ export default function App() {
       <main>
         {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
           <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />
+        )}
+        {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
+          <section className="accueil-favoris">
+            <h3>🎁 Une idée cadeau ?</h3>
+            <div><button type="button" onClick={() => { window.location.hash = "#/cadeau"; }}>Offrir une carte cadeau</button></div>
+          </section>
         )}
         {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && <InstallerAppli />}
         {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && <AvisPublics />}

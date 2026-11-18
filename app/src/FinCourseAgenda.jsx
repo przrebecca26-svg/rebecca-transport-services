@@ -8,6 +8,9 @@ import { champOperateur } from "./pricing/reverser.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import { synchroniserSuivi } from "./suiviClient.js";
+import { calculerTrajetSur, dureeAvecTrafic, positionActuelle } from "./routing.js";
+import { getDocs } from "firebase/firestore";
+import { normaliserCode, utiliserCarte } from "./pricing/cartesCadeaux.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
@@ -25,6 +28,30 @@ import {
 
 const heureIsrael = () => new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hour12: false });
 const NOM_TRAJET = { aller: "Aller", retour: "Retour", simple: "" };
+
+// 18 nov. 2026 (suggestion validée) : SUIVI EN DIRECT. Au « 🚗 Partie », position de Rebecca + temps de route (trafic
+// Google si possible) jusqu'a l'adresse de prise en charge -> heure d'arrivee prevue, montree a la cliente
+// (Mon historique : « arrivée dans 8 min ») et ecrite dans le message « Je suis en route ».
+const ORDRE_PRISE = ["depart", "recuperation", "domicile", "adresse", "arrivee", "livraison", "ecole"];
+function adresseDePrise(d, trajet) {
+  const det = d.details || {};
+  const ordre = trajet === "retour" ? [...ORDRE_PRISE].reverse() : ORDRE_PRISE;
+  for (const cle of ordre) {
+    const a = det[cle];
+    if (a && typeof a === "object" && typeof a.lat === "number" && typeof a.lon === "number") return a;
+  }
+  return null;
+}
+async function calculerArrivee(d, trajet) {
+  const vers = adresseDePrise(d, trajet);
+  if (!vers) return "";
+  const ici = await positionActuelle();
+  let minutes = null;
+  try { minutes = Math.round((await dureeAvecTrafic(ici, vers)).avecTrafic / 60); } catch { minutes = null; }
+  if (!(minutes > 0)) minutes = (await calculerTrajetSur(ici, vers)).minutes;
+  const t = new Date(Date.now() + Math.max(1, minutes) * 60000);
+  return t.toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hour12: false });
+}
 
 export default function FinCourseAgenda({ d, aujourdhui }) {
   const { moi } = useEquipeContexte();
@@ -101,6 +128,12 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const cocher = async (etape) => {
     await enregistrer(champsEtape(d, etape, heureIsrael(), moi));
     if (etape === "depose" && reste > 0) { setMerci(false); setCaisse(caisseVide()); }
+    if (etape === "depart" && !beaute) {
+      calculerArrivee(d, trajet)
+        .then((h) => h && updateDoc(doc(db, "demandes", d.id), { [`arriveeEstimee.${trajet}`]: h, majLe: serverTimestamp() })
+          .then(() => synchroniserSuivi({ ...d, chrono: { ...(d.chrono || {}), [trajet]: { ...((d.chrono || {})[trajet] || {}), depart: heureIsrael() } }, arriveeEstimee: { ...(d.arriveeEstimee || {}), [trajet]: h } })))
+        .catch(() => {});
+    }
   };
   const lienEnRoute = c.depart && !c.prise ? lienWhatsApp(d.telephone, messageEnRoute(d)) : null;
   const finTrajet = fait && trajet !== "aller";
@@ -146,6 +179,16 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     setErreur("");
     setEnCours(true);
     try {
+      // 18 nov. 2026 : payé avec une carte cadeau -> on retrouve la carte par son code et on baisse son solde
+      if (paiement && saisie.moyen === "Carte cadeau") {
+        const code = normaliserCode(saisie.code);
+        const s = await getDocs(query(collection(db, "cartesCadeaux"), where("code", "==", code)));
+        if (s.empty) { setErreur(`Aucune carte cadeau avec le code ${code}.`); setEnCours(false); return; }
+        const carte = { id: s.docs[0].id, ...s.docs[0].data() };
+        const u = utiliserCarte(carte, paiement.montant, aujourdhui, d.id);
+        if (u.erreur) { setErreur(u.erreur); setEnCours(false); return; }
+        await updateDoc(doc(db, "cartesCadeaux", carte.id), { ...u, majLe: serverTimestamp() });
+      }
       if (paiement) await addDoc(collection(db, "mouvements"), { ...paiement, creeLe: serverTimestamp() });
       if (Object.keys(r.champs).length) await updateDoc(doc(db, "demandes", d.id), { ...r.champs, majLe: serverTimestamp() });
       if (paiement) {
@@ -197,6 +240,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
               {TARIFS.moyensEncaissement.map((m) => <option key={m}>{m}</option>)}
             </select>
           </label>
+          {caisse.moyen === "Carte cadeau" && <label className="ag-champ">Code de la carte cadeau (RS-XXXX-XXXX)<input type="text" autoCapitalize="characters" value={caisse.code || ""} onChange={(x) => setCaisse({ ...caisse, code: x.target.value })} /></label>}
           <div className="tb-actions">
             <button type="button" className="tb-bouton" disabled={enCours} onClick={() => encaisser()}>{enCours ? "Enregistrement…" : "Valider le paiement"}</button>
           </div>

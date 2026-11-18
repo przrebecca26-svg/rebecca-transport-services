@@ -36,5 +36,8 @@ export function miseAJourSuivi(d, suivi, mouvements = []) {
   // 17 nov. 2026 : ou en est la course (en route, prise en charge, deposee...), visible dans « Mon historique »
   const av = avancementDe(d);
   if (av && suivi.avancement !== av) champs.avancement = av;
+  // 18 nov. 2026 : heure d'arrivee prevue (suivi en direct) : la cliente voit « arrivée dans 8 min »
+  const eta = d.arriveeEstimee && typeof d.arriveeEstimee === "object" ? Object.values(d.arriveeEstimee).filter((h) => /^\d{2}:\d{2}$/.test(h || "")).pop() || "" : "";
+  if (eta && suivi.arriveeEstimee !== eta) champs.arriveeEstimee = eta;
   return Object.keys(champs).length ? champs : null;
 }

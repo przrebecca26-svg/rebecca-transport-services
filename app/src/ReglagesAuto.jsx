@@ -8,7 +8,7 @@ import { VAPID_PUBLIQUE, etatTelephone, idAbonnement } from "./pricing/notificat
 // Chaque soir vers 19h, Netlify envoie par e-mail les rappels de demain (retours d'aller-retour, rendez-vous beaute).
 // Netlify se connecte avec un compte « robot » cree ici : il ne peut que lire les demandes et noter « e-mail parti ».
 const CLE_API = "AIzaSyDZOjiRg9tgHo620Dqw1PYJuBciJ80Enmg"; // cle publique du site
-const EMAIL_ROBOT = "robot.rappels@rebecca-services-netanya.netlify.app";
+const EMAIL_ROBOT_DEFAUT = "robot.rappels@rebecca-services-netanya.netlify.app";
 
 // 18 nov. 2026 (suggestion validée) : e-mail à Rebecca à chaque nouvelle demande du site (toutes les 5 minutes)
 function AlerteDemandes() {
@@ -138,9 +138,13 @@ export default function ReglagesAuto() {
   useEffect(() => onSnapshot(doc(db, "reglages", "robot"), (s) => setRobot(s.exists() ? s.data() : {}), () => setRobot({})), []);
 
   const basculer = () => setDoc(doc(db, "reglages", "rappelsAuto"), { actif: !(r && r.actif === true), majLe: serverTimestamp() }, { merge: true }).catch(() => setInfo("Enregistrement impossible (règles Firebase v19 ?)."));
-  const creerRobot = async () => {
+  const creerRobot = async (nouveau = false) => {
     setInfo("");
     const mdp = motDePasseRobot();
+    // 18 nov. 2026 : « Nouveau compte robot » = nouvelle adresse (l'ancien compte est desactive, rien a supprimer dans Firebase)
+    const EMAIL_ROBOT = nouveau === true
+      ? `robot.${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}@rebeccaservices.com`
+      : EMAIL_ROBOT_DEFAUT;
     try {
       // Compte cree par l'API (Rebecca reste connectee) : seulement e-mail + mot de passe, jamais ecrit dans le code
       const rep = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${CLE_API}`, {
@@ -150,6 +154,7 @@ export default function ReglagesAuto() {
       });
       const data = await rep.json();
       if (!rep.ok) throw new Error(data && data.error && data.error.message === "EMAIL_EXISTS" ? "existe" : "refus");
+      if (nouveau === true && robot.uid) await setDoc(doc(db, "robots", robot.uid), { actif: false, email: robot.email || "", creeLe: serverTimestamp() }).catch(() => {});
       await setDoc(doc(db, "robots", data.localId), { actif: true, email: EMAIL_ROBOT, creeLe: serverTimestamp() });
       await setDoc(doc(db, "reglages", "robot"), { uid: data.localId, email: EMAIL_ROBOT, creeLe: serverTimestamp() });
       setCree({ email: EMAIL_ROBOT, mdp });
@@ -177,13 +182,15 @@ export default function ReglagesAuto() {
       <ol className="tb-note" style={{ paddingLeft: 18 }}>
         <li>
           {robot.uid ? `✅ Compte robot créé (${robot.email}).` : "Crée le compte robot :"}{" "}
-          {!robot.uid && <button className="tb-bouton" onClick={creerRobot}>Créer le compte robot</button>}
+          {!robot.uid && <button className="tb-bouton" onClick={() => creerRobot(false)}>Créer le compte robot</button>}
+          {robot.uid && !cree && <button className="tb-bouton tb-clair" onClick={() => { if (window.confirm("Créer un nouveau compte robot ? L'ancien sera désactivé. Il faudra mettre la nouvelle adresse et le nouveau mot de passe dans Netlify.")) creerRobot(true); }}>🔁 Nouveau compte robot</button>}
         </li>
         {cree && (
           <li>
             <strong>Copie ces deux valeurs maintenant</strong> (le mot de passe ne sera plus affiché) :<br />
             ROBOT_EMAIL = <code style={{ userSelect: "all" }}>{cree.email}</code><br />
-            ROBOT_MDP = <code style={{ userSelect: "all" }}>{cree.mdp}</code>
+            ROBOT_MDP = <code style={{ userSelect: "all" }}>{cree.mdp}</code><br />
+            <button className="tb-bouton" onClick={() => navigator.clipboard && navigator.clipboard.writeText(`ROBOT_EMAIL = ${cree.email}\nROBOT_MDP = ${cree.mdp}`).then(() => setInfo("Copié ✓"))}>📋 Copier les deux</button>
           </li>
         )}
         <li>Sur emailjs.com → Account → Security : coche « Allow EmailJS API for non-browser applications ». Puis Account → API keys : copie la « Private Key ».</li>

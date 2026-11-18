@@ -60,7 +60,7 @@ async function notifier(entetes, messages) {
   for (const a of abonnes) {
     for (const m of messages) {
       try {
-        const res = await envoyerNotification(a, m, process.env.VAPID_PRIVEE);
+        const res = await envoyerNotification(a, m, process.env.VAPID_PRIVEE || Netlify.env.get("VAPID_PRIVEE"));
         if (res.ok) envoyes++;
         else notes.push(`${a.appareil || "?"} : refus ${res.statut} ${res.raison}`.trim());
         if (res.expire) { await fetch(`${BASE}/notificationsPush/${a.id}`, { method: "DELETE", headers: entetes }); break; }
@@ -81,13 +81,20 @@ export default async function alerteDemandes() {
   const reglage = (brut.ok ? documentRest(await brut.json()) : null) || {};
   const email = String(reglage.email || "").trim();
   const parEmail = reglage.actif === true && EMAIL_OK.test(email);
-  const parNotif = reglage.notifications === true && !!process.env.VAPID_PRIVEE;
-  const test = parNotif && typeof reglage.testDemande === "string" && reglage.testDemande !== reglage.testFait;
-  if (!parEmail && !parNotif) return new Response("désactivé");
+  const parNotif = reglage.notifications === true && !!(process.env.VAPID_PRIVEE || (globalThis.Netlify && Netlify.env && Netlify.env.get("VAPID_PRIVEE")));
+  const testEnAttente = reglage.notifications === true && typeof reglage.testDemande === "string" && reglage.testDemande !== reglage.testFait;
+  const test = parNotif && testEnAttente;
+  if (!parEmail && !parNotif && !testEnAttente) return new Response("désactivé");
 
   const entetes = await connecterRobot();
   if (!entetes) return new Response("connexion du robot refusée");
 
+  // Test demandé mais clé des notifications absente chez Netlify : on le dit dans Réglages
+  if (testEnAttente && !parNotif) {
+    await fetch(`${BASE}/reglages/rappelsAuto?updateMask.fieldPaths=detail`, {
+      method: "PATCH", headers: entetes, body: JSON.stringify({ fields: { detail: { stringValue: "📲 Test : clé VAPID_PRIVEE introuvable chez Netlify (republier le site)" } } }),
+    });
+  }
   // Bouton « Envoyer une notification de test » (Réglages) : envoyée une seule fois
   if (test) {
     const { rapport } = await notifier(entetes, [messageTest()]);

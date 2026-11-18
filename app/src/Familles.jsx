@@ -118,6 +118,13 @@ export function Famille({ f, changer, supprimer, connues, ouvert, ouvrir }) {
         <input id={"fj" + f.id} type="text" inputMode="numeric" maxLength={5} placeholder="Ex. 70" value={f.forfaitJour || ""} onChange={(e) => set("forfaitJour", Number(e.target.value.replace(/[^0-9]/g, "")) || 0)} />
         <p className="tdb-note">Quand tu coches « ✓ Fait » sur le trajet où tu récupères les enfants (sortie de l'école) dans ton Calendrier, la journée part dans Finances (à encaisser), une seule fois par jour. Le trajet du matin seul ne compte pas. Le téléphone ci-dessus est obligatoire pour ça.</p>
       </div>
+      <div className="champ">
+        <label htmlFor={"ab" + f.id}>Abonnement mensuel (₪ par mois), facultatif</label>
+        <input id={"ab" + f.id} type="text" inputMode="numeric" maxLength={5} placeholder="Ex. 1200" value={f.abonnementMois || ""} onChange={(e) => set("abonnementMois", Number(e.target.value.replace(/[^0-9]/g, "")) || 0)} />
+        <label htmlFor={"jp" + f.id}>Payé le (jour du mois, 1 à 28)</label>
+        <input id={"jp" + f.id} type="text" inputMode="numeric" maxLength={2} value={f.jourPaiement || 1} onChange={(e) => set("jourPaiement", Math.min(28, Math.max(1, Number(e.target.value.replace(/[^0-9]/g, "")) || 1)))} />
+        <p className="tdb-note">À partir de ce jour, l'onglet Aujourd'hui te rappelle l'abonnement du mois : un geste pour le mettre « à encaisser » et envoyer le rappel avec le lien de paiement. Choisis soit l'abonnement au mois, soit le forfait à la journée.</p>
+      </div>
 
       {f.enfants.map((e) => (
         <div className="rp-fiche-enfant" key={e.id}>

@@ -47,11 +47,11 @@ test("chrono : récupérée → déposée (= fait) → rentrée, temps et ₪ pa
 
 test("lien du site partout ; sans compte : créer son compte", () => {
   for (const m of [F.messageMerci(simple(), 0), F.messageMerci(ar(), 150), F.messageRappelRetour(retour(), 0)]) {
-    vrai(m.includes("rebecca-services-netanya.netlify.app"));
+    vrai(m.includes("rebeccaservices.com"));
     vrai(m.includes("créer votre compte"));
   }
   const avecCompte = F.messageRappelRetour(retour({ uid: "u1" }), 0);
-  vrai(avecCompte.includes("netlify.app") && !avecCompte.includes("créer votre compte"));
+  vrai(avecCompte.includes("rebeccaservices.com") && !avecCompte.includes("créer votre compte"));
 });
 
 test("partie → récupérée : approche comptée, essence et gain réel", () => {
@@ -67,7 +67,7 @@ test("partie → récupérée : approche comptée, essence et gain réel", () =>
 test("en route, avis : site toujours là", () => {
   vrai(F.messageEnRoute(simple(), "09:00").includes("J'arrive vers 09h30"));
   vrai(F.messageEnRoute(simple(), "10:00").includes("quelques minutes"));
-  vrai(F.messageAvis(simple()).includes("netlify.app"));
+  vrai(F.messageAvis(simple()).includes("rebeccaservices.com"));
   vrai(F.messageAvis(simple({ uid: "u" })).includes("Mon historique"));
 });
 test("listes : rappels de demain, avis à demander, reçus à faire", () => {

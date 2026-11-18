@@ -6,7 +6,7 @@ section("Suite clientes : beauté, Epoxy, parrainage, relevé, paiement, suivi, 
 test("beauté : rappel de demain, prochain rendez-vous", () => {
   const rdv = { id: "b", service: "nails", serviceTitre: "Nails", nom: "Sarah", statut: "acceptee", date: "2026-11-18", heure: "10:00" };
   egal(S.rappelsRdvDemain([rdv, { ...rdv, id: "c", service: "aeroport" }], "2026-11-17").length, 1);
-  vrai(S.messageRappelRdv(rdv).includes("demain") && S.messageRappelRdv(rdv).includes("netlify.app"));
+  vrai(S.messageRappelRdv(rdv).includes("demain") && S.messageRappelRdv(rdv).includes("rebeccaservices.com"));
   egal(S.dateProchainRdv(rdv), "2026-12-09");
   vrai(S.messageReprendreRdv(rdv).includes("prochain rendez-vous conseillé"));
 });

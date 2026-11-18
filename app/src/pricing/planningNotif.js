@@ -107,13 +107,14 @@ const prix = (n) => (typeof n === "number" ? ` · ${n} ₪` : "");
 export const SOURCES_SITE = [
   { collection: "demandes", texte: (d) => (d.source === "manuel" ? null : {
       titre: BEAUTE.includes(d.service) ? `${ICONES[d.service] || "💅"} Nouveau rendez-vous` : `${ICONES[d.service] || "🔔"} Nouvelle demande`,
-      corps: [court(d.serviceTitre || d.service, 40), court(d.nom, 30), [String(d.date || "").split("-").reverse().slice(0, 2).join("/"), hFr(d.heure)].filter(Boolean).join(" ")].filter(Boolean).join(" · ") + prix(d.prixEstime),
+      corps: [court(d.serviceTitre || d.service, 40), court(d.nom, 30) + (((d.details || {}).nbFamilles || 1) > 1 ? ` + ${d.details.nbFamilles - 1} famille(s)` : ""), [String(d.date || "").split("-").reverse().slice(0, 2).join("/"), hFr(d.heure)].filter(Boolean).join(" ")].filter(Boolean).join(" · ") + prix(d.prixEstime),
     }) },
   { collection: "commandes", texte: (d) => ({ titre: "🎁 Nouvelle commande Epoxy", corps: `${court(d.produit, 40)}${d.varianteNom ? ` (${court(d.varianteNom, 20)})` : ""} × ${d.quantite || 1} · ${court(d.nom, 30)}${prix(d.prixUnitaire)}` }) },
   { collection: "paiementsDeclares", texte: (d) => ({ titre: "💰 Paiement annoncé", corps: `${d.montant} ₪ par ${d.moyen} (${d.sorte === "acompte" ? "acompte" : "solde"}) · ${court(d.prenom, 30)} · à confirmer` }) },
   { collection: "projetsDigital", texte: (d) => ({ titre: "💻 Demande de devis Digital", corps: `${court(d.nom, 30)}${d.entreprise ? ` · ${court(d.entreprise, 30)}` : ""} · ${court(d.typeProjet, 30)}` }) },
   { collection: "candidaturesPartenaires", texte: (d) => ({ titre: "🛵 Nouvelle candidature coursier", corps: `${court(d.prenom, 30)} ${court(d.nom, 30)} · ${court(d.ville, 30)}` }) },
-  { collection: "trajetsPartages", texte: (d) => ({ titre: "🎒 Demande de ramassage scolaire", corps: `${((d.familles || [])[0] || {}).nom || "Une famille"}${(d.familles || []).length > 1 ? ` + ${(d.familles || []).length - 1} famille(s)` : ""}` }) },
+  // 18 nov. 2026 (tests) : plus de notification « trajetsPartages » : chaque demande de ramassage cree aussi une
+  // demande (notifiee ci-dessus, avec l'heure et le prix). Sinon Rebecca recevait deux notifications.
   { collection: "recharges", texte: (d) => ({ titre: "💳 Recharge de crédit annoncée", corps: `${d.montant} ₪ par ${d.moyen} · à confirmer` }) },
   { collection: "avis", texte: (d) => ({ titre: "⭐ Nouvel avis", corps: `${"★".repeat(Math.max(1, Math.min(5, d.etoiles || 5)))} ${court(d.commentaire, 120)}` }) },
   { collection: "cartesCadeaux", texte: (d) => ({ titre: "🎁 Carte cadeau commandée", corps: `${d.montant} ₪ pour ${court(d.pourNom, 30)} · de ${court(d.acheteurNom, 30)} · paiement ${d.moyen}` }) },

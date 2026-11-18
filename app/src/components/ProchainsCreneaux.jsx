@@ -24,7 +24,7 @@ export default function ProchainsCreneaux({ activite, duree, occupes, service, m
       const debut = aujourdhui();
       for (let i = 0; i < jours && r.length < nombre; i++) {
         const date = ajouterJours(debut, i);
-        const slots = creneauxDuJour({ activite, dureeMinutes: duree, date, occupes, service }).filter((c) => c.libre);
+        const slots = creneauxDuJour({ activite, dureeMinutes: duree, date, occupes, service, maintenantMs: Date.now() }).filter((c) => c.libre);
         if (!slots.length) continue;
         let prises = {};
         try { const x = await getDoc(doc(db, "agendaJours", idAgenda(date))); prises = x.exists() ? x.data().cells || {} : {}; } catch { prises = {}; }

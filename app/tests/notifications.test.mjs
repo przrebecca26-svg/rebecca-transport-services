@@ -78,6 +78,11 @@ test("alertes du site", () => {
   egal(messageSite("demandes", { source: "manuel" }), null);
   vrai(messageSite("demandes", { service: "nails", serviceTitre: "Nails" }).titre.includes("rendez-vous"));
 });
+test("ramassage : une seule notification, avec les familles", () => {
+  egal(messageSite("trajetsPartages", { id: "p", familles: [{ nom: "Test" }] }), null);
+  vrai(messageSite("demandes", { service: "ramassage", serviceTitre: "Ramassage scolaire", nom: "Test", details: { nbFamilles: 3 } }).corps.includes("Test + 2 famille(s)"));
+  egal(messageSite("demandes", { service: "ramassage", serviceTitre: "Ramassage scolaire", nom: "Test", details: { nbFamilles: 1 } }).corps.includes("famille"), false);
+});
 
 import { paiementsEnRetard, demandesSansReponse, semainePassee, signalVol } from "../src/pricing/planningNotif.js";
 section("Suggestions : retards, attente, vols, semaine");

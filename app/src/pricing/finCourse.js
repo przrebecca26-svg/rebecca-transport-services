@@ -392,14 +392,16 @@ export function parentsAPrevenir(familles, texte) {
   }
   return res;
 }
-export function messageEnfant(sorte, prenoms, heure, lieu) {
+export function messageEnfant(sorte, prenoms, heure, lieu, eta = "", lieuEta = "") {
   const qui = prenoms.length > 1 ? `${prenoms.slice(0, -1).join(", ")} et ${prenoms[prenoms.length - 1]}` : prenoms[0] || "votre enfant";
   const pluriel = prenoms.length > 1;
   const h = heureFr(heure);
   const ligne = sorte === "prise"
     ? `J'ai bien récupéré ${qui}${h ? ` à ${h}` : ""} 🚗`
     : `${qui} ${pluriel ? "sont bien arrivés" : "est bien arrivé(e)"}${lieu ? ` (${lieu})` : ""}${h ? ` à ${h}` : ""} ✅`;
-  return ["Bonjour,", ligne, ...lignesSite({ uid: "famille" }), "Rebecca"].join("\n");
+  // 18 nov. 2026 : suivi en direct du ramassage : heure d'arrivee prevue a l'etape suivante (maison, ecole, activite)
+  const suite = sorte === "prise" && HEURE_OK.test(eta || "") ? [`Arrivée prévue${lieuEta ? ` (${lieuEta})` : ""} vers ${heureFr(eta)}.`] : [];
+  return ["Bonjour,", ligne, ...suite, ...lignesSite({ uid: "famille" }), "Rebecca"].join("\n");
 }
 
 // « Refaire la meme course » : la course d'avant, prete pour « + Ajouter une course » (sans date, sans paiement)

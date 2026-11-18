@@ -2,6 +2,7 @@ import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.js
 import InfoVol from "./components/InfoVol.jsx";
 import FinCourseAgenda from "./FinCourseAgenda.jsx";
 import { messageEnfant, parentsAPrevenir } from "./pricing/finCourse.js";
+import { heureArrivee } from "./arrivee.js";
 import { messageRetard } from "./pricing/suiteClient.js";
 import { texteDuree } from "./pricing/circulation.js";
 import { filtrerPersonne } from "./pricing/quiFait.js";
@@ -410,8 +411,9 @@ function Mission({ m, pourTous }) {
 // Une etape de ma journee (tournee scolaire ou tache) : heure, quoi faire, ou, Waze, et « Modifier »
 // Modifier = CE JOUR SEULEMENT : changer l'heure ou retirer le trajet ; la tournee de chaque semaine ne bouge pas.
 // « ✓ Fait » (13 nov. 2026) : valide = maJournee pour aujourd'hui et hier seulement ; recocher = annuler.
-function Etape({ e, date, journee, valide = null, familles = [] }) {
+function Etape({ e, date, journee, valide = null, familles = [], suivante = null }) {
   const [ouvert, setOuvert] = useState(false);
+  const [eta, setEta] = useState(""); // 18 nov. 2026 : arrivee prevue a l'etape suivante (message aux parents)
   const [heure, setHeure] = useState("");
   const [message, setMessage] = useState("");
   const [info, setInfo] = useState("");
@@ -449,6 +451,7 @@ function Etape({ e, date, journee, valide = null, familles = [] }) {
     setEnCours(true);
     try {
       setInfo(await (fait ? valide.annuler(date, e) : valide.valider(date, e)));
+      if (!fait && e.sorte === "prise" && suivante && suivante.adresse) heureArrivee(suivante.adresse).then(setEta).catch(() => {});
     } catch {
       setMessage("Enregistrement impossible. Vérifie la connexion.");
     }
@@ -514,7 +517,7 @@ function Etape({ e, date, journee, valide = null, familles = [] }) {
         return wa ? <a key={"retard" + p.famille} className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">⏱ Retard ({p.nom || "parents"})</a> : null;
       })}
       {fait && e.genre === "arret" && parentsAPrevenir(familles, e.texte).map((p) => {
-        const wa = lienWhatsApp(p.telephone, messageEnfant(e.sorte, p.prenoms, fait === "oui" ? "" : fait, e.lieu));
+        const wa = lienWhatsApp(p.telephone, messageEnfant(e.sorte, p.prenoms, fait === "oui" ? "" : fait, e.lieu, eta, suivante ? suivante.lieu : ""));
         return wa ? <a key={p.famille} className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">💬 Prévenir {p.nom || "les parents"}</a> : null;
       })}
       {!ouvert && message && <p className="fm-erreur" role="alert">{message}</p>}
@@ -886,7 +889,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
   // Les creneaux personnels sont ceux de Rebecca (sa tournee) : jamais dans l'agenda d'un coequipier (12 nov. 2026)
   const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
-    ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} familles={rep.familles || []} />, etape: true })),
+    ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} familles={rep.familles || []} suivante={e.sorte === "prise" ? fil.slice(i + 1).find((x) => x.genre === "arret" && x.sorte === "depose" && x.adresse) || null : null} />, etape: true })),
     ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);

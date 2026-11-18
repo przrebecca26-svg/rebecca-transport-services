@@ -369,19 +369,20 @@ function Minimum() {
 
 /* ---------- Paiement en ligne (17 nov. 2026) ---------- */
 function PaiementEnLigne() {
-  const [f, setF] = useState({ bit: "", paybox: "", revolut: "", paypal: "" });
+  const [f, setF] = useState({ bit: "", paybox: "", revolut: "", paypal: "", avisGoogle: "" });
   const [message, setMessage] = useState(null);
-  useEffect(() => onSnapshot(doc(db, "reglages", "paiement"), (x) => x.exists() && setF((v) => (v.bit || v.paybox || v.revolut || v.paypal ? v : { bit: x.data().bit || "", paybox: x.data().paybox || "", revolut: x.data().revolut || "", paypal: x.data().paypal || "" })), () => {}), []);
+  useEffect(() => onSnapshot(doc(db, "reglages", "paiement"), (x) => x.exists() && setF((v) => (v.bit || v.paybox || v.revolut || v.paypal ? v : { bit: x.data().bit || "", paybox: x.data().paybox || "", revolut: x.data().revolut || "", paypal: x.data().paypal || "", avisGoogle: x.data().avisGoogle || "" })), () => {}), []);
   const enregistrer = async () => {
     const bit = f.bit.trim();
     const paybox = f.paybox.trim();
     const paypal = f.paypal.trim();
+    const avisGoogle = (f.avisGoogle || "").trim();
     const revolut = normaliserRevolut(f.revolut);
     if (f.revolut.trim() && !revolut) return setMessage({ erreur: true, texte: "Revolut : mets ton @pseudo (ex. @rebecca) ou ton lien revolut.me." });
     if (bit && bit.replace(/\D/g, "").length < 9) return setMessage({ erreur: true, texte: "Numéro Bit : ton numéro de téléphone (ex. 050 123 4567)." });
-    if ([paybox, paypal].some((u) => u && !/^https:\/\/\S+$/.test(u))) return setMessage({ erreur: true, texte: "Les liens doivent commencer par https://" });
+    if ([paybox, paypal, avisGoogle].some((u) => u && !/^https:\/\/\S+$/.test(u))) return setMessage({ erreur: true, texte: "Les liens doivent commencer par https://" });
     try {
-      await setDoc(doc(db, "reglages", "paiement"), { bit: bit.slice(0, 20), paybox: paybox.slice(0, 300), revolut: revolut.slice(0, 300), paypal: paypal.slice(0, 300), majLe: serverTimestamp() });
+      await setDoc(doc(db, "reglages", "paiement"), { bit: bit.slice(0, 20), paybox: paybox.slice(0, 300), revolut: revolut.slice(0, 300), paypal: paypal.slice(0, 300), avisGoogle: avisGoogle.slice(0, 300), majLe: serverTimestamp() });
       setF((v) => ({ ...v, revolut }));
       setMessage({ texte: "Enregistré : le bouton « 💳 Envoyer le lien de paiement » apparaît sur les courses à encaisser." });
     } catch {
@@ -396,6 +397,8 @@ function PaiementEnLigne() {
       <label className="pm-champ">Lien PayBox<input value={f.paybox} onChange={(e) => setF({ ...f, paybox: e.target.value })} placeholder="https://payboxapp.page.link/..." /></label>
       <label className="pm-champ">Lien Revolut<input value={f.revolut} onChange={(e) => setF({ ...f, revolut: e.target.value })} placeholder="@tonpseudo ou https://revolut.me/tonpseudo" /></label>
       <label className="pm-champ">Lien PayPal.me<input value={f.paypal} onChange={(e) => setF({ ...f, paypal: e.target.value })} placeholder="https://paypal.me/tonnom" /></label>
+      <label className="pm-champ">Lien « Laisser un avis Google » (18 nov.)<input value={f.avisGoogle} onChange={(e) => setF({ ...f, avisGoogle: e.target.value })} placeholder="https://g.page/r/.../review" /></label>
+      <p className="tb-note">Fiche Google Business → « Demander des avis » → copier le lien. Il est ajouté aux messages de remerciement et de demande d'avis.</p>
       <div className="tb-actions"><button className="tb-bouton" onClick={enregistrer}>Enregistrer</button></div>
       <Message m={message} />
     </div>

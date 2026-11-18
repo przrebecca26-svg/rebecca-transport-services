@@ -4,6 +4,7 @@ import { bilan } from "./outils.mjs";
 await import("./metier.test.mjs");
 await import("./digital.test.mjs");
 await import("./coursiers.test.mjs");
+await import("./fidelite.test.mjs");
 await import("./reference.test.mjs");
 await import("./equipe.test.mjs");
 await import("./tableauBord.test.mjs");

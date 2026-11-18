@@ -1,3 +1,4 @@
+import { SITE } from "../site.js";
 // DEVENIR PARTENAIRE DE REBECCA SERVICES (17 nov. 2026) - inscription des futurs coursiers
 // La page #/partenaire existe, mais aucun lien ne la montre sur le site tant que Rebecca ne l'a pas ouverte
 // (Admin → Partenaires → « Visible sur le site », document reglages/partenaires.ouvert).
@@ -90,7 +91,7 @@ export function resumeCandidature(c) {
     .join("\n");
 }
 
-export function messageAcceptation(c, site = "https://rebecca-services-netanya.netlify.app") {
+export function messageAcceptation(c, site = SITE) {
   return [
     `Bonjour ${c.prenom},`,
     "Bienvenue chez Rebecca Services ! 🎉",
@@ -184,7 +185,7 @@ export function suiviInitial(c) {
   return { statut: "soumis", prenom: c.prenom, motif: "", documentsDemandes: [] };
 }
 
-export const lienSuiviPartenaire = (id, site = "https://rebecca-services-netanya.netlify.app") => `${site}/#/partenaire/${id}`;
+export const lienSuiviPartenaire = (id, site = SITE) => `${site}/#/partenaire/${id}`;
 export function lireLienPartenaire(hash) {
   const m = /^#\/partenaire\/([A-Za-z0-9]{10,40})$/.exec(hash || "");
   return m ? m[1] : "";
@@ -194,7 +195,7 @@ export const idDocument = (candidature, type, n = Date.now()) => `${candidature}
 
 export function messageDecision(c, statut, motif, site) {
   const lien = lienSuiviPartenaire(c.id, site);
-  if (statut === "approuve") return `Bonjour ${c.prenom}, bonne nouvelle : ta candidature de coursier partenaire est approuvée ! 🎉\nOuvre ce lien dans Safari ou Chrome, connecte-toi (Google ou e-mail) et touche « Lier mon compte coursier » : ${(site || "https://rebecca-services-netanya.netlify.app")}/#/admin?coursier=${c.id}\nJ'active ton espace juste après. Rebecca`;
+  if (statut === "approuve") return `Bonjour ${c.prenom}, bonne nouvelle : ta candidature de coursier partenaire est approuvée ! 🎉\nOuvre ce lien dans Safari ou Chrome, connecte-toi (Google ou e-mail) et touche « Lier mon compte coursier » : ${(site || SITE)}/#/admin?coursier=${c.id}\nJ'active ton espace juste après. Rebecca`;
   if (statut === "complement_demande") return `Bonjour ${c.prenom}, il me manque quelque chose pour ta candidature : ${motif}\nTu peux tout envoyer ici : ${lien}\nMerci ! Rebecca`;
   if (statut === "refuse") return `Bonjour ${c.prenom}, merci pour ta candidature. Je ne peux pas la retenir pour l'instant : ${motif}\nRebecca`;
   if (statut === "suspendu") return `Bonjour ${c.prenom}, ton compte de coursier est suspendu : ${motif}\nAppelle-moi pour en parler. Rebecca`;

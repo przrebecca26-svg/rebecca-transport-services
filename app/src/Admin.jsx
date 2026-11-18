@@ -17,6 +17,7 @@ import ProjetsDigital from "./ProjetsDigital.jsx";
 import Partenaires from "./Partenaires.jsx";
 import EspaceCoursier from "./EspaceCoursier.jsx";
 import { lireAccesCoursier } from "./pricing/coursiers.js";
+import { definirLienAvisGoogle } from "./pricing/finCourse.js";
 import Agenda from "./Agenda.jsx";
 import Clients from "./Clients.jsx";
 import Finances from "./Finances.jsx";
@@ -221,6 +222,8 @@ export default function Admin() {
   const [cible, setCible] = useState({ onglet: null, id: null });
 
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), []);
+  // 18 nov. 2026 : lien « avis Google » ajouté aux messages de remerciement
+  useEffect(() => onSnapshot(doc(db, "reglages", "paiement"), (s) => definirLienAvisGoogle(s.exists() ? s.data().avisGoogle : ""), () => {}), []);
   // Retour d'une connexion Google par redirection (quand la fenetre Google est bloquee)
   useEffect(() => {
     getRedirectResult(auth).catch((e) => setErreur(MESSAGES[e.code] || ""));

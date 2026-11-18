@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "./firebase.js";
+import RecuCourse from "./components/RecuCourse.jsx";
 import { TARIFS } from "./pricing/config.js";
 import { validerMouvement } from "./pricing/comptes.js";
 import { champOperateur } from "./pricing/reverser.js";
@@ -217,6 +218,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       )}
       {d.recuAFaire && !d.recuFaitLe && (
         <div className="tb-actions">
+          <RecuCourse d={d} />
           <button type="button" className="ag-modifier" onClick={() => noter({ recuFaitLe: aujourdhui })}>🧾 Reçu à faire → c'est fait</button>
         </div>
       )}

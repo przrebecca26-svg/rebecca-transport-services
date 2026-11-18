@@ -5,7 +5,7 @@ import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { vehiculesEffectifs } from "./pricing/quiFait.js";
-import { COMPARAISONS, TYPES_PERIODE, comparer, csvCourses, csvDepenses, csvEncaissements, csvWolt, nomRapport, periode } from "./pricing/statistiques.js";
+import { COMPARAISONS, TYPES_PERIODE, comparer, csvCourses, csvDepenses, csvEncaissements, csvWolt, csvComptable, nomRapport, periode } from "./pricing/statistiques.js";
 import "./finances.css";
 import "./paiements.css";
 
@@ -160,6 +160,7 @@ export function Rapports({ membre = null }) {
           <button className="tb-bouton tb-clair" onClick={() => telecharger(nomRapport("depenses", p), csvDepenses(p, opts))}>Dépenses</button>
           <button className="tb-bouton tb-clair" onClick={() => telecharger(nomRapport("wolt", p), csvWolt(p, opts))}>Wolt</button>
         </div>
+        <button className="tb-bouton" style={{ marginTop: 8 }} onClick={() => telecharger(nomRapport("comptable", p), csvComptable(p, opts))}>📦 Tout pour le comptable (un seul fichier)</button>
       </div>
       <div className="tb-bloc">
         <h3>Rapport PDF</h3>

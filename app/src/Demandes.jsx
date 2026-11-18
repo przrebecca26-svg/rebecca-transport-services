@@ -3,6 +3,7 @@ import { texteDuree } from "./pricing/circulation.js";
 import InfoVol from "./components/InfoVol.jsx";
 import NettoyageTests from "./components/NettoyageTests.jsx";
 import ProposerCoursier from "./components/ProposerCoursier.jsx";
+import RecuCourse from "./components/RecuCourse.jsx";
 import { champsOffrir, etatFidelite, messageFidelite } from "./pricing/fidelite.js";
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ModifierDevis } from "./SimulateurDevis.jsx";
@@ -624,6 +625,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
       {moi === "rebecca" && (d.statut === "acceptee" || d.coursierPartenaire) ? <ProposerCoursier d={d} /> : null}
 
       <PaiementsCourse d={d} />
+      {d.statut === "terminee" || d.statut === "acceptee" ? <div className="tb-pad"><RecuCourse d={d} /></div> : null}
 
       <Fidelite d={d} toutes={toutes} admin={moi === "rebecca"} />
 

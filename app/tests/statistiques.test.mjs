@@ -55,3 +55,13 @@ test("encaissements de Jeremy seulement", () => {
 test("remboursement negatif", () => vrai(St.csvEncaissements(NOV, D).includes("Remboursement;Bit;-5")));
 test("guillemets proteges", () => egal(St.versCsv(["a"], [['x;"y"']]).slice(1), 'a\r\n"x;""y"""'));
 test("nom de fichier", () => egal(St.nomRapport("courses", NOV), "rebecca-services-courses-2026-11-01_2026-11-30.csv"));
+
+section("Export comptable (18 nov. 2026)");
+const { csvComptable, exportARappeler } = St;
+test("un fichier, 4 tableaux, rappel du 1er au 5", () => {
+  const c = csvComptable({ debut: "2026-11-01", fin: "2026-11-30" }, {});
+  vrai(c.includes("COURSES") && c.includes("ENCAISSEMENTS") && c.includes("DÉPENSES") && c.includes("WOLT"));
+  egal(exportARappeler("2026-12-03"), { mois: "2026-11", ref: "2026-11-15" });
+  egal(exportARappeler("2027-01-01").mois, "2026-12");
+  egal(exportARappeler("2026-12-06"), null);
+});

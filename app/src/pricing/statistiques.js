@@ -166,3 +166,25 @@ export function csvWolt(p, { autresRevenus = [], personne = "tous" } = {}) {
 }
 
 export const nomRapport = (sujet, p) => `rebecca-services-${sujet}-${p.debut}_${p.fin}.csv`;
+
+// 18 nov. 2026 (suggestion validée) : export du mois pour le comptable, en UN fichier (4 tableaux à la suite)
+export function csvComptable(p, opts = {}) {
+  const sans = (csv) => csv.replace(/^﻿/, "");
+  const bloc = (titre, csv) => `${titre}\r\n${sans(csv)}`;
+  return String.fromCharCode(0xfeff) + [
+    `Rebecca Services · export comptable du ${p.debut} au ${p.fin}`,
+    bloc("COURSES", csvCourses(p, opts)),
+    bloc("ENCAISSEMENTS", csvEncaissements(p, opts)),
+    bloc("DÉPENSES", csvDepenses(p, opts)),
+    bloc("WOLT ET AUTRES REVENUS", csvWolt(p, opts)),
+  ].join("\r\n\r\n");
+}
+
+// Rappel du début de mois : envoyer l'export du mois précédent (du 1er au 5)
+export function exportARappeler(jour) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(jour || "")) return null;
+  const [a, m, j] = jour.split("-").map(Number);
+  if (j > 5) return null;
+  const prec = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`;
+  return { mois: prec, ref: `${prec}-15` };
+}

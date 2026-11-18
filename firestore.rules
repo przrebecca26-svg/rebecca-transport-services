@@ -1,4 +1,11 @@
 rules_version = '2';
+// Regles Rebecca Services v21 (18 novembre 2026) = v20 + coursiers partenaires, etape 3 :
+//   - coursiers/{uid} : le coursier approuve lie son compte (statut « a_activer »), Rebecca l'active ;
+//     il change seulement sa disponibilite. Un coursier n'est JAMAIS membre de l'equipe (aucune demande,
+//     aucune cliente, aucune finance de Rebecca).
+//   - missionsCoursiers : courses proposees par Rebecca (seulement ce qu'il faut pour les faire) ; le premier qui
+//     accepte la prend ; il note ses etapes et termine avec la photo de preuve ; la commission ne bouge jamais.
+//   - reglementsCoursiers : versements entre Rebecca et le coursier (ecrits par Rebecca, lus par le coursier).
 // Regles Rebecca Services v20 (18 novembre 2026) = v19 + coursiers partenaires, etape 2 :
 //   - candidaturesPartenaires : inscription complete (osek, paiement, reglement, documents) au statut « soumis » ;
 //   - suiviPartenaires : ce que le coursier voit avec son lien #/partenaire/ID (prenom, statut, motif, documents
@@ -812,6 +819,56 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/suiviPartenaires/$(request.resource.data.candidature))
         && get(/databases/$(database)/documents/suiviPartenaires/$(request.resource.data.candidature)).data.statut in ["soumis","complement_demande"];
       allow read, delete: if estAdmin();
+    }
+
+    // v21 : coursier partenaire actif (fiche coursiers/{uid} activee par Rebecca)
+    function estCoursier() {
+      return compteVerifie()
+        && exists(/databases/$(database)/documents/coursiers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/coursiers/$(request.auth.uid)).data.statut == "actif";
+    }
+    match /coursiers/{uid} {
+      allow read: if estAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create: if compteVerifie() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(["candidature","prenom","email","statut","disponible","creeLe"])
+        && request.resource.data.statut == "a_activer" && request.resource.data.disponible == false
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.prenom is string && request.resource.data.prenom.size() <= 60
+        && request.resource.data.creeLe == request.time
+        && request.resource.data.candidature is string
+        && get(/databases/$(database)/documents/suiviPartenaires/$(request.resource.data.candidature)).data.statut == "approuve";
+      allow update: if estAdmin()
+        || (estCoursier() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["disponible","majLe"])
+            && request.resource.data.disponible is bool);
+      allow delete: if estAdmin();
+    }
+    match /missionsCoursiers/{id} {
+      allow create, delete: if estAdmin();
+      allow read: if estAdmin()
+        || (estCoursier() && (request.auth.uid in resource.data.proposeeA || resource.data.get("coursier", "") == request.auth.uid));
+      allow update: if estAdmin()
+        // accepter : le premier qui accepte la prend (la course disparait chez les autres)
+        || (estCoursier() && resource.data.statut == "proposee" && request.auth.uid in resource.data.proposeeA
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut","coursier","proposeeA","accepteeLe"])
+            && request.resource.data.statut == "acceptee" && request.resource.data.coursier == request.auth.uid
+            && request.resource.data.proposeeA == [request.auth.uid] && request.resource.data.accepteeLe == request.time)
+        // etapes : parti, recupere
+        || (estCoursier() && resource.data.statut == "acceptee" && resource.data.coursier == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["partieLe","recupereeLe"])
+            && request.resource.data.statut == "acceptee")
+        // terminer avec la photo de preuve
+        || (estCoursier() && resource.data.statut == "acceptee" && resource.data.coursier == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut","photoPreuve","pourboire","moyen","termineeLe"])
+            && request.resource.data.statut == "terminee"
+            && request.resource.data.photoPreuve is string && request.resource.data.photoPreuve.size() <= 750000
+            && request.resource.data.pourboire is number && request.resource.data.pourboire >= 0 && request.resource.data.pourboire <= 1000
+            && request.resource.data.moyen in ["especes","bit","revolut","paypal","carte"]
+            && request.resource.data.termineeLe == request.time);
+    }
+    match /reglementsCoursiers/{id} {
+      allow read: if estAdmin() || (estCoursier() && resource.data.coursier == request.auth.uid);
+      allow create, update, delete: if estAdmin();
     }
 
     // Compte robot des rappels : seule Rebecca le cree ou le desactive

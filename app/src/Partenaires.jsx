@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { OSEK, STATUTS_CANDIDATURE, VEHICULE_UNIQUE, docsPour, libelleCandidature, lienSuiviPartenaire, messageDecision, resumeCandidature, statutDe } from "./pricing/partenaires.js";
-import { STATUTS_CANDIDATURE as REGLES_STATUTS, decision } from "./pricing/coursiers.js";
+import { STATUTS_CANDIDATURE as REGLES_STATUTS, decision, reglagesCommission, soldeCumule, courseDeMission, estBloque, lienAccesCoursier } from "./pricing/coursiers.js";
+import CompteCoursier from "./components/CompteCoursier.jsx";
 
 // PARTENAIRES (17 nov. 2026 ; validation complète le 18 nov., étape 2 des coursiers partenaires) - Rebecca seule.
 // Candidatures des coursiers : documents (photos), décisions datées (en vérification, complément demandé avec
@@ -139,7 +140,7 @@ function Candidature({ c, suivi, setInfo }) {
           {message && (
             <a className="tb-bouton" href={lienWhatsApp(c.telephone, message)} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", marginTop: 8 }}>Envoyer le message WhatsApp</a>
           )}
-          {statutDe(c) === "approuve" && <p className="tb-note">Approuvé : son espace coursier arrive à l'étape 3 (ses courses, son tableau de bord).</p>}
+          {statutDe(c) === "approuve" && <p className="tb-note">Approuvé : son lien d'accès (dans le message WhatsApp) est <a href={lienAccesCoursier(c.id, site)}>{lienAccesCoursier(c.id, site)}</a>. Il se connecte, lie son compte, puis tu l'actives dans « Coursiers » plus haut.</p>}
 
           {(c.historique || []).length > 0 && (
             <>
@@ -171,6 +172,117 @@ function SupprimerEnDeux({ onOui }) {
       <button className="tb-bouton tb-danger" onClick={onOui}>Oui, supprimer tout</button>
       <button className="tb-bouton tb-clair" onClick={() => setSur(false)}>Annuler</button>
     </>
+  );
+}
+
+// 18 nov. 2026 (étape 3) : coursiers liés à leur compte -> activation, disponibilité, compte, versements
+function Versement({ k, setInfo }) {
+  const [sens, setSens] = useState("vers_coursier");
+  const [montant, setMontant] = useState("");
+  const [ouvert, setOuvert] = useState(false);
+  const noter = async () => {
+    const n = Number(String(montant).replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0 || n > 100000) return setInfo("Montant invalide.");
+    try {
+      await addDoc(collection(db, "reglementsCoursiers"), { coursier: k.id, sens, montant: Math.round(n * 100) / 100, date: new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), creeLe: serverTimestamp() });
+      setMontant("");
+      setOuvert(false);
+      setInfo("Versement noté ✓");
+    } catch {
+      setInfo("Enregistrement impossible (règles Firebase v21 ?).");
+    }
+  };
+  if (!ouvert) return <button className="tb-bouton tb-clair" onClick={() => setOuvert(true)}>💸 Noter un versement</button>;
+  return (
+    <div className="tb-bloc">
+      <div className="tb-actions">
+        <button className={"tb-bouton" + (sens === "vers_coursier" ? "" : " tb-clair")} onClick={() => setSens("vers_coursier")}>Je lui ai versé</button>
+        <button className={"tb-bouton" + (sens === "vers_rebecca" ? "" : " tb-clair")} onClick={() => setSens("vers_rebecca")}>Il m'a payé</button>
+      </div>
+      <label className="pm-champ">Montant (₪)<input inputMode="decimal" value={montant} onChange={(e) => setMontant(e.target.value)} /></label>
+      <div className="tb-actions"><button className="tb-bouton" onClick={noter}>Enregistrer</button><button className="tb-bouton tb-clair" onClick={() => setOuvert(false)}>Annuler</button></div>
+    </div>
+  );
+}
+
+function Coursiers({ candidatures, setInfo }) {
+  const [coursiers, setCoursiers] = useState([]);
+  const [missions, setMissions] = useState([]);
+  const [reglements, setReglements] = useState([]);
+  const [reglages, setReglages] = useState({});
+  const [ouvert, setOuvert] = useState("");
+  const [voirTaux, setVoirTaux] = useState(false);
+  const [taux, setTaux] = useState(null);
+  useEffect(() => {
+    const a = onSnapshot(collection(db, "coursiers"), (s) => setCoursiers(s.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    const b = onSnapshot(collection(db, "missionsCoursiers"), (s) => setMissions(s.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    const c = onSnapshot(collection(db, "reglementsCoursiers"), (s) => setReglements(s.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    const e = onSnapshot(doc(db, "reglages", "coursiers"), (s) => setReglages(s.exists() ? s.data() : {}), () => {});
+    return () => { a(); b(); c(); e(); };
+  }, []);
+  const r = reglagesCommission(reglages);
+  const activer = async (k) => {
+    const cand = candidatures.find((c) => c.id === k.candidature) || {};
+    try {
+      await updateDoc(doc(db, "coursiers", k.id), { statut: "actif", prenom: cand.prenom || k.prenom || "", nom: cand.nom || "", telephone: cand.telephone || "", activeLe: serverTimestamp(), majLe: serverTimestamp() });
+    } catch {
+      setInfo("Activation impossible (règles Firebase v21 ?).");
+    }
+  };
+  const statut = (k, st) => updateDoc(doc(db, "coursiers", k.id), { statut: st, disponible: false, majLe: serverTimestamp() }).catch(() => setInfo("Enregistrement impossible."));
+  const enregistrerTaux = async () => {
+    const t = taux || {};
+    const propre = reglagesCommission({ normale: { taux: t.nt, minimum: t.nm }, commercant: { taux: t.ct, minimum: t.cm }, plafondDette: t.pd });
+    try {
+      await setDoc(doc(db, "reglages", "coursiers"), { ...propre, majLe: serverTimestamp() });
+      setVoirTaux(false);
+      setInfo("Commissions enregistrées ✓ (les courses déjà proposées gardent leur commission).");
+    } catch {
+      setInfo("Enregistrement impossible.");
+    }
+  };
+  return (
+    <div className="tb-bloc">
+      <h3>Coursiers ({coursiers.filter((k) => k.statut === "actif").length} actifs)</h3>
+      {coursiers.length === 0 && <p className="tb-note">Aucun coursier lié pour l'instant. Quand tu approuves une candidature, le message WhatsApp contient son lien d'accès : il se connecte, touche « Lier mon compte coursier », puis tu l'actives ici.</p>}
+      {coursiers.map((k) => {
+        const ms = missions.filter((m) => m.coursier === k.id);
+        const rs = reglements.filter((x) => x.coursier === k.id);
+        const solde = soldeCumule(ms, rs);
+        return (
+          <div key={k.id} style={{ borderTop: "1px solid var(--g-bord, #3a3236)", padding: "10px 0" }}>
+            <button className="tb-carte" style={{ width: "100%" }} onClick={() => setOuvert(ouvert === k.id ? "" : k.id)}>
+              <span className="tb-ligne"><strong>{k.prenom} {k.nom || ""}</strong><span className="tb-badge tb-attente">{k.statut === "actif" ? (k.disponible ? "🟢 Disponible" : "⚪ Indisponible") : k.statut === "a_activer" ? "À activer" : "Suspendu"}</span></span>
+              <span className="tb-quand">{ms.filter((m) => m.statut === "terminee").length} courses · {solde > 0 ? `tu lui dois ${solde} ₪` : solde < 0 ? `il te doit ${-solde} ₪${estBloque(solde, reglages) ? " (bloqué)" : ""}` : "à jour"}</span>
+            </button>
+            {ouvert === k.id && (
+              <div>
+                <p className="tb-note">{k.email}{k.telephone ? ` · ${k.telephone}` : ""}</p>
+                <div className="tb-actions" style={{ flexWrap: "wrap" }}>
+                  {k.statut === "a_activer" && <button className="tb-bouton" onClick={() => activer(k)}>✓ Activer son espace</button>}
+                  {k.statut === "actif" && <button className="tb-bouton tb-danger" onClick={() => statut(k, "suspendu")}>Suspendre</button>}
+                  {k.statut === "suspendu" && <button className="tb-bouton" onClick={() => statut(k, "actif")}>Réactiver</button>}
+                  {k.statut === "actif" && <Versement k={k} setInfo={setInfo} />}
+                </div>
+                {k.statut !== "a_activer" && <CompteCoursier vueAdmin nom={k.prenom} telephone={k.telephone} courses={ms.map(courseDeMission)} reglements={rs} />}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <button className="lien" onClick={() => { setVoirTaux(!voirTaux); setTaux({ nt: r.normale.taux, nm: r.normale.minimum, ct: r.commercant.taux, cm: r.commercant.minimum, pd: r.plafondDette }); }}>
+        Commissions : {r.normale.taux} % (min {r.normale.minimum} ₪) · commerçant apporté {r.commercant.taux} % (min {r.commercant.minimum} ₪) · blocage au-delà de {r.plafondDette} ₪ dus — modifier
+      </button>
+      {voirTaux && taux && (
+        <div className="tb-bloc">
+          {[["nt", "Commission (%)"], ["nm", "Minimum (₪)"], ["ct", "Commerçant apporté (%)"], ["cm", "Minimum commerçant (₪)"], ["pd", "Blocage si dette au-delà de (₪)"]].map(([cle, l]) => (
+            <label key={cle} className="pm-champ">{l}<input inputMode="decimal" value={taux[cle]} onChange={(e) => setTaux({ ...taux, [cle]: e.target.value })} /></label>
+          ))}
+          <button className="tb-bouton" onClick={enregistrerTaux}>Enregistrer</button>
+        </div>
+      )}
+      <p className="tb-note">Pour confier une course : ouvre une livraison ou des courses acceptée dans « Demandes », bloc « 🛵 Coursier partenaire ».</p>
+    </div>
   );
 }
 
@@ -206,6 +318,7 @@ export default function Partenaires({ aller }) {
           <span>{ouvert ? "Visible sur le site (lien en bas de page)" : "Cachée : aucun lien sur le site (tu peux la tester avec le lien direct)"}</span>
         </label>
       </div>
+      <Coursiers candidatures={liste} setInfo={setInfo} />
       <div className="tb-bloc">
         <h3>Candidatures ({liste.length})</h3>
         <div className="tb-filtres" style={{ flexWrap: "wrap" }}>

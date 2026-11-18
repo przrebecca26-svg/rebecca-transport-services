@@ -35,7 +35,8 @@ export function encaisseDe(mouvements, resId) {
 }
 // 17 nov. 2026, 14h29 : le du compte l'ajout / deduction saisi par Rebecca (d.ajustement)
 export const duDe = (d) => cents(prixDe(d) + nombre(d.ajustement));
-export const resteDe = (d, mouvements) => cents(Math.max(0, duDe(d) - encaisseDe(mouvements, d.id)));
+// 18 nov. 2026 : course payée en espèces au coursier partenaire -> rien à encaisser pour Rebecca
+export const resteDe = (d, mouvements) => (d && d.payeAuCoursier ? 0 : cents(Math.max(0, duDe(d) - encaisseDe(mouvements, d.id))));
 
 // Ce trajet est-il deja fait ? Renvoie l'heure ("14:05"), "oui" si fait sans heure connue, ou ""
 export function faitDe(d) {
@@ -461,6 +462,6 @@ export function argentDansListe(d, mouvements) {
   const paye = encaisseDe(mouvements, d.id);
   const pourboire = cents(nombre(d.pourboire));
   if (d.statut === "annulee" && paye <= 0) return null;
-  const reste = cents(Math.max(0, du - paye));
-  return { du, paye, pourboire, reste, solde: reste <= 0 && du > 0 };
+  const reste = d.payeAuCoursier ? 0 : cents(Math.max(0, du - paye));
+  return { du, paye, pourboire, reste, solde: reste <= 0 && du > 0, coursier: d.coursierPartenaire ? d.coursierPartenaire.prenom : "" };
 }

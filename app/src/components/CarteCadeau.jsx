@@ -39,7 +39,8 @@ function Paiement({ carte, id, onAnnonce }) {
         {String(l.bit || "").replace(/\D/g, "").length >= 9 && <p className="aide">Bit : envoyez {carte.montant} ₪ au <strong dir="ltr">{l.bit}</strong></p>}
       </div>
       <div className="pourboire-boutons" style={{ flexWrap: "wrap" }}>
-        {MOYENS_CADEAU.map((m) => <button key={m} type="button" onClick={() => annoncer(m)}>J'ai payé par {m}</button>)}
+        {/* 19 nov. 2026 (test C5) : le moyen choisi dans le formulaire en premier */}
+        {[carte.moyen, ...MOYENS_CADEAU.filter((m) => m !== carte.moyen)].filter((m) => MOYENS_CADEAU.includes(m)).map((m, i) => <button key={m} type="button" className={i === 0 ? "actif" : ""} onClick={() => annoncer(m)}>J'ai payé par {m}</button>)}
       </div>
     </>
   );

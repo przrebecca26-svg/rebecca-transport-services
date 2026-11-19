@@ -27,6 +27,7 @@ import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.js
 import { attribueA, coursesDeLaPersonne, filtrerPersonne } from "./pricing/quiFait.js";
 import { servicesDuMembre } from "./pricing/espaceEquipe.js";
 import { regroupementsPossibles, prixRegroupe, passagersDe } from "./pricing/regroupement.js";
+import { estLivraisonResto } from "./pricing/restos.js";
 import "./demandes.css";
 
 // Liste et traitement des demandes (espace prive de Rebecca) - Lot B, seance B3 :
@@ -366,6 +367,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
   const [enCours, setEnCours] = useState(false);
   const [modif, setModif] = useState(false);
   const [refaire, setRefaire] = useState(false); // 17 nov. 2026 : « Refaire la même course »
+  const resto = estLivraisonResto(d); // 19 nov. 2026 : livraison d'un restaurant partenaire (pas d'acompte, pas de fidélité)
   const ref = doc(db, "demandes", d.id);
 
   // Enregistre la demande, puis met a jour l'historique du client (si la demande vient d'un compte)
@@ -543,6 +545,21 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
       <InfoVol d={d} />
       {d.details && d.details.typeTrajet === "ar" && d.details.numeroVolRetour && <InfoVol d={{ ...d, date: d.details.dateRetour, heure: d.details.heureRetour, estRetour: true }} />}
 
+      {resto ? (
+        <div className="tb-bloc">
+          <h3>🍕 Restaurant partenaire</h3>
+          <p><strong>{d.nom}</strong> · {d.telephone}</p>
+          {d.details && d.details.destinataire && <p>Client du restaurant : {d.details.destinataire}{d.details.telDestinataire ? ` · ${d.details.telDestinataire}` : ""}</p>}
+          <p className="tb-note">Payée avec le relevé de la semaine du restaurant ({d.moyenPaiement}, le dimanche) : pas d'acompte, pas de paiement à noter ici.</p>
+          <div className="tb-actions">
+            {whatsapp && <a className="tb-bouton" href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp au restaurant</a>}
+            {appel && <a className="tb-bouton tb-clair" href={appel}>Appeler le restaurant</a>}
+            {d.details && d.details.telDestinataire && <a className="tb-bouton tb-clair" href={lienAppel(d.details.telDestinataire)}>Appeler le client</a>}
+            <button className="tb-bouton tb-clair" onClick={() => aller("repertoire")}>Fiche du restaurant</button>
+            <button className="tb-bouton tb-clair" onClick={() => aller("commandes-resto")}>Commandes restaurants</button>
+          </div>
+        </div>
+      ) : (
       <div className="tb-bloc">
         <h3>Client</h3>
         <p><strong>{d.nom}</strong>{d.uid ? " · avec compte" : ""}</p>
@@ -557,6 +574,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
           {cle && <button className="tb-bouton tb-clair" onClick={() => aller("clients", cle)}>Fiche client</button>}
         </div>
       </div>
+      )}
 
       <div className="tb-bloc">
         <h3>Statut</h3>
@@ -582,8 +600,8 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
           )}
         </div>
         <Verification verif={verif} d={d} enCours={enCours} onForcer={forcer} onFermer={() => setVerif(null)} />
-        <p className="tb-note">Après avoir accepté ou refusé, utilisez le bouton WhatsApp : le message est prêt.{d.uid ? " L'historique du client se met à jour tout seul." : ""}</p>
-        {d.statut === "acceptee" && <p className="tb-note">Pour annuler (client absent, annulation tardive : l'acompte est conservé), utilisez le bloc « Paiements » plus bas.</p>}
+        {!resto && <p className="tb-note">Après avoir accepté ou refusé, utilisez le bouton WhatsApp : le message est prêt.{d.uid ? " L'historique du client se met à jour tout seul." : ""}</p>}
+        {d.statut === "acceptee" && !resto && <p className="tb-note">Pour annuler (client absent, annulation tardive : l'acompte est conservé), utilisez le bloc « Paiements » plus bas.</p>}
       </div>
 
       {(d.service === "aeroport" || d.service === "transport") && <BlocRetour d={d} executer={executer} enCours={enCours} />}
@@ -592,7 +610,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
 
       <div className="tb-bloc">
         <h3>Prix</h3>
-        <p>{d.source === "manuel" ? "Prix convenu" : `Estimation du site : ${typeof d.prixEstime === "number" ? d.prixEstime + " ₪" : d.surDevis ? "sur devis" : "aucune"}`}{typeof d.prixFinal === "number" && <> · <strong>{d.source === "manuel" ? "" : "Prix retenu : "}{d.prixFinal} ₪</strong></>}</p>
+        <p>{resto ? "Prix du contrat du restaurant" : d.source === "manuel" ? "Prix convenu" : `Estimation du site : ${typeof d.prixEstime === "number" ? d.prixEstime + " ₪" : d.surDevis ? "sur devis" : "aucune"}`}{typeof d.prixFinal === "number" && <> · <strong>{d.source === "manuel" ? "" : "Prix retenu : "}{d.prixFinal} ₪</strong></>}</p>
         {d.pourboire > 0 && <p className="tb-note">Pourboire{d.statut === "terminee" ? "" : " prévu"} : {d.pourboire} ₪ (à part, hors chiffre d'affaires)</p>}
         <div className="tb-prix">
           <input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder="Prix en ₪" aria-label="Prix en shekels" />
@@ -631,14 +649,14 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
 
       {moi === "rebecca" && (d.statut === "acceptee" || d.coursierPartenaire) ? <ProposerCoursier d={d} /> : null}
 
-      <PaiementsCourse d={d} />
-      {d.statut === "terminee" || d.statut === "acceptee" ? <div className="tb-pad"><RecuCourse d={d} /></div> : null}
+      {!resto && <PaiementsCourse d={d} />}
+      {!resto && (d.statut === "terminee" || d.statut === "acceptee") ? <div className="tb-pad"><RecuCourse d={d} /></div> : null}
 
-      <Fidelite d={d} toutes={toutes} admin={moi === "rebecca"} />
+      {!resto && <Fidelite d={d} toutes={toutes} admin={moi === "rebecca"} />}
 
-      <CadeauParrainage d={d} />
+      {!resto && <CadeauParrainage d={d} />}
 
-      {d.statut === "terminee" && !d.uid && <Remerciement prenom={prenomDe(d.nom)} telephone={d.telephone} email="" />}
+      {d.statut === "terminee" && !d.uid && !resto && <Remerciement prenom={prenomDe(d.nom)} telephone={d.telephone} email="" />}
 
       <div className="tb-bloc">
         <h3>Itinéraires</h3>
@@ -812,10 +830,10 @@ export default function Demandes({ aller, cible, membre = null }) {
             {argent && (
               <span className="tb-ligne dm-argent">
                 <span>
-                  {d.payeAuCoursier ? `Payé en espèces à ${argent.coursier || "le coursier"}` : argent.paye > 0 ? `Payé ${enShekels(argent.paye)}` : "Rien encaissé"}
+                  {estLivraisonResto(d) ? `📋 ${enShekels(argent.du)} · avec le relevé du restaurant` : d.payeAuCoursier ? `Payé en espèces à ${argent.coursier || "le coursier"}` : argent.paye > 0 ? `Payé ${enShekels(argent.paye)}` : "Rien encaissé"}
                   {argent.pourboire > 0 ? ` · pourboire ${enShekels(argent.pourboire)}` : ""}
                 </span>
-                {argent.solde ? <strong className="dm-solde">✓ Tout payé</strong> : argent.reste > 0 ? <strong className="dm-reste">Reste {enShekels(argent.reste)}</strong> : null}
+                {estLivraisonResto(d) ? null : argent.solde ? <strong className="dm-solde">✓ Tout payé</strong> : argent.reste > 0 ? <strong className="dm-reste">Reste {enShekels(argent.reste)}</strong> : null}
               </span>
             )}
           </button>

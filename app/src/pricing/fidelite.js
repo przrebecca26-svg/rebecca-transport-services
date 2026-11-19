@@ -3,6 +3,8 @@
 // Hatan & Kala, mise à disposition), terminées, au nom du même client (compte ou téléphone).
 // Ne comptent pas : le ramassage scolaire (forfaits), la beauté, l'Epoxy, le Digital.
 import { cleClient } from "./clients.js";
+// 19 nov. 2026 : les livraisons des restaurants partenaires ne comptent pas (payées avec leur relevé)
+const deResto = (d) => !!(d && d.details && d.details.commandeResto);
 
 export const SERVICES_FIDELITE = ["livraison", "courses", "demenagement", "transport", "aeroport", "hatan_kala", "attente"];
 export const TOUS_LES = 10;
@@ -10,10 +12,10 @@ const ordre = (d) => `${d.date || ""} ${d.heure || ""} ${d.id || ""}`;
 
 // Rang de cette course chez ce client (1 = première course) ; null si elle ne compte pas
 export function rangFidelite(d, demandes = []) {
-  if (!d || !SERVICES_FIDELITE.includes(d.service) || d.statut === "refusee" || d.statut === "annulee") return null;
+  if (!d || deResto(d) || !SERVICES_FIDELITE.includes(d.service) || d.statut === "refusee" || d.statut === "annulee") return null;
   const cle = cleClient(d);
   if (!cle) return null;
-  const avant = demandes.filter((x) => x.id !== d.id && SERVICES_FIDELITE.includes(x.service) && x.statut === "terminee" && cleClient(x) === cle && ordre(x) < ordre(d));
+  const avant = demandes.filter((x) => x.id !== d.id && !deResto(x) && SERVICES_FIDELITE.includes(x.service) && x.statut === "terminee" && cleClient(x) === cle && ordre(x) < ordre(d));
   return avant.length + 1;
 }
 

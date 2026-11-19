@@ -246,3 +246,12 @@ export const messageLienResto = (nom, lien) =>
     "Astuce : sur iPhone, touchez Partager puis « Sur l'écran d'accueil » pour l'avoir comme une appli.",
     "Merci, Rebecca",
   ].join("\n");
+
+// 19 nov. 2026 (Rebecca) : une livraison d'un restaurant partenaire n'est pas une course d'une cliente :
+// pas d'acompte, pas de fidélité, pas de merci / avis / relance, pas de reçu (payée avec le relevé du dimanche).
+export const estLivraisonResto = (d) => !!(d && d.details && d.details.commandeResto);
+// « Je suis en route » : au CLIENT du restaurant (pas au restaurant)
+export function messageEnRouteResto(d) {
+  const v = (d && d.details) || {};
+  return [`Bonjour${v.destinataire ? " " + String(v.destinataire).split(" ")[0] : ""}, c'est Rebecca Services 🛵`, `Je vous apporte votre commande de ${d.nom}, j'arrive dans quelques minutes.`, "Merci !"].join("\n");
+}

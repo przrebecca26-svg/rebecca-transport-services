@@ -419,7 +419,8 @@ function Evenement({ d, aujourdhui, admin = false, journee = null }) {
       <FinCourseAgenda d={d} aujourdhui={aujourdhui} />
       {ouvert && (
         <div className="ag-detail">
-          <p>{d.telephone} · Paiement prévu : {d.moyenPaiement}</p>
+          <p>{d.telephone} · {d.details && d.details.commandeResto ? "🍕 restaurant partenaire · payée avec son relevé du dimanche" : `Paiement prévu : ${d.moyenPaiement}`}</p>
+          {d.details && d.details.commandeResto && d.details.destinataire && <p>Client : {d.details.destinataire}{d.details.telDestinataire ? ` · ${d.details.telDestinataire}` : ""}</p>}
           {adresses.map((a, i) => (
             <div key={i} className="ag-adresse-ligne">
               <p dir="auto" className="ag-adresse">{a.label}</p>

@@ -164,7 +164,11 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     setEnCours(false);
   };
   const encaisser = async (saisie = caisse) => {
+    // 19 nov. 2026 (test C6) : carte cadeau choisie sans montant = le reste de la course
+    if (saisie && saisie.moyen === "Carte cadeau" && !String(saisie.recu || "").trim() && reste > 0) saisie = { ...saisie, recu: String(reste) };
     const r = preparerEncaissement(d, saisie, aujourdhui);
+    // 19 nov. 2026 (test C6) : course déjà payée -> on demande avant d'encaisser une deuxième fois
+    if (!r.erreur && r.paiement && reste <= 0 && !window.confirm(`Cette course est déjà entièrement payée. Enregistrer quand même ${r.paiement.montant} ₪ de plus ?`)) return undefined;
     if (r.erreur) return setErreur(r.erreur);
     const paiement = r.paiement ? { ...r.paiement, ...champOperateur(moi) } : null;
     const err = paiement ? validerMouvement(paiement) : "";
@@ -221,6 +225,8 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
               {moyensRapides.map((m) => (
                 <button key={m} type="button" className="tb-bouton" disabled={enCours} onClick={() => encaisser({ recu: String(reste), pourboire: "", ajout: "", moyen: m })}>⚡ Payé {reste} ₪ · {m}</button>
               ))}
+              {/* 19 nov. 2026 (test C6) : carte cadeau en un geste, il ne reste qu'a taper le code */}
+              <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => setCaisse({ recu: String(reste), pourboire: "", ajout: "", moyen: "Carte cadeau", code: "" })}>🎁 Carte cadeau</button>
             </div>
           )}
           <p className="tb-note">Ou en détail (autre montant, pourboire, ajout) :</p>

@@ -442,7 +442,11 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
       setErreur("Entrez un prix valide, en shekels.");
       return;
     }
-    if (n === prixActuel(d)) return;
+    // 19 nov. 2026 (test C2) : même montant que l'estimation mais pas encore enregistré = on l'enregistre quand même
+    if (n === prixActuel(d) && typeof d.prixFinal === "number") {
+      setAvertissement("Ce prix est déjà enregistré.");
+      return;
+    }
     const ancien = typeof prixActuel(d) === "number" ? prixActuel(d) : null;
     executer({ prixFinal: n, historiquePrix: arrayUnion({ de: ancien, vers: n, leMs: Date.now() }) });
   };

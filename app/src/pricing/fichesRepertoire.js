@@ -6,7 +6,7 @@
 // Une fiche = une famille du Repertoire (avec ses membres et ses enfants), ou une cliente du site sans famille.
 // Une cliente du site dont le telephone est celui d'un membre d'une famille est dans la fiche de cette famille.
 
-import { telNormalise } from "./clients.js";
+import { statistiques, telNormalise } from "./clients.js";
 
 // Categorie choisie (enregistree) : moi, proches, ou clientes (par defaut)
 export const CATEGORIES = [
@@ -78,3 +78,52 @@ export const LIENS = ["Mari", "Femme", "Mère", "Père", "Fils", "Fille", "Sœur
 // Qui a fait la course (Rebecca ou un coequipier) ; Jeremy ne voit que les siennes, Rebecca voit tout avec le nom
 export const faiteParDe = (d, admin = "rebecca") => (d && (d.realisePar || d.attribueA)) || admin;
 export const pourQui = (liste, moi, estAdmin, admin = "rebecca") => (estAdmin ? liste : liste.filter((d) => faiteParDe(d, admin) === moi));
+
+// RÉSUMÉ DE LA FICHE (19 nov. 2026, V2 « fiches clientes intelligentes ») : calculé avec ce qui est déjà enregistré.
+// Fidèle = au moins 3 prestations terminées sur les 6 derniers mois ; inactive = dernière prestation il y a plus de
+// 2 mois (comme les relances). « Moi » et « Famille et amis » ne sont jamais rangés fidèles ou inactives.
+export const FIDELE_MIN = 3;
+export const FIDELE_JOURS = 183;
+export const INACTIVE_JOURS = 60;
+const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
+const joursEntre = (a, b) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 86400000);
+export function resumeFiche(liste = [], mouvements = [], aujourdhui = "", cartes = [], tels = []) {
+  const faites = liste.filter((d) => d.statut === "terminee" && DATE_OK.test(d.date || "")).map((d) => d.date).sort();
+  const st = statistiques(liste, mouvements);
+  const premiere = faites[0] || "";
+  const derniere = faites[faites.length - 1] || "";
+  const frequenceJours = faites.length >= 2 ? Math.max(1, Math.round(joursEntre(premiere, derniere) / (faites.length - 1))) : null;
+  const depuis = derniere && DATE_OK.test(aujourdhui) ? joursEntre(derniere, aujourdhui) : null;
+  const recentes = DATE_OK.test(aujourdhui) ? faites.filter((j) => joursEntre(j, aujourdhui) <= FIDELE_JOURS).length : 0;
+  const t = new Set(tels.map(telNormalise).filter((x) => x.length >= 6));
+  const sesCartes = cartes.filter((c) => t.has(telNormalise(c.acheteurTel)) || t.has(telNormalise(c.pourTel)));
+  return {
+    nbPrestations: faites.length,
+    premiere,
+    derniere,
+    depuisJours: depuis,
+    frequenceJours,
+    panierMoyen: st.prixMoyen,
+    depenses: st.encaisse,
+    chiffreAffaires: st.chiffreAffaires,
+    resteAPayer: st.resteAPayer,
+    fidele: recentes >= FIDELE_MIN,
+    inactive: depuis !== null && depuis > INACTIVE_JOURS,
+    cartesOffertes: sesCartes.filter((c) => t.has(telNormalise(c.acheteurTel))).length,
+    cartesRecues: sesCartes.filter((c) => t.has(telNormalise(c.pourTel))).length,
+    cartes: sesCartes,
+  };
+}
+// Téléphones d'une entrée du Répertoire
+export const telsEntree = (e) => (e.famille ? telsFamille(e.famille) : [telNormalise(e.telephone)].filter((x) => x.length >= 6));
+// Filtres du Répertoire : fidèles, inactives (jamais Moi ni Famille et amis)
+export const FILTRES_SUIVI = [
+  { v: "fideles", l: "⭐ Fidèles" },
+  { v: "inactives", l: "💤 Inactives (+2 mois)" },
+];
+export function suiviDeLEntree(e, demandes = [], mouvements = [], aujourdhui = "") {
+  if ((e.rang || rangDe(e)) === "moi" || (e.rang || rangDe(e)) === "proches") return { fidele: false, inactive: false };
+  const r = resumeFiche(demandesDeLEntree(e, demandes, []), mouvements, aujourdhui);
+  // Une cliente qui a dit « non » aux relances n'apparaît jamais dans la liste à relancer
+  return e.famille && e.famille.relances === "non" ? { ...r, inactive: false } : r;
+}

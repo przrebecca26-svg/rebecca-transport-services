@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { comprendrePlein } from "./pricing/saisieVocale.js";
+import Dicter from "./components/Dicter.jsx";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { ajouterPlein, essenceDuMois, lireEssence, retirerPlein } from "./pricing/essence.js";
@@ -67,6 +69,7 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
       {form && (
         <div className="tb-bloc pm-form">
           <h4>Nouveau plein</h4>
+          <Dicter exemple="Ex. : plein de 240, 31 litres, compteur 85661" comprendre={comprendrePlein} remplir={(r) => setForm((f) => ({ ...f, montant: r.montant || f.montant, litres: r.litres || f.litres, compteur: r.compteur || f.compteur }))} />
           <label className="pm-champ">Date<input type="date" value={form.date} onChange={(x) => setForm({ ...form, date: x.target.value })} /></label>
           <label className="pm-champ">Montant (₪)<input inputMode="decimal" value={form.montant} onChange={(x) => setForm({ ...form, montant: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="pm-champ">Litres (facultatif)<input inputMode="decimal" value={form.litres} onChange={(x) => setForm({ ...form, litres: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>

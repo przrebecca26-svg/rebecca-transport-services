@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "./firebase.js";
 import ChoixAge from "./components/ChoixAge.jsx";
 import { Adresse, Famille } from "./Familles.jsx";
 import { Compte } from "./ComptesEntreNous.jsx";
 import { enregistrerComptes, useComptes } from "./comptesBase.js";
 import { enregistrerRepertoire, useRepertoire } from "./repertoireBase.js";
 import { familleVide, texteAge } from "./pricing/familles.js";
-import { CATEGORIES, LIENS, comptesDeLEntree, demandesDeLEntree, faiteParDe, nouveauMembre, pourQui } from "./pricing/fichesRepertoire.js";
+import { CATEGORIES, LIENS, comptesDeLEntree, demandesDeLEntree, faiteParDe, nouveauMembre, pourQui, resumeFiche, telsEntree } from "./pricing/fichesRepertoire.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { nomDe } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
@@ -34,6 +36,9 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
   const rep = useRepertoire();
   const { membres } = useEquipeContexte();
   const { comptes } = useComptes();
+  // 19 nov. 2026 : cartes cadeaux offertes ou reçues par cette fiche (même téléphone)
+  const [cartes, setCartes] = useState([]);
+  useEffect(() => onSnapshot(collection(db, "cartesCadeaux"), (s) => setCartes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setCartes([])), []);
   const [onglet, setOnglet] = useState("membres");
   const [f, setF] = useState(entree.famille);
   const [modifie, setModifie] = useState(false);
@@ -63,6 +68,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
   const liste = pourQui(demandesDeLEntree(e, demandes || [], estAdmin ? comptes : []), moi, estAdmin, ADMIN_ID);
   const qui = (d) => nomDe(membres, faiteParDe(d, ADMIN_ID));
   const onglets = ONGLETS.filter((o) => !o.admin || estAdmin);
+  const resume = resumeFiche(liste, mouvements || [], new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), cartes, telsEntree(e));
 
   return (
     <div className="tdb devis-rapide">
@@ -76,6 +82,8 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
           {CATEGORIES.map((c) => <option key={c.v} value={c.v}>{c.l}</option>)}
         </select>
       </label>
+
+      <ResumeFiche r={resume} />
 
       <div className="tb-filtres" role="tablist" aria-label="Fiche">
         {onglets.map((o) => (
@@ -92,7 +100,27 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
               <button type="button" className="tdb-bouton" onClick={creerFamille}>Créer sa fiche famille</button>
             </>
           ) : (
-            <Membres f={f} changer={changer} connues={connues} />
+            <>
+              <Membres f={f} changer={changer} connues={connues} />
+              <div className="bloc">
+                <p className="rp-type">Contact et relances</p>
+                <label className="champ">Comment la contacter de préférence
+                  <select value={f.contactPref || ""} onChange={(x) => changer({ ...f, contactPref: x.target.value })}>
+                    <option value="">Pas précisé</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="appel">Appel téléphonique</option>
+                    <option value="email">E-mail</option>
+                  </select>
+                </label>
+                <label className="champ">D'accord pour recevoir des relances et des offres
+                  <select value={f.relances || ""} onChange={(x) => changer({ ...f, relances: x.target.value })}>
+                    <option value="">Pas encore demandé</option>
+                    <option value="oui">Oui</option>
+                    <option value="non">Non, ne pas relancer</option>
+                  </select>
+                </label>
+              </div>
+            </>
           )}
           {entree.clients.length > 0 && (
             <div className="bloc">
@@ -272,6 +300,24 @@ function FinancesFiche({ e, liste, mouvements, comptes, familles, estAdmin, qui 
         </div>
       )}
       {message && <p className="fm-erreur" role="alert">{message}</p>}
+    </section>
+  );
+}
+
+// RÉSUMÉ (19 nov. 2026) : l'essentiel de la cliente d'un coup d'œil, calculé avec ce qui est déjà enregistré
+const dFr = (d) => (d ? d.split("-").reverse().join("/") : "");
+function ResumeFiche({ r }) {
+  if (!r.nbPrestations && !r.cartes.length) return null;
+  return (
+    <section className="tdb-bloc">
+      <p className="tdb-note">
+        {r.fidele && <strong>⭐ Cliente fidèle · </strong>}
+        {r.inactive && <strong>💤 Plus de nouvelles depuis {r.depuisJours} jours · </strong>}
+        {r.nbPrestations} prestation(s) terminée(s){r.derniere ? `, la dernière le ${dFr(r.derniere)}` : ""}
+        {r.frequenceJours ? ` · environ tous les ${r.frequenceJours} jours` : ""}
+      </p>
+      {r.nbPrestations > 0 && <p className="tdb-note">Panier moyen {r.panierMoyen} ₪ · total payé {Math.round(r.depenses)} ₪{r.resteAPayer > 0 ? ` · reste à payer ${Math.round(r.resteAPayer)} ₪` : ""}</p>}
+      {r.cartes.length > 0 && <p className="tdb-note">🎁 Cartes cadeaux : {r.cartesOffertes} offerte(s), {r.cartesRecues} reçue(s){r.cartes.filter((c) => c.statut === "active").length ? ` · solde actif ${r.cartes.filter((c) => c.statut === "active").reduce((t, c) => t + (Number(c.solde) || 0), 0)} ₪` : ""}</p>}
     </section>
   );
 }

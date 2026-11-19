@@ -6,6 +6,7 @@ import { useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { vehiculesEffectifs } from "./pricing/quiFait.js";
 import { COMPARAISONS, TYPES_PERIODE, comparer, csvCourses, csvDepenses, csvEncaissements, csvWolt, csvComptable, nomRapport, periode } from "./pricing/statistiques.js";
+import RentabiliteAvancee from "./RentabiliteAvancee.jsx";
 import "./finances.css";
 import "./paiements.css";
 
@@ -75,6 +76,7 @@ export default function Statistiques({ membre = null }) {
   const max = Math.max(1, r.a.valeurs.chiffreAffaires, r.b.valeurs.chiffreAffaires);
 
   return (
+    <>
     <section className="tb-liste fi">
       <Filtres label="Période" options={TYPES_PERIODE} valeur={type} changer={setType} />
       <Filtres label="Comparer avec" options={COMPARAISONS} valeur={comparaison} changer={setComparaison} />
@@ -112,6 +114,8 @@ export default function Statistiques({ membre = null }) {
         <p className="tb-note">Chiffre d'affaires = prestations terminées à leur date + argent gardé après annulation. Pourboires et Wolt à part. Dépenses, Wolt et bénéfice : seulement pour « Toutes » les activités.</p>
       </div>
     </section>
+    {!membre && (() => { const p = periode(type, ref) || {}; return <RentabiliteAvancee demandes={d.demandes} mouvements={d.mouvements} debut={p.debut || ""} fin={p.fin || ""} ref={ref} />; })()}
+    </>
   );
 }
 

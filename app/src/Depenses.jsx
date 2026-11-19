@@ -4,6 +4,8 @@ import { db } from "./firebase.js";
 import { ADMIN_ID, lignesDe } from "./pricing/equipe.js";
 import { champOperateur } from "./pricing/reverser.js";
 import { CATEGORIES, moisDe, moisDecale, resumeMois, totalCategorie, validerDepense } from "./pricing/depenses.js";
+import { comprendreDepense } from "./pricing/saisieVocale.js";
+import Dicter from "./components/Dicter.jsx";
 import "./paiements.css";
 import "./depenses.css";
 
@@ -158,6 +160,7 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
         {mode !== null && !aConfirmer && (
           <div className="pm-form">
             <h4>{mode === "depense" ? "Nouvelle dépense" : "Corriger une erreur"}</h4>
+            {mode === "depense" && <Dicter exemple="Ex. : péage route 6, 25 shekels" comprendre={(t) => comprendreDepense(t, CATEGORIES)} remplir={(r) => { setCategorie(r.categorie); setMontant(r.montant); setMotif(r.motif); }} />}
             <label className="pm-champ">
               Catégorie
               <select value={categorie} onChange={(e) => setCategorie(e.target.value)}>

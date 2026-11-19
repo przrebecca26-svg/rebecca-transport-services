@@ -3,7 +3,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes } from "./accesDemandes.js";
 import { construireFiches } from "./pricing/clients.js";
-import { AFFICHAGE, entreesRepertoire, filtrerEntrees, libelleCategorie } from "./pricing/fichesRepertoire.js";
+import { AFFICHAGE, FILTRES_SUIVI, entreesRepertoire, filtrerEntrees, libelleCategorie, suiviDeLEntree } from "./pricing/fichesRepertoire.js";
 import { familleVide } from "./pricing/familles.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
@@ -140,6 +140,12 @@ export default function Repertoire({ aller = null }) {
 
   // 13 nov. 2026 : tout le monde dans un seul Repertoire (moi, famille et amis, clientes), chacun avec sa Fiche
   const entrees = entreesRepertoire(rep.familles, fc.fiches, fc.categories);
+  // 19 nov. 2026 : fidèles et inactives, calculés avec les prestations déjà enregistrées
+  const jourJ = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+  const suivi = categorie === "fideles" || categorie === "inactives" ? Object.fromEntries(entrees.map((x) => [x.cle, suiviDeLEntree(x, fc.demandes, fc.mouvements, jourJ)])) : null;
+  const visibles = suivi
+    ? filtrerEntrees(entrees, "tous", texte).filter((x) => (categorie === "fideles" ? suivi[x.cle].fidele : suivi[x.cle].inactive))
+    : filtrerEntrees(entrees, categorie, texte);
   const avecRapides = [...lieux, ...rep.lieux.filter((x) => ID_AJOUT_RAPIDE.test(x.id) && !lieux.some((y) => y.id === x.id) && !supprimes.current.has(x.id))];
   const lieuxConnus0 = avecRapides.filter((x) => x.nom.trim() && cleAdresse(x.adresse)).map((x) => ({ id: x.id, nom: x.nom, adresse: x.adresse }));
   if (ficheOuverte) {
@@ -211,14 +217,18 @@ export default function Repertoire({ aller = null }) {
             {c.l} <span>{c.v === "tous" ? entrees.length : entrees.filter((x) => x.rang === c.v).length}</span>
           </button>
         ))}
+        {FILTRES_SUIVI.map((c) => (
+          <button key={c.v} role="tab" aria-selected={categorie === c.v} className={"tb-filtre" + (categorie === c.v ? " actif" : "")} onClick={() => setCategorie(c.v)}>{c.l}</button>
+        ))}
       </div>
       <section className="tdb-bloc">
         {!fc.pret && <p className="tdb-note">Chargement des clientes du site…</p>}
-        {filtrerEntrees(entrees, categorie, texte).map((x) => (
+        {suivi && <p className="tdb-note">{categorie === "fideles" ? "Au moins 3 prestations terminées sur les 6 derniers mois." : "Dernière prestation il y a plus de 2 mois : à relancer si elle est d'accord (rien n'est envoyé tout seul)."} {visibles.length} fiche(s).</p>}
+        {visibles.map((x) => (
           <div key={x.cle} className="rp-forfait">
             <span>
               <strong>{x.nom}</strong>
-              <small> · {x.telephone || "pas de téléphone"} · {libelleCategorie(x.rang)}</small>
+              <small> · {x.telephone || "pas de téléphone"} · {libelleCategorie(x.rang)}{suivi && suivi[x.cle].derniere ? ` · dernière fois le ${suivi[x.cle].derniere.split("-").reverse().join("/")}` : ""}</small>
             </span>
             <button type="button" className="tdb-bouton" onClick={() => setFicheOuverte(x.cle)}>Fiche</button>
           </div>

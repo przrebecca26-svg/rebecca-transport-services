@@ -99,3 +99,23 @@ test("cure Slim 8 séances : acompte puis 4 versements, séances faites et reste
   const e = S.etatCure(s, s.cures[0]);
   egal([e.faites, e.restantes, e.paye, e.reste, e.versementsRestants], [1, 7, 1080, 1620, 3]);
 });
+
+// 19 nov. 2026 : résumé de la fiche (fidèles, inactives, panier moyen, cartes cadeaux)
+import { resumeFiche as _resume, suiviDeLEntree as _suivi } from "../src/pricing/fichesRepertoire.js";
+section("Fiches : résumé intelligent");
+const _d = (id, date, prix, statut = "terminee") => ({ id, date, prixFinal: prix, statut, telephone: "0541112222" });
+test("fidèle : 3 prestations sur 6 mois ; fréquence et panier moyen", () => {
+  const r = _resume([_d("a", "2026-09-01", 60), _d("b", "2026-10-01", 80), _d("c", "2026-11-01", 100), _d("x", "2026-11-20", 50, "acceptee")], [], "2026-11-19");
+  egal([r.nbPrestations, r.premiere, r.derniere, r.frequenceJours, r.panierMoyen, r.fidele, r.inactive], [3, "2026-09-01", "2026-11-01", 31, 80, true, false]);
+});
+test("inactive : dernière prestation il y a plus de 2 mois", () => {
+  const r = _resume([_d("a", "2026-08-01", 60)], [], "2026-11-19");
+  egal([r.fidele, r.inactive, r.depuisJours, r.frequenceJours], [false, true, 110, null]);
+});
+test("cartes cadeaux offertes et reçues (même téléphone)", () => {
+  const r = _resume([], [], "2026-11-19", [{ acheteurTel: "054-111-2222", pourTel: "", statut: "active", solde: 100 }, { acheteurTel: "052", pourTel: "0541112222", statut: "a_payer" }, { acheteurTel: "050-999-0000" }], ["054-111-2222"]);
+  egal([r.cartesOffertes, r.cartesRecues, r.cartes.length], [1, 1, 2]);
+});
+test("Moi et Famille et amis ne sont jamais rangés fidèles ou inactives", () => {
+  egal(_suivi({ rang: "proches", clients: [], telephone: "0541112222" }, [_d("a", "2026-01-01", 60)], [], "2026-11-19"), { fidele: false, inactive: false });
+});

@@ -150,9 +150,11 @@ export function dureeDite(texte) {
 export const demandeCreneau = (texte) => /\b(creneau|trouve|place le|places? la|quand je peux|entre deux|ou tu peux|quand tu peux)\b/.test(normaliser(texte));
 
 // Le « quoi » d'une tache : la phrase avant les precisions (« Sortir le chien, il faut compter 20 minutes... »)
+// 19 nov. 2026, 15h05 : « ... sachant que le chien est à la maison » -> la tache se passe a la maison (trafic)
+export const aLaMaison = (texte) => /(?:^|\s)(?:à|a)\s+la\s+maison\b|\bchez moi\b/i.test(String(texte || ""));
 export function quoiDeTache(texte) {
   let q = String(texte || "").split(/[,.;]|\s+(?:il faut|faut|trouve|compte[rz]?|pendant|entre deux|quand je|place[- ]le|ca prend|ça prend|qui dure|duree)\b/i)[0];
-  q = q.replace(/\b(ajoute|note|mets?)\b/gi, "").replace(/\b(demain|apr[eè]s-demain|aujourd'hui)\b/gi, "").replace(/(?:^|\s)(?:à|a)?\s*\d{1,2}\s*(?:heures?|h|:)\s*\d{0,2}/gi, " ");
+  q = q.replace(/\b\d{1,3}\s*(?:minutes?|mn|min)\b/gi, " ").replace(/\b(?:à|a)\s+la\s+maison\b/gi, " ").replace(/\b(ajoute|note|mets?)\b/gi, "").replace(/\b(demain|apr[eè]s-demain|aujourd'hui)\b/gi, "").replace(/(?:^|\s)(?:à|a)?\s*\d{1,2}\s*(?:heures?|h|:)\s*\d{0,2}/gi, " ");
   return q.replace(/\s+/g, " ").trim().replace(/^[,.\s]+|[,.\s]+$/g, "").slice(0, 80);
 }
 

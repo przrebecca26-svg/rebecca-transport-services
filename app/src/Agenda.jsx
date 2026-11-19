@@ -31,7 +31,7 @@ import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
 import { TYPES_TACHE, cleEtape, etapeValidable, iconeTache, texteAvecMoi } from "./pricing/tournee.js";
 import { supprimerCourseComplete } from "./suppression.js";
-import { comprendreDateHeure, demandeCreneau, dureeDite, quoiDeTache, trouverCreneau } from "./pricing/saisieVocale.js";
+import { aLaMaison, comprendreDateHeure, demandeCreneau, dureeDite, quoiDeTache, trouverCreneau } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
 import { ajouterJours, etiquettesDuJour, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
@@ -867,9 +867,9 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
             if (!heure) return { erreur: "Dis l'heure (« docteur à 10 heures ») ou la durée (« 20 minutes, trouve-moi un créneau »)." };
             const fin = decaler(heure, duree || 60);
             const autreJour = dit && dit !== date && !trouve;
-            return { heure, fin, quoi, autreJour: autreJour ? dit : "", resume: `${quoi || "Tâche"} · ${heure.replace(":", "h")} → ${fin.replace(":", "h")}${trouve ? " (premier créneau libre de ta journée)" : ""}${autreJour ? ` (attention : tu as dit le ${dit.split("-").reverse().join("/")}, ouvre ce jour-là dans le calendrier)` : ""}` };
+            return { heure, fin, quoi, maison: aLaMaison(t), autreJour: autreJour ? dit : "", resume: `${quoi || "Tâche"} · ${heure.replace(":", "h")} → ${fin.replace(":", "h")}${trouve ? " (premier créneau libre de ta journée)" : ""}${autreJour ? ` (attention : tu as dit le ${dit.split("-").reverse().join("/")}, ouvre ce jour-là dans le calendrier)` : ""}` };
           }}
-          remplir={(r) => setF((x) => ({ ...x, type: x.type || "autre", quoi: x.quoi || r.quoi, debut: r.heure, fin: r.fin }))}
+          remplir={(r) => setF((x) => ({ ...x, type: x.type || "autre", quoi: x.quoi || r.quoi, debut: r.heure, fin: r.fin, ...(r.maison && journee && journee.domicile ? { lieu: journee.domicile } : {}) }))}
         />
       )}
 
@@ -1022,6 +1022,8 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
           {!estNouvel && (
             <div className="ag-champ">{f.type === "course" ? "Adresse de récupération (facultatif)" : "Adresse (facultatif)"}
               <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position={false} onChange={(v) => set("lieu", v)} />
+              {/* 19 nov. 2026, 15h05 : une tâche à la maison entre dans le trafic (rentrer, faire, repartir) */}
+              {journee && journee.domicile && f.type !== "course" && <button type="button" className="ag-modifier" onClick={() => set("lieu", journee.domicile)}>🏠 À la maison</button>}
             </div>
           )}
           {f.type === "course" && (

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { dureeAvecTrafic, googleActif } from "../routing.js";
+import { calculerTrajetSur, dureeAvecTrafic, googleActif } from "../routing.js";
 import { departConseille, departIso, enHeure, trajetsDuJour } from "../pricing/traficMatin.js";
 
 // TRAFIC DE CE MATIN (17 nov. 2026) - vue Jour du Calendrier, aujourd'hui seulement.
@@ -44,11 +44,18 @@ export default function TraficDuMatin({ jour, fil, domicile }) {
       try {
         const estime = Math.max(maintenant() + 1, t.arriveeMin - 30);
         const d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
-        lignes.push({ cle: t.cle, nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, avec: Math.round(d.avecTrafic / 60), normal: Math.round(d.normal / 60), partir: departConseille(t.arriveeMin, d.avecTrafic) });
+        lignes.push({ cle: t.cle, nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, avec: Math.round(d.avecTrafic / 60), normal: Math.round(d.normal / 60), partir: departConseille(t.arriveeMin, d.avecTrafic), apresMin: t.apresMin, apresQuoi: t.apresQuoi });
       } catch (e) {
         erreur = e && e.message ? e.message : "Trafic indisponible";
-        const vieux = avant.find((l) => l.cle === t.cle && l.arriveeMin === t.arriveeMin) || avant.find((l) => l.nomDe === t.nomDe && l.nomVers === t.nomVers && l.arriveeMin === t.arriveeMin);
-        if (vieux) lignes.push({ ...vieux, cle: t.cle });
+        const vieux = avant.find((l) => l.cle === t.cle && l.arriveeMin === t.arriveeMin && l.nomDe === t.nomDe);
+        if (vieux) lignes.push({ ...vieux, cle: t.cle, apresMin: t.apresMin, apresQuoi: t.apresQuoi });
+        else {
+          // 15h05 : trajet nouveau ou heure changée -> temps de route sans trafic (calcul gratuit), pour ne rien perdre
+          try {
+            const r = await calculerTrajetSur(t.de, t.vers);
+            lignes.push({ cle: t.cle, nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, avec: r.minutes, normal: r.minutes, sansTrafic: true, partir: departConseille(t.arriveeMin, r.minutes * 60), apresMin: t.apresMin, apresQuoi: t.apresQuoi });
+          } catch { /* rien */ }
+        }
       }
     }
     const v = { sig, calculeMs: Date.now(), calculeA: new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }), lignes, erreur };
@@ -84,7 +91,9 @@ export default function TraficDuMatin({ jour, fil, domicile }) {
               <div key={i} className="tb-adresse">
                 <div>
                   <p>{l.nomDe} → {l.nomVers}</p>
-                  <small>{l.avec} min avec le trafic{l.normal && l.avec > l.normal ? ` (normal ${l.normal} min, +${l.avec - l.normal})` : ""} · arrivée {enHeure(l.arriveeMin)}</small>
+                  <small>{l.avec} min {l.sansTrafic ? "(sans le trafic)" : "avec le trafic"}{!l.sansTrafic && l.normal && l.avec > l.normal ? ` (normal ${l.normal} min, +${l.avec - l.normal})` : ""} · arrivée {enHeure(l.arriveeMin)}</small>
+                  {l.apresMin != null && l.partir < l.apresMin && <small className="fm-erreur"> ⚠️ Tu dois partir avant la fin de « {l.apresQuoi || "ta tâche"} » ({enHeure(l.apresMin)}) : avance-la ou raccourcis-la.</small>}
+                  {l.apresMin != null && l.partir >= l.apresMin && <small> · après « {l.apresQuoi || "ta tâche"} » (fini {enHeure(l.apresMin)})</small>}
                 </div>
                 <strong style={tard ? { color: "#e57373" } : undefined}>Partir {enHeure(l.partir)}</strong>
               </div>

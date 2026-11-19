@@ -59,3 +59,25 @@ test("trafic : étapes cochées marquées faites", () => {
   const c = etapesCourses([{ id: "abc", statut: "acceptee", service: "livraison", heure: "15:00", details: { depart: gan, arrivee: ecole }, chrono: { simple: { prise: "15:02" } } }]);
   if (c.length) { egal(c[0].fait, true); egal(c[1].fait, false); }
 });
+
+// 19 nov. 2026, 15h05 : tâche à la maison dans le trafic
+import { quoiDeTache, aLaMaison } from "../src/pricing/saisieVocale.js";
+test("tâche à la maison : dictée et trafic", () => {
+  const t = "Sortir le chien 20 minutes, trouve-moi un créneau, sachant que le chien est à la maison";
+  egal(quoiDeTache(t), "Sortir le chien");
+  egal(aLaMaison(t), true);
+  egal(aLaMaison("docteur à 10 heures"), false);
+  const maison = { lat: 32.33, lon: 34.86, label: "Maison" };
+  const activite = { lat: 32.30, lon: 34.87, label: "Activité" };
+  const fil = [
+    { min: 930, genre: "arret", adresse: activite, lieu: "Activité", texte: "Déposer Shyrel" },
+    { min: 965, genre: "tache", adresse: maison, lieu: "Maison", texte: "Sortir le chien", jusqua: "16h25" },
+    { min: 1013, genre: "maison", texte: "Partir de la maison" },
+    { min: 1020, genre: "arret", adresse: activite, lieu: "Activité", texte: "Prendre Shyrel" },
+  ];
+  const tr = trajetsDuJour(fil, maison, 0);
+  const vers = tr.find((x) => x.quoi === "Prendre Shyrel");
+  egal(vers.apresMin, 985);
+  egal(vers.apresQuoi, "Sortir le chien");
+  egal(!!tr.find((x) => x.quoi === "Sortir le chien"), true);
+});

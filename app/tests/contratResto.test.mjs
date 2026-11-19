@@ -52,3 +52,9 @@ test("fiche du Répertoire créée depuis le contrat", () => {
   const lue = lireFamilles([f])[0];
   egal([lue.resto.email, lue.resto.contratId], ["contact@ohisushi.co.il", "abcdEFGH12"]);
 });
+test("PDF : pas de « ???? » pour l'hébreu de la forme d'entreprise", () => {
+  const c = { ...contratPropre(rempli, tarifsStandard(null), sig), signeLe: "2026-11-20T10:05" };
+  const texte = new TextDecoder("latin1").decode(contratPdf(c, "abcdEFGH12"));
+  egal(texte.includes("????"), false);
+  egal(texte.includes("Osek patur n"), true);
+});

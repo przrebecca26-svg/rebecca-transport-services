@@ -3,6 +3,8 @@ import { CONDITIONS_CADEAU, IDEES_CADEAU, MONTANTS_CADEAU, MOYENS_CADEAU, STATUT
 import { lignesPaiement, normaliserRevolut } from "../pricing/suiteClient.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
+import { carteCadeauPdf } from "../pricing/documentsPdf.js";
+import { partagerPdf } from "../pricing/pdfSimple.js";
 
 // CARTE CADEAU (18 nov. 2026) - page publique : offrir une carte (#/cadeau) ou voir sa carte (#/cadeau/ID).
 // Firebase n'est charge qu'ici.
@@ -74,7 +76,8 @@ export function VoirCarte({ id, onAccueil }) {
       {(carte.statut === "a_payer" || carte.statut === "paiement_annonce") && <Paiement carte={carte} id={id} onAnnonce={lire} />}
       {statut === "active" && (
         <>
-          <button type="button" className="bouton sans-impression" onClick={() => window.print()}>🖨️ Imprimer ou enregistrer en PDF</button>
+          <button type="button" className="bouton sans-impression" onClick={() => partagerPdf(carteCadeauPdf({ montant: carte.montant, idee: carte.idee, pourNom: carte.pourNom, acheteurNom: carte.acheteurNom, message: carte.message, code: carte.code, solde: carte.solde, valable: fin ? dateFrCadeau(fin) : "", conditions: CONDITIONS_CADEAU, contact: "rebeccaservices.com · WhatsApp 054-738-0193" }), `Carte-cadeau-${carte.code}.pdf`, "Carte cadeau Rebecca Services").catch(() => {})}>📤 Enregistrer ou partager en PDF</button>
+          <button type="button" className="lien sans-impression" onClick={() => window.print()}>Imprimer (depuis Safari ou un ordinateur)</button>
           <p className="aide">Pour l'utiliser : réservez sur le site ou sur WhatsApp, et donnez le code à Rebecca au moment de payer.</p>
           {carte.pourTel && <a className="bouton" href={lienWhatsApp(carte.pourTel, messageOffrir(carte, id))} target="_blank" rel="noopener noreferrer">🎁 Envoyer la carte à {carte.pourNom} sur WhatsApp</a>}
           {!carte.pourTel && <a className="bouton" href={`https://wa.me/?text=${encodeURIComponent(messageOffrir(carte, id))}`} target="_blank" rel="noopener noreferrer">🎁 Envoyer la carte sur WhatsApp</a>}

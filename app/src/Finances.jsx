@@ -4,7 +4,7 @@ import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Bilan from "./Bilan.jsx";
 import Depenses from "./Depenses.jsx";
-import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu } from "./pricing/financesAnnee.js";
+import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu, verseWolt, totauxRetenues } from "./pricing/financesAnnee.js";
 import { ADMIN_ID, lignesDe, syntheseMembre } from "./pricing/equipe.js";
 import { argentDe, champOperateur, lignesAReverser, parVehicule, soldesDe, validerReversement } from "./pricing/reverser.js";
 import { libelleType, nomDe, vehiculesEffectifs } from "./pricing/quiFait.js";
@@ -254,7 +254,7 @@ function Annee({ donnees, reglages, personne, membres, vehicules, enEquipe }) {
 }
 
 /* ---------- Vue Wolt (autres revenus) ---------- */
-const formulaireVide = () => ({ source: "Wolt", periode: "semaine", debut: aujourdhui(), fin: finProposee("semaine", aujourdhui()), livraisons: "", revenu: "", pourboire: "", detail: "", km: "", heures: "" });
+const formulaireVide = () => ({ source: "Wolt", periode: "semaine", debut: aujourdhui(), fin: finProposee("semaine", aujourdhui()), livraisons: "", revenu: "", pourboire: "", detail: "", km: "", heures: "", retenue: "", caution: "", numero: "" });
 
 function AutresRevenus({ lignes: toutes, moi }) {
   const lignes = lignesDe(toutes, moi); // chacun son Wolt
@@ -275,6 +275,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
   const triees = [...lignes].sort((a, b) => String(b.debut).localeCompare(String(a.debut)));
   const visibles = voirTout ? triees : triees.filter((l) => String(l.debut).startsWith(String(annee)));
   const totalAnnee = triees.filter((l) => String(l.debut).startsWith(String(annee))).reduce((s, l) => s + (Number(l.revenu) || 0), 0);
+  const retenuesAnnee = totauxRetenues(triees.filter((l) => String(l.debut).startsWith(String(annee))));
 
   const lignesWolt = triees.filter((l) => /wolt/i.test(l.source || "Wolt"));
   const apercu = stats && (stats.livraisons || stats.pourboires || stats.km) ? repartirStatsWolt(lignes, stats) : null;
@@ -311,7 +312,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
     setStatsFait("");
     if (l) {
       setEdition(l.id);
-      setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "", km: essence && essence.woltKm[l.id] ? String(essence.woltKm[l.id]) : "", heures: essence && essence.woltHeures && essence.woltHeures[l.id] ? String(essence.woltHeures[l.id]) : "" });
+      setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "", retenue: l.retenue ? String(l.retenue) : "", caution: l.caution ? String(l.caution) : "", numero: l.numero || "", km: essence && essence.woltKm[l.id] ? String(essence.woltKm[l.id]) : "", heures: essence && essence.woltHeures && essence.woltHeures[l.id] ? String(essence.woltHeures[l.id]) : "" });
     } else {
       setEdition(null);
       setForm(formulaireVide());
@@ -340,7 +341,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
     try {
       let id = edition;
       if (edition) {
-        await updateDoc(doc(db, "autresRevenus", edition), { ...v.ligne, ...(v.ligne.detail ? {} : { detail: deleteField() }), majLe: serverTimestamp() });
+        await updateDoc(doc(db, "autresRevenus", edition), { ...v.ligne, ...(v.ligne.detail ? {} : { detail: deleteField() }), ...(v.ligne.retenue ? {} : { retenue: deleteField() }), ...(v.ligne.caution ? {} : { caution: deleteField() }), ...(v.ligne.numero ? {} : { numero: deleteField() }), majLe: serverTimestamp() });
       } else {
         id = (await addDoc(collection(db, "autresRevenus"), { ...v.ligne, ...champOperateur(moi), creeLe: serverTimestamp(), majLe: serverTimestamp() })).id;
       }
@@ -370,7 +371,9 @@ function AutresRevenus({ lignes: toutes, moi }) {
           <span>Total {annee}</span>
           <strong>{shekels(totalAnnee)}</strong>
         </p>
-        <p className="tb-note">Saisis ici ce que tu gagnes en dehors de Rebecca Services (Wolt…), par jour, par semaine ou par mois. Ces revenus comptent dans le plafond de l'osek patur ; les pourboires restent à part.</p>
+        {retenuesAnnee.retenue > 0 && <p className="tb-note">Retenue à la source {annee} : <strong>{shekels(retenuesAnnee.retenue)}</strong> — impôt déjà payé pour toi, à donner au comptable.</p>}
+        {retenuesAnnee.caution > 0 && <p className="tb-note">Caution du sac : <strong>{shekels(retenuesAnnee.caution)}</strong> — rendue quand tu rends le sac.</p>}
+        <p className="tb-note">Saisis ici ce que tu gagnes en dehors de Rebecca Services (Wolt…), par jour, par semaine ou par mois. Recopie le relevé de Wolt : revenu = « דמי משלוח », pourboires = « טיפים », retenue = « סכום הניכוי ». Ces revenus comptent dans le plafond de l'osek patur ; les pourboires restent à part.</p>
         {!form && !stats && <button className="tb-bouton" onClick={() => ouvrir(null)}>+ Ajouter un revenu</button>}
         {!form && !stats && lignesWolt.length > 0 && <button className="tb-bouton tb-clair" onClick={ouvrirStats}>Compléter avec « Vos statistiques » de Wolt</button>}
         {statsFait && <p className="tb-note" role="status">{statsFait}</p>}
@@ -478,6 +481,21 @@ function AutresRevenus({ lignes: toutes, moi }) {
               <input inputMode="decimal" value={form.pourboire} onChange={(e) => changer("pourboire", e.target.value)} placeholder="0" />
             </label>
           </div>
+          <div className="fi-deux">
+            <label className="pm-champ">
+              Retenue à la source (₪, facultatif)
+              <input inputMode="decimal" value={form.retenue} onChange={(e) => changer("retenue", e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="0" />
+            </label>
+            <label className="pm-champ">
+              Caution du sac (₪, facultatif)
+              <input inputMode="decimal" value={form.caution} onChange={(e) => changer("caution", e.target.value.replace(/[^0-9.,]/g, ""))} placeholder="0" />
+            </label>
+          </div>
+          <label className="pm-champ">
+            N° de facture (facultatif)
+            <input value={form.numero} maxLength={30} onChange={(e) => changer("numero", e.target.value)} placeholder="ex. 117000013" />
+          </label>
+          <p className="tb-note">Versé sur ton compte : <strong>{shekels(verseWolt({ revenu: Number(String(form.revenu).replace(",", ".")) || 0, pourboire: Number(String(form.pourboire).replace(",", ".")) || 0, retenue: Number(String(form.retenue).replace(",", ".")) || 0, caution: Number(String(form.caution).replace(",", ".")) || 0 }))}</strong> (à comparer avec « סכום סופי לתשלום »)</p>
           <label className="pm-champ">
             Détail (facultatif, obligatoire pour une correction négative)
             <input value={form.detail} maxLength={200} onChange={(e) => changer("detail", e.target.value)} />
@@ -510,6 +528,14 @@ function AutresRevenus({ lignes: toutes, moi }) {
             {l.periode === "jour" ? jourCourt(l.debut) : `${jourCourt(l.debut)} → ${jourCourt(l.fin)}`} · {l.livraisons} livraison{l.livraisons > 1 ? "s" : ""}
             {Number(l.pourboire) ? ` · pourboires ${shekels(Number(l.pourboire))}` : ""}
           </span>
+          {(Number(l.retenue) > 0 || Number(l.caution) > 0 || l.numero) && (
+            <span className="tb-quand">
+              Versé {shekels(verseWolt(l))}
+              {Number(l.retenue) > 0 ? ` · retenue ${shekels(Number(l.retenue))}` : ""}
+              {Number(l.caution) > 0 ? ` · caution ${shekels(Number(l.caution))}` : ""}
+              {l.numero ? ` · facture ${l.numero}` : ""}
+            </span>
+          )}
           {l.detail && <span className="tb-quand">{l.detail}</span>}
         </button>
       ))}

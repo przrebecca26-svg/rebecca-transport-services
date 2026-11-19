@@ -1,4 +1,7 @@
 rules_version = '2';
+// Regles Rebecca Services v28 (19 novembre 2026, releve Wolt et coursiers) = v27 +
+//   - autresRevenus : retenue a la source, caution du sac et numero de facture (facultatifs) ;
+//   - documentsPartenaires : photo du sac isotherme personnel (« sac ») et exoneration de retenue (« retenue »).
 // Regles Rebecca Services v27 (18 novembre 2026, 23h30, securite) = v26 +
 //   - agenda des rendez-vous : un creneau n'est retenu par une cliente QU'AVEC une vraie demande enregistree dans la
 //     meme operation (fini les creneaux bloques sans demande) ;
@@ -337,7 +340,7 @@ service cloud.firestore {
     // Autres revenus (ex : gains Wolt). v9 : chacun les siens (operateur = le coequipier ; absent = Rebecca).
     function autreRevenuForme() {
       let d = request.resource.data;
-      return d.keys().hasOnly(["id","source","periode","debut","fin","livraisons","revenu","pourboire","detail","creeLe","majLe","operateur"])
+      return d.keys().hasOnly(["id","source","periode","debut","fin","livraisons","revenu","pourboire","detail","retenue","caution","numero","creeLe","majLe","operateur"])
         && d.keys().hasAll(["source", "periode", "debut", "fin", "livraisons", "revenu", "pourboire", "creeLe"])
         && (estAdmin() ? !("operateur" in d) : d.get("operateur", "") == request.auth.uid)
         && d.source is string && d.source.size() > 0 && d.source.size() <= 40
@@ -350,7 +353,10 @@ service cloud.firestore {
         && d.pourboire is number && d.pourboire >= -100000 && d.pourboire <= 100000
         && d.revenu + d.pourboire != 0
         && ((d.revenu >= 0 && d.pourboire >= 0) || ("detail" in d && d.detail is string && d.detail.size() >= 3 && d.detail.size() <= 200))
-        && (!("detail" in d) || (d.detail is string && d.detail.size() <= 200));
+        && (!("detail" in d) || (d.detail is string && d.detail.size() <= 200))
+        && (!("retenue" in d) || (d.retenue is number && d.retenue >= 0 && d.retenue <= 100000))
+        && (!("caution" in d) || (d.caution is number && d.caution >= 0 && d.caution <= 100000))
+        && (!("numero" in d) || (d.numero is string && d.numero.size() <= 30));
     }
 
     // Ligne d'autre revenu : Rebecca gere les siennes (sans operateur), un coequipier les siennes
@@ -881,7 +887,7 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasOnly(["candidature","type","image","creeLe"])
         && request.resource.data.candidature is string
         && id.matches(request.resource.data.candidature + "_[a-zA-Z]{2,20}_[0-9]{10,16}")
-        && request.resource.data.type in ["identite","osek","permis","rishayon","assurance","topcase","photoVelo"]
+        && request.resource.data.type in ["identite","osek","permis","rishayon","assurance","topcase","photoVelo","sac","retenue"]
         && request.resource.data.image is string && request.resource.data.image.size() <= 700000
         && request.resource.data.creeLe == request.time
         && exists(/databases/$(database)/documents/suiviPartenaires/$(request.resource.data.candidature))

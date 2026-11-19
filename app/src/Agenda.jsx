@@ -617,8 +617,17 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
                     <p><strong>🏠 Sort à une autre heure → je {unSeul ? `ramène ${unSeul.nom || "l'enfant"}` : "le/la ramène"} à la maison</strong></p>
                     <p className="tb-note">Un trajet école → maison est ajouté à cette heure ; {trajetsEtape.length > 1 ? "les autres enfants gardent leur trajet." : "le trajet habituel est retiré aujourd'hui."}</p>
                     {trajetsEtape.length > 1 && cibles.length !== 1 && <p className="tb-note">Coche un seul enfant au-dessus.</p>}
-                    <label className="ag-champ">Heure de sortie<input type="time" value={heureMaison || maintenant} onChange={(x) => setHeureMaison(x.target.value)} /></label>
-                    <button type="button" className="tb-bouton" disabled={cibles.length !== 1} onClick={() => faire(() => journee.ramenerMaison(date, cibles[0], heureMaison || maintenant))}>Ramener à la maison à {(heureMaison || maintenant).replace(":", "h")}</button>
+                    {(() => {
+                      // 19 nov. 2026 : l'heure deja choisie aujourd'hui (ex. 13h10) passe avant « maintenant »
+                      const deja = cibles.length === 1 && journee.heureDuJour ? journee.heureDuJour(date, cibles[0]) : "";
+                      const h = heureMaison || deja || maintenant;
+                      return (
+                        <>
+                          <label className="ag-champ">Heure où tu la récupères (ou l'as récupérée)<input type="time" value={h} onChange={(x) => setHeureMaison(x.target.value)} /></label>
+                          <button type="button" className="tb-bouton" disabled={cibles.length !== 1} onClick={() => faire(() => journee.ramenerMaison(date, cibles[0], h))}>Ramener à la maison à {h.replace(":", "h")}</button>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </>

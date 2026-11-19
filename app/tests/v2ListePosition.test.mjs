@@ -132,3 +132,19 @@ test("Wolt : retenue et versement automatiques", () => {
   egal(dateVersement("2026-11-15", 2), "2026-11-17");
   egal(lireReglageWolt({ taux: "7,5", delai: "2" }).taux, 7.5);
 });
+
+// 19 nov. 2026, 16h03 : importer un fichier préparé par Claude
+import { lireFichier, aEffacer, resumeImport, lireDate } from "../src/pricing/importFichier.js";
+test("import de fichier", () => {
+  egal(lireDate("19/07/2026"), "2026-07-19");
+  const r = lireFichier("# x\nremplacer;wolt;25/06/2026;19/11/2026\ntype;du;au\nwolt;19/07/2026;22/07/2026;421,04;20,07;300;;17;120,6;;Paiement\ndepense;03/11/2026;Péages;15;test\ndepense;03/11/2026;carburant;250\nplein;05/11/2026;200;30;85000\n");
+  egal(r.erreurs.length, 0);
+  egal(r.wolt[0].ligne.caution, 300);
+  egal(r.wolt[0].ligne.livraisons, 17);
+  egal(r.depenses.length, 1);
+  egal(r.pleins.length, 2);
+  egal(resumeImport(r).woltTotal, 441.11);
+  egal(aEffacer([{ id: "a", source: "Wolt", debut: "2026-08-01" }, { id: "b", source: "Wolt", debut: "2026-12-01" }, { id: "c", source: "Wolt", debut: "2026-08-01", operateur: "x" }], r.remplacer).map((x) => x.id).join(), "a");
+  egal(lireFichier("wolt;bad").erreurs.length, 1);
+  egal(lireFichier("chose;1").erreurs.length, 1);
+});

@@ -11,6 +11,7 @@ await import("./v2ListePosition.test.mjs");
 await import("./rentabilite.test.mjs");
 await import("./coursesGroupees.test.mjs");
 await import("./commercants.test.mjs");
+await import("./restos.test.mjs");
 await import("./abonnement.test.mjs");
 await import("./rappelsAuto.test.mjs");
 await import("./notifications.test.mjs");

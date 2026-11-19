@@ -63,6 +63,18 @@ export const enfantFicheVide = () => ({ id: nouvelIdFiche(), prenom: "", age: "e
 // forfaitJour : prix a la journee de cette famille (ex. Alexia 70 ₪), 0 = pas de forfait (13 nov. 2026)
 export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "", nom2: "", telephone2: "", domicile: null, adresses: [], du: "", au: "", forfaitJour: 0, abonnementMois: 0, jourPaiement: 1, categorie: "clientes", membres: [], enfants: [enfantFicheVide()] });
 
+// Contrat d'un commercant partenaire (19 nov. 2026) : chiffres et textes propres, lien prive du restaurant
+const prixLu = (x) => (Number.isFinite(Number(x)) && Number(x) >= 0 && Number(x) <= 1000 ? Math.round(Number(x) * 100) / 100 : undefined);
+function contratLu(c) {
+  const r = {};
+  for (const k of ["jusqua3", "de3a6", "enPlus", "minimumCreneau"]) if (prixLu(c[k]) !== undefined) r[k] = prixLu(c[k]);
+  if (c.formule === "A" || c.formule === "B") r.formule = c.formule;
+  if (["Bit", "Revolut", "Espèces", "Virement"].includes(c.moyen)) r.moyen = c.moyen;
+  if (typeof c.creneaux === "string") r.creneaux = c.creneaux.slice(0, 120);
+  if (typeof c.lienResto === "string" && /^[A-Za-z0-9]{20,40}$/.test(c.lienResto)) r.lienResto = c.lienResto;
+  return r;
+}
+
 // Nettoie ce qui vient de la base
 export function lireFamilles(liste) {
   if (!Array.isArray(liste)) return [];
@@ -87,7 +99,12 @@ export function lireFamilles(liste) {
       abonnementMois: lireForfait(f.abonnementMois),
       jourPaiement: Math.min(28, Math.max(1, Math.round(Number(f.jourPaiement)) || 1)),
       // 13 nov. 2026 : categorie du Repertoire (moi, famille et amis, clientes) et autres membres (mari, mere, niece...)
-      categorie: ["moi", "proches", "clientes"].includes(f.categorie) ? f.categorie : /\bmoi\b/i.test(String(f.nom || "")) ? "moi" : "clientes",
+      // 19 nov. 2026 : « commercants » (restaurants partenaires) etait efface a la relecture -> garde
+      categorie: ["moi", "proches", "clientes", "commercants"].includes(f.categorie) ? f.categorie : /\bmoi\b/i.test(String(f.nom || "")) ? "moi" : "clientes",
+      // 19 nov. 2026 : contact prefere, accord pour les relances et contrat du commercant etaient perdus a la relecture
+      ...(["whatsapp", "appel", "email"].includes(f.contactPref) ? { contactPref: f.contactPref } : {}),
+      ...(["oui", "non"].includes(f.relances) ? { relances: f.relances } : {}),
+      ...(f.categorie === "commercants" && f.contratPro && typeof f.contratPro === "object" ? { contratPro: contratLu(f.contratPro) } : {}),
       membres: (Array.isArray(f.membres) ? f.membres : [])
         .filter((m) => m && typeof m === "object" && String(m.nom || "").trim())
         .slice(0, 20)

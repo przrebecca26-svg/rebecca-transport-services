@@ -12,6 +12,7 @@ import { ADMIN_ID } from "./pricing/equipe.js";
 import { nomDe } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import SuiviBeaute from "./SuiviBeaute.jsx";
+import LienResto from "./components/LienResto.jsx";
 import { nouvelIdCompte, soldeCompte } from "./pricing/comptesEntreNous.js";
 import { releveDuMois } from "./pricing/suiteClient.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
@@ -108,6 +109,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
             <>
               <Membres f={f} changer={changer} connues={connues} />
               {f.categorie === "commercants" && <ContratPro f={f} changer={changer} />}
+              {f.categorie === "commercants" && estAdmin && <LienResto f={f} changer={changer} />}
               <div className="bloc">
                 <p className="rp-type">Contact et relances</p>
                 <label className="champ">Comment la contacter de préférence
@@ -362,7 +364,7 @@ function ContratPro({ f, changer }) {
         <input inputMode="decimal" value={km} onChange={(x) => setKm(x.target.value.replace(/[^0-9.]/g, ""))} placeholder="ex. 2.5" />
       </label>
       {km && <p className="tdb-note">{conseil != null ? `Prix pro : ${conseil} ₪ (commande en plus : ${c.enPlus} ₪).` : "Au-delà de 6 km : sur devis."}</p>}
-      <p className="tdb-note">Ses livraisons : « + Ajouter une course » avec son téléphone. Elles arrivent dans son relevé de la semaine (onglet Finances).</p>
+      <p className="tdb-note">Ses livraisons : envoyées par son lien privé (ci-dessous) ou saisies par toi (« 🍕 Commande WhatsApp » en haut de l'espace privé). Elles arrivent dans son relevé de la semaine (onglet Finances).</p>
     </div>
   );
 }

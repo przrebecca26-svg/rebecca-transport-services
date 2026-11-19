@@ -2,6 +2,7 @@ rules_version = '2';
 // Regles Rebecca Services v28 (19 novembre 2026, releve Wolt et coursiers) = v27 +
 //   - autresRevenus : retenue a la source, caution du sac et numero de facture (facultatifs) ;
 //   - documentsPartenaires : photo du sac isotherme personnel (« sac ») et exoneration de retenue (« retenue »).
+//   - depenses : une ligne saisie par erreur ou en test peut etre supprimee (Rebecca : toutes ; coequipier : les siennes).
 // Regles Rebecca Services v27 (18 novembre 2026, 23h30, securite) = v26 +
 //   - agenda des rendez-vous : un creneau n'est retenu par une cliente QU'AVEC une vraie demande enregistree dans la
 //     meme operation (fini les creneaux bloques sans demande) ;
@@ -663,12 +664,14 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Depenses : Rebecca lit tout ; un coequipier ne lit et n'ajoute que les siennes ; jamais modifiees ni supprimees
+    // Depenses : Rebecca lit tout ; un coequipier ne lit et n'ajoute que les siennes ; jamais modifiees (v28 : suppression possible)
     match /depenses/{id} {
       allow read: if estAdmin() || (estMembre() && resource.data.get("operateur", "") == request.auth.uid);
       allow read: if estRobot();
       allow create: if gestion() && depenseValide();
-      allow update, delete: if false;
+      allow update: if false;
+      // 19 nov. 2026 (v28) : une dépense saisie par erreur ou en test peut être supprimée (Rebecca : toutes ; un coéquipier : les siennes)
+      allow delete: if estAdmin() || (gestion() && resource.data.get("operateur", "") == request.auth.uid);
     }
 
     // Autres revenus (Wolt) : Rebecca lit tout ; chacun ajoute, corrige et supprime SES lignes

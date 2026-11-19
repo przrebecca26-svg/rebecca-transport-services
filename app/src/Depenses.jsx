@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, where } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { ADMIN_ID, lignesDe } from "./pricing/equipe.js";
 import { champOperateur } from "./pricing/reverser.js";
@@ -43,6 +43,16 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
   const [enCours, setEnCours] = useState(false);
   // 19 nov. 2026 : dépenses dictées en une phrase, en attente (la suivante s'ouvre remplie après « Enregistrer »)
   const [suivantes, setSuivantes] = useState([]);
+  // 19 nov. 2026 : supprimer une ligne saisie par erreur (deux touches : Supprimer puis Oui, supprimer)
+  const [aSupprimer, setASupprimer] = useState(null);
+  const supprimer = async (id) => {
+    try {
+      await deleteDoc(doc(db, "depenses", id));
+      setASupprimer(null);
+    } catch {
+      setErreur("Suppression impossible. Vérifie la connexion (et que les règles Firebase v28 sont collées).");
+    }
+  };
 
   useEffect(() => {
     // Un coequipier ne lit que ses lignes (regles v9) ; Rebecca lit tout et garde les siennes
@@ -247,7 +257,7 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
       {resume.lignes.length > 0 && (
         <div className="tb-bloc">
           <h3>Détail du mois</h3>
-          <ul className="pm-liste">
+          <ul className="pm-liste dp-liste">
             {resume.lignes.map((d) => (
               <li key={d.id}>
                 <span>
@@ -256,6 +266,14 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
                   {d.motif ? <small> ({d.motif})</small> : null}
                 </span>
                 <strong>{(d.montant < 0 ? "-" : "") + euros(Math.abs(d.montant))}</strong>
+                {aSupprimer === d.id ? (
+                  <span className="tb-actions">
+                    <button type="button" className="tb-bouton" onClick={() => supprimer(d.id)}>Oui, supprimer</button>
+                    <button type="button" className="ag-modifier" onClick={() => setASupprimer(null)}>Non</button>
+                  </span>
+                ) : (
+                  <button type="button" className="ag-modifier" onClick={() => setASupprimer(d.id)}>Supprimer</button>
+                )}
               </li>
             ))}
           </ul>

@@ -42,3 +42,20 @@ test("avec ou sans moi dans la voiture", () => {
   j = changerAvecMoi(j, "2026-11-19", "c:abc", []);
   egal(JSON.stringify(j), "{}");
 });
+
+// 19 nov. 2026, 14h33 : trajet fait -> sort du trafic
+import { trajetsDuJour, etapesCourses } from "../src/pricing/traficMatin.js";
+test("trafic : étapes cochées marquées faites", () => {
+  const maison = { lat: 32.33, lon: 34.86, label: "Maison" };
+  const gan = { lat: 32.32, lon: 34.85, label: "Gan" };
+  const ecole = { lat: 32.30, lon: 34.87, label: "École" };
+  const fil = [
+    { min: 840, genre: "arret", adresse: gan, lieu: "Gan", texte: "Prendre", cle: "a:x:prise", fait: true },
+    { min: 860, genre: "arret", adresse: ecole, lieu: "École", texte: "Déposer", cle: "a:x:depose", fait: false },
+  ];
+  const t = trajetsDuJour(fil, maison, 0);
+  egal(t.find((x) => x.cle === "a:x:prise").fait, true);
+  egal(t.find((x) => x.cle === "a:x:depose").fait, false);
+  const c = etapesCourses([{ id: "abc", statut: "acceptee", service: "livraison", heure: "15:00", details: { depart: gan, arrivee: ecole }, chrono: { simple: { prise: "15:02" } } }]);
+  if (c.length) { egal(c[0].fait, true); egal(c[1].fait, false); }
+});

@@ -17,6 +17,7 @@ export const enHeure = (min) => {
 
 // Trajets de la journee : de la maison (ou de l'etape precedente) jusqu'a chaque etape qui a une adresse.
 // fil = etapes de « ma journee » (min = heure en minutes, adresse = { label, lat, lon }, lieu = nom).
+const cleDe = (e) => e.cle || `${e.genre}@${e.texte || ""}@${e.lieu || ""}`;
 export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
   let precedent = aPosition(domicile) ? { adresse: domicile, nom: "Maison", min: null } : null;
   const sortie = [];
@@ -28,17 +29,21 @@ export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
         // precedente (et pas a l'heure ou on repart de la maison)
         const route = Math.max(5, Math.round(kmEntre(precedent.adresse, domicile) * MIN_PAR_KM));
         const arrivee = precedent.min != null ? Math.min(e.min, precedent.min + route) : e.min;
-        sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: domicile, nomVers: "Maison", arriveeMin: arrivee, quoi: "Retour à la maison" });
+        // 19 nov. 2026, 14h33 : le retour est fait des que l'etape d'apres (ou la maison) est cochee
+        sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: domicile, nomVers: "Maison", arriveeMin: arrivee, quoi: "Retour à la maison", cle: "maison>" + (precedent.cle || ""), fait: !!e.fait });
       }
-      precedent = { adresse: domicile, nom: "Maison", min: e.min };
+      precedent = { adresse: domicile, nom: "Maison", min: e.min, cle: "maison@" + e.min };
       continue;
     }
     const a = e.adresse;
     if (!aPosition(a) || !["arret", "tache"].includes(e.genre)) continue;
     if (precedent && !memeLieu(precedent.adresse, a)) {
-      sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: a, nomVers: e.lieu || String(a.label || "").split(",")[0], arriveeMin: e.min, quoi: e.texte || "" });
+      // 19 nov. 2026, 14h33 (Rebecca : « quand une course est validée, elle doit disparaître ») : trajet fait = etape cochee
+      sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: a, nomVers: e.lieu || String(a.label || "").split(",")[0], arriveeMin: e.min, quoi: e.texte || "", cle: cleDe(e), fait: !!e.fait });
     }
-    precedent = { adresse: a, nom: e.lieu || String(a.label || "").split(",")[0], min: e.min };
+    // un retour a la maison deja passe se voit aussi a l'etape suivante cochee
+    if (e.fait) for (const t of sortie) if (t.quoi === "Retour à la maison") t.fait = true;
+    precedent = { adresse: a, nom: e.lieu || String(a.label || "").split(",")[0], min: e.min, cle: cleDe(e) };
   }
   return sortie.filter((t) => t.arriveeMin >= maintenantMin);
 }
@@ -51,6 +56,7 @@ const enMin = (h) => {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 };
 const nomCourt = (a) => String((a && a.label) || "").split(",")[0];
+const estAR = (d) => ((d && d.details) || {}).typeTrajet === "ar";
 export function etapesCourses(courses = []) {
   const sortie = [];
   for (const d of courses) {
@@ -64,8 +70,11 @@ export function etapesCourses(courses = []) {
     if (!aPosition(de) || !aPosition(vers)) continue;
     const duree = Math.max(5, Math.round(kmEntre(de, vers) * MIN_PAR_KM));
     const qui = d.nom ? ` (${d.nom})` : "";
-    sortie.push({ min: debut, genre: "arret", adresse: de, lieu: nomCourt(de), texte: `Récupérer${qui}` });
-    sortie.push({ min: debut + duree, genre: "arret", adresse: vers, lieu: nomCourt(vers), texte: `Déposer${qui}` });
+    // 19 nov. 2026, 14h33 : « 📍 Récupérée » / « ✓ Déposée » cochés -> le trajet sort du trafic
+    const c = ((d.chrono || {})[d.estRetour ? "retour" : estAR(d) ? "aller" : "simple"]) || {};
+    const id = "c:" + d.id + (d.estRetour ? "-r" : "");
+    sortie.push({ min: debut, genre: "arret", adresse: de, lieu: nomCourt(de), texte: `Récupérer${qui}`, cle: id + ":prise", fait: !!(c.prise || c.depose) });
+    sortie.push({ min: debut + duree, genre: "arret", adresse: vers, lieu: nomCourt(vers), texte: `Déposer${qui}`, cle: id + ":depose", fait: !!c.depose });
   }
   return sortie;
 }

@@ -401,7 +401,9 @@ export default function Aujourdhui({ aller }) {
     const duJour = avecRetours.filter((x) => x.d.date === jour && (x.d.statut === "acceptee" || x.d.statut === "terminee")).sort(parHeure);
     const deDemain = avecRetours.filter((x) => x.d.date === demain && x.d.statut === "acceptee").sort(parHeure);
     const enAttente = avecSit.filter((x) => x.d.statut === "en attente").sort(parDate);
-    const aCloturer = avecSit.filter((x) => x.d.statut === "acceptee" && String(x.d.date) < jour).sort(parDate);
+    // 19 nov. 2026 (test C4) : un aller-retour dont le retour est aujourd'hui ou plus tard n'est pas « à clôturer »
+    const retourAVenir = (d) => !!(d.details && d.details.typeTrajet === "ar" && String(d.details.dateRetour || "") >= jour);
+    const aCloturer = avecSit.filter((x) => x.d.statut === "acceptee" && String(x.d.date) < jour && !retourAVenir(x.d)).sort(parDate);
     const aEncaisser = avecSit.filter((x) => x.d.statut === "terminee" && x.sit.resteAPayer > 0).sort(parDate);
     const acomptes = avecSit.filter((x) => x.d.statut === "acceptee" && String(x.d.date) >= jour && x.sit.acompte != null && !x.sit.acompteRecu).sort(parDate);
     const totalAEncaisser = aEncaisser.reduce((s, x) => s + x.sit.resteAPayer, 0);

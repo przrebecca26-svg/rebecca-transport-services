@@ -4,6 +4,7 @@ import { db } from "./firebase.js";
 import { refDemandes } from "./accesDemandes.js";
 import { avisADemander, rappelsDemain, recusAFaire, relancesClientes } from "./pricing/finCourse.js";
 import { rappelsRdvDemain } from "./pricing/suiteClient.js";
+import { aTraiterAssistance } from "./pricing/assistance.js";
 
 // COMPTEURS DU MENU (15 nov. 2026, demande de Rebecca) : a cote de chaque rubrique, le nombre de choses a traiter,
 // pour savoir ou aller voir sans ouvrir chaque onglet.
@@ -36,6 +37,7 @@ export function useCompteurs(role) {
   const candidats = useCompte(admin, () => query(collection(db, "candidaturesPartenaires"), where("statut", "in", ["nouvelle", "soumis"])));
   const aActiver = useCompte(admin, () => query(collection(db, "coursiers"), where("statut", "==", "a_activer"))); // 18 nov. 2026
   const restosSignes = useCompte(admin, () => query(collection(db, "contratsRestos"), where("statut", "==", "signe"))); // 19 nov. 2026 : restaurants à activer
+  const assistance = useCompte(admin, () => collection(db, "assistance"), aTraiterAssistance); // 19 nov. 2026
   const partenaires = (candidats || 0) + (aActiver || 0) + (restosSignes || 0);
   // 17 nov. 2026 : rappels, avis, relances et recus a faire (onglet Aujourd'hui du Tableau de bord)
   const [aFaire, setAFaire] = useState(0);
@@ -54,5 +56,5 @@ export function useCompteurs(role) {
     if (!admin) return undefined;
     return onSnapshot(query(collection(db, "paiementsDeclares"), where("statut", "==", "a confirmer")), (s) => setDeclares(new Set(s.docs.map((x) => { const p = x.data(); return `${p.resId}|${p.montant}|${p.sorte}`; })).size), () => setDeclares(0));
   }, [admin]);
-  return { tableau: aFaire + declares, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges, "projets-digital": digital, partenaires };
+  return { tableau: aFaire + declares, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges, "projets-digital": digital, partenaires, assistance };
 }

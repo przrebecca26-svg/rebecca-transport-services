@@ -28,6 +28,7 @@ import SyncTournee from "./SyncTournee.jsx";
 import { useCompteurs } from "./compteursBase.js";
 import { deplacer, ordonner } from "./pricing/menuOrdre.js";
 import CommandesResto, { useCompteurCommandesResto } from "./CommandesResto.jsx"; // 19 nov. 2026
+import AssistanceAdmin from "./AssistanceAdmin.jsx"; // 19 nov. 2026 : assistance clients
 import SyncComptes from "./comptesBase.js";
 import ComptesEntreNous from "./ComptesEntreNous.jsx";
 import Statistiques, { Rapports } from "./Statistiques.jsx";
@@ -117,6 +118,7 @@ const RUBRIQUES = [
   { id: "demandes", label: "Demandes et missions" },
   { id: "transferts", label: "À accepter" }, // 12 nov. 2026 : courses proposees entre Rebecca et Jeremy
   { id: "commandes-resto", label: "Commandes restaurants", adminOnly: true }, // 19 nov. 2026 : toutes les commandes des restaurants partenaires
+  { id: "assistance", label: "Assistance", adminOnly: true }, // 19 nov. 2026 : messages des clients (bouton « 💬 Assistance »)
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true },
   { id: "projets-digital", label: "Projets Digital", adminOnly: true }, // 17 nov. 2026 : devis, paiements 40/30/30, cahier des charges
   { id: "partenaires", label: "Partenaires", adminOnly: true }, // 17 nov. 2026 : inscriptions des futurs coursiers
@@ -369,6 +371,7 @@ export default function Admin() {
     else if (onglet === "repertoire") contenu = <Repertoire aller={aller} />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
     else if (onglet === "commandes-resto" && estAdmin) contenu = <CommandesResto aller={aller} />;
+    else if (onglet === "assistance" && estAdmin) contenu = <AssistanceAdmin />;
     else if (onglet === "commandes-epoxy" && estAdmin) contenu = <CommandesEpoxy onRetour={() => setOnglet("demandes")} />;
     else if (onglet === "projets-digital" && estAdmin) contenu = <ProjetsDigital />;
     else if (onglet === "partenaires" && estAdmin) contenu = <Partenaires aller={aller} />;

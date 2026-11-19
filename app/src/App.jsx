@@ -37,6 +37,8 @@ const EspaceResto = lazy(() => import("./components/EspaceResto.jsx")); // 19 no
 const DevenirRestoPartenaire = lazy(() => import("./components/DevenirRestoPartenaire.jsx")); // 19 nov. 2026 : #/restaurant-partenaire
 const ContratRestoVue = lazy(() => import("./components/ContratRestoVue.jsx")); // 19 nov. 2026 : #/contrat-resto/ID
 const lireContratResto = (h) => { const m = /^#\/contrat-resto\/([A-Za-z0-9]{10,40})$/.exec(h || ""); return m ? m[1] : ""; };
+const Assistance = lazy(() => import("./components/Assistance.jsx")); // 19 nov. 2026 : #/assistance
+import { lireLienAssistance } from "./pricing/assistance.js";
 const OffrirCarte = lazy(() => import("./components/CarteCadeau.jsx"));
 const VoirCarte = lazy(() => import("./components/CarteCadeau.jsx").then((m) => ({ default: m.VoirCarte })));
 import "./client-commun.css";
@@ -414,6 +416,7 @@ export default function App() {
   // 19 nov. 2026 (V2) : suivi GPS en direct de la voiture (#/position/ID)
   const [lienPositionVu, setLienPositionVu] = useState(() => lireLienPosition(window.location.hash));
   const [lienResto, setLienResto] = useState(() => lireLienResto(window.location.hash));
+  const [lienAssistance, setLienAssistance] = useState(() => lireLienAssistance(window.location.hash));
   const [lienInscriptionResto, setLienInscriptionResto] = useState(() => window.location.hash === "#/restaurant-partenaire");
   const [lienContratResto, setLienContratResto] = useState(() => lireContratResto(window.location.hash));
   const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
@@ -431,6 +434,7 @@ export default function App() {
       setLienPositionVu(lireLienPosition(window.location.hash));
       setLienResto(lireLienResto(window.location.hash));
       setLienInscriptionResto(window.location.hash === "#/restaurant-partenaire");
+      setLienAssistance(lireLienAssistance(window.location.hash));
       setLienContratResto(lireContratResto(window.location.hash));
     };
     window.addEventListener("hashchange", suivre);
@@ -500,6 +504,16 @@ export default function App() {
       </div>
     );
   const quitterResto = () => { window.location.hash = ""; setLienInscriptionResto(false); setLienContratResto(""); aller({ nom: "accueil" }); };
+  if (lienAssistance)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            <Assistance lien={lienAssistance} onAccueil={() => { window.location.hash = ""; setLienAssistance(null); aller({ nom: "accueil" }); }} />
+          </Suspense>
+        </main>
+      </div>
+    );
   if (lienInscriptionResto || lienContratResto)
     return (
       <div className="appli theme-site">
@@ -663,6 +677,8 @@ export default function App() {
       </main>
       <footer>
         <small>{NOM} · Aucun service pendant Chabbat et les fêtes</small>
+        <br />
+        <a className="lien" href="#/assistance" style={{ display: "inline-block", textDecoration: "none" }}>💬 Assistance</a>
         <br />
         <a className="lien" href={LIEN_INSTAGRAM} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", textDecoration: "none" }}>
           Instagram @{INSTAGRAM}

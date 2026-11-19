@@ -157,6 +157,7 @@ export default function EspaceResto({ cle, onAccueil }) {
         {resto.moyen && r.reste > 0 && <p className="tb-note">À régler par {resto.moyen}, le dimanche {dfr(r.paiementLe)}.</p>}
       </div>
 
+      <p><a className="bouton-secondaire" href={`#/assistance/resto/${cle}`}>💬 Assistance partenaires</a></p>
       <p><button type="button" className="bouton-secondaire" onClick={onAccueil}>Accueil Rebecca Services</button></p>
     </section>
   );

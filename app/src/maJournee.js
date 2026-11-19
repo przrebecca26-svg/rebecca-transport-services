@@ -176,6 +176,17 @@ export function useMaJournee(actif) {
       return sauver(ajouterTrajetCeJour(jours, date, liste));
     },
     remettre: (date, ids) => sauver(remettreCeJour(jours, date, ids)),
+    // 19 nov. 2026 (Rebecca : Shyrel sort plus tot) : les trajets d'une etape, pour choisir l'enfant concerne
+    trajetsDe: (ids) => (ids || []).map((id) => tousEtAjouts.find((r) => r.id === id)).filter(Boolean),
+    // « Sort plus tôt → je la ramène à la maison » : ce jour-la, l'enfant quitte son trajet habituel et un trajet
+    // ecole -> maison est cree a la nouvelle heure. Le reste de la journee se recalcule tout seul.
+    ramenerMaison: (date, id, heure) => {
+      const r = tousEtAjouts.find((x) => x.id === id);
+      const p = r ? trajetPonctuel({ date, sens: "recuperer", heure, de: r.de, a: d.domicile, nom: r.nom, famille: r.famille || "" }) : null;
+      if (!p) return Promise.reject(new Error("incomplet"));
+      const suite = estPonctuel(id) ? retirerAjout(jours, date, [id]) : retirerCeJour(jours, date, [id]);
+      return sauver(ajouterTrajetCeJour(suite, date, [p]));
+    },
     changerHeure: (date, ids, heure) => sauver(changerHeureCeJour(jours, date, ids, heure)),
     normale: (date) => sauver(journeeNormale(jours, date)),
     ajouterTache: (date, tache) => sauver(ajouterTache(jours, date, tache)),

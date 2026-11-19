@@ -459,6 +459,8 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
   const [ouvert, setOuvert] = useState(false);
   const [eta, setEta] = useState(""); // 18 nov. 2026 : arrivee prevue a l'etape suivante (message aux parents)
   const [heure, setHeure] = useState("");
+  const [qui, setQui] = useState([]); // 19 nov. 2026 : trajets coches dans une etape a plusieurs enfants
+  const [heureMaison, setHeureMaison] = useState("");
   const [message, setMessage] = useState("");
   const [info, setInfo] = useState("");
   const [enCours, setEnCours] = useState(false);
@@ -568,29 +570,57 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
       {ouvert && e.genre === "arret" && (
         <div className="ag-etape-actions">
           <p className="tb-note">Ce jour seulement : ta tournée des autres semaines ne change pas.</p>
-          {/* 19 nov. 2026 (Rebecca : « faut que ce soit facile à modifier ») : un seul geste pour un imprévu */}
           {(() => {
+            // 19 nov. 2026 (Rebecca : Shyrel sort plus tôt, les filles d'Alexia restent à 14h) :
+            // 1) choisir QUI est concerné quand l'étape a plusieurs enfants ; 2) changer l'heure en un geste ;
+            // 3) « Sort plus tôt → je la ramène à la maison » : un trajet école -> maison est créé, le reste se recalcule.
+            const trajetsEtape = journee.trajetsDe ? journee.trajetsDe(e.ids) : [];
+            const cibles = qui.length ? qui : e.ids;
             const base = String(e.heure || "").replace("h", ":");
             const n = new Date();
             const maintenant = `${deuxChiffres(n.getHours())}:${deuxChiffres(n.getMinutes())}`;
             const choix = [["Maintenant", maintenant], ["−1 h", decaler(base, -60)], ["−30 min", decaler(base, -30)], ["−15 min", decaler(base, -15)], ["+15 min", decaler(base, 15)], ["+30 min", decaler(base, 30)]];
+            const unSeul = cibles.length === 1 ? trajetsEtape.find((r) => r.id === cibles[0]) : null;
             return (
-              <div className="tb-actions">
-                {choix.filter(([, h]) => h).map(([t, h]) => (
-                  <button key={t} type="button" className="tb-bouton tb-clair" onClick={() => faire(() => journee.changerHeure(date, e.ids, h))}>{t}{t === "Maintenant" ? "" : ` (${h.replace(":", "h")})`}</button>
-                ))}
-              </div>
+              <>
+                {trajetsEtape.length > 1 && (
+                  <fieldset className="champ">
+                    <legend>Pour qui ?</legend>
+                    {trajetsEtape.map((r) => (
+                      <label key={r.id} className="rg-case" style={{ display: "flex", gap: 8, alignItems: "center", padding: "4px 0" }}>
+                        <input type="checkbox" checked={cibles.includes(r.id)} onChange={() => setQui((q) => { const actuel = q.length ? q : e.ids; return actuel.includes(r.id) ? actuel.filter((x) => x !== r.id) : [...actuel, r.id]; })} />
+                        <span>{r.nom || "Enfant"}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                )}
+                <p className="tb-note">Changer l'heure{trajetsEtape.length > 1 ? ` (${cibles.length} trajet${cibles.length > 1 ? "s" : ""} coché${cibles.length > 1 ? "s" : ""})` : ""} :</p>
+                <div className="tb-actions">
+                  {choix.filter(([, h]) => h).map(([t, h]) => (
+                    <button key={t} type="button" className="tb-bouton tb-clair" disabled={!cibles.length} onClick={() => faire(() => journee.changerHeure(date, cibles, h))}>{t}{t === "Maintenant" ? "" : ` (${h.replace(":", "h")})`}</button>
+                  ))}
+                </div>
+                <label className="ag-champ">
+                  {e.type === "matin" ? "Ou : arriver au plus tard à" : "Ou : nouvelle heure de sortie"}
+                  <input type="time" value={heure} onChange={(x) => setHeure(x.target.value)} />
+                </label>
+                <div className="tb-actions">
+                  <button type="button" className="tb-bouton" disabled={!heure || !cibles.length} onClick={() => faire(() => journee.changerHeure(date, cibles, heure))}>Changer l'heure aujourd'hui</button>
+                  {journee.heureChangee(date, e.ids) && <button type="button" className="tb-bouton tb-clair" onClick={() => faire(() => journee.remettre(date, e.ids))}>Remettre l'heure habituelle</button>}
+                  <button type="button" className="tb-bouton ag-danger" disabled={!cibles.length} onClick={() => faire(() => journee.retirer(date, cibles))}>{trajetsEtape.length > 1 && cibles.length < e.ids.length ? "Retirer les cochés aujourd'hui" : "Supprimer ce trajet aujourd'hui"}</button>
+                </div>
+                {e.sorte === "prise" && e.type !== "matin" && journee.ramenerMaison && (
+                  <div className="ag-etape-actions">
+                    <p><strong>🏠 Sort à une autre heure → je {unSeul ? `ramène ${unSeul.nom || "l'enfant"}` : "le/la ramène"} à la maison</strong></p>
+                    <p className="tb-note">Un trajet école → maison est ajouté à cette heure ; {trajetsEtape.length > 1 ? "les autres enfants gardent leur trajet." : "le trajet habituel est retiré aujourd'hui."}</p>
+                    {trajetsEtape.length > 1 && cibles.length !== 1 && <p className="tb-note">Coche un seul enfant au-dessus.</p>}
+                    <label className="ag-champ">Heure de sortie<input type="time" value={heureMaison || maintenant} onChange={(x) => setHeureMaison(x.target.value)} /></label>
+                    <button type="button" className="tb-bouton" disabled={cibles.length !== 1} onClick={() => faire(() => journee.ramenerMaison(date, cibles[0], heureMaison || maintenant))}>Ramener à la maison à {(heureMaison || maintenant).replace(":", "h")}</button>
+                  </div>
+                )}
+              </>
             );
           })()}
-          <label className="ag-champ">
-            {e.type === "matin" ? "Ou : arriver au plus tard à" : "Ou : nouvelle heure de sortie"}
-            <input type="time" value={heure} onChange={(x) => setHeure(x.target.value)} />
-          </label>
-          <div className="tb-actions">
-            <button type="button" className="tb-bouton" disabled={!heure} onClick={() => faire(() => journee.changerHeure(date, e.ids, heure))}>Changer l'heure aujourd'hui</button>
-            {journee.heureChangee(date, e.ids) && <button type="button" className="tb-bouton tb-clair" onClick={() => faire(() => journee.remettre(date, e.ids))}>Remettre l'heure habituelle</button>}
-            <button type="button" className="tb-bouton ag-danger" onClick={() => faire(() => journee.retirer(date, e.ids))}>Supprimer ce trajet aujourd'hui</button>
-          </div>
           {message && <p className="fm-erreur" role="alert">{message}</p>}
         </div>
       )}

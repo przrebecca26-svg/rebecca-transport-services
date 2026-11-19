@@ -122,7 +122,7 @@ test("relevé de la semaine côté restaurant", () => {
 
 test("messages", () => {
   const n = messageNotifResto({ nom: "Pizza Centrale" }, { id: "c1", pretA: "19:30", adresse: { label: "Smilansky 5" } });
-  egal(n, { titre: "🍕 Commande Pizza Centrale", corps: "Prête à 19h30 · Smilansky 5 · Réponds en 5 min", tag: "resto-c1", lien: "/admin#/admin" });
+  egal(n, { titre: "🍕 Commande Pizza Centrale", corps: "Prête à 19h30 · Smilansky 5 · Réponds en 5 min", tag: "resto-c1", lien: "/admin#/admin?onglet=commandes-resto" });
   const w = messageWhatsAppResto("Pizza Centrale", saisie);
   vrai(w.includes("Client : Dan") && w.includes("Prête à 19h30") && w.includes("Code porte"));
   vrai(messageLienResto("Pizza Centrale", "https://x/#/resto/" + CLE).includes("5 minutes"));

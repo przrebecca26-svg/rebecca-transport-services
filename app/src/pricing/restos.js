@@ -221,7 +221,7 @@ export function messageNotifResto(resto, c) {
     titre: `🍕 Commande ${String((resto && resto.nom) || "restaurant").slice(0, 40)}`,
     corps: [`Prête à ${h(c.pretA)}`, c.adresse && c.adresse.label, "Réponds en 5 min"].filter(Boolean).join(" · ").slice(0, 180),
     tag: `resto-${c.id || ""}`,
-    lien: "/admin#/admin",
+    lien: "/admin#/admin?onglet=commandes-resto", // 19 nov. 2026 : ouvre l'onglet « Commandes restaurants »
   };
 }
 // Message WhatsApp que le restaurant peut envoyer (et que Rebecca saisit ensuite)

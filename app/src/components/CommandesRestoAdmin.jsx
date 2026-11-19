@@ -22,14 +22,14 @@ import {
 const h = (x) => String(x || "").replace(":", "h");
 const MOTIFS = ["Pas disponible maintenant", "Trop loin", "Déjà en course"];
 
-function useRestos() {
+export function useRestos() {
   const [restos, setRestos] = useState([]);
   useEffect(() => onSnapshot(query(collection(db, "restos"), where("actif", "==", true)), (s) => setRestos(s.docs.map((x) => ({ cle: x.id, ...x.data() }))), () => setRestos([])), []);
   return restos;
 }
 
 // Commandes des 14 derniers jours de chaque restaurant (une écoute par restaurant : peu de restaurants)
-function useCommandes(restos) {
+export function useCommandes(restos) {
   const [parResto, setParResto] = useState({});
   const cles = restos.map((r) => r.cle).sort().join(",");
   useEffect(() => {

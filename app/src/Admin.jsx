@@ -25,6 +25,8 @@ import ReglagesFondations from "./ReglagesFondations.jsx";
 import SyncCreneaux from "./SyncCreneaux.jsx";
 import SyncTournee from "./SyncTournee.jsx";
 import { useCompteurs } from "./compteursBase.js";
+import { deplacer, ordonner } from "./pricing/menuOrdre.js";
+import CommandesResto, { useCompteurCommandesResto } from "./CommandesResto.jsx"; // 19 nov. 2026
 import SyncComptes from "./comptesBase.js";
 import ComptesEntreNous from "./ComptesEntreNous.jsx";
 import Statistiques, { Rapports } from "./Statistiques.jsx";
@@ -113,6 +115,7 @@ const RUBRIQUES = [
   { id: "activites", label: "Activités" },
   { id: "demandes", label: "Demandes et missions" },
   { id: "transferts", label: "À accepter" }, // 12 nov. 2026 : courses proposees entre Rebecca et Jeremy
+  { id: "commandes-resto", label: "Commandes restaurants", adminOnly: true }, // 19 nov. 2026 : toutes les commandes des restaurants partenaires
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true },
   { id: "projets-digital", label: "Projets Digital", adminOnly: true }, // 17 nov. 2026 : devis, paiements 40/30/30, cahier des charges
   { id: "partenaires", label: "Partenaires", adminOnly: true }, // 17 nov. 2026 : inscriptions des futurs coursiers
@@ -135,6 +138,9 @@ const MEMO = "rs-admin-onglet";
 const ongletDepart = () => {
   // 19 nov. 2026, 15h42 : notification « 📍 Localise-toi » -> Calendrier (la position se prend toute seule)
   if (/[?&]localiser=1/.test(window.location.hash)) return "agenda";
+  // 19 nov. 2026 : une notification peut ouvrir directement une rubrique (« ?onglet=commandes-resto »)
+  const demande = (window.location.hash.match(/[?&]onglet=([a-z-]+)/) || [])[1];
+  if (demande && RUBRIQUES.some((x) => x.id === demande)) return demande;
   try {
     const o = nomRubrique(sessionStorage.getItem(MEMO));
     if (RUBRIQUES.some((x) => x.id === o)) return o;
@@ -246,6 +252,23 @@ export default function Admin() {
 
   // Navigation entre onglets, avec ouverture directe d'un element si besoin
   const [menu, setMenu] = useState(false);
+  // 19 nov. 2026 : ordre du menu choisi par Rebecca (gardé sur ce téléphone), et le mode « Ranger le menu »
+  const [ordreMenu, setOrdreMenu] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("rs-menu-ordre") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [ranger, setRanger] = useState(false);
+  const changerOrdre = (suite) => {
+    setOrdreMenu(suite);
+    try {
+      localStorage.setItem("rs-menu-ordre", JSON.stringify(suite));
+    } catch {
+      /* stockage indisponible : l'ordre vaut pour cette fois */
+    }
+  };
   const aller = (o, id = null) => {
     const r = nomRubrique(o);
     setCible({ onglet: r, id, sous: o === "promos" ? "promos" : null });
@@ -295,7 +318,7 @@ export default function Admin() {
   const role = user ? roleDe({ estAdmin, fiche: equipe.fiche, demande: equipe.demande }) : "aucun";
   useChargerRepertoire(role === "admin" || role === "equipe"); // repertoire d'adresses : charge une fois pour tous les champs d'adresse
   const permises = rubriquesPour(role); // null = toutes (Rebecca)
-  const rubriques = permises ? RUBRIQUES.filter((r) => permises.includes(r.id)) : RUBRIQUES.filter((r) => r.id !== "mesfinances");
+  const rubriques = ordonner(permises ? RUBRIQUES.filter((r) => permises.includes(r.id)) : RUBRIQUES.filter((r) => r.id !== "mesfinances"), ordreMenu);
   if ((role === "admin" || role === "equipe") && rubriques.length && !rubriques.some((r) => r.id === onglet)) {
     setTimeout(() => setOnglet(rubriques[0].id), 0);
   }
@@ -316,7 +339,8 @@ export default function Admin() {
   const moiId = role === "equipe" && equipe.fiche ? equipe.fiche.id : ADMIN_ID;
   const aTraiter = useTransfertsATraiter(role === "admin" || role === "equipe", moiId);
   // 15 nov. 2026 : nombre de choses a traiter a cote de chaque rubrique du menu
-  const compteurs = { ...useCompteurs(role), transferts: aTraiter };
+  const commandesResto = useCompteurCommandesResto(role === "admin");
+  const compteurs = { ...useCompteurs(role), transferts: aTraiter, "commandes-resto": commandesResto };
   const totalATraiter = Object.values(compteurs).reduce((n, x) => n + (x || 0), 0);
   // 19 nov. 2026, 15h42 : appli ouverte -> 3 clochettes (au choix) quand une nouvelle chose à traiter arrive
   const stylesNotif = useStylesNotif(role === "admin");
@@ -342,6 +366,7 @@ export default function Admin() {
     else if (onglet === "ramassage" && estAdmin) contenu = <RamassageScolaire {...props} />;
     else if (onglet === "repertoire") contenu = <Repertoire aller={aller} />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
+    else if (onglet === "commandes-resto" && estAdmin) contenu = <CommandesResto aller={aller} />;
     else if (onglet === "commandes-epoxy" && estAdmin) contenu = <CommandesEpoxy onRetour={() => setOnglet("demandes")} />;
     else if (onglet === "projets-digital" && estAdmin) contenu = <ProjetsDigital />;
     else if (onglet === "partenaires" && estAdmin) contenu = <Partenaires aller={aller} />;
@@ -378,13 +403,23 @@ export default function Admin() {
             <div><b>{NOM}</b><span>{role === "admin" ? "Administration" : "Espace équipe · " + (equipe.fiche.nom || user.email)}</span></div>
           </div>
           {rubriques.map((r) => (
-            <button key={r.id} className={"ts-lien" + (onglet === r.id ? " actif" : "")} aria-current={onglet === r.id ? "page" : undefined} onClick={() => aller(r.id)}>
-              <span className="ts-point" />
-              {r.label}
-              {compteurs[r.id] > 0 && <span className="tr-compteur" aria-label={`${compteurs[r.id]} à traiter`}>{compteurs[r.id]}</span>}
-            </button>
+            ranger ? (
+              <div key={r.id} className="ts-lien" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ flex: 1 }}>{r.label}</span>
+                <button type="button" className="rp-waze" aria-label={`Monter ${r.label}`} onClick={() => changerOrdre(deplacer(rubriques, ordreMenu, r.id, -1))}>↑</button>
+                <button type="button" className="rp-waze" aria-label={`Descendre ${r.label}`} onClick={() => changerOrdre(deplacer(rubriques, ordreMenu, r.id, 1))}>↓</button>
+              </div>
+            ) : (
+              <button key={r.id} className={"ts-lien" + (onglet === r.id ? " actif" : "")} aria-current={onglet === r.id ? "page" : undefined} onClick={() => aller(r.id)}>
+                <span className="ts-point" />
+                {r.label}
+                {compteurs[r.id] > 0 && <span className="tr-compteur" aria-label={`${compteurs[r.id]} à traiter`}>{compteurs[r.id]}</span>}
+              </button>
+            )
           ))}
           <div className="ts-pied">
+            <button className="ts-lien" onClick={() => setRanger(!ranger)}>{ranger ? "✓ Terminer le rangement" : "✏️ Ranger le menu"}</button>
+            {ranger && <button className="ts-lien" onClick={() => changerOrdre([])}>↺ Ordre d'origine</button>}
             <a className="ts-lien" href="#/">← Retour au site</a>
             <button className="ts-lien" onClick={deconnecter}>Se déconnecter</button>
           </div>

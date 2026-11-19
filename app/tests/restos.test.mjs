@@ -137,3 +137,15 @@ test("commerçant, contrat, contact et relances gardés à la relecture", () => 
   egal([g.categorie, "contactPref" in g, "relances" in g, "contratPro" in g], ["proches", false, false, false]);
   egal(lireCategories(JSON.stringify({ categories: { tel_052: "commercants", tel_053: "pirate" } })), { tel_052: "commercants" });
 });
+
+section("Wolt : retenue du réglage sur les lignes importées");
+import { retenueDe, verseWolt, totauxRetenues } from "../src/pricing/financesAnnee.js";
+test("ligne sans retenue notée = taux du réglage ; retenue notée = gardée", () => {
+  const l = { source: "Wolt", revenu: 506.86, pourboire: 24.16 };
+  egal([retenueDe(l), verseWolt(l)], [0, 531.02], "sans réglage : rien n'est enlevé");
+  const r = { taux: 10, base: "revenu" };
+  egal([retenueDe(l, r), verseWolt(l, r)], [50.69, 480.33]);
+  egal(retenueDe({ ...l, retenue: 30 }, r), 30);
+  egal(retenueDe({ source: "Autre", revenu: 100 }, r), 0);
+  egal(totauxRetenues([l, { ...l, caution: 300 }], r), { retenue: 101.38, caution: 300 });
+});

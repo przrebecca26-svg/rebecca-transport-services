@@ -46,9 +46,9 @@ export const TARIFS = {
     longitude: 34.8532,
     allumageMinutesAvantCoucher: 20, // allumage des bougies
     havdalaMinutesApresCoucher: 40, // sortie de Chabbat / fete
-    // Decision de Rebecca (19 nov. 2026) : fermeture 1 h avant l'entree (allumage) et reouverture 1 h apres la sortie,
+    // Decision de Rebecca (19 nov. 2026, 9h01) : fermeture 2 h avant l'entree (allumage) et reouverture 1 h apres la sortie,
     // pour Chabbat comme pour les fetes (Yom Tov). Modifiable dans Reglages, groupe « Chabbat et fêtes ».
-    margeAvantMinutes: 60, // aucune prestation ne doit se terminer dans l'heure qui precede l'entree
+    margeAvantMinutes: 120, // aucune prestation ne doit se terminer dans les 2 h qui precedent l'entree
     margeApresMinutes: 60, // reouverture 1 h apres la sortie
     // Hol Hamoed (jours intermediaires de Souccot et Pessah) : Rebecca decide JOUR PAR JOUR.
     // Par defaut ces jours restent ouverts ; elle peut en fermer un depuis l'admin

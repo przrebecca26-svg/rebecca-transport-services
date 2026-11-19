@@ -120,7 +120,7 @@ const CHAMPS_JOUR = {
 const ROUTE = { transport: T.tel_aviv, aeroport: T.ben_gurion, livraison: T.netanya2, courses: null, hatan_kala: T.netanya2, demenagement: T.netanya2, ramassage: T.netanya2, attente: null };
 for (const s of SERVICES_ID) {
   test(`${s} : samedi 10h bloque`, () => egal(devis(s, { ...CHAMPS_JOUR[s], date: SAMEDI, heure: "10:00" }, ROUTE[s]).bloque, true));
-  test(`${s} : vendredi 15h30 bloque (dans l'heure avant Chabbat)`, () => egal(devis(s, { ...CHAMPS_JOUR[s], date: VENDREDI, heure: "15:30" }, ROUTE[s]).bloque, true));
+  test(`${s} : vendredi 15h bloque (avant Chabbat)`, () => egal(devis(s, { ...CHAMPS_JOUR[s], date: VENDREDI, heure: "15:00" }, ROUTE[s]).bloque, true));
   test(`${s} : mardi 10h possible`, () => {
     const r = devis(s, { ...CHAMPS_JOUR[s], date: MARDI, heure: "10:00" }, ROUTE[s]);
     vrai(r.ok && !r.bloque, JSON.stringify(r).slice(0, 200));

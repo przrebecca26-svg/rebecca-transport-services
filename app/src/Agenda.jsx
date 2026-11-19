@@ -2,7 +2,9 @@ import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.js
 import InfoVol from "./components/InfoVol.jsx";
 import FinCourseAgenda from "./FinCourseAgenda.jsx";
 import { messageEnfant, parentsAPrevenir } from "./pricing/finCourse.js";
-import { heureArrivee } from "./arrivee.js";
+import { heureDans, minutesJusqua } from "./arrivee.js";
+import { arreterSuivi, demarrerSuivi, idSuivi } from "./suiviRamassage.js";
+import { lienPosition } from "./pricing/positionDirect.js";
 import { messageRetard } from "./pricing/suiteClient.js";
 import { texteDuree } from "./pricing/circulation.js";
 import { filtrerPersonne } from "./pricing/quiFait.js";
@@ -27,7 +29,7 @@ import { cleLieu } from "./pricing/tournee.js";
 import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
-import { TYPES_TACHE, etapeValidable, iconeTache } from "./pricing/tournee.js";
+import { TYPES_TACHE, cleEtape, etapeValidable, iconeTache, texteAvecMoi } from "./pricing/tournee.js";
 import { supprimerCourseComplete } from "./suppression.js";
 import { comprendreDateHeure, demandeCreneau, dureeDite, quoiDeTache, trouverCreneau } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
@@ -390,7 +392,8 @@ function EtiquettesJour({ jour }) {
   );
 }
 
-function Evenement({ d, aujourdhui, admin = false }) {
+function Evenement({ d, aujourdhui, admin = false, journee = null }) {
+  const cleAvec = "c:" + d.id + (d.estRetour ? "-r" : "");
   const [ouvert, setOuvert] = useState(false);
   // 19 nov. 2026 : supprimer une course de test directement depuis ma journée (Rebecca seule)
   const [suppr, setSuppr] = useState("");
@@ -404,7 +407,7 @@ function Evenement({ d, aujourdhui, admin = false }) {
         <span className="ag-heure">{d.heure}</span>
         <span className="ag-corps">
           <strong><Pastille d={d} /> {d.serviceTitre}</strong>
-          <small>{d.nom} · {textePrix(d)}</small>
+          <small>{d.nom} · {textePrix(d)}{admin && badgeAvecMoi(journee, d.date, cleAvec)}</small>
           {typeof d.kmEstime === "number" && typeof d.minutesEstimees === "number" && <small>🚗 Trajet {texteDuree(d.minutesEstimees, d.date, d.heure)}</small>}
           <InfoVol d={d} compact />
         </span>
@@ -427,6 +430,7 @@ function Evenement({ d, aujourdhui, admin = false }) {
           </div>
           <p className="tb-note">Pour accepter, refuser ou changer le prix : onglet Demandes.</p>
           {admin && d.statut === "acceptee" && <PartagerPosition d={d} />}
+          {admin && <AvecMoi journee={journee} date={d.date} cle={cleAvec} />}
           {admin && (suppr === "" ? (
             <button type="button" className="ag-modifier" onClick={() => setSuppr("?")}>Supprimer cette course</button>
           ) : suppr === "?" ? (
@@ -455,12 +459,53 @@ function Mission({ m, pourTous }) {
   );
 }
 
+// « Avec ou sans Shyrel » (19 nov. 2026, 14h10) : sur n'importe quelle etape, tache ou course de ma journee, cocher
+// qui est avec moi dans la voiture ce jour-la (enfants de ma fiche « Moi » du Repertoire, ou un prenom tape).
+function AvecMoi({ journee, date, cle }) {
+  const [autre, setAutre] = useState("");
+  const [erreur, setErreur] = useState("");
+  if (!journee || !journee.changerAvecMoi || !cle) return null;
+  const avec = journee.avecMoi(date, cle);
+  const noms = [...new Set([...(journee.enfantsMoi || []), ...avec])];
+  const changer = (liste) => {
+    setErreur("");
+    journee.changerAvecMoi(date, cle, liste).catch(() => setErreur("Enregistrement impossible. Vérifie la connexion."));
+  };
+  return (
+    <div className="ag-etape-actions">
+      <p className="tb-note">🚗 Avec moi dans la voiture (ce jour seulement) :</p>
+      <div className="tb-actions">
+        {noms.map((n) => {
+          const oui = avec.includes(n);
+          return (
+            <button key={n} type="button" className={"tb-bouton" + (oui ? "" : " tb-clair")} aria-pressed={oui} onClick={() => changer(oui ? avec.filter((x) => x !== n) : [...avec, n])}>
+              {oui ? "✓ Avec " : "Sans "}{n}
+            </button>
+          );
+        })}
+      </div>
+      <label className="ag-champ">Autre prénom
+        <input type="text" value={autre} maxLength={30} onChange={(x) => setAutre(x.target.value)} placeholder="ex. Shyrel" />
+      </label>
+      {autre.trim() && <button type="button" className="tb-bouton tb-clair" onClick={() => { changer([...avec, autre.trim()]); setAutre(""); }}>Ajouter {autre.trim()} avec moi</button>}
+      {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
+    </div>
+  );
+}
+const badgeAvecMoi = (journee, date, cle) => {
+  const t = journee && journee.avecMoi && cle ? texteAvecMoi(journee.avecMoi(date, cle)) : "";
+  return t ? <small className="ag-etape-modif"> · 👧 {t}</small> : null;
+};
+
 // Une etape de ma journee (tournee scolaire ou tache) : heure, quoi faire, ou, Waze, et « Modifier »
 // Modifier = CE JOUR SEULEMENT : changer l'heure ou retirer le trajet ; la tournee de chaque semaine ne bouge pas.
 // « ✓ Fait » (13 nov. 2026) : valide = maJournee pour aujourd'hui et hier seulement ; recocher = annuler.
 function Etape({ e, date, journee, valide = null, familles = [], suivante = null }) {
   const [ouvert, setOuvert] = useState(false);
-  const [eta, setEta] = useState(""); // 18 nov. 2026 : arrivee prevue a l'etape suivante (message aux parents)
+  // 18 nov. 2026 : arrivee prevue a l'etape suivante (message aux parents).
+  // 19 nov. 2026, 14h08 : on garde le TEMPS de trajet ; l'heure d'arrivee se calcule au moment ou elle touche
+  // « Prévenir » (elle a pu attendre au Gan entre « ✓ Fait » et le message).
+  const [duree, setDuree] = useState(null);
   const [heure, setHeure] = useState("");
   const [qui, setQui] = useState([]); // 19 nov. 2026 : trajets coches dans une etape a plusieurs enfants
   const [heureMaison, setHeureMaison] = useState("");
@@ -468,6 +513,11 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
   const [info, setInfo] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [prixCourse, setPrixCourse] = useState(null); // course pour un compte : { prix, paye, moyen }
+  const faitIci = valide && etapeValidable(e) ? valide.faitA(date, e) : "";
+  const adresseSuivante = suivante && suivante.adresse;
+  useEffect(() => {
+    if (faitIci && e.sorte === "prise" && adresseSuivante && duree == null) minutesJusqua(adresseSuivante).then(setDuree).catch(() => {});
+  }, [faitIci, e.sorte, adresseSuivante, duree]);
   if (e.genre === "libre" || e.genre === "pause") {
     return (
       <li className={"ag-etape " + e.genre}>
@@ -500,7 +550,9 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
     setEnCours(true);
     try {
       setInfo(await (fait ? valide.annuler(date, e) : valide.valider(date, e)));
-      if (!fait && e.sorte === "prise" && suivante && suivante.adresse) heureArrivee(suivante.adresse).then(setEta).catch(() => {});
+      if (!fait && e.sorte === "prise" && suivante && suivante.adresse) minutesJusqua(suivante.adresse).then(setDuree).catch(() => {});
+      // Enfants deposes : le suivi en direct de leur famille s'arrete et s'efface
+      if (!fait && e.sorte === "depose") for (const p of parentsAPrevenir(familles, e.texte)) arreterSuivi(date, p.famille);
     } catch {
       setMessage("Enregistrement impossible. Vérifie la connexion.");
     }
@@ -527,6 +579,7 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
           {e.genre === "tache" && e.tache && libelleAge(e.tache.age) && <small> · {libelleAge(e.tache.age)}</small>}
           {e.lieu && <small> · {e.lieu}{e.marge ? ` · ${e.marge}` : ""}</small>}
           {e.genre === "arret" && journee && journee.heureChangee(date, e.ids) && <small className="ag-etape-modif"> · heure changée ce jour</small>}
+          {badgeAvecMoi(journee, date, cleEtape(e))}
           {e.alerte && <small className="ag-etape-alerte">{e.alerte}</small>}
         </span>
       </div>
@@ -566,13 +619,24 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
         return wa ? <a key={"retard" + p.famille} className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">⏱ Retard ({p.nom || "parents"})</a> : null;
       })}
       {fait && e.genre === "arret" && parentsAPrevenir(familles, e.texte).map((p) => {
-        const wa = lienWhatsApp(p.telephone, messageEnfant(e.sorte, p.prenoms, fait === "oui" ? "" : fait, e.lieu, eta, suivante ? suivante.lieu : ""));
-        return wa ? <a key={p.famille} className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">💬 Prévenir {p.nom || "les parents"}</a> : null;
+        const message = (eta, lien) => messageEnfant(e.sorte, p.prenoms, fait === "oui" ? "" : fait, e.lieu, eta, suivante ? suivante.lieu : "", lien);
+        const wa = lienWhatsApp(p.telephone, message(duree ? heureDans(duree) : "", ""));
+        // Au toucher : heure d'arrivee = maintenant + trajet, et lien de suivi en direct (prise seulement)
+        const prevenir = (x) => {
+          if (e.sorte !== "prise") return;
+          const id = idSuivi(date, p.famille);
+          const lien = id && demarrerSuivi(id) ? lienPosition(id, window.location.origin) : "";
+          const frais = lienWhatsApp(p.telephone, message(duree ? heureDans(duree) : "", lien));
+          if (frais) x.currentTarget.href = frais;
+          if (adresseSuivante) minutesJusqua(adresseSuivante).then(setDuree).catch(() => {});
+        };
+        return wa ? <a key={p.famille} className="ag-waze" href={wa} onClick={prevenir} target="_blank" rel="noopener noreferrer">💬 Prévenir {p.nom || "les parents"}{e.sorte === "prise" ? " + suivi en direct" : ""}</a> : null;
       })}
       {!ouvert && message && <p className="fm-erreur" role="alert">{message}</p>}
       {ouvert && e.genre === "arret" && (
         <div className="ag-etape-actions">
           <p className="tb-note">Ce jour seulement : ta tournée des autres semaines ne change pas.</p>
+          <AvecMoi journee={journee} date={date} cle={cleEtape(e)} />
           {(() => {
             // 19 nov. 2026 (Rebecca : Shyrel sort plus tôt, les filles d'Alexia restent à 14h) :
             // 1) choisir QUI est concerné quand l'étape a plusieurs enfants ; 2) changer l'heure en un geste ;
@@ -638,6 +702,7 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
       )}
       {ouvert && e.genre === "tache" && (
         <div className="ag-etape-actions">
+          <AvecMoi journee={journee} date={date} cle={cleEtape(e)} />
           <FormTache date={date} journee={journee} initial={e.tache} onFin={() => setOuvert(false)} />
           <div className="tb-actions">
             <button type="button" className="tb-bouton ag-danger" onClick={() => faire(() => journee.retirerTache(date, e.tache.id))}>Supprimer cette tâche</button>
@@ -1016,7 +1081,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
   const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
     ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} familles={rep.familles || []} suivante={e.sorte === "prise" ? fil.slice(i + 1).find((x) => x.genre === "arret" && x.sorte === "depose" && x.adresse) || null : null} />, etape: true })),
-    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} /> })),
+    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);
   // 19 nov. 2026 : ce qui occupe deja la journee (en minutes), pour « trouve-moi un créneau » dans la dictée

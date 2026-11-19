@@ -23,3 +23,22 @@ test("position en direct", () => {
   egal(aEnvoyer({ lat: 32, lon: 34 }, { lat: 32, lon: 34 }, 25000), true);
   egal(carteOsm({ lat: 32, lon: 34 }).includes("marker=32,34"), true);
 });
+
+// 19 nov. 2026, 14h10 : « Prévenir » avec le lien de suivi, et « avec ou sans Shyrel »
+import { messageEnfant } from "../src/pricing/finCourse.js";
+import { changerAvecMoi, avecMoiDe, lireJours, texteAvecMoi } from "../src/pricing/tournee.js";
+test("prévenir : lien de suivi en direct", () => {
+  const m = messageEnfant("prise", ["Joy", "Liel"], "14:01", "Gan", "14:12", "Maison", "https://rebeccaservices.com/#/position/rabc123def456");
+  egal(m.includes("vers 14h12"), true);
+  egal(m.includes("Suivez la voiture en direct : https://rebeccaservices.com/#/position/rabc123def456"), true);
+  egal(messageEnfant("depose", ["Joy"], "14:10", "Maison", "", "", "https://rebeccaservices.com/#/position/rabc123def456").includes("Suivez"), false);
+  egal(messageEnfant("prise", ["Joy"], "14:01", "Gan", "", "", "javascript:x").includes("Suivez"), false);
+});
+test("avec ou sans moi dans la voiture", () => {
+  let j = changerAvecMoi({}, "2026-11-19", "c:abc", ["Shyrel", "Shyrel", " "]);
+  egal(avecMoiDe(j, "2026-11-19", "c:abc").join(","), "Shyrel");
+  egal(texteAvecMoi(["Shyrel", "Joy", "Liel"]), "avec Shyrel, Joy et Liel");
+  egal(avecMoiDe(lireJours(JSON.stringify(j)), "2026-11-19", "c:abc").join(","), "Shyrel");
+  j = changerAvecMoi(j, "2026-11-19", "c:abc", []);
+  egal(JSON.stringify(j), "{}");
+});

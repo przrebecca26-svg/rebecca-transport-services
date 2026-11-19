@@ -221,7 +221,7 @@ export function trajetsDesFamilles(familles) {
           const surPlace = r.jours.map((j, w) => ({ actif: j.actif && !ailleurs(w), heure: j.sortie }));
           const laBas = r.jours.map((j, w) => ({ actif: j.actif && ailleurs(w), heure: j.sortie }));
           if (surPlace.some((j) => j.actif) || !laBas.some((j) => j.actif)) liste.push(trajetVide({ ...retour, id: `fiche-${r.id}-retour`, nom: `${qui} (retour)`, de: r.lieu, peutAttendre: r.attend && !r.priseAilleurs, jours: surPlace }));
-          if (laBas.some((j) => j.actif)) liste.push(trajetVide({ ...retour, id: `fiche-${r.id}-retour-ailleurs`, nom: `${qui} (retour, m'attend ailleurs)`, de: r.priseAilleurs, peutAttendre: r.attend, jours: laBas }));
+          if (laBas.some((j) => j.actif)) liste.push(trajetVide({ ...retour, id: `fiche-${r.id}-retour-ailleurs`, nom: `${qui} (retour, m'attend ailleurs)`, de: r.priseAilleurs, ecole: r.lieu, peutAttendre: r.attend, jours: laBas }));
         }
       }
     }
@@ -434,7 +434,7 @@ export function trajetsDesChoix(familles, choix) {
     });
     let n = 0;
     for (const [k, v] of endroits) {
-      liste.push(trajetVide({ ...base, id: `choix-${c.id}-${n++}`, nom: `${qui} (retour${k ? ", m'attend ailleurs" : ""})`, type: "sortie", de: k ? v.lieu : r.lieu, a: r.retour || f.domicile, heure: "", peutAttendre: !!k, jours: c.jours.map((j, w) => ({ actif: v.jours.includes(w), heure: v.jours.includes(w) ? heureChoix(r, c, w) : "" })) }));
+      liste.push(trajetVide({ ...base, id: `choix-${c.id}-${n++}`, nom: `${qui} (retour${k ? ", m'attend ailleurs" : ""})`, type: "sortie", de: k ? v.lieu : r.lieu, ...(k ? { ecole: r.lieu } : {}), a: r.retour || f.domicile, heure: "", peutAttendre: !!k, jours: c.jours.map((j, w) => ({ actif: v.jours.includes(w), heure: v.jours.includes(w) ? heureChoix(r, c, w) : "" })) }));
     }
   }
   return liste;

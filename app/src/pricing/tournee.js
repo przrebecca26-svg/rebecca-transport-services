@@ -875,16 +875,21 @@ export function lireJours(json) {
     const faits = {};
     for (const [cle, h] of Object.entries(v.faits && typeof v.faits === "object" ? v.faits : {}).slice(0, 60)) if (HEURE_OK.test(h)) faits[String(cle).slice(0, 200)] = h;
     const ajouts = lireAjouts(v.ajouts);
-    if (retires.length || Object.keys(heures).length || taches.length || Object.keys(faits).length || ajouts.length) sortie[date] = { retires, heures, taches, faits, ajouts };
+    const avec = {};
+    for (const [cle, l] of Object.entries(v.avec && typeof v.avec === "object" ? v.avec : {}).slice(0, 60)) {
+      const noms = (Array.isArray(l) ? l : []).map((x) => String(x || "").trim().slice(0, 30)).filter(Boolean).slice(0, 6);
+      if (noms.length) avec[String(cle).slice(0, 200)] = noms;
+    }
+    if (retires.length || Object.keys(heures).length || taches.length || Object.keys(faits).length || ajouts.length || Object.keys(avec).length) sortie[date] = { retires, heures, taches, faits, ajouts, ...(Object.keys(avec).length ? { avec } : {}) };
   }
   return sortie;
 }
 
-const jourVide = () => ({ retires: [], heures: {}, taches: [], faits: {}, ajouts: [] });
+const jourVide = () => ({ retires: [], heures: {}, taches: [], faits: {}, ajouts: [], avec: {} });
 const propre = (jours, date, j) => {
   const suite = { ...jours };
   j = { ...jourVide(), ...j };
-  if (j.retires.length || Object.keys(j.heures).length || j.taches.length || Object.keys(j.faits).length || j.ajouts.length) suite[date] = j;
+  if (j.retires.length || Object.keys(j.heures).length || j.taches.length || Object.keys(j.faits).length || j.ajouts.length || Object.keys(j.avec || {}).length) suite[date] = j;
   else delete suite[date];
   return suite;
 };
@@ -923,7 +928,7 @@ export function changerHeureCeJour(jours, date, ids, heure) {
 // « Remettre la journee normale » : les trajets reviennent comme chaque semaine ; mes taches du jour restent
 export const journeeNormale = (jours, date) => {
   const j = (jours || {})[date] || {};
-  return propre(jours, date, { ...jourVide(), taches: j.taches || [], faits: j.faits || {}, ajouts: j.ajouts || [] });
+  return propre(jours, date, { ...jourVide(), taches: j.taches || [], faits: j.faits || {}, ajouts: j.ajouts || [], avec: j.avec || {} });
 };
 
 /* ---------- Ramassage ponctuel (13 nov. 2026, 08h30) ----------
@@ -1033,6 +1038,21 @@ export function retirerTache(jours, date, id) {
 }
 export const tachesDuJour = (jours, date) => ((jours || {})[date] || {}).taches || [];
 // Garde seulement les dates a partir d'hier (le document ne grossit pas)
+/* ---------- Avec ou sans moi dans la voiture (19 nov. 2026, 14h10) ----------
+   Rebecca : « avec ou sans Shyrel » sur n'importe quelle course, livraison, tache ou etape de ma journee, pour savoir
+   si ma fille est avec moi dans la voiture. Ce jour-la seulement. cle = cleEtape(e) ou "c:" + id de la course. */
+export const avecMoiDe = (jours, date, cle) => ((((jours || {})[date] || {}).avec || {})[cle]) || [];
+export function changerAvecMoi(jours, date, cle, prenoms) {
+  if (!cle) return jours;
+  const j = { ...jourVide(), ...((jours || {})[date] || {}) };
+  const avec = { ...(j.avec || {}) };
+  const liste = [...new Set((prenoms || []).map((p) => String(p || "").trim().slice(0, 30)).filter(Boolean))];
+  if (liste.length) avec[cle] = liste;
+  else delete avec[cle];
+  return propre(jours, date, { ...j, avec });
+}
+export const texteAvecMoi = (prenoms) => (prenoms && prenoms.length ? "avec " + (prenoms.length > 1 ? prenoms.slice(0, -1).join(", ") + " et " + prenoms[prenoms.length - 1] : prenoms[0]) : "");
+
 export const joursAVenir = (jours, depuis) => Object.fromEntries(Object.entries(jours).filter(([d]) => d >= depuis));
 
 /* ---------- Km de ma journee (13 nov. 2026, 09h36) ----------

@@ -568,8 +568,22 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
       {ouvert && e.genre === "arret" && (
         <div className="ag-etape-actions">
           <p className="tb-note">Ce jour seulement : ta tournée des autres semaines ne change pas.</p>
+          {/* 19 nov. 2026 (Rebecca : « faut que ce soit facile à modifier ») : un seul geste pour un imprévu */}
+          {(() => {
+            const base = String(e.heure || "").replace("h", ":");
+            const n = new Date();
+            const maintenant = `${deuxChiffres(n.getHours())}:${deuxChiffres(n.getMinutes())}`;
+            const choix = [["Maintenant", maintenant], ["−1 h", decaler(base, -60)], ["−30 min", decaler(base, -30)], ["−15 min", decaler(base, -15)], ["+15 min", decaler(base, 15)], ["+30 min", decaler(base, 30)]];
+            return (
+              <div className="tb-actions">
+                {choix.filter(([, h]) => h).map(([t, h]) => (
+                  <button key={t} type="button" className="tb-bouton tb-clair" onClick={() => faire(() => journee.changerHeure(date, e.ids, h))}>{t}{t === "Maintenant" ? "" : ` (${h.replace(":", "h")})`}</button>
+                ))}
+              </div>
+            );
+          })()}
           <label className="ag-champ">
-            {e.type === "matin" ? "Arriver au plus tard à" : "Nouvelle heure de sortie"}
+            {e.type === "matin" ? "Ou : arriver au plus tard à" : "Ou : nouvelle heure de sortie"}
             <input type="time" value={heure} onChange={(x) => setHeure(x.target.value)} />
           </label>
           <div className="tb-actions">

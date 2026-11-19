@@ -136,12 +136,12 @@ function NotificationsTelephone() {
   };
   const basculer = () => setDoc(doc(db, "reglages", "alerteDemandes"), { notifications: !(a.notifications === true), majLe: serverTimestamp() }, { merge: true }).catch(() => setInfo("Enregistrement impossible."));
   const tester = () => setDoc(doc(db, "reglages", "alerteDemandes"), { testDemande: new Date().toISOString(), majLe: serverTimestamp() }, { merge: true })
-    .then(() => setInfo("Test demandé : la notification arrive dans 2 minutes maximum (même téléphone verrouillé).")).catch(() => setInfo("Enregistrement impossible."));
+    .then(() => setInfo("Test demandé : la notification arrive dans 5 minutes maximum (même téléphone verrouillé).")).catch(() => setInfo("Enregistrement impossible."));
 
   return (
     <div className="tb-bloc">
       <h3>📲 Notifications sur mon téléphone</h3>
-      <p className="tb-note">Une notification arrive sur l'écran verrouillé (2 minutes maximum) pour tout ce qui se passe sur le site, et pour ta journée. Tu la touches : ton espace s'ouvre.</p>
+      <p className="tb-note">Une notification arrive sur l'écran verrouillé (5 minutes maximum) pour tout ce qui se passe sur le site, et pour ta journée. Tu la touches : ton espace s'ouvre.</p>
       {etat === "icone" && <p className="tb-note">Sur iPhone, les notifications marchent seulement depuis l'icône : dans Safari, ouvre rebeccaservices.com/admin, touche Partager → « Sur l'écran d'accueil », puis ouvre l'icône « Rebecca admin » et reviens ici.</p>}
       {etat === "impossible" && <p className="tb-note">Ce navigateur ne permet pas les notifications. Sur iPhone : iOS 16.4 ou plus récent, depuis l'icône de l'écran d'accueil.</p>}
       {etat === "refuse" && <p className="tb-note">Les notifications sont refusées sur ce téléphone : Réglages de l'iPhone → Notifications → Rebecca admin → Autoriser.</p>}
@@ -174,7 +174,7 @@ function NotificationsTelephone() {
       {a.notifications === true && <SonsEtEmojis a={a} setInfo={setInfo} />}
       {a.notifications === true && nb > 0 && <button className="tb-bouton tb-clair" onClick={tester}>Envoyer un test</button>}
       {nb === -1 && <p className="tb-note">⚠️ Lecture des téléphones refusée : les règles Firebase v23 ne sont pas encore publiées.</p>}
-      {a.testDemande && a.testDemande !== a.testFait && <p className="tb-note">⏳ Test en attente : le robot passe toutes les 2 minutes.</p>}
+      {a.testDemande && a.testDemande !== a.testFait && <p className="tb-note">⏳ Test en attente : le robot passe toutes les 5 minutes.</p>}
       {rapport && <p className="tb-note">Dernier test : {rapport.replace(/^📲 Test /, "")}</p>}
       {info && <p className="tb-note">{info}</p>}
     </div>

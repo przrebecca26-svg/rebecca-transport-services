@@ -15,7 +15,9 @@ import { adresseRecherche } from "../../src/pricing/vols.js";
 import { envoyerNotification } from "../outils/webPush.mjs";
 import { avecLocalisation, estDehors, lireStyles, styliser } from "../../src/pricing/sonsNotif.js";
 
-export const config = { schedule: "*/2 * * * *" };
+// 19 nov. 2026, 16h26 : toutes les 5 minutes (au lieu de 2) pour économiser les crédits Netlify
+const PAS = 5;
+export const config = { schedule: "*/5 * * * *" };
 
 const CLE_API = "AIzaSyDZOjiRg9tgHo620Dqw1PYJuBciJ80Enmg"; // cle publique du site (non secrete)
 const BASE = "https://firestore.googleapis.com/v1/projects/rebecca-transport/databases/(default)/documents";
@@ -183,7 +185,7 @@ export default async function alerteDemandes() {
     const veutSoir = reglage.notifSoir !== false && min >= 19 * 60 && min < 23 * 60 && reglage.soirFait !== aujourdhui;
     const veutMatin = reglage.notifMatin !== false && min >= 7 * 60 && min < 11 * 60 && reglage.matinFait !== aujourdhui;
     const veutAvant = reglage.notifAvant !== false;
-    if (veutSoir || veutMatin || veutAvant || (reglage.notifVols !== false && min % 10 < 2)) {
+    if (veutSoir || veutMatin || veutAvant || (reglage.notifVols !== false && min % 10 < PAS)) {
       const demain = new Date(Date.parse(`${aujourdhui}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
       const donnees = await donneesJournee(entetes, aujourdhui, demain);
       if (veutSoir) { messages.push(messageSoir(aujourdhui, donnees)); await noter(entetes, { soirFait: aujourdhui }); }
@@ -196,10 +198,10 @@ export default async function alerteDemandes() {
         await noter(entetes, { matinFait: aujourdhui });
       }
       // 19 nov. 2026, 15h42 : Rebecca est dehors (« Je sors » ou détectée à l'ouverture) -> « 📍 Localise-toi »
-      if (veutAvant) messages.push(...rappelsAvant(maintenant, donnees).map((m) => (estDehors(reglage, aujourdhui) ? avecLocalisation(m) : m)));
+      if (veutAvant) messages.push(...rappelsAvant(maintenant, donnees, 15, PAS).map((m) => (estDehors(reglage, aujourdhui) ? avecLocalisation(m) : m)));
 
       // 3. Vols en retard (toutes les 10 minutes) : alerte seulement quand l'état change
-      if (reglage.notifVols !== false && min % 10 < 2) {
+      if (reglage.notifVols !== false && min % 10 < PAS) {
         let signales = {};
         try { signales = JSON.parse(reglage.volsSignales || "{}") || {}; } catch { signales = {}; }
         const suite = {};
@@ -224,13 +226,13 @@ export default async function alerteDemandes() {
 
     // 4. Demande sans réponse depuis 2 heures (une fois)
     if (reglage.notifAttente !== false) {
-      const t0 = new Date(maintenant - 2 * 3600000 - 2 * 60000).toISOString();
+      const t0 = new Date(maintenant - 2 * 3600000 - PAS * 60000).toISOString();
       const t1 = new Date(maintenant - 2 * 3600000).toISOString();
       const recentes = await requete(entetes, { from: [{ collectionId: "demandes" }], where: { compositeFilter: { op: "AND", filters: [
         { fieldFilter: { field: { fieldPath: "creeLe" }, op: "GREATER_THAN", value: { timestampValue: t0 } } },
         { fieldFilter: { field: { fieldPath: "creeLe" }, op: "LESS_THAN_OR_EQUAL", value: { timestampValue: t1 } } },
       ] } } });
-      messages.push(...demandesSansReponse(recentes || [], maintenant));
+      messages.push(...demandesSansReponse(recentes || [], maintenant, 2, PAS));
     }
 
     // 5. Paiements en retard (une fois par jour, à partir de 10h)

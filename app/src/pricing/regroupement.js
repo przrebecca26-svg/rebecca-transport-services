@@ -38,6 +38,8 @@ export function passagersDe(d) {
 const prixDe = (d) => (typeof d.prixFinal === "number" ? d.prixFinal : typeof d.prixEstime === "number" ? d.prixEstime : null);
 
 // Demandes qu'on peut regrouper avec d : [{ d, ecart (min), departKm, arriveeKm }]
+const chiffres = (t) => String(t || "").replace(/\D/g, "").replace(/^972/, "0");
+export const memeCliente = (a, b) => (!!a.uid && a.uid === b.uid) || (chiffres(a.telephone).length >= 9 && chiffres(a.telephone) === chiffres(b.telephone));
 export function regroupementsPossibles(d, toutes, t = TARIFS, options = {}) {
   if (!d || !SERVICES.includes(d.service)) return [];
   const ecartMax = (t.ramassage && typeof t.ramassage.regroupementMinutes === "number" ? t.ramassage.regroupementMinutes : 10);
@@ -46,7 +48,8 @@ export function regroupementsPossibles(d, toutes, t = TARIFS, options = {}) {
   const m = minutes(d.heure);
   if (!coord(a.de) || !coord(a.vers) || m == null || !d.date) return [];
   return (toutes || [])
-    .filter((x) => x && x.id !== d.id && SERVICES.includes(x.service) && ["en attente", "acceptee"].includes(x.statut) && x.date === d.date)
+    // 19 nov. 2026 (test C2) : jamais avec une autre demande de la MEME cliente (doublon, pas un trajet partage)
+    .filter((x) => x && x.id !== d.id && !memeCliente(d, x) && SERVICES.includes(x.service) && ["en attente", "acceptee"].includes(x.statut) && x.date === d.date)
     .map((x) => {
       const b = extremites(x);
       const mx = minutes(x.heure);

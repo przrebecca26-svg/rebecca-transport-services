@@ -23,3 +23,12 @@ test("departs eloignes : pas de regroupement", () => {
   const loin = dem("B", "05:05", { details: { direction: "vers", adresse: A.tel_aviv, nbFamilles: "1", personnesF1: "1" } });
   egal(G.regroupementsPossibles(a, [a, loin]), []);
 });
+
+// 19 nov. 2026 (test C2) : deux demandes de la même cliente ne sont jamais proposées au regroupement
+import { memeCliente as _meme } from "../src/pricing/regroupement.js";
+section("Regroupement : même cliente exclue");
+test("même téléphone ou même compte", () => {
+  egal(_meme({ telephone: "054-738-0193" }, { telephone: "+972547380193" }), true);
+  egal(_meme({ uid: "u1" }, { uid: "u1" }), true);
+  egal(_meme({ telephone: "054-738-0193", uid: "u1" }, { telephone: "052-111-2222", uid: "u2" }), false);
+});

@@ -321,7 +321,7 @@ function ResumeFiche({ r }) {
         {r.fidele && <strong>⭐ Cliente fidèle · </strong>}
         {r.inactive && <strong>💤 Plus de nouvelles depuis {r.depuisJours} jours · </strong>}
         {r.nbPrestations} prestation(s) terminée(s){r.derniere ? `, la dernière le ${dFr(r.derniere)}` : ""}
-        {r.frequenceJours ? ` · environ tous les ${r.frequenceJours} jours` : ""}
+        {r.frequenceJours ? (r.frequenceJours <= 1 ? " · environ tous les jours" : ` · environ tous les ${r.frequenceJours} jours`) : ""}
       </p>
       {r.nbPrestations > 0 && <p className="tdb-note">Panier moyen {r.panierMoyen} ₪ · total payé {Math.round(r.depenses)} ₪{r.resteAPayer > 0 ? ` · reste à payer ${Math.round(r.resteAPayer)} ₪` : ""}</p>}
       {r.cartes.length > 0 && <p className="tdb-note">🎁 Cartes cadeaux : {r.cartesOffertes} offerte(s), {r.cartesRecues} reçue(s){r.cartes.filter((c) => c.statut === "active").length ? ` · solde actif ${r.cartes.filter((c) => c.statut === "active").reduce((t, c) => t + (Number(c.solde) || 0), 0)} ₪` : ""}</p>}

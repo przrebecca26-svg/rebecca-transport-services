@@ -113,6 +113,10 @@ export function lireFamilles(liste) {
       ...(["oui", "non"].includes(f.relances) ? { relances: f.relances } : {}),
       ...(f.categorie === "commercants" && f.contratPro && typeof f.contratPro === "object" ? { contratPro: contratLu(f.contratPro) } : {}),
       ...(f.categorie === "commercants" && f.resto && typeof f.resto === "object" ? { resto: restoLu(f.resto) } : {}),
+      // 19 nov. 2026 : habitudes de chaque client du restaurant (ce qu'il commande, ce qu'il aime), par numéro
+      ...(f.categorie === "commercants" && f.habitudes && typeof f.habitudes === "object" ? { habitudes: Object.fromEntries(Object.entries(f.habitudes).slice(0, 300).map(([k, v]) => [String(k).slice(0, 40), String(v || "").slice(0, 300)]).filter(([, v]) => v.trim())) } : {}),
+      // 19 nov. 2026 : fiche créée depuis les clients d'un restaurant partenaire (case « Aussi dans mes clientes »)
+      ...(typeof f.depuisResto === "string" && f.depuisResto ? { depuisResto: f.depuisResto.slice(0, 40) } : {}),
       membres: (Array.isArray(f.membres) ? f.membres : [])
         .filter((m) => m && typeof m === "object" && String(m.nom || "").trim())
         .slice(0, 20)

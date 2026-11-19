@@ -19,7 +19,7 @@ import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { encaisseBrut } from "./pricing/comptes.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { addDoc, serverTimestamp } from "firebase/firestore";
-import { FORMULES, contratDe, messageReleve, paiementsSemaine, prixPro, releveSemaine, semaineDe, semaineDecalee } from "./pricing/commercants.js";
+import { clientsDuResto, ficheMaCliente, FORMULES, contratDe, messageReleve, paiementsSemaine, prixPro, releveSemaine, semaineDe, semaineDecalee } from "./pricing/commercants.js";
 import { validerMouvement } from "./pricing/comptes.js";
 import { champOperateur } from "./pricing/reverser.js";
 import { TARIFS } from "./pricing/config.js";
@@ -38,6 +38,7 @@ const ONGLETS = [
 const ONGLETS_RESTO = [
   { id: "membres", l: "Infos" },
   { id: "historique", l: "Livraisons" },
+  { id: "clientsResto", l: "Ses clients" },
   { id: "finances", l: "Finances" },
 ];
 const LIENS_RESTO = ["Responsable", "Caisse", "Cuisine", "Livreur", "Autre"];
@@ -190,6 +191,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
       )}
 
       {ongletVu === "suivi" && estAdmin && <SuiviBeaute cle={entree.cle} />}
+      {ongletVu === "clientsResto" && estResto && <ClientsResto f={f} liste={liste} rep={rep} changer={changer} />}
       {ongletVu === "finances" && <FinancesFiche e={e} liste={liste} mouvements={mouvements || []} comptes={estAdmin ? comptes : []} familles={rep.familles} estAdmin={estAdmin} qui={qui} membres={membres} />}
 
       {f && (
@@ -200,6 +202,76 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
         </div>
       )}
     </div>
+  );
+}
+
+// 19 nov. 2026 (Rebecca) : les clients du restaurant restent chez le restaurant ; la case « Aussi dans mes clientes »
+// crée sa fiche dans mes clientes (quand elle me demande un autre service). Décochée : sa fiche repart, si elle a été
+// créée ici et qu'elle n'a rien d'autre.
+function ClientsResto({ f, liste, rep, changer }) {
+  const habitudes = f.habitudes || {};
+  const [info, setInfo] = useState("");
+  const [enCours, setEnCours] = useState("");
+  const clients = clientsDuResto(liste);
+  const basculer = async (c, oui) => {
+    setEnCours(c.cle);
+    setInfo("");
+    try {
+      if (oui) {
+        const nouvelle = { ...familleVide(), enfants: [], nom: c.nom || "Cliente", telephone: c.telephone, categorie: "clientes", domicile: c.adresse || null, depuisResto: f.id };
+        await enregistrerRepertoire(rep.lieux, rep.corrections, [...rep.familles, nouvelle]);
+        setInfo(`✓ ${c.nom || "Elle"} est aussi dans tes clientes (Répertoire → Clientes).`);
+      } else {
+        const fiche = ficheMaCliente(c, rep.familles);
+        if (!fiche || fiche.depuisResto !== f.id || (fiche.membres || []).length || (fiche.enfants || []).length) {
+          setInfo("Sa fiche dans tes clientes a été complétée : retire-la depuis le Répertoire si tu veux vraiment l'effacer.");
+        } else {
+          await enregistrerRepertoire(rep.lieux, rep.corrections, rep.familles.filter((x) => x.id !== fiche.id));
+          setInfo(`${c.nom || "Elle"} reste seulement cliente du restaurant.`);
+        }
+      }
+    } catch {
+      setInfo("Enregistrement impossible. Vérifie la connexion.");
+    }
+    setEnCours("");
+  };
+  return (
+    <section className="tdb-bloc">
+      <p className="tdb-note">Les clients de {f.nom || "ce restaurant"}, d'après ses livraisons. Ils ne sont pas mélangés avec tes clientes. Coche « Aussi dans mes clientes » si l'une d'elles te demande un autre service (aéroport, transport…) : elle apparaît alors des deux côtés.</p>
+      {clients.length === 0 && <p className="tdb-note">Aucun client pour l'instant : ils apparaissent ici après la première livraison.</p>}
+      {clients.map((c) => {
+        const aussi = !!ficheMaCliente(c, rep.familles);
+        return (
+          <details key={c.cle} className="rp-journee">
+            <summary>
+              <span><strong>{c.nom || "Sans nom"}</strong><small> · {c.telephone || "pas de téléphone"}{c.derniere ? ` · dernière le ${jj(c.derniere)}` : ""}</small></span>
+              <b>{c.nb} livraison{c.nb > 1 ? "s" : ""}</b>
+            </summary>
+            <label className="champ">
+              <input type="checkbox" checked={aussi} disabled={enCours === c.cle || (!aussi && c.telephone.length < 9)} onChange={(x) => basculer(c, x.target.checked)} /> Aussi dans mes clientes
+            </label>
+            <div className="champ"><label>Ses habitudes (ce qu'elle commande, ce qu'elle aime, code de l'immeuble…)
+              <input type="text" maxLength={300} value={habitudes[c.cle] || ""} onChange={(x) => changer({ ...f, habitudes: { ...habitudes, [c.cle]: x.target.value } })} />
+            </label></div>
+            <ul className="ag-fil">
+              {c.livraisons.map((l) => (
+                <li key={l.id} className="ag-etape">
+                  <div className="ag-etape-ligne">
+                    <b>{jj(l.date)} {l.heure.replace(":", "h")}</b>
+                    <span>
+                      {l.adresse || "adresse ?"}{typeof l.prix === "number" ? <strong> · {shekels(l.prix)}</strong> : null} · {STATUTS[l.statut] || l.statut}
+                      {l.note ? <><br /><small>📝 {l.note}</small></> : null}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </details>
+        );
+      })}
+      {info && <p className="tdb-note" role="status">{info}</p>}
+      {clients.length > 0 && <p className="tdb-note">Les habitudes se gardent avec « Enregistrer la fiche ».</p>}
+    </section>
   );
 }
 

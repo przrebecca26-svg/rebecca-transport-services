@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { supprimerMouvement } from "./suppression.js";
+import "./depenses.css";
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { auth, db } from "./firebase.js";
 import { TARIFS } from "./pricing/config.js";
@@ -87,6 +89,8 @@ export default function PaiementsCourse({ d }) {
   const { membres, moi } = useEquipeContexte();
   const enEquipe = (membres || []).length > 1;
   const [qui, setQui] = useState(moi); // qui a recu (ou rendu) l'argent
+  // 19 nov. 2026 : Rebecca supprime un paiement note par erreur ou en test (deux touches)
+  const [mvASupprimer, setMvASupprimer] = useState("");
   const [credit, setCredit] = useState(null); // lignes du carnet de credit du client (null = pas de compte ou pas lu)
 
   // Carnet de credit du client (seulement pour une demande faite avec un compte)
@@ -384,7 +388,7 @@ export default function PaiementsCourse({ d }) {
       )}
 
       {liste.length > 0 && (
-        <ul className="pm-liste">
+        <ul className="pm-liste dp-liste">
           {liste.map((m) => (
             <li key={m.id}>
               <span>
@@ -395,6 +399,14 @@ export default function PaiementsCourse({ d }) {
                 {enEquipe && m.moyen === MOYEN_CREDIT && faitPar(d) !== recuPar(m) ? <small> · crédit gardé par {nomDe(membres, recuPar(m))}, à reverser</small> : null}
               </span>
               <strong>{m.kind === "remboursement_effectue" ? "-" + euros(m.montant) : (m.montant > 0 && m.kind === "correction" ? "+" : "") + euros(m.montant)}</strong>
+              {moi === "rebecca" && (mvASupprimer === m.id ? (
+                <span className="tb-actions">
+                  <button type="button" className="tb-bouton tb-danger" onClick={() => supprimerMouvement(m.id).then(() => setMvASupprimer("")).catch(() => setMvASupprimer(""))}>Oui, supprimer</button>
+                  <button type="button" className="ag-modifier" onClick={() => setMvASupprimer("")}>Non</button>
+                </span>
+              ) : (
+                <button type="button" className="ag-modifier" onClick={() => setMvASupprimer(m.id)}>Supprimer</button>
+              ))}
             </li>
           ))}
         </ul>

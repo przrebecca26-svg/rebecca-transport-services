@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { deleteDoc, doc } from "firebase/firestore";
-import { db } from "../firebase.js";
+import { supprimerCourseComplete } from "../suppression.js";
 import { encaisseBrut } from "../pricing/comptes.js";
 
 // DETAIL DES CHIFFRES (13 nov. 2026, 09h43) : « je clique sur un chiffre et je vois exactement a quoi correspond
@@ -22,7 +21,7 @@ export default function DetailCourses({ demandes = [], mouvements = [], aller = 
     let n = 0;
     for (const id of coches) {
       try {
-        await deleteDoc(doc(db, "demandes", id));
+        await supprimerCourseComplete(id);
         n++;
       } catch {
         /* on continue */
@@ -35,7 +34,7 @@ export default function DetailCourses({ demandes = [], mouvements = [], aller = 
   const supprimer = async (d) => {
     setMessage("");
     try {
-      await deleteDoc(doc(db, "demandes", d.id));
+      await supprimerCourseComplete(d.id);
       setAConfirmer("");
       setMessage(`Supprimée : ${d.serviceTitre || d.service} de ${d.nom || "?"} du ${jj(d.date)}.`);
     } catch {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { MOYENS_CADEAU, STATUTS_CADEAU, champsActivation, dateFrCadeau, finValidite, lienCarte, statutAffiche, utiliserCarte } from "../pricing/cartesCadeaux.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
@@ -10,6 +10,8 @@ const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asi
 const ORDRE = { paiement_annonce: 0, a_payer: 1, active: 2, expiree: 3, utilisee: 4, annulee: 5 };
 
 export default function CartesCadeauxAdmin() {
+  // 19 nov. 2026 : supprimer une carte de test (deux touches)
+  const [suppr, setSuppr] = useState("");
   const [cartes, setCartes] = useState(null);
   const [usage, setUsage] = useState({});
   const [moyens, setMoyens] = useState({}); // 19 nov. 2026 (test C5) : Rebecca corrige le moyen reellement recu
@@ -55,6 +57,12 @@ export default function CartesCadeauxAdmin() {
                 </select>
               )}
               {c.statut === "active" && <a className="tb-bouton tb-clair" href={lienWhatsApp(c.acheteurTel, msgAcheteur) || "#"} target="_blank" rel="noreferrer">💬 Envoyer la carte à {c.acheteurNom}</a>}
+              {suppr === c.id ? (
+                <>
+                  <button className="tb-bouton tb-danger" onClick={() => deleteDoc(doc(db, "cartesCadeaux", c.id)).then(() => setSuppr("")).catch(() => setInfo("Suppression impossible."))}>Oui, supprimer</button>
+                  <button className="tb-bouton tb-clair" onClick={() => setSuppr("")}>Non</button>
+                </>
+              ) : <button className="tb-bouton tb-clair" onClick={() => setSuppr(c.id)}>Supprimer</button>}
               {c.statut !== "annulee" && c.statut !== "utilisee" && <button className="tb-bouton tb-clair" onClick={() => window.confirm(c.statut === "active" ? "Annuler cette carte cadeau ? (Elle n'est pas remboursable : à faire seulement en cas d'erreur.)" : "Annuler cette carte cadeau ?") && maj(c.id, { statut: "annulee" })}>Annuler</button>}
             </div>
             {statutAffiche(c, jour) === "active" && (

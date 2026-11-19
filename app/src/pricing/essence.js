@@ -122,6 +122,8 @@ export function essenceDuMois(mois, essence, demandes = [], wolt = [], t = TARIF
 }
 
 export const ajouterPlein = (e, p) => ({ ...e, pleins: [...e.pleins, { id: nouvelIdPlein(), date: p.date, montant: cents(pos(p.montant, 5000)), litres: cents(pos(p.litres, 500)), compteur: Math.round(pos(p.compteur, 2000000)) }] });
+// 19 nov. 2026 : modifier un plein (meme regles que l'ajout, meme identifiant)
+export const modifierPlein = (e, id, p) => ({ ...e, pleins: e.pleins.map((x) => (x.id === id ? { id, date: p.date, montant: cents(pos(p.montant, 5000)), litres: cents(pos(p.litres, 500)), compteur: Math.round(pos(p.compteur, 2000000)) } : x)) });
 export const retirerPlein = (e, id) => ({ ...e, pleins: e.pleins.filter((p) => p.id !== id) });
 export const heuresWolt = (e, id, h) => {
   const woltHeures = { ...(e.woltHeures || {}) };

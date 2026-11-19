@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, orderBy, query, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, deleteDoc, onSnapshot, orderBy, query, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { ETAPES_COMMANDE, messageCommande } from "../pricing/suiteClient.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
@@ -12,6 +12,8 @@ const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asi
 const STATUTS = ["en attente", "acceptée", "refusée", "terminée", "annulée"];
 
 export default function CommandesEpoxy({ onRetour }) {
+  // 19 nov. 2026 : supprimer une commande de test (deux touches)
+  const [suppr, setSuppr] = useState("");
   const [commandes, setCommandes] = useState(null);
   const [erreur, setErreur] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("tous");
@@ -71,6 +73,14 @@ export default function CommandesEpoxy({ onRetour }) {
               })}
             </div>
           )}
+          <div className="tb-actions" style={{ marginTop: 8 }}>
+            {suppr === c.id ? (
+              <>
+                <button className="tb-bouton tb-danger" onClick={() => deleteDoc(doc(db, "commandes", c.id)).then(() => setSuppr("")).catch(() => setErreur("Suppression impossible."))}>Oui, supprimer la commande</button>
+                <button className="tb-bouton tb-clair" onClick={() => setSuppr("")}>Non</button>
+              </>
+            ) : <button className="tb-bouton tb-clair" onClick={() => setSuppr(c.id)}>Supprimer</button>}
+          </div>
           <div style={{ marginTop: 8 }}>
             {STATUTS.map((s) => (
               <button key={s} onClick={() => changerStatut(c.id, s)} disabled={c.statut === s} style={{ marginRight: 6 }}>

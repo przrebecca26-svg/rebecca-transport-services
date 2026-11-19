@@ -13,6 +13,7 @@ import { getDocs } from "firebase/firestore";
 import { normaliserCode, utiliserCarte } from "./pricing/cartesCadeaux.js";
 import { comprendreEncaissement } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
+import { estLivraisonResto, messageEnRouteResto } from "./pricing/restos.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
@@ -64,6 +65,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const [liensPaiement, setLiensPaiement] = useState({});
   useEffect(() => onSnapshot(doc(db, "reglages", "paiement"), (x) => setLiensPaiement(x.exists() ? x.data() : {}), () => {}), []);
   const beaute = estBeaute(d);
+  const resto = estLivraisonResto(d); // 19 nov. 2026 : livraison d'un restaurant : payée avec son relevé (pas de caisse, merci, avis, reçu)
   // 17 nov. 2026, 11h35 : chaque message part aussi par e-mail si la cliente en a donne un
   const mail = (sujet, texte) => envoyerMailClient(d, sujet, texte).then((x) => x && setInfoMail(x)).catch(() => {});
   const noter = (champs) => updateDoc(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() }).catch(() => {});
@@ -83,7 +85,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const v = d.details || {};
   const reste = resteDe(d, mouvements);
   // Rappel de la veille : sur le retour d'un aller-retour, la veille ou le jour meme, tant qu'il n'est pas fait
-  const rappel = trajet === "retour" && !faitDe(d) && (d.date === ajouterJours(aujourdhui, 1) || d.date === aujourdhui) ? lienWhatsApp(d.telephone, messageRappelRetour(d, reste)) : null;
+  const rappel = !resto && trajet === "retour" && !faitDe(d) && (d.date === ajouterJours(aujourdhui, 1) || d.date === aujourdhui) ? lienWhatsApp(d.telephone, messageRappelRetour(d, reste)) : null;
   const boutonRappel = rappel && (
     <div className="tb-actions">
       <a className="tb-bouton tb-clair" href={rappel} target="_blank" rel="noopener noreferrer" onClick={envoyerRappel}>🔔 Rappel de la veille{d.rappelEnvoyeLe ? " (déjà envoyé)" : ""}</a>
@@ -123,7 +125,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   // Course déposée (ou RDV beauté fait) avec un reste à encaisser : la caisse s'ouvre toute seule, montant déjà rempli
   const cocher = async (etape) => {
     await enregistrer(champsEtape(d, etape, heureIsrael(), moi));
-    if (etape === "depose" && reste > 0) { setMerci(false); setCaisse(caisseVide()); }
+    if (etape === "depose" && reste > 0 && !resto) { setMerci(false); setCaisse(caisseVide()); }
     if (etape === "depart" && !beaute) {
       calculerArrivee(d, trajet)
         .then((h) => h && updateDoc(doc(db, "demandes", d.id), { [`arriveeEstimee.${trajet}`]: h, majLe: serverTimestamp() })
@@ -131,7 +133,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
         .catch(() => {});
     }
   };
-  const lienEnRoute = c.depart && !c.prise ? lienWhatsApp(d.telephone, messageEnRoute(d)) : null;
+  const lienEnRoute = c.depart && !c.prise ? (resto ? lienWhatsApp(v.telDestinataire || "", messageEnRouteResto(d)) : lienWhatsApp(d.telephone, messageEnRoute(d))) : null;
   const finTrajet = fait && trajet !== "aller";
   const texteSms = messagePaiement(d, reste, liensPaiement);
   const lienPaiement = texteSms ? lienWhatsApp(d.telephone, texteSms) : null;
@@ -216,8 +218,8 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       <div className="tb-actions">
         {suivante && <button type="button" className="tb-bouton" disabled={enCours} onClick={() => cocher(suivante)}>{beaute ? "✓ Fait" : ETAPES_CHRONO.find((e) => e.id === suivante).bouton}</button>}
         {suivante === "depart" && !beaute && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => cocher("prise")}>📍 Récupérée</button>}
-        {lienEnRoute && !beaute && <a className="tb-bouton tb-clair" href={lienEnRoute} target="_blank" rel="noopener noreferrer" onClick={() => mail(SUJETS.enRoute, messageEnRoute(d))}>💬 Je suis en route</a>}
-        {(c.prise || fait || beaute) && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={ouvrirCaisse}>{caisse ? "Fermer" : reste > 0 ? `💰 Encaissé (reste ${reste} ₪)` : "💰 Encaissé ✓"}</button>}
+        {lienEnRoute && !beaute && <a className="tb-bouton tb-clair" href={lienEnRoute} target="_blank" rel="noopener noreferrer" onClick={() => !resto && mail(SUJETS.enRoute, messageEnRoute(d))}>💬 Je suis en route{resto ? " (au client)" : ""}</a>}
+        {(c.prise || fait || beaute) && !resto && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={ouvrirCaisse}>{caisse ? "Fermer" : reste > 0 ? `💰 Encaissé (reste ${reste} ₪)` : "💰 Encaissé ✓"}</button>}
         {(c.prise || fait) && <button type="button" className="ag-modifier" disabled={enCours} onClick={annuler}>Annuler la dernière étape</button>}
       </div>
       {trajet === "aller" && v.dateRetour && <p className="tb-note">Retour prévu le {v.dateRetour.split("-").reverse().join("/")}{v.heureRetour ? ` à ${v.heureRetour.replace(":", "h")}` : ""}.</p>}
@@ -258,13 +260,14 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           )}
         </div>
       )}
-      {(merci || (fait && reste === 0 && !caisse)) && lienMerci && (
+      {resto && <p className="tb-note">📋 Livraison de {d.nom} : payée avec son relevé de la semaine (le dimanche).</p>}
+      {!resto && (merci || (fait && reste === 0 && !caisse)) && lienMerci && (
         <div className="tb-actions">
           <a className="tb-bouton" href={lienMerci} target="_blank" rel="noopener noreferrer" onClick={() => setMerci(false)}>💬 Envoyer le merci (WhatsApp)</a>
         </div>
       )}
       {boutonRappel}
-      {reste > 0 && lienPaiement && (
+      {!resto && reste > 0 && lienPaiement && (
         <div className="tb-actions">
           <a className="tb-bouton tb-clair" href={lienPaiement} target="_blank" rel="noopener noreferrer" onClick={() => mail(SUJETS.paiement, messagePaiement(d, reste, liensPaiement))}>💳 Envoyer le lien de paiement ({reste} ₪)</a>
         </div>
@@ -274,13 +277,13 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           <a className="tb-bouton tb-clair" href={lienRdv} target="_blank" rel="noopener noreferrer" onClick={() => { mail(SUJETS.rdv, messageReprendreRdv(d)); noter({ prochainRdvProposeLe: aujourdhui }); }}>📅 Proposer le prochain rendez-vous</a>
         </div>
       )}
-      {lienAvis && (
+      {!resto && lienAvis && (
         <div className="tb-actions">
           <a className="tb-bouton tb-clair" href={lienAvis} target="_blank" rel="noopener noreferrer" onClick={() => { mail(SUJETS.avis, messageAvis(d)); noter({ avisDemandeLe: aujourdhui }); }}>⭐ Demander un avis</a>
         </div>
       )}
       {/* 19 nov. 2026, 15h42 : le reçu PDF reste disponible dès qu'un paiement est noté (pas seulement « à faire ») */}
-      {(encaisseDe(mouvements, d.id) > 0 || (d.recuAFaire && !d.recuFaitLe)) && (
+      {!resto && (encaisseDe(mouvements, d.id) > 0 || (d.recuAFaire && !d.recuFaitLe)) && (
         <div className="tb-actions">
           <RecuCourse d={d} />
           {d.recuAFaire && !d.recuFaitLe && <button type="button" className="ag-modifier" onClick={() => noter({ recuFaitLe: aujourdhui })}>🧾 Reçu à faire → c'est fait</button>}

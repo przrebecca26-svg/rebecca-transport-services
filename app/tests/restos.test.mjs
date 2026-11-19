@@ -149,3 +149,14 @@ test("ligne sans retenue notée = taux du réglage ; retenue notée = gardée", 
   egal(retenueDe({ source: "Autre", revenu: 100 }, r), 0);
   egal(totauxRetenues([l, { ...l, caution: 300 }], r), { retenue: 101.38, caution: 300, fraisPourboires: 0 });
 });
+import { estLivraisonResto, messageEnRouteResto } from "../src/pricing/restos.js";
+import { rangFidelite } from "../src/pricing/fidelite.js";
+import { avisADemander } from "../src/pricing/finCourse.js";
+test("livraison restaurant : pas de fidélité, pas d'avis, message en route au client", () => {
+  const d = { id: "r1", service: "livraison", statut: "terminee", date: "2026-11-18", heure: "20:00", nom: "Ohi Sushi", telephone: "0534909590", details: { commandeResto: { cle: "k", id: "c" }, destinataire: "Tesla Cohen", telDestinataire: "0547380193" } };
+  egal(estLivraisonResto(d), true);
+  egal(estLivraisonResto({ details: {} }), false);
+  egal(rangFidelite(d, [d]), null);
+  egal(avisADemander([d], "2026-11-19").length, 0);
+  egal(messageEnRouteResto(d).includes("Bonjour Tesla") && messageEnRouteResto(d).includes("Ohi Sushi"), true);
+});

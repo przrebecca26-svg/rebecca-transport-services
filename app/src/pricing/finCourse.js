@@ -300,7 +300,7 @@ export function avisADemander(demandes, aujourdhui) {
   if (!DATE_OK.test(aujourdhui || "")) return [];
   const debut = plusJours(aujourdhui, -7);
   return (demandes || []).filter((d) => {
-    if (d.statut !== "terminee" || d.avisDemandeLe || d.service === "ramassage" || d.service === "digital") return false; // 17 nov. : pas pour un paiement Digital
+    if (d.statut !== "terminee" || d.avisDemandeLe || d.service === "ramassage" || d.service === "digital" || (d.details && d.details.commandeResto)) return false; // 19 nov. : pas pour un restaurant // 17 nov. : pas pour un paiement Digital
     const fin = estAllerRetour(d) && DATE_OK.test((d.details || {}).dateRetour || "") ? d.details.dateRetour : d.date;
     return DATE_OK.test(fin || "") && fin >= debut && fin < aujourdhui;
   });
@@ -360,7 +360,7 @@ export function relancesClientes(demandes, aujourdhui) {
   const plusRecente = (d) => toutes.some((x) => x.id !== d.id && telDe(x) && telDe(x) === telDe(d) && String(x.date || "") > finDe(d) && x.statut !== "refusee" && x.statut !== "annulee");
   const vus = new Set();
   return toutes
-    .filter((d) => d.statut === "terminee" && d.service !== "ramassage" && d.service !== "digital" && !d.relanceLe && DATE_OK.test(finDe(d) || "") && finDe(d) >= debut && finDe(d) <= fin && telDe(d) && !plusRecente(d))
+    .filter((d) => d.statut === "terminee" && d.service !== "ramassage" && d.service !== "digital" && !(d.details && d.details.commandeResto) && !d.relanceLe && DATE_OK.test(finDe(d) || "") && finDe(d) >= debut && finDe(d) <= fin && telDe(d) && !plusRecente(d))
     .sort((a, b) => finDe(b).localeCompare(finDe(a)))
     .filter((d) => (vus.has(telDe(d)) ? false : (vus.add(telDe(d)), true)));
 }

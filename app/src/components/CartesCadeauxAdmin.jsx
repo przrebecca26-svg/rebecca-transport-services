@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
-import { STATUTS_CADEAU, champsActivation, dateFrCadeau, finValidite, lienCarte, statutAffiche, utiliserCarte } from "../pricing/cartesCadeaux.js";
+import { MOYENS_CADEAU, STATUTS_CADEAU, champsActivation, dateFrCadeau, finValidite, lienCarte, statutAffiche, utiliserCarte } from "../pricing/cartesCadeaux.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 
 // CARTES CADEAUX - espace de Rebecca (18 nov. 2026) : confirmer le paiement, envoyer la carte, voir le solde.
@@ -12,6 +12,7 @@ const ORDRE = { paiement_annonce: 0, a_payer: 1, active: 2, expiree: 3, utilisee
 export default function CartesCadeauxAdmin() {
   const [cartes, setCartes] = useState(null);
   const [usage, setUsage] = useState({});
+  const [moyens, setMoyens] = useState({}); // 19 nov. 2026 (test C5) : Rebecca corrige le moyen reellement recu
   const [info, setInfo] = useState("");
   useEffect(() => onSnapshot(collection(db, "cartesCadeaux"), (s) => setCartes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setCartes([])), []);
   if (!cartes) return <p className="admin-texte tb-pad">Chargement…</p>;
@@ -40,7 +41,19 @@ export default function CartesCadeauxAdmin() {
             {c.message && <p className="tb-note">« {c.message} »</p>}
             {(c.utilisations || []).length > 0 && <p className="tb-note">Utilisée : {(c.utilisations || []).map((u) => `${u.montant} ₪ le ${String(u.quand).split("-").reverse().join("/")}`).join(", ")}</p>}
             <div className="tb-actions">
-              {(c.statut === "a_payer" || c.statut === "paiement_annonce") && <button className="tb-bouton" onClick={() => maj(c.id, champsActivation(aujourdhui()))}>✓ Paiement reçu : activer</button>}
+              {(c.statut === "a_payer" || c.statut === "paiement_annonce") && (
+                <>
+                  <select aria-label="Moyen de paiement reçu" value={moyens[c.id] || c.moyen || "Bit"} onChange={(e) => setMoyens({ ...moyens, [c.id]: e.target.value })}>
+                    {MOYENS_CADEAU.map((m) => <option key={m}>{m}</option>)}
+                  </select>
+                  <button className="tb-bouton" onClick={() => maj(c.id, { ...champsActivation(aujourdhui()), moyen: moyens[c.id] || c.moyen || "Bit" })}>✓ Paiement reçu : activer</button>
+                </>
+              )}
+              {c.statut === "active" && (
+                <select aria-label="Corriger le moyen de paiement" value={c.moyen || ""} onChange={(e) => maj(c.id, { moyen: e.target.value })}>
+                  {MOYENS_CADEAU.map((m) => <option key={m}>{m}</option>)}
+                </select>
+              )}
               {c.statut === "active" && <a className="tb-bouton tb-clair" href={lienWhatsApp(c.acheteurTel, msgAcheteur) || "#"} target="_blank" rel="noreferrer">💬 Envoyer la carte à {c.acheteurNom}</a>}
               {c.statut !== "annulee" && c.statut !== "utilisee" && <button className="tb-bouton tb-clair" onClick={() => window.confirm(c.statut === "active" ? "Annuler cette carte cadeau ? (Elle n'est pas remboursable : à faire seulement en cas d'erreur.)" : "Annuler cette carte cadeau ?") && maj(c.id, { statut: "annulee" })}>Annuler</button>}
             </div>

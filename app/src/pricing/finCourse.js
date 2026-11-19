@@ -392,7 +392,7 @@ export function parentsAPrevenir(familles, texte) {
   }
   return res;
 }
-export function messageEnfant(sorte, prenoms, heure, lieu, eta = "", lieuEta = "") {
+export function messageEnfant(sorte, prenoms, heure, lieu, eta = "", lieuEta = "", lienSuivi = "") {
   const qui = prenoms.length > 1 ? `${prenoms.slice(0, -1).join(", ")} et ${prenoms[prenoms.length - 1]}` : prenoms[0] || "votre enfant";
   const pluriel = prenoms.length > 1;
   const h = heureFr(heure);
@@ -401,6 +401,8 @@ export function messageEnfant(sorte, prenoms, heure, lieu, eta = "", lieuEta = "
     : `${qui} ${pluriel ? "sont bien arrivés" : "est bien arrivé(e)"}${lieu ? ` (${lieu})` : ""}${h ? ` à ${h}` : ""} ✅`;
   // 18 nov. 2026 : suivi en direct du ramassage : heure d'arrivee prevue a l'etape suivante (maison, ecole, activite)
   const suite = sorte === "prise" && HEURE_OK.test(eta || "") ? [`Arrivée prévue${lieuEta ? ` (${lieuEta})` : ""} vers ${heureFr(eta)}.`] : [];
+  // 19 nov. 2026, 14h10 : lien pour suivre la voiture en direct jusqu'a la depose
+  if (sorte === "prise" && /^https:\/\/\S+\/#\/position\/[A-Za-z0-9_-]{6,60}$/.test(lienSuivi || "")) suite.push(`Suivez la voiture en direct : ${lienSuivi}`);
   return ["Bonjour,", ligne, ...suite, ...lignesSite({ uid: "famille" }), "Rebecca"].join("\n");
 }
 

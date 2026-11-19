@@ -6,7 +6,7 @@ import { ajouterLigne, courseDuCompte } from "./pricing/comptesEntreNous.js";
 import { enregistrerComptes, useComptes } from "./comptesBase.js";
 import { compteDansForfait, courseForfait, famillesDeLEtape, familleEncoreFaite, idForfait, lireForfait, telephoneFamille } from "./pricing/forfaitJour.js";
 import { vacancesDuJour } from "./pricing/calendrier.js";
-import { ajoutsDesJours, ajouterTrajetCeJour, ajouterTache, annulerEtape, estPonctuel, retirerAjout, trajetPonctuel, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
+import { avecMoiDe, changerAvecMoi, ajoutsDesJours, ajouterTrajetCeJour, ajouterTache, annulerEtape, estPonctuel, retirerAjout, trajetPonctuel, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { enregistrerJours, useDurees, useJoursTournee, useTournee } from "./tourneeBase.js";
@@ -183,11 +183,18 @@ export function useMaJournee(actif) {
     // ecole -> maison est cree a la nouvelle heure. Le reste de la journee se recalcule tout seul.
     ramenerMaison: (date, id, heure) => {
       const r = tousEtAjouts.find((x) => x.id === id);
-      const p = r ? trajetPonctuel({ date, sens: "recuperer", heure, de: r.de, a: d.domicile, nom: r.nom, famille: r.famille || "" }) : null;
+      // 19 nov. 2026, 14h10 : si l'enfant m'attend d'habitude ailleurs (chez Alexia), ce jour-la je la prends A L'ECOLE
+      const de = r && r.ecole && r.ecole.label ? r.ecole : r && r.de;
+      const nom = String((r && r.nom) || "").replace(/, m'attend ailleurs\)/, ")");
+      const p = r ? trajetPonctuel({ date, sens: "recuperer", heure, de, a: d.domicile, nom, famille: r.famille || "" }) : null;
       if (!p) return Promise.reject(new Error("incomplet"));
       const suite = estPonctuel(id) ? retirerAjout(jours, date, [id]) : retirerCeJour(jours, date, [id]);
       return sauver(ajouterTrajetCeJour(suite, date, [p]));
     },
+    // 19 nov. 2026, 14h10 : « avec ou sans Shyrel » dans la voiture (enfants de ma fiche « Moi » du Repertoire)
+    enfantsMoi: [...new Set(repertoire.familles.filter((f) => f.categorie === "moi").flatMap((f) => (f.enfants || []).map((e) => String(e.prenom || "").trim())).filter(Boolean))],
+    avecMoi: (date, cle) => avecMoiDe(jours, date, cle),
+    changerAvecMoi: (date, cle, prenoms) => sauver(changerAvecMoi(jours, date, cle, prenoms)),
     changerHeure: (date, ids, heure) => sauver(changerHeureCeJour(jours, date, ids, heure)),
     normale: (date) => sauver(journeeNormale(jours, date)),
     ajouterTache: (date, tache) => sauver(ajouterTache(jours, date, tache)),

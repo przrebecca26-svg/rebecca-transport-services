@@ -9,6 +9,7 @@ await import("./abonnement.test.mjs");
 await import("./rappelsAuto.test.mjs");
 await import("./notifications.test.mjs");
 await import("./reference.test.mjs");
+await import("./chabbatFetes.test.mjs");
 await import("./equipe.test.mjs");
 await import("./tableauBord.test.mjs");
 await import("./devisRapide.test.mjs");

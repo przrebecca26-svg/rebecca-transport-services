@@ -420,6 +420,8 @@ export const TARIFS_EDITABLES = [
   { chemin: "circulation.vendrediDebut", label: "Vendredi avant Chabbat : début, en heures", unite: "h", decimales: true, groupe: "Circulation (durée des trajets)" },
   { chemin: "circulation.vendrediFin", label: "Vendredi avant Chabbat : fin, en heures", unite: "h", decimales: true, groupe: "Circulation (durée des trajets)" },
   { chemin: "circulation.vendredi", label: "Vendredi avant Chabbat : durée du trajet en plus", unite: "%", pourcent: true, groupe: "Circulation (durée des trajets)" },
+  { chemin: "calendrier.margeAvantMinutes", label: "Chabbat et fêtes : je ferme avant l'entrée (allumage des bougies)", unite: "min", groupe: "Chabbat et fêtes" },
+  { chemin: "calendrier.margeApresMinutes", label: "Chabbat et fêtes : je rouvre après la sortie", unite: "min", groupe: "Chabbat et fêtes" },
   { chemin: "carburant.prixLitre", label: "Prix du litre d'essence", unite: "₪", decimales: true, groupe: "Calcul du prix" },
   { chemin: "tempsParHeure", label: "Valeur de mon heure de travail", unite: "₪", groupe: "Calcul du prix" },
 ];

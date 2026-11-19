@@ -148,3 +148,16 @@ test("import de fichier", () => {
   egal(lireFichier("wolt;bad").erreurs.length, 1);
   egal(lireFichier("chose;1").erreurs.length, 1);
 });
+
+// 19 nov. 2026, 17h47 : Wolt garde la TVA (18 %) sur les pourboires (facture 117000013 : 15 ₪ -> 12,71 ₪)
+import { fraisPourboires, verseWolt as verseW, lireReglageWolt as lireRW } from "../src/pricing/financesAnnee.js";
+test("Wolt : TVA sur les pourboires", () => {
+  const r = lireRW({});
+  egal(r.tvaPourboires, 18);
+  const l = { source: "Wolt", revenu: 516.02, pourboire: 15 };
+  egal(fraisPourboires(l, r), 2.29);
+  egal(verseW(l, r), 528.73);
+  egal(verseW(l, null), 531.02);
+  egal(fraisPourboires({ source: "Autre", pourboire: 15 }, r), 0);
+  egal(lireRW({ tvaPourboires: "0" }).tvaPourboires, 0);
+});

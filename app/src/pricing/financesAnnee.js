@@ -195,13 +195,21 @@ export function retenueDe(l = {}, reglage = null) {
   if (reglage && Number(reglage.taux) > 0 && /wolt/i.test(l.source || "Wolt")) return retenueAuto(l.revenu, l.pourboire, reglage);
   return 0;
 }
+// 19 nov. 2026, 17h47 : sur la facture, Wolt enlève la TVA (18 %) des pourboires (osek patur) : 15 ₪ donnés -> 12,71 ₪ payés.
+// Les pourboires saisis = ceux de l'appli Wolt (avant) ; la part gardée par Wolt est calculée d'après le réglage.
+export function fraisPourboires(l = {}, reglage = null) {
+  const t = reglage ? Number(reglage.tvaPourboires) || 0 : 0;
+  const p = nb(l.pourboire);
+  if (!t || p <= 0 || !/wolt/i.test(l.source || "Wolt")) return 0;
+  return Math.round((p - p / (1 + t / 100)) * 100) / 100;
+}
 export function verseWolt(l = {}, reglage = null) {
-  return Math.round((nb(l.revenu) + nb(l.pourboire) - retenueDe(l, reglage) - nb(l.caution)) * 100) / 100;
+  return Math.round((nb(l.revenu) + nb(l.pourboire) - fraisPourboires(l, reglage) - retenueDe(l, reglage) - nb(l.caution)) * 100) / 100;
 }
 // Totaux d'une liste de lignes (une année, un mois) : retenue = impôt déjà payé ; caution = rendue avec le sac
 export function totauxRetenues(lignes = [], reglage = null) {
   const s = (f) => Math.round(lignes.reduce((t, l) => t + f(l), 0) * 100) / 100;
-  return { retenue: s((l) => retenueDe(l, reglage)), caution: s((l) => nb(l.caution)) };
+  return { retenue: s((l) => retenueDe(l, reglage)), caution: s((l) => nb(l.caution)), fraisPourboires: s((l) => fraisPourboires(l, reglage)) };
 }
 
 /* ---------- Encaisse / reste a encaisser (13 nov. 2026, 09h07) ----------
@@ -242,14 +250,15 @@ export function encaisseAnnee({ annee, demandes = [], mouvements = [], depenses 
    à la source, et l'argent arrive 2 jours après la fin du relevé (jusqu'au 15 -> le 17). Je ne vais pas rentrer dans
    chaque facture : ça doit se calculer tout seul quand je mets le montant. » Réglage : taux de retenue (%) appliqué
    au revenu (ou au revenu + pourboires), caution fixe par relevé, délai de versement en jours. */
-export const REGLAGE_WOLT_DEFAUT = { taux: 0, base: "revenu", caution: 0, delai: 2 };
+export const REGLAGE_WOLT_DEFAUT = { taux: 0, base: "revenu", caution: 0, delai: 2, tvaPourboires: 18 };
 export function lireReglageWolt(o = {}) {
-  const n = (x, max) => { const v = Number(String(x ?? "").replace(",", ".")); return Number.isFinite(v) && v >= 0 && v <= max ? v : null; };
+  const n = (x, max) => { if (x == null || String(x).trim() === "") return null; const v = Number(String(x).replace(",", ".")); return Number.isFinite(v) && v >= 0 && v <= max ? v : null; };
   return {
     taux: n(o.taux, 50) ?? REGLAGE_WOLT_DEFAUT.taux,
     base: o.base === "total" ? "total" : "revenu",
     caution: n(o.caution, 1000) ?? REGLAGE_WOLT_DEFAUT.caution,
     delai: Math.round(n(o.delai, 30) ?? REGLAGE_WOLT_DEFAUT.delai),
+    tvaPourboires: n(o.tvaPourboires, 50) ?? REGLAGE_WOLT_DEFAUT.tvaPourboires,
   };
 }
 // Retenue calculée (₪, 2 décimales) d'après le réglage

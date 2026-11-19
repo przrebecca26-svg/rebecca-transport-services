@@ -147,5 +147,5 @@ test("ligne sans retenue notée = taux du réglage ; retenue notée = gardée", 
   egal([retenueDe(l, r), verseWolt(l, r)], [50.69, 480.33]);
   egal(retenueDe({ ...l, retenue: 30 }, r), 30);
   egal(retenueDe({ source: "Autre", revenu: 100 }, r), 0);
-  egal(totauxRetenues([l, { ...l, caution: 300 }], r), { retenue: 101.38, caution: 300 });
+  egal(totauxRetenues([l, { ...l, caution: 300 }], r), { retenue: 101.38, caution: 300, fraisPourboires: 0 });
 });

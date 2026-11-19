@@ -230,7 +230,7 @@ test("retenue, caution et n° de facture : versé = revenu + pourboires − rete
   const sans = validerAutreRevenu({ source: "Wolt", periode: "semaine", debut: "2026-11-08", fin: "2026-11-15", livraisons: "18", revenu: "516.02", pourboire: "12.71" });
   egal(["retenue" in sans.ligne, verseWolt(sans.ligne)], [false, 528.73]);
   vrai(validerAutreRevenu({ source: "Wolt", periode: "jour", debut: "2026-11-08", fin: "2026-11-08", livraisons: "1", revenu: "10", pourboire: "0", retenue: "-5" }).erreur);
-  egal(totauxRetenues([v.ligne, sans.ligne]), { retenue: 131.42, caution: 300 });
+  egal(totauxRetenues([v.ligne, sans.ligne]), { retenue: 131.42, caution: 300, fraisPourboires: 0 });
 });
 
 import { fabriquerPdf, versWinAnsi } from "../src/pricing/pdfSimple.js";

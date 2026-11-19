@@ -4,7 +4,7 @@ import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Bilan from "./Bilan.jsx";
 import Depenses from "./Depenses.jsx";
-import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu, verseWolt, retenueDe, totauxRetenues, lireReglageWolt, retenueAuto, tauxDepuisFacture, dateVersement } from "./pricing/financesAnnee.js";
+import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu, verseWolt, retenueDe, totauxRetenues, fraisPourboires, lireReglageWolt, retenueAuto, tauxDepuisFacture, dateVersement } from "./pricing/financesAnnee.js";
 import { setDoc } from "firebase/firestore";
 import { ADMIN_ID, lignesDe, syntheseMembre } from "./pricing/equipe.js";
 import { argentDe, champOperateur, lignesAReverser, parVehicule, soldesDe, validerReversement } from "./pricing/reverser.js";
@@ -392,6 +392,8 @@ function AutresRevenus({ lignes: toutes, moi }) {
                       </select>
                     </label>
                   </div>
+                  <label className="pm-champ">Wolt garde sur les pourboires (TVA, %)<input inputMode="decimal" defaultValue={reglageWolt.tvaPourboires} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, tvaPourboires: e.target.value })} /></label>
+                  <p className="tb-note">Mets les pourboires comme dans l'appli Wolt : l'appli enlève elle-même la part de Wolt (ex. 15 ₪ → 12,71 ₪ sur la facture).</p>
                   <div className="fi-deux">
                     <label className="pm-champ">Caution par relevé (₪)<input inputMode="decimal" defaultValue={reglageWolt.caution} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, caution: e.target.value })} /></label>
                     <label className="pm-champ">Argent reçu (jours après la fin)<input inputMode="numeric" defaultValue={reglageWolt.delai} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, delai: e.target.value })} /></label>
@@ -418,13 +420,14 @@ function AutresRevenus({ lignes: toutes, moi }) {
         </p>
         {pourboiresAnnee > 0 && <p className="tb-note">Livraisons : <strong>{shekels(totalAnnee)}</strong> (compte dans le plafond de l'osek patur) + pourboires : <strong>{shekels(pourboiresAnnee)}</strong></p>}
         {retenuesAnnee.retenue > 0 && <p className="tb-note">Retenue à la source {annee} : <strong>{shekels(retenuesAnnee.retenue)}</strong> — impôt déjà payé pour toi, à donner au comptable.</p>}
+        {retenuesAnnee.fraisPourboires > 0 && <p className="tb-note">Gardé par Wolt sur les pourboires (TVA) : <strong>{shekels(retenuesAnnee.fraisPourboires)}</strong></p>}
         {retenuesAnnee.caution > 0 && <p className="tb-note">Caution du sac : <strong>{shekels(retenuesAnnee.caution)}</strong> — rendue quand tu rends le sac.</p>}
         <p className="tb-note">Saisis ici ce que tu gagnes en dehors de Rebecca Services (Wolt…), par jour, par semaine ou par mois. Recopie le relevé de Wolt : revenu = « דמי משלוח », pourboires = « טיפים », retenue = « סכום הניכוי ». Ces revenus comptent dans le plafond de l'osek patur ; les pourboires restent à part.</p>
         {!form && !stats && <button className="tb-bouton" onClick={() => ouvrir(null)}>+ Ajouter un revenu</button>}
         {!form && !stats && moi === ADMIN_ID && (
           <>
             <button className="tb-bouton tb-clair" onClick={() => setVoirReglage(!voirReglage)}>{voirReglage ? "Fermer les réglages Wolt" : "⚙️ Réglages Wolt"}</button>
-            <p className="tb-note">Retenue : <strong>{reglageWolt.taux} %</strong>{reglageWolt.caution ? ` · caution ${shekels(reglageWolt.caution)}` : ""} · argent reçu {reglageWolt.delai} jour{reglageWolt.delai > 1 ? "s" : ""} après la fin du relevé</p>
+            <p className="tb-note">Retenue : <strong>{reglageWolt.taux} %</strong> · pourboires : Wolt garde <strong>{reglageWolt.tvaPourboires} %</strong> (TVA){reglageWolt.caution ? ` · caution ${shekels(reglageWolt.caution)}` : ""} · argent reçu {reglageWolt.delai} jour{reglageWolt.delai > 1 ? "s" : ""} après la fin du relevé</p>
             {voirReglage && <div className="ag-etape-actions">{panneauReglageWolt}</div>}
           </>
         )}
@@ -554,7 +557,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
               {voirReglage && panneauReglageWolt}
             </div>
           )}
-          <p className="tb-note">Versé sur ton compte : <strong>{shekels(verseWolt({ revenu: Number(String(form.revenu).replace(",", ".")) || 0, pourboire: Number(String(form.pourboire).replace(",", ".")) || 0, retenue: Number(String(form.retenue).replace(",", ".")) || 0, caution: Number(String(form.caution).replace(",", ".")) || 0 }))}</strong> (à comparer avec « סכום סופי לתשלום »)</p>
+          <p className="tb-note">Versé sur ton compte : <strong>{shekels(verseWolt({ revenu: Number(String(form.revenu).replace(",", ".")) || 0, pourboire: Number(String(form.pourboire).replace(",", ".")) || 0, retenue: Number(String(form.retenue).replace(",", ".")) || 0, caution: Number(String(form.caution).replace(",", ".")) || 0, source: form.source }, { ...reglageWolt, taux: 0 }))}</strong> (à comparer avec « סכום סופי לתשלום »)</p>
           <label className="pm-champ">
             Détail (facultatif, obligatoire pour une correction négative)
             <input value={form.detail} maxLength={200} onChange={(e) => changer("detail", e.target.value)} />
@@ -594,6 +597,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
                 return le ? (le <= aujourdhui() ? `✓ Versé le ${jourCourt(le)} : ` : `💶 Versement prévu le ${jourCourt(le)} : `) : "Versé ";
               })()}
               {shekels(verseWolt(l, reglageWolt))}
+              {fraisPourboires(l, reglageWolt) > 0 ? ` · Wolt garde ${shekels(fraisPourboires(l, reglageWolt))} sur les pourboires` : ""}
               {retenueDe(l, reglageWolt) > 0 ? ` · retenue ${shekels(retenueDe(l, reglageWolt))}${Number(l.retenue) > 0 ? "" : ` (${reglageWolt.taux} %)`}` : ""}
               {Number(l.caution) > 0 ? ` · caution ${shekels(Number(l.caution))}` : ""}
               {l.numero ? ` · facture ${l.numero}` : ""}

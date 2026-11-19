@@ -279,10 +279,11 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           <a className="tb-bouton tb-clair" href={lienAvis} target="_blank" rel="noopener noreferrer" onClick={() => { mail(SUJETS.avis, messageAvis(d)); noter({ avisDemandeLe: aujourdhui }); }}>⭐ Demander un avis</a>
         </div>
       )}
-      {d.recuAFaire && !d.recuFaitLe && (
+      {/* 19 nov. 2026, 15h42 : le reçu PDF reste disponible dès qu'un paiement est noté (pas seulement « à faire ») */}
+      {(encaisseDe(mouvements, d.id) > 0 || (d.recuAFaire && !d.recuFaitLe)) && (
         <div className="tb-actions">
           <RecuCourse d={d} />
-          <button type="button" className="ag-modifier" onClick={() => noter({ recuFaitLe: aujourdhui })}>🧾 Reçu à faire → c'est fait</button>
+          {d.recuAFaire && !d.recuFaitLe && <button type="button" className="ag-modifier" onClick={() => noter({ recuFaitLe: aujourdhui })}>🧾 Reçu à faire → c'est fait</button>}
         </div>
       )}
       {infoMail && !boutonRappel && <p className="tb-note">{infoMail}</p>}

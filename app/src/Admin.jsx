@@ -35,7 +35,7 @@ import EquipeAdmin, { MesModes, MesReglages, MesVehicules } from "./EquipeAdmin.
 import { EquipeContexte, useEquipeDonnees } from "./equipeContexte.jsx";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { demandeAcces, roleDe, rubriquesPour } from "./pricing/espaceEquipe.js";
-import { BandeauEnAttente } from "./ecritureRapide.js";
+import BandeauEnAttente from "./components/BandeauEnAttente.jsx";
 import { jouerSon, useStylesNotif } from "./sons.js";
 import "./admin.css";
 import "./theme-admin.css";

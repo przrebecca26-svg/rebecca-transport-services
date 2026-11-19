@@ -12,6 +12,8 @@ const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asi
 export default function ListeAttenteAdmin() {
   const [liste, setListe] = useState([]);
   const [ouvert, setOuvert] = useState(false);
+  // 19 nov. 2026, 15h16 (Rebecca : « je ne peux pas lui proposer d'heure ») : l'heure libérée, par inscription
+  const [heures, setHeures] = useState({});
   useEffect(
     () =>
       onSnapshot(
@@ -33,7 +35,8 @@ export default function ListeAttenteAdmin() {
       {ouvert && (
         <ul className="pm-liste dp-liste">
           {liste.map((a) => {
-            const wa = lienWhatsApp(a.telephone, messagePlaceLibre(a));
+            const h = heures[a.id] || "";
+            const wa = lienWhatsApp(a.telephone, messagePlaceLibre(a, h ? h.replace(":", "h") : ""));
             return (
               <li key={a.id}>
                 <span>
@@ -41,8 +44,11 @@ export default function ListeAttenteAdmin() {
                   {a.prestation ? ` · ${a.prestation}` : ""}
                   {a.note ? <small> ({a.note})</small> : null}
                 </span>
+                <label className="ag-champ">Heure qui s'est libérée
+                  <input type="time" step="900" value={h} onChange={(x) => setHeures({ ...heures, [a.id]: x.target.value })} />
+                </label>
                 <span className="tb-actions">
-                  {wa && <a className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">💬 Prévenir</a>}
+                  {wa && <a className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">💬 Prévenir{h ? ` (${h.replace(":", "h")})` : ""}</a>}
                   <button type="button" className="ag-modifier" onClick={() => deleteDoc(doc(db, "listeAttente", a.id)).catch(() => {})}>Retirer</button>
                 </span>
               </li>

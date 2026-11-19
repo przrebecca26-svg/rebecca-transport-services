@@ -42,3 +42,41 @@ test("date et heure", () => {
   egal(comprendreDateHeure("le 3 à 11h", "2026-11-19"), { date: "2026-12-03", heure: "11:00" });
 });
 test("normaliser", () => egal(normaliser("1 200,50 ₪"), "1200.50 shekels"));
+
+// 19 nov. 2026 : plusieurs depenses dans une phrase, duree, creneau libre
+import { comprendreDepenses, dureeDite, demandeCreneau, quoiDeTache, trouverCreneau } from "../src/pricing/saisieVocale.js";
+test("plusieurs dépenses dans une phrase", () => {
+  const r = comprendreDepenses("Péage test 15 shekels et 20 shekels de parking test");
+  egal(r.categorie, "Péages");
+  egal(r.montant, "15");
+  egal(r.suite.length, 1);
+  egal(r.suite[0].categorie, "Stationnement");
+  egal(r.suite[0].montant, "20");
+  egal(comprendreDepenses("péage route 6 25 shekels").suite, undefined);
+  egal(comprendreDepenses("parking 12, essence 200").suite[0].categorie, "Carburant");
+  egal(comprendreDepenses("parking 12,50").montant, "12.5");
+});
+test("durée dite", () => {
+  egal(dureeDite("il faut compter 20 minutes"), 20);
+  egal(dureeDite("ça prend une demi-heure"), 30);
+  egal(dureeDite("compter 1h30"), 90);
+  egal(dureeDite("pendant une heure"), 60);
+  egal(dureeDite("docteur à 10 heures"), 0);
+});
+test("demande de créneau et quoi", () => {
+  const t = "Sortir le chien entre deux courses, il faut compter 20 minutes quand je peux le faire trouve-moi un créneau et place-le";
+  egal(demandeCreneau(t), true);
+  egal(demandeCreneau("docteur à 10 heures"), false);
+  egal(quoiDeTache(t), "Sortir le chien");
+  egal(quoiDeTache("docteur à 10 heures"), "docteur");
+});
+test("premier créneau libre", () => {
+  const occ = [{ debut: 8 * 60, fin: 9 * 60 }, { debut: 9 * 60 + 40, fin: 11 * 60 }];
+  egal(trouverCreneau(occ, 20, { depuis: 8 * 60 }), 9 * 60 + 10);
+  egal(trouverCreneau(occ, 30, { depuis: 8 * 60 }), 11 * 60 + 10);
+  egal(trouverCreneau([], 20, { depuis: 12 * 60 + 47 }), 12 * 60 + 50);
+  egal(trouverCreneau([], 20, { depuis: 21 * 60 }), null);
+});
+test("« 20 minutes » n'est pas une date", () => {
+  egal(comprendreDateHeure("docteur à 10h, compter 20 minutes", "2026-11-19").date, "");
+});

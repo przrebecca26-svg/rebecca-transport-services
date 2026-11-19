@@ -113,6 +113,65 @@ export function comprendreDepense(texte, categories = ["Carburant", "Péages", "
   return { categorie, montant: String(montant), motif, resume: `${categorie} · ${montant} ₪` };
 }
 
+// 19 nov. 2026 (test C13 : « péage 15 shekels et 20 shekels de parking » -> seul le péage etait pris) :
+// plusieurs depenses dans la meme phrase -> une liste, chacune avec sa categorie et son montant.
+const SEPARATEURS = /\s+(?:et|puis|plus|ensuite)\s+|\s*(?:;|(?<!\d),|,(?!\d))\s*/;
+export function comprendreDepenses(texte, categories) {
+  const morceaux = String(texte || "").split(SEPARATEURS).map((x) => x.trim()).filter(Boolean);
+  // Les morceaux sans montant (« parking test ») se collent a leur voisin
+  const groupes = [];
+  for (const m of morceaux) {
+    const aMontant = nombresLibres(normaliser(m)).length > 0;
+    const dernier = groupes[groupes.length - 1];
+    if (!aMontant && dernier) dernier.texte += " " + m;
+    else if (aMontant && dernier && !dernier.aMontant) { dernier.texte += " " + m; dernier.aMontant = true; }
+    else groupes.push({ texte: m, aMontant });
+  }
+  const lignes = groupes.filter((g) => g.aMontant).map((g) => comprendreDepense(g.texte, categories)).filter((r) => !r.erreur);
+  if (lignes.length <= 1) return comprendreDepense(texte, categories);
+  const [premiere, ...suite] = lignes;
+  return { ...premiere, suite, resume: lignes.map((l) => l.resume).join(" + ") + ` (la ${lignes.length > 2 ? "suivante s'ouvrira" : "2e s'ouvrira"} toute remplie après « Enregistrer »)` };
+}
+
+// DUREE dite (« 20 minutes », « une heure », « 1h30 », « une demi-heure », « 1 heure et demie ») -> minutes ou 0
+export function dureeDite(texte) {
+  const t = normaliser(texte).replace(/\b(un|une)\b/g, "1");
+  if (/\bdemi[- ]heure\b/.test(t)) return 30;
+  if (/\bquart d heure\b/.test(t)) return 15;
+  const hm = /\b(\d{1,2})\s*(?:h|heures?)\s*(?:et )?(demie|\d{1,2})?\s*(?:minutes?|min)?\b/.exec(t);
+  const m = /\b(\d{1,3})\s*(?:minutes?|mn|min)\b/.exec(t);
+  if (m && (!hm || m.index < hm.index)) return Number(m[1]);
+  // « à 10 heures » est une heure, pas une duree : il faut « pendant », « compter », « dure », « prend »
+  if (hm && !/\b(pendant|compter|compte|dure|duree|prend)\b/.test(t)) return 0;
+  if (hm) return Number(hm[1]) * 60 + (hm[2] === "demie" ? 30 : Number(hm[2] || 0));
+  return 0;
+}
+// Elle demande de trouver l'heure elle-meme (« trouve-moi un créneau », « quand je peux », « entre deux courses »)
+export const demandeCreneau = (texte) => /\b(creneau|trouve|place le|places? la|quand je peux|entre deux|ou tu peux|quand tu peux)\b/.test(normaliser(texte));
+
+// Le « quoi » d'une tache : la phrase avant les precisions (« Sortir le chien, il faut compter 20 minutes... »)
+export function quoiDeTache(texte) {
+  let q = String(texte || "").split(/[,.;]|\s+(?:il faut|faut|trouve|compte[rz]?|pendant|entre deux|quand je|place[- ]le|ca prend|ça prend|qui dure|duree)\b/i)[0];
+  q = q.replace(/\b(ajoute|note|mets?)\b/gi, "").replace(/\b(demain|apr[eè]s-demain|aujourd'hui)\b/gi, "").replace(/(?:^|\s)(?:à|a)?\s*\d{1,2}\s*(?:heures?|h|:)\s*\d{0,2}/gi, " ");
+  return q.replace(/\s+/g, " ").trim().replace(/^[,.\s]+|[,.\s]+$/g, "").slice(0, 80);
+}
+
+// Premier creneau libre de « duree » minutes dans la journee. occupe = [{ debut, fin }] en minutes.
+// Marge de 10 minutes avant et apres chaque occupation (route, imprevu). Journee de 7h a 21h.
+export function trouverCreneau(occupe = [], duree = 30, { depuis = 0, debutJour = 7 * 60, finJour = 21 * 60, marge = 10 } = {}) {
+  const pris = occupe
+    .filter((o) => Number.isFinite(o.debut) && Number.isFinite(o.fin))
+    .map((o) => ({ debut: o.debut - marge, fin: Math.max(o.fin, o.debut) + marge }))
+    .sort((a, b) => a.debut - b.debut);
+  let t = Math.max(debutJour, Math.ceil(depuis / 5) * 5);
+  for (const o of pris) {
+    if (o.fin <= t) continue;
+    if (o.debut - t >= duree) break;
+    t = Math.max(t, Math.ceil(o.fin / 5) * 5);
+  }
+  return t + duree <= finJour ? t : null;
+}
+
 // DATE ET HEURE (« demain à 10 heures », « jeudi 14h30 », « le 25 ») a partir du jour J (AAAA-MM-JJ)
 const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 const plusJours = (jour, n) => {
@@ -132,7 +191,7 @@ export function comprendreDateHeure(texte, aujourdhui) {
       const auj = new Date(aujourdhui + "T12:00:00Z").getUTCDay();
       date = plusJours(aujourdhui, ((j - auj + 7) % 7) || 7);
     } else {
-      const n = /\b(?:le )?(\d{1,2})(?:er)?(?:\/(\d{1,2}))?\b(?!\s*(?:h|heures?|:))/.exec(t);
+      const n = /\b(?:le )?(\d{1,2})(?:er)?(?:\/(\d{1,2}))?\b(?!\s*(?:h|heures?|:|minutes?|min|mn|shekels?|litres?))/.exec(t);
       if (n && Number(n[1]) >= 1 && Number(n[1]) <= 31) {
         const [a, m] = aujourdhui.split("-").map(Number);
         let mo = n[2] ? Number(n[2]) : m;

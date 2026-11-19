@@ -4,7 +4,7 @@ import { db } from "./firebase.js";
 import { ADMIN_ID, lignesDe } from "./pricing/equipe.js";
 import { champOperateur } from "./pricing/reverser.js";
 import { CATEGORIES, moisDe, moisDecale, resumeMois, totalCategorie, validerDepense } from "./pricing/depenses.js";
-import { comprendreDepense } from "./pricing/saisieVocale.js";
+import { comprendreDepenses } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
 import "./paiements.css";
 import "./depenses.css";
@@ -41,6 +41,8 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
   const [aConfirmer, setAConfirmer] = useState(null);
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
+  // 19 nov. 2026 : dépenses dictées en une phrase, en attente (la suivante s'ouvre remplie après « Enregistrer »)
+  const [suivantes, setSuivantes] = useState([]);
 
   useEffect(() => {
     // Un coequipier ne lit que ses lignes (regles v9) ; Rebecca lit tout et garde les siennes
@@ -73,6 +75,7 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
     setErreur("");
   };
   const fermer = () => {
+    setSuivantes([]);
     setMode(null);
     setAConfirmer(null);
     setErreur("");
@@ -105,7 +108,14 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
     try {
       await addDoc(collection(db, "depenses"), { ...aConfirmer, ...champOperateur(moi), creeLe: serverTimestamp() });
       setMois(moisDe(aConfirmer.date));
-      fermer();
+      if (suivantes.length) {
+        const [prochaine, ...reste] = suivantes;
+        ouvrir("depense");
+        setCategorie(prochaine.categorie);
+        setMontant(prochaine.montant);
+        setMotif(prochaine.motif);
+        setSuivantes(reste);
+      } else fermer();
     } catch {
       setErreur("Enregistrement impossible. Vérifie la connexion puis réessaie.");
     }
@@ -160,7 +170,8 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
         {mode !== null && !aConfirmer && (
           <div className="pm-form">
             <h4>{mode === "depense" ? "Nouvelle dépense" : "Corriger une erreur"}</h4>
-            {mode === "depense" && <Dicter exemple="Ex. : péage route 6, 25 shekels" comprendre={(t) => comprendreDepense(t, CATEGORIES)} remplir={(r) => { setCategorie(r.categorie); setMontant(r.montant); setMotif(r.motif); }} />}
+            {mode === "depense" && <Dicter exemple="Ex. : péage route 6, 25 shekels" comprendre={(t) => comprendreDepenses(t, CATEGORIES)} remplir={(r) => { setCategorie(r.categorie); setMontant(r.montant); setMotif(r.motif); setSuivantes(r.suite || []); }} />}
+            {mode === "depense" && suivantes.length > 0 && <p className="tb-note">Ensuite : {suivantes.map((x) => `${x.categorie} · ${x.montant} ₪`).join(" + ")} (s'ouvrira toute remplie après « Enregistrer »).</p>}
             <label className="pm-champ">
               Catégorie
               <select value={categorie} onChange={(e) => setCategorie(e.target.value)}>

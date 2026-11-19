@@ -41,17 +41,19 @@ export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
       precedent = { adresse: domicile, nom: "Maison", min: e.min, cle: "maison@" + e.min, ...(precedent && memeLieu(precedent.adresse, domicile) && precedent.finMin != null ? { finMin: precedent.finMin, finQuoi: precedent.finQuoi } : {}) };
       continue;
     }
-    const a = e.adresse;
+    // 19 nov. 2026, 15h09 (Rebecca : « si j'ai rien mis, je suis à la maison ») : une tâche sans adresse = à la maison
+    const a = aPosition(e.adresse) ? e.adresse : e.genre === "tache" && aPosition(domicile) ? domicile : null;
     if (!aPosition(a) || !["arret", "tache"].includes(e.genre)) continue;
+    const nomIci = aPosition(domicile) && memeLieu(a, domicile) ? "Maison" : e.lieu || String(a.label || "").split(",")[0];
     if (precedent && !memeLieu(precedent.adresse, a)) {
       // 19 nov. 2026, 14h33 (Rebecca : « quand une course est validée, elle doit disparaître ») : trajet fait = etape cochee
-      sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: a, nomVers: e.lieu || String(a.label || "").split(",")[0], arriveeMin: e.min, quoi: e.texte || "", cle: cleDe(e), fait: !!e.fait, ...apres(precedent) });
+      sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: a, nomVers: nomIci, arriveeMin: e.min, quoi: e.texte || "", cle: cleDe(e), fait: !!e.fait, ...apres(precedent) });
     }
     // un retour a la maison deja passe se voit aussi a l'etape suivante cochee
     if (e.fait) for (const t of sortie) if (t.quoi === "Retour à la maison") t.fait = true;
     // 19 nov. 2026, 15h05 : une tache (« sortir le chien » a la maison) occupe le lieu jusqu'a sa fin
     const finTache = e.genre === "tache" ? enMinutes(e.jusqua) : null;
-    precedent = { adresse: a, nom: e.lieu || String(a.label || "").split(",")[0], min: e.min, cle: cleDe(e), ...(finTache != null && finTache > e.min ? { finMin: finTache, finQuoi: e.texte || "" } : {}) };
+    precedent = { adresse: a, nom: nomIci, min: e.min, cle: cleDe(e), ...(finTache != null && finTache > e.min ? { finMin: finTache, finQuoi: e.texte || "" } : {}) };
     // tache a la maison : la maison reste le point de depart, la tache garde sa fin
     if (e.genre === "tache" && aPosition(domicile) && memeLieu(a, domicile)) precedent.nom = "Maison";
   }

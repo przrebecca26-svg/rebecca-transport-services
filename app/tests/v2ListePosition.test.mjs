@@ -81,3 +81,14 @@ test("tâche à la maison : dictée et trafic", () => {
   egal(vers.apresQuoi, "Sortir le chien");
   egal(!!tr.find((x) => x.quoi === "Sortir le chien"), true);
 });
+test("tâche sans adresse = à la maison", () => {
+  const maison = { lat: 32.33, lon: 34.86, label: "Maison" };
+  const ailleurs = { lat: 32.20, lon: 34.80, label: "Ailleurs" };
+  const tr = trajetsDuJour([
+    { min: 600, genre: "arret", adresse: ailleurs, lieu: "Ailleurs", texte: "Course" },
+    { min: 660, genre: "tache", texte: "Sortir le chien", jusqua: "11h20" },
+  ], maison, 0);
+  const t = tr.find((x) => x.quoi === "Sortir le chien");
+  egal(t.nomDe, "Ailleurs");
+  egal(t.nomVers, "Maison");
+});

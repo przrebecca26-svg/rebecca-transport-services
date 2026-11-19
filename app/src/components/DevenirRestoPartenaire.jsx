@@ -73,7 +73,11 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
       // Le contrat par e-mail : au restaurant et à Rebecca
       const texte = emailContrat(signe, ref.id, lienContrat(ref.id));
       const sujet = `Contrat de partenariat livraison ${numeroContrat(ref.id, signe.signeLe)} - Rebecca Services`;
-      const [a, b] = await Promise.all([envoyerEmailA(c.email, c.responsable, sujet, texte), envoyerEmailA(EMAIL_REBECCA, "Rebecca", `🤝 ${c.nom} a signé · ${sujet}`, texte)]);
+      // EmailJS refuse deux envois dans la même seconde (19 nov. : seul le double de Rebecca était parti) :
+      // d'abord le restaurant, puis Rebecca 1,5 s plus tard
+      const a = await envoyerEmailA(c.email, c.responsable, sujet, texte);
+      await new Promise((r) => setTimeout(r, 1500));
+      const b = await envoyerEmailA(EMAIL_REBECCA, "Rebecca", `🤝 ${c.nom} a signé · ${sujet}`, texte);
       setFini({ id: ref.id, c: signe, mails: a && b, mailResto: a });
       aller("merci");
     } catch {

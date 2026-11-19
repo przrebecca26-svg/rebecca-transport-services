@@ -52,3 +52,11 @@ test("clients d'un restaurant : séparés, avec historique, case « aussi dans m
   egal(lireFamilles([{ id: "r", nom: "R", categorie: "commercants", habitudes: { "0541112233": "sans wasabi", vide: " " } }])[0].habitudes, { "0541112233": "sans wasabi" });
   egal(lireFamilles([{ id: "f", nom: "F", categorie: "clientes", depuisResto: "r" }])[0].depuisResto, "r");
 });
+
+import { restosDuClient } from "../src/pricing/commercants.js";
+test("un client : chez quels restaurants partenaires il commande", () => {
+  const d = (id, nom, cle, date, statut = "terminee") => ({ id, nom, date, statut, details: { commandeResto: { cle, id }, telDestinataire: "054-111-2233" } });
+  const l = restosDuClient("0541112233", [d("a", "Ohi Sushi", "K1", "2026-11-10"), d("b", "Ohi Sushi", "K1", "2026-11-12"), d("c", "Pizzeria", "K2", "2026-11-15"), d("d", "Pizzeria", "K2", "2026-11-16", "annulee")]);
+  egal(l.map((r) => [r.nom, r.nb]), [["Ohi Sushi", 2], ["Pizzeria", 1]]);
+  egal(restosDuClient("12", []), []);
+});

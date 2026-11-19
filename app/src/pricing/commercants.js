@@ -108,3 +108,21 @@ export function clientsDuResto(livraisons = []) {
 // La cliente du restaurant est-elle aussi « ma » cliente ? (une fiche du Répertoire, hors restaurants, au même numéro)
 export const ficheMaCliente = (client, familles = []) =>
   client.telephone.length >= 9 ? familles.find((f) => f.categorie !== "commercants" && [f.telephone, f.telephone2].some((t) => telCourt(t) === client.telephone)) || null : null;
+
+// 19 nov. 2026 (Rebecca) : « savoir si elle commande chez le Sushi une fois et chez une pizzeria une autre fois ».
+// Pour un client (par numéro), chez quels restaurants partenaires il commande, avec le nombre de livraisons.
+export function restosDuClient(telephone, demandes = []) {
+  const tel = telCourt(telephone);
+  if (tel.length < 9) return [];
+  const parResto = new Map();
+  for (const d of demandes) {
+    const x = d && d.details;
+    if (!x || !x.commandeResto || telCourt(x.telDestinataire) !== tel || d.statut === "annulee" || d.statut === "refusee") continue;
+    const cle = x.commandeResto.cle || d.nom;
+    const r = parResto.get(cle) || { nom: String(d.nom || "Restaurant"), nb: 0, derniere: "" };
+    r.nb += 1;
+    if (String(d.date || "") > r.derniere) r.derniere = String(d.date || "");
+    parResto.set(cle, r);
+  }
+  return [...parResto.values()].sort((a, b) => b.nb - a.nb || b.derniere.localeCompare(a.derniere));
+}

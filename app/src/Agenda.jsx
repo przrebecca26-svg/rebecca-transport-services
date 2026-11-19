@@ -25,7 +25,7 @@ import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
 import { TYPES_TACHE, etapeValidable, iconeTache } from "./pricing/tournee.js";
-import { ajouterJours, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
+import { ajouterJours, etiquettesDuJour, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
 // Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
 
@@ -83,7 +83,7 @@ function creneauxDuJour(periodes, jour) {
     else if (commence) texte = `à partir de ${p.debut.heure}`;
     else if (finit) texte = `jusqu'à ${p.fin.heure}`;
     const minutes = Math.round((Math.min(p.finUtc, finJ) - Math.max(p.debutUtc, debutJ)) / 60000);
-    res.push({ label: p.label, type: p.type, texte, minutes, debutUtc: p.debutUtc });
+    res.push({ label: p.label, type: p.type, texte, minutes, debutUtc: p.debutUtc, entree: p.entree, sortie: p.sortie, fete: p.fete, commence, finit });
   }
   return res.sort((a, b) => a.debutUtc - b.debutUtc);
 }
@@ -346,10 +346,40 @@ function LigneCreneau({ c, onChanger }) {
 }
 
 function Fermeture({ c }) {
+  if (c.type === "chabbat_fete") {
+    // 19 nov. 2026 : heure officielle (allumage ou sortie) + heure de fermeture/reouverture du site
+    const officiel = [c.commence && c.entree ? `entrée ${c.entree.heure.replace(":", "h")}` : "", c.finit && c.sortie ? `sortie ${c.sortie.heure.replace(":", "h")}` : ""].filter(Boolean).join(" · ");
+    return (
+      <div className={"ag-ferme-ligne " + (c.fete ? "fete" : "chabbat")}>
+        <strong>{c.fete ? "✡️ Fête" : "🕯️ Chabbat"} : {c.label}</strong>
+        <span>Fermé {c.texte}</span>
+        {officiel && <span className="ag-officiel">{officiel}</span>}
+      </div>
+    );
+  }
   return (
     <div className={"ag-ferme-ligne" + (c.type === "personnel" ? " perso" : "")}>
       <strong>{c.label}</strong>
       <span>{c.texte}</span>
+    </div>
+  );
+}
+
+// Les 3 calendriers d'une journee, chacun son etiquette : Chabbat, fete, vacances scolaires (19 nov. 2026)
+function EtiquettesJour({ jour }) {
+  const e = etiquettesDuJour(jour);
+  if (!e.chabbat && !e.fete && !e.veille && !e.vacances) return null;
+  return (
+    <div className="ag-etiquettes">
+      {e.chabbat && <span className="ag-etiq chabbat">🕯️ Chabbat</span>}
+      {e.fete && <span className="ag-etiq fete">✡️ Fête : {e.fete}</span>}
+      {e.veille && <span className="ag-etiq veille">Veille de {e.veille}</span>}
+      {e.vacances && (
+        <span className="ag-etiq vacances">
+          🏖️ {e.vacances}
+          {e.provisoire ? " (dates à confirmer)" : ""}
+        </span>
+      )}
     </div>
   );
 }
@@ -903,7 +933,8 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
   return (
     <div className={"ag-jour" + (jour === aujourdhui ? " aujourdhui" : "")}>
       {titre && <h3>{libelleJour(jour)}</h3>}
-      {vacancesDuJour(jour) && <p className="ag-vacances">🏖️ {vacancesDuJour(jour)} : pas d'école, ta tournée est levée</p>}
+      <EtiquettesJour jour={jour} />
+      {vacancesDuJour(jour) && <p className="ag-vacances">🏖️ Pas d'école : ta tournée est levée{etiquettesDuJour(jour).fete ? ", et c'est fête : fermé" : ""}</p>}
       {fermetures.map((c, i) => (
         <Fermeture key={i} c={c} />
       ))}

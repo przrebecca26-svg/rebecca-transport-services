@@ -212,7 +212,7 @@ const AVEC_VACANCES = JSON.parse(JSON.stringify(T));
 AVEC_VACANCES.calendrier.vacancesScolaires = VACANCES;
 
 test("une seule liste de vacances, celle du calendrier (Hanoucca du 6 au 12 decembre 2026)", () => {
-  egal(VACANCES.length, 6);
+  egal(VACANCES.length, 9); // 6 en 2026-2027 + 3 provisoires en 2027-2028 (19 nov. 2026)
   egal(VACANCES.find((v) => /Hanoucca/.test(v.motif)), { debut: "2026-12-06", fin: "2026-12-12", motif: "Vacances de Hanoucca", actif: true });
 });
 

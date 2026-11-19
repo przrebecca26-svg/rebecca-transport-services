@@ -46,8 +46,10 @@ export const TARIFS = {
     longitude: 34.8532,
     allumageMinutesAvantCoucher: 20, // allumage des bougies
     havdalaMinutesApresCoucher: 40, // sortie de Chabbat / fete
-    margeAvantMinutes: 120, // aucune prestation ne doit se terminer dans les 2 h avant l'entree
-    margeApresMinutes: 15, // petite marge apres la sortie
+    // Decision de Rebecca (19 nov. 2026) : fermeture 1 h avant l'entree (allumage) et reouverture 1 h apres la sortie,
+    // pour Chabbat comme pour les fetes (Yom Tov). Modifiable dans Reglages, groupe « Chabbat et fêtes ».
+    margeAvantMinutes: 60, // aucune prestation ne doit se terminer dans l'heure qui precede l'entree
+    margeApresMinutes: 60, // reouverture 1 h apres la sortie
     // Hol Hamoed (jours intermediaires de Souccot et Pessah) : Rebecca decide JOUR PAR JOUR.
     // Par defaut ces jours restent ouverts ; elle peut en fermer un depuis l'admin
     // (fermeture exceptionnelle). Si bloquer = true, tous ces jours sont fermes d'office.
@@ -83,6 +85,12 @@ export const TARIFS = {
       { debut: "2027-05-12", fin: "2027-05-12", motif: "Yom Haatsmaout", actif: true },
       { debut: "2027-06-10", fin: "2027-06-11", motif: "Vacances de Chavouot", actif: true },
       { debut: "2027-07-01", fin: "2027-08-31", motif: "Grandes vacances", actif: true },
+      // Annee 2027-2028 (19 nov. 2026) : le ministere n'a publie que la rentree (mercredi 1er septembre 2027).
+      // Les lignes ci-dessous sont PROVISOIRES (calendrier habituel des fetes d'automne) : a remplacer par la
+      // circulaire officielle des qu'elle sort. Hanoucca, Pourim, Pessah, Chavouot et ete 2028 : a ajouter a ce moment-la.
+      { debut: "2027-10-01", fin: "2027-10-03", motif: "Vacances de Roch Hachana (provisoire)", actif: true, provisoire: true },
+      { debut: "2027-10-10", fin: "2027-10-23", motif: "Vacances de Yom Kippour et Souccot (provisoire)", actif: true, provisoire: true },
+      { debut: "2028-05-02", fin: "2028-05-02", motif: "Yom Haatsmaout (provisoire)", actif: true, provisoire: true },
     ],
     // CRENEAUX PONCTUELS : un horaire exceptionnel sur une date precise (changement d'horaire de l'ecole...)
     // Exemple : { date: "2026-11-12", debut: "11:45", fin: "13:15", motif: "Créneau déjà réservé" }

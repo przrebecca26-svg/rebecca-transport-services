@@ -150,6 +150,23 @@ export function vacancesDuCalendrier(t = TARIFS) {
 // Nom des vacances d'une date, ou ""
 export const vacancesDuJour = (date, t = TARIFS) => (vacancesDuCalendrier(t).find((v) => date >= v.du && date <= v.au) || {}).nom || "";
 
+// Etiquettes d'une journee (19 nov. 2026) : les 3 calendriers separes, pour le Calendrier admin.
+// { chabbat: bool, fete: "Pessah (1er jour)" | "", veille: "Chabbat" | "Pessah..." | "", vacances: "Vacances de Pessah" | "", provisoire: bool }
+export function etiquettesDuJour(date, t = TARIFS) {
+  const noms = nomsJourSacre(date, t);
+  const demain = nomsJourSacre(ajouterJours(date, 1), t);
+  const v = [...(t.calendrier.vacancesScolaires || []), ...(t.calendrier.vacancesAjoutees || [])].find(
+    (x) => x && x.actif !== false && x.debut && date >= x.debut && date <= (x.fin && x.fin >= x.debut ? x.fin : x.debut)
+  );
+  return {
+    chabbat: noms.includes("Chabbat"),
+    fete: noms.filter((x) => x !== "Chabbat").join(" + "),
+    veille: noms.length === 0 && demain.length ? demain.join(" + ") : "",
+    vacances: v ? v.motif || "Vacances scolaires" : "",
+    provisoire: !!(v && v.provisoire),
+  };
+}
+
 // Toutes les periodes de fermeture qui touchent [depuis ; depuis + nbJours]
 export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
   const cal = t.calendrier;
@@ -179,7 +196,12 @@ export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
     const veille = ajouterJours(jour, -1);
     const debutUtc = coucherSoleilUtc(veille, t) - (cal.allumageMinutesAvantCoucher + cal.margeAvantMinutes) * 60000;
     const finUtc = coucherSoleilUtc(dernier, t) + (cal.havdalaMinutesApresCoucher + cal.margeApresMinutes) * 60000;
-    resultat.push(periode(debutUtc, finUtc, tousNoms.join(" + "), "chabbat_fete"));
+    const p = periode(debutUtc, finUtc, tousNoms.join(" + "), "chabbat_fete");
+    // Heures officielles (sans les marges de fermeture) : allumage et sortie, pour l'affichage
+    p.entree = utcVersLocal(coucherSoleilUtc(veille, t) - cal.allumageMinutesAvantCoucher * 60000);
+    p.sortie = utcVersLocal(coucherSoleilUtc(dernier, t) + cal.havdalaMinutesApresCoucher * 60000);
+    p.fete = tousNoms.some((x) => x !== "Chabbat"); // true = il y a un Yom Tov dans la periode
+    resultat.push(p);
     i = k;
   }
   for (const f of cal.fermeturesExceptionnelles) {

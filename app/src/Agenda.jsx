@@ -1020,8 +1020,8 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
             <label className="ag-champ">À <input type="time" value={f.fin} onChange={(x) => set("fin", x.target.value)} /></label>
           </div>
           {!estNouvel && (
-            <div className="ag-champ">{f.type === "course" ? "Adresse de récupération (facultatif)" : "Adresse (facultatif)"}
-              <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position={false} onChange={(v) => set("lieu", v)} />
+            <div className="ag-champ">{f.type === "course" ? "Adresse de récupération (facultatif)" : "Adresse (facultatif : vide = à la maison)"}
+              <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position onChange={(v) => set("lieu", v)} />
               {/* 19 nov. 2026, 15h05 : une tâche à la maison entre dans le trafic (rentrer, faire, repartir) */}
               {journee && journee.domicile && f.type !== "course" && <button type="button" className="ag-modifier" onClick={() => set("lieu", journee.domicile)}>🏠 À la maison</button>}
             </div>

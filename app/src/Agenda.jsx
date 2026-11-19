@@ -20,6 +20,8 @@ import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
 import { useMaJournee } from "./maJournee.js";
 import TraficDuMatin from "./components/TraficDuMatin.jsx";
+import MaPositionBloc, { useIci, useOu } from "./components/MaPositionBloc.jsx";
+import { arrondir } from "./pricing/maPosition.js";
 import ListeAttenteAdmin from "./components/ListeAttenteAdmin.jsx";
 import PartagerPosition from "./components/PartagerPosition.jsx";
 import { etapesCourses } from "./pricing/traficMatin.js";
@@ -1300,6 +1302,12 @@ export default function Agenda() {
   const holFermes = {};
   for (const f of fermetures) if (f.holHamoed) holFermes[f.holHamoed] = f;
 
+  // 19 nov. 2026, 15h42 : étapes du trafic (tournée + courses, avec « fait ») ; dehors -> le trafic part de ma position
+  const filTrafic = ref === aujourdhui && tourneeOk ? [...maJournee.fil(ref).map((e) => ({ ...e, cle: cleEtape(e) || undefined, fait: !!maJournee.faitA(ref, e) })), ...etapesCourses(parDate[ref] || [])] : [];
+  const ici = useIci();
+  const ouAujourdhui = useOu();
+  const dehorsIci = ouAujourdhui === "dehors" ? arrondir(ici) : null;
+
   const pas = (sens) => {
     if (vue === "jour") setRef(ajouterJours(ref, sens));
     else if (vue === "semaine") setRef(ajouterJours(ref, 7 * sens));
@@ -1336,7 +1344,8 @@ export default function Agenda() {
       </div>
 
       {moi === ADMIN_ID && <ListeAttenteAdmin />}
-      {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <TraficDuMatin jour={ref} fil={[...maJournee.fil(ref).map((e) => ({ ...e, cle: cleEtape(e) || undefined, fait: !!maJournee.faitA(ref, e) })), ...etapesCourses(parDate[ref] || [])]} domicile={maJournee.domicile} />}
+      {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <MaPositionBloc jour={ref} fil={filTrafic} domicile={maJournee.domicile} journee={maJournee} courses={parDate[ref] || []} />}
+      {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <TraficDuMatin jour={ref} fil={filTrafic} domicile={maJournee.domicile} ici={dehorsIci} />}
       {vue === "jour" && <JourListe equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} valide={tourneeOk && ref <= aujourdhui && ref >= ajouterJours(aujourdhui, -1) ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
       {vue === "semaine" && jours.map((j) => <JourListe key={j} titre equipier={moi !== ADMIN_ID} fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}

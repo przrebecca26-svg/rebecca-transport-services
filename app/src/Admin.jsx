@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase.js";
@@ -36,6 +36,7 @@ import { EquipeContexte, useEquipeDonnees } from "./equipeContexte.jsx";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { demandeAcces, roleDe, rubriquesPour } from "./pricing/espaceEquipe.js";
 import { BandeauEnAttente } from "./ecritureRapide.js";
+import { jouerSon, useStylesNotif } from "./sons.js";
 import "./admin.css";
 import "./theme-admin.css";
 
@@ -131,6 +132,8 @@ const nomRubrique = (o) => ALIAS[o] || o;
 
 const MEMO = "rs-admin-onglet";
 const ongletDepart = () => {
+  // 19 nov. 2026, 15h42 : notification « 📍 Localise-toi » -> Calendrier (la position se prend toute seule)
+  if (/[?&]localiser=1/.test(window.location.hash)) return "agenda";
   try {
     const o = nomRubrique(sessionStorage.getItem(MEMO));
     if (RUBRIQUES.some((x) => x.id === o)) return o;
@@ -314,6 +317,13 @@ export default function Admin() {
   // 15 nov. 2026 : nombre de choses a traiter a cote de chaque rubrique du menu
   const compteurs = { ...useCompteurs(role), transferts: aTraiter };
   const totalATraiter = Object.values(compteurs).reduce((n, x) => n + (x || 0), 0);
+  // 19 nov. 2026, 15h42 : appli ouverte -> 3 clochettes (au choix) quand une nouvelle chose à traiter arrive
+  const stylesNotif = useStylesNotif(role === "admin");
+  const avantTotal = useRef(null);
+  useEffect(() => {
+    if (avantTotal.current != null && totalATraiter > avantTotal.current) jouerSon(stylesNotif.nouvelle.son);
+    avantTotal.current = totalATraiter;
+  }, [totalATraiter]); // eslint-disable-line react-hooks/exhaustive-deps
   // 18 nov. 2026 : espace d'un coursier partenaire actif (rien d'autre)
   if (coursier && coursier.statut === "actif") return <EspaceCoursier uid={user.uid} fiche={coursier} deconnecter={deconnecter} />;
 

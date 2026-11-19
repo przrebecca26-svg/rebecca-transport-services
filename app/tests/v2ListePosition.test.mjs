@@ -92,3 +92,33 @@ test("tâche sans adresse = à la maison", () => {
   egal(t.nomDe, "Ailleurs");
   egal(t.nomVers, "Maison");
 });
+
+// 19 nov. 2026, 15h42 : emojis des notifications et « où je suis »
+import { lireStyles, styliser, typeDeTag, avecLocalisation, estDehors } from "../src/pricing/sonsNotif.js";
+import { ouSuisJe, etapeIci, bilanArrivee, prochaineEtape } from "../src/pricing/maPosition.js";
+test("notifications : emoji par type", () => {
+  egal(typeDeTag("avant-2026-11-19-x"), "partir");
+  egal(typeDeTag("demandes-abc"), "nouvelle");
+  egal(typeDeTag("paiementsDeclares-abc"), "paiement");
+  egal(typeDeTag("vol-x"), "alerte");
+  egal(typeDeTag("matin-2026"), "info");
+  const s = lireStyles(JSON.stringify({ nouvelle: { emoji: "🛎️", son: "1" } }));
+  egal(styliser({ titre: "Nouvelle demande", tag: "demandes-1" }, s).titre, "🛎️ Nouvelle demande");
+  egal(styliser({ titre: "⏰ Dans 15 min", tag: "avant-1" }, lireStyles("{}")).titre, "🔔🔔 ⏰ Dans 15 min");
+  egal(avecLocalisation({ corps: "x", lien: "/admin#/admin" }).lien, "/admin#/admin?localiser=1");
+  egal(estDehors({ ou: "dehors", ouLe: "2026-11-19T15:40" }, "2026-11-19"), true);
+  egal(estDehors({ ou: "dehors", ouLe: "2026-11-18T15:40" }, "2026-11-19"), false);
+});
+test("où je suis : maison, arrivée, retard", () => {
+  const maison = { lat: 32.33, lon: 34.86 };
+  egal(ouSuisJe({ lat: 32.3305, lon: 34.8603 }, maison), "maison");
+  egal(ouSuisJe({ lat: 32.31, lon: 34.86 }, maison), "dehors");
+  const gan = { lat: 32.32, lon: 34.85 };
+  const fil = [{ min: 840, genre: "arret", adresse: gan, texte: "Prendre Joy", lieu: "Gan" }];
+  egal(etapeIci(fil, { lat: 32.3201, lon: 34.8501 }, 835).texte, "Prendre Joy");
+  egal(etapeIci(fil, { lat: 32.33, lon: 34.86 }, 835), null);
+  const b = bilanArrivee(fil[0], 12, 835);
+  egal(b.retard, 7);
+  egal(bilanArrivee(fil[0], 3, 820).aLHeure, true);
+  egal(prochaineEtape(fil, 830).texte, "Prendre Joy");
+});

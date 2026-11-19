@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { calculerTrajetSur, dureeAvecTrafic, googleActif } from "../routing.js";
+import { jouerSon, useStylesNotif } from "../sons.js";
 import { departConseille, departIso, enHeure, trajetsDuJour } from "../pricing/traficMatin.js";
 
 // TRAFIC DE CE MATIN (17 nov. 2026) - vue Jour du Calendrier, aujourd'hui seulement.
@@ -22,12 +23,21 @@ const ecrire = (jour, v) => {
 };
 const signature = (t) => t.filter((x) => !x.fait).map((x) => `${x.de.lat},${x.de.lon}>${x.vers.lat},${x.vers.lon}@${x.arriveeMin}`).join("|");
 
-export default function TraficDuMatin({ jour, fil, domicile }) {
+// 19 nov. 2026, 15h42 : ici = ma position quand je suis dehors (le prochain trajet part de là) ;
+// appli ouverte : 2 clochettes (au choix) à l'heure de partir.
+export default function TraficDuMatin({ jour, fil, domicile, ici = null }) {
+  const styles = useStylesNotif(true);
   const maintenant = () => {
     const [h, m] = new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }).split(":").map(Number);
     return h * 60 + m;
   };
-  const trajets = useMemo(() => trajetsDuJour(fil, domicile, 0), [fil, domicile]);
+  const trajets = useMemo(() => {
+    const t = trajetsDuJour(fil, domicile, 0);
+    if (!ici) return t;
+    const now = maintenant();
+    const i = t.findIndex((x) => !x.fait && x.arriveeMin > now);
+    return i < 0 ? t : t.map((x, k) => (k === i ? { ...x, de: ici, nomDe: "📍 Ma position", cle: `${x.cle}@ici` } : x));
+  }, [fil, domicile, ici && ici.lat, ici && ici.lon]); // eslint-disable-line react-hooks/exhaustive-deps
   const sig = signature(trajets);
   const [res, setRes] = useState(() => lire(jour));
   const [etat, setEtat] = useState("");
@@ -75,6 +85,21 @@ export default function TraficDuMatin({ jour, fil, domicile }) {
     }, 60000);
     return () => clearInterval(t);
   }, [jour, sig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clochettes à l'heure de partir (une fois par trajet), appli ouverte
+  useEffect(() => {
+    const t = setInterval(() => {
+      const r = lire(jour);
+      const n = maintenant();
+      for (const l of (r && r.lignes) || []) {
+        if (l.partir !== n) continue;
+        const cle = `rs-son-${jour}-${l.cle || l.nomDe + l.arriveeMin}`;
+        try { if (sessionStorage.getItem(cle)) continue; sessionStorage.setItem(cle, "1"); } catch { /* */ }
+        jouerSon(styles.partir.son);
+      }
+    }, 20000);
+    return () => clearInterval(t);
+  }, [jour, styles.partir.son]);
 
   if (!trajets.length) return null;
   const now = maintenant();

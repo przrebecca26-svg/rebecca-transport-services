@@ -5,6 +5,7 @@ import NettoyageTests from "./components/NettoyageTests.jsx";
 import ProposerCoursier from "./components/ProposerCoursier.jsx";
 import RecuCourse from "./components/RecuCourse.jsx";
 import { champsOffrir, etatFidelite, messageFidelite } from "./pricing/fidelite.js";
+import { supprimerCourseComplete } from "./suppression.js";
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ModifierDevis } from "./SimulateurDevis.jsx";
 import { db } from "./firebase.js";
@@ -489,18 +490,17 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
     if (ok) setPrix(String(maj.prixFinal));
     return ok;
   };
-  // Supprimer la course (16 nov. 2026) : seulement sans paiement noté et sans compte client
+  // Supprimer la course (19 nov. 2026, Rebecca : « supprimer vite tout ce qui est faux ou test ») : avec ses paiements
+  // et son suivi client. Confirmation dans la page (2 touches) : la fenetre du navigateur ne s'ouvre pas partout.
+  const [confirmerSuppr, setConfirmerSuppr] = useState(false);
   const supprimer = async () => {
     setErreur("");
-    if (d.uid) return setErreur("Cette course vient d'un compte client : refuse-la ou annule-la plutôt que de la supprimer.");
+    if (!confirmerSuppr) return setConfirmerSuppr(true);
     try {
-      const mouvements = await getDocs(query(collection(db, "mouvements"), where("resId", "==", d.id)));
-      if (!mouvements.empty) return setErreur("Un paiement est noté sur cette course : annule-la depuis « Paiements » plutôt que de la supprimer.");
-      if (!window.confirm(`Supprimer définitivement la course de ${d.nom} ? Elle disparaîtra de l'agenda et de la fiche client.`)) return;
-      await deleteDoc(ref);
+      await supprimerCourseComplete(d.id);
       onFermer();
     } catch {
-      setErreur("Suppression impossible. Vérifiez la connexion puis réessayez.");
+      setErreur("Suppression impossible. Vérifie la connexion (et que les règles Firebase v28 sont collées).");
     }
   };
 
@@ -661,11 +661,12 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
         <p className="tb-note">Reçue le {recueLe(d)}</p>
       </div>
 
-      {!d.uid && (
+      {moi === "rebecca" && (
         <div className="tb-bloc">
           <h3>Supprimer</h3>
-          <p className="tb-note">Pour une course créée par erreur ou en double. Impossible si un paiement est déjà noté.</p>
-          <button className="tb-bouton tb-danger" disabled={enCours} onClick={supprimer}>Supprimer la course</button>
+          <p className="tb-note">Pour une course de test, en double ou que tu ne gardes pas : elle part avec ses paiements et disparaît partout (Finances, Bilan, Calendrier, fiche cliente).</p>
+          <button className="tb-bouton tb-danger" disabled={enCours} onClick={supprimer}>{confirmerSuppr ? "Oui, supprimer la course et ses paiements" : "Supprimer la course"}</button>
+          {confirmerSuppr && <button className="tb-bouton tb-clair" onClick={() => setConfirmerSuppr(false)}>Non</button>}
         </div>
       )}
 

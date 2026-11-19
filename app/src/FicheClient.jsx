@@ -2,8 +2,9 @@ import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import ChoixAge from "./components/ChoixAge.jsx";
 import { champOperateur } from "./pricing/reverser.js";
 import { Fragment, useEffect, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { supprimerCourseComplete } from "./suppression.js";
 import { lienAppel, lienWhatsApp } from "./pricing/navigation.js";
 import { bonusRecharge, soldeCredit } from "./pricing/credit.js";
 import { lignesRecharge, validerCorrectionCredit } from "./pricing/clients.js";
@@ -60,6 +61,21 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState("");
   const [info, setInfo] = useState("");
+  // 19 nov. 2026 : supprimer une fiche (cliente de test, doublon...) avec toutes ses courses et paiements - Rebecca seule
+  const [supprFiche, setSupprFiche] = useState(false);
+  const supprimerFiche = async () => {
+    setEnCours(true);
+    setErreur("");
+    try {
+      for (const d of fiche.demandes || []) await supprimerCourseComplete(d.id);
+      await deleteDoc(doc(db, "clientsAdmin", fiche.cle)).catch(() => {});
+      if (fiche.avecCompte) await deleteDoc(doc(db, "clients", fiche.cle));
+      onFermer();
+    } catch {
+      setErreur("Suppression impossible. Vérifie la connexion (et que les règles Firebase v28 sont collées).");
+    }
+    setEnCours(false);
+  };
 
   // Carnet de credit et avis du compte
   useEffect(() => {
@@ -377,6 +393,20 @@ export default function FicheClient({ fiche, admin, recharges, clients, aller, o
           </>
         )}
       </Bloc>
+
+      {moi === "rebecca" && (
+        <Bloc titre="Supprimer la fiche">
+          <p className="tb-note">Pour une cliente de test ou un doublon : la fiche part avec ses {(fiche.demandes || []).length} course(s) et leurs paiements.{fiche.avecCompte ? " Son compte de connexion reste possible : si elle se reconnecte, elle refait sa fiche." : ""}</p>
+          {!supprFiche ? (
+            <button className="tb-bouton tb-danger" onClick={() => setSupprFiche(true)}>Supprimer la fiche</button>
+          ) : (
+            <div className="tb-actions">
+              <button className="tb-bouton tb-danger" disabled={enCours} onClick={supprimerFiche}>Oui, tout supprimer</button>
+              <button className="tb-bouton tb-clair" onClick={() => setSupprFiche(false)}>Non</button>
+            </div>
+          )}
+        </Bloc>
+      )}
 
       {(info || erreur) && (
         <button className={"fc-message" + (erreur ? " erreur" : "")} role={erreur ? "alert" : "status"} onClick={() => { setInfo(""); setErreur(""); }}>

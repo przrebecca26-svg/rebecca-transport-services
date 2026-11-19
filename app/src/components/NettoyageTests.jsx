@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import { db } from "../firebase.js";
+import { supprimerCourseComplete } from "../suppression.js";
 
 // FAIRE LE MENAGE (18 nov. 2026, demande de Rebecca) - Rebecca seule.
 // Supprime d'un coup les demandes de test : refusees, annulees, ou au nom de « Test ».
@@ -40,17 +41,8 @@ export default function NettoyageTests({ items }) {
     let ko = 0;
     for (const d of liste) {
       try {
-        const mv = await getDocs(query(collection(db, "mouvements"), where("resId", "==", d.id)));
-        const solde = mv.docs.reduce((s, x) => {
-          const m = x.data();
-          const n = Number(m.montant) || 0;
-          return s + (m.kind === "paiement" || m.kind === "correction" ? n : m.kind === "remboursement_effectue" ? -n : 0);
-        }, 0);
-        if (Math.abs(solde) >= 0.01) {
-          await addDoc(collection(db, "mouvements"), { kind: "correction", resId: d.id, date: aujourdhui(), montant: -Math.round(solde * 100) / 100, motif: "Suppression d'un test", creeLe: serverTimestamp() });
-        }
-        if (d.uid) await deleteDoc(doc(db, "suivi", d.id)).catch(() => {});
-        await deleteDoc(doc(db, "demandes", d.id));
+        // 19 nov. 2026 : la course part avec ses paiements (plus de correction qui laisse une trace)
+        await supprimerCourseComplete(d.id);
         ok++;
       } catch {
         ko++;
@@ -66,7 +58,7 @@ export default function NettoyageTests({ items }) {
       <button className="tb-bouton tb-clair" onClick={() => setOuvert(!ouvert)}>🧹 Faire le ménage des tests ({candidates.length})</button>
       {ouvert && (
         <>
-          <p className="tb-note">Demandes refusées, annulées ou au nom de « Test ». Décoche celles à garder. Un paiement de test noté est annulé par une correction, pour que tes Finances restent justes.</p>
+          <p className="tb-note">Demandes refusées, annulées ou au nom de « Test ». Décoche celles à garder. Leurs paiements de test sont supprimés avec elles : rien ne reste dans tes Finances.</p>
           {candidates.map((d) => (
             <label key={d.id} className="rg-case" style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "4px 0" }}>
               <input type="checkbox" checked={choix.has(d.id)} onChange={() => basculer(d.id)} />

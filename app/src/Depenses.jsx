@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, updateDoc, onSnapshot, orderBy, query, serverTimestamp, where } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { ADMIN_ID, lignesDe } from "./pricing/equipe.js";
 import { champOperateur } from "./pricing/reverser.js";
@@ -45,6 +45,8 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
   const [suivantes, setSuivantes] = useState([]);
   // 19 nov. 2026 : supprimer une ligne saisie par erreur (deux touches : Supprimer puis Oui, supprimer)
   const [aSupprimer, setASupprimer] = useState(null);
+  // 19 nov. 2026 : modifier une dépense (même formulaire, pré-rempli)
+  const [enModif, setEnModif] = useState(null);
   const supprimer = async (id) => {
     try {
       await deleteDoc(doc(db, "depenses", id));
@@ -84,7 +86,18 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
     setAConfirmer(null);
     setErreur("");
   };
+  const modifier = (d) => {
+    ouvrir(d.montant < 0 ? "correction" : "depense");
+    setCategorie(d.categorie);
+    setMontant(String(Math.abs(d.montant)));
+    setDate(d.date);
+    setMotif(d.motif || "");
+    setVehicule(d.vehicule || "");
+    setEnModif(d.id);
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* ancien navigateur */ }
+  };
   const fermer = () => {
+    setEnModif(null);
     setSuivantes([]);
     setMode(null);
     setAConfirmer(null);
@@ -116,7 +129,10 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
     setEnCours(true);
     setErreur("");
     try {
-      await addDoc(collection(db, "depenses"), { ...aConfirmer, ...champOperateur(moi), creeLe: serverTimestamp() });
+      if (enModif) {
+        const { date: dt, categorie: ca, montant: mo, motif: mf = "", vehicule: ve = "" } = aConfirmer;
+        await updateDoc(doc(db, "depenses", enModif), { date: dt, categorie: ca, montant: mo, motif: mf, vehicule: ve });
+      } else await addDoc(collection(db, "depenses"), { ...aConfirmer, ...champOperateur(moi), creeLe: serverTimestamp() });
       setMois(moisDe(aConfirmer.date));
       if (suivantes.length) {
         const [prochaine, ...reste] = suivantes;
@@ -179,8 +195,8 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
 
         {mode !== null && !aConfirmer && (
           <div className="pm-form">
-            <h4>{mode === "depense" ? "Nouvelle dépense" : "Corriger une erreur"}</h4>
-            {mode === "depense" && <Dicter exemple="Ex. : péage route 6, 25 shekels" comprendre={(t) => comprendreDepenses(t, CATEGORIES)} remplir={(r) => { setCategorie(r.categorie); setMontant(r.montant); setMotif(r.motif); setSuivantes(r.suite || []); }} />}
+            <h4>{enModif ? "Modifier la dépense" : mode === "depense" ? "Nouvelle dépense" : "Corriger une erreur"}</h4>
+            {mode === "depense" && !enModif && <Dicter exemple="Ex. : péage route 6, 25 shekels" comprendre={(t) => comprendreDepenses(t, CATEGORIES)} remplir={(r) => { setCategorie(r.categorie); setMontant(r.montant); setMotif(r.motif); setSuivantes(r.suite || []); }} />}
             {mode === "depense" && suivantes.length > 0 && <p className="tb-note">Ensuite : {suivantes.map((x) => `${x.categorie} · ${x.montant} ₪`).join(" + ")} (s'ouvrira toute remplie après « Enregistrer »).</p>}
             <label className="pm-champ">
               Catégorie
@@ -272,7 +288,10 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
                     <button type="button" className="ag-modifier" onClick={() => setASupprimer(null)}>Non</button>
                   </span>
                 ) : (
-                  <button type="button" className="ag-modifier" onClick={() => setASupprimer(d.id)}>Supprimer</button>
+                  <span className="tb-actions">
+                    <button type="button" className="ag-modifier" onClick={() => modifier(d)}>Modifier</button>
+                    <button type="button" className="ag-modifier" onClick={() => setASupprimer(d.id)}>Supprimer</button>
+                  </span>
                 )}
               </li>
             ))}

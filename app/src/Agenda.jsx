@@ -26,6 +26,7 @@ import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
 import { TYPES_TACHE, etapeValidable, iconeTache } from "./pricing/tournee.js";
+import { supprimerCourseComplete } from "./suppression.js";
 import { comprendreDateHeure, demandeCreneau, dureeDite, quoiDeTache, trouverCreneau } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
 import { ajouterJours, etiquettesDuJour, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
@@ -387,8 +388,10 @@ function EtiquettesJour({ jour }) {
   );
 }
 
-function Evenement({ d, aujourdhui }) {
+function Evenement({ d, aujourdhui, admin = false }) {
   const [ouvert, setOuvert] = useState(false);
+  // 19 nov. 2026 : supprimer une course de test directement depuis ma journée (Rebecca seule)
+  const [suppr, setSuppr] = useState("");
   const st = STATUTS[d.statut] || { label: d.statut, classe: "attente" };
   const whatsapp = lienWhatsApp(d.telephone);
   const appel = lienAppel(d.telephone);
@@ -421,6 +424,14 @@ function Evenement({ d, aujourdhui }) {
             {appel && <a className="tb-bouton tb-clair" href={appel}>Appeler</a>}
           </div>
           <p className="tb-note">Pour accepter, refuser ou changer le prix : onglet Demandes.</p>
+          {admin && (suppr === "" ? (
+            <button type="button" className="ag-modifier" onClick={() => setSuppr("?")}>Supprimer cette course</button>
+          ) : suppr === "?" ? (
+            <div className="tb-actions">
+              <button type="button" className="tb-bouton ag-danger" onClick={() => supprimerCourseComplete(d.id).catch(() => setSuppr("Suppression impossible. Vérifie la connexion (règles Firebase v28)."))}>Oui, supprimer (avec ses paiements)</button>
+              <button type="button" className="ag-modifier" onClick={() => setSuppr("")}>Non</button>
+            </div>
+          ) : <p className="admin-erreur" role="alert">{suppr}</p>)}
         </div>
       )}
     </div>
@@ -949,7 +960,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
   const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
     ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} familles={rep.familles || []} suivante={e.sorte === "prise" ? fil.slice(i + 1).find((x) => x.genre === "arret" && x.sorte === "depose" && x.adresse) || null : null} />, etape: true })),
-    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} /> })),
+    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);
   // 19 nov. 2026 : ce qui occupe deja la journee (en minutes), pour « trouve-moi un créneau » dans la dictée

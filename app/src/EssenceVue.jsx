@@ -3,7 +3,7 @@ import { comprendrePlein } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { ajouterPlein, essenceDuMois, lireEssence, retirerPlein } from "./pricing/essence.js";
+import { ajouterPlein, essenceDuMois, lireEssence, retirerPlein, modifierPlein } from "./pricing/essence.js";
 import { useKmReel } from "./kmReel.js";
 import { TARIFS } from "./pricing/config.js";
 
@@ -68,14 +68,14 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
 
       {form && (
         <div className="tb-bloc pm-form">
-          <h4>Nouveau plein</h4>
-          <Dicter exemple="Ex. : plein de 240, 31 litres, compteur 85661" comprendre={comprendrePlein} remplir={(r) => setForm((f) => ({ ...f, montant: r.montant || f.montant, litres: r.litres || f.litres, compteur: r.compteur || f.compteur }))} />
+          <h4>{form.id ? "Modifier le plein" : "Nouveau plein"}</h4>
+          {!form.id && <Dicter exemple="Ex. : plein de 240, 31 litres, compteur 85661" comprendre={comprendrePlein} remplir={(r) => setForm((f) => ({ ...f, montant: r.montant || f.montant, litres: r.litres || f.litres, compteur: r.compteur || f.compteur }))} />}
           <label className="pm-champ">Date<input type="date" value={form.date} onChange={(x) => setForm({ ...form, date: x.target.value })} /></label>
           <label className="pm-champ">Montant (₪)<input inputMode="decimal" value={form.montant} onChange={(x) => setForm({ ...form, montant: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="pm-champ">Litres (facultatif)<input inputMode="decimal" value={form.litres} onChange={(x) => setForm({ ...form, litres: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="pm-champ">Compteur kilométrique (facultatif)<input inputMode="numeric" value={form.compteur} onChange={(x) => setForm({ ...form, compteur: x.target.value.replace(/[^0-9]/g, "") })} /></label>
           <div className="tb-actions">
-            <button type="button" className="tb-bouton" disabled={!(Number(String(form.montant).replace(",", ".")) > 0)} onClick={async () => (await sauver(ajouterPlein(e, form))) && setForm(null)}>Enregistrer</button>
+            <button type="button" className="tb-bouton" disabled={!(Number(String(form.montant).replace(",", ".")) > 0)} onClick={async () => (await sauver(form.id ? modifierPlein(e, form.id, form) : ajouterPlein(e, form))) && setForm(null)}>Enregistrer</button>
             <button type="button" className="tb-bouton tb-clair" onClick={() => setForm(null)}>Annuler</button>
           </div>
         </div>
@@ -87,6 +87,7 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
         {pleinsMois.map((p) => (
           <p key={p.id}>
             {p.date.slice(8, 10)}/{p.date.slice(5, 7)} · <strong>{shekels(p.montant)}</strong>{p.litres ? ` · ${p.litres} L` : ""}{p.compteur ? ` · compteur ${p.compteur.toLocaleString("fr-FR")}` : ""}{" "}
+            <button type="button" className="fm-petit clair" onClick={() => { setForm({ id: p.id, date: p.date, montant: String(p.montant), litres: p.litres ? String(p.litres) : "", compteur: p.compteur ? String(p.compteur) : "" }); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* */ } }}>Modifier</button>{" "}
             <button type="button" className="fm-petit clair" onClick={() => sauver(retirerPlein(e, p.id))}>Supprimer</button>
           </p>
         ))}

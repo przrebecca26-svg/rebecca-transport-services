@@ -147,7 +147,7 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
                     <li>Jusqu'à 3 km : <strong>{tarifs[x.v].jusqua3} ₪</strong></li>
                     <li>De 3 à 6 km : <strong>{tarifs[x.v].de3a6} ₪</strong></li>
                     <li>Commande en plus dans la même tournée : <strong>{tarifs[x.v].enPlus} ₪</strong></li>
-                    {x.v === "B" && <li>Minimum : <strong>{tarifs.B.minimumCreneau} livraisons</strong> payées par créneau</li>}
+                    {x.v === "B" && <li>Minimum garanti : <strong>{tarifs.B.minimumCreneau} livraisons = {tarifs.B.minimumCreneau * tarifs.B.jusqua3} ₪</strong> par créneau (les livraisons faites comptent dedans)</li>}
                     <li>Au-delà de 6 km : sur devis</li>
                   </ul>
                 </div>
@@ -195,7 +195,7 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
               </button>
             ))}
           </div>
-          {f.formule === "B" && <label className="pp-champ">Vos créneaux réservés<input type="text" maxLength={200} value={f.creneaux} placeholder="Ex. : jeudi 18h-21h, samedi soir" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
+          {f.formule === "B" && <label className="pp-champ">Vos créneaux réservés<input type="text" maxLength={200} value={f.creneaux} placeholder="Jour et heures : ex. jeudi 18h-21h, dimanche 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
           <label className="pp-champ">Paiement du relevé, chaque dimanche, par
             <select value={f.moyen} onChange={(e) => maj("moyen", e.target.value)}>{MOYENS.map((m) => <option key={m}>{m}</option>)}</select>
           </label>

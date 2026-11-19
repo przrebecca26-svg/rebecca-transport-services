@@ -65,6 +65,13 @@ export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "",
 
 // Contrat d'un commercant partenaire (19 nov. 2026) : chiffres et textes propres, lien prive du restaurant
 const prixLu = (x) => (Number.isFinite(Number(x)) && Number(x) >= 0 && Number(x) <= 1000 ? Math.round(Number(x) * 100) / 100 : undefined);
+// 19 nov. 2026 : infos propres a un restaurant / commerce partenaire (fiche « Commerçant partenaire »)
+export const CHAMPS_RESTO = ["recuperation", "horaires", "nomLegal", "numero"];
+export function restoLu(r) {
+  const o = r && typeof r === "object" ? r : {};
+  return Object.fromEntries(CHAMPS_RESTO.map((k) => [k, String(o[k] || "").slice(0, k === "numero" ? 20 : 200)]));
+}
+
 function contratLu(c) {
   const r = {};
   for (const k of ["jusqua3", "de3a6", "enPlus", "minimumCreneau"]) if (prixLu(c[k]) !== undefined) r[k] = prixLu(c[k]);
@@ -105,6 +112,7 @@ export function lireFamilles(liste) {
       ...(["whatsapp", "appel", "email"].includes(f.contactPref) ? { contactPref: f.contactPref } : {}),
       ...(["oui", "non"].includes(f.relances) ? { relances: f.relances } : {}),
       ...(f.categorie === "commercants" && f.contratPro && typeof f.contratPro === "object" ? { contratPro: contratLu(f.contratPro) } : {}),
+      ...(f.categorie === "commercants" && f.resto && typeof f.resto === "object" ? { resto: restoLu(f.resto) } : {}),
       membres: (Array.isArray(f.membres) ? f.membres : [])
         .filter((m) => m && typeof m === "object" && String(m.nom || "").trim())
         .slice(0, 20)

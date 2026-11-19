@@ -13,15 +13,15 @@ import ChoixLieu, { ID_AJOUT_RAPIDE } from "./components/MesLieux.jsx";
 import Familles from "./Familles.jsx";
 import { lienWazePoint, lienWhatsApp } from "./pricing/navigation.js";
 import { TYPES_LIEU, lieuVide, manqueLieu, cleAdresse, adressesClients, corriger } from "./pricing/repertoire.js";
-import { useRepertoire, enregistrerRepertoire, enregistrerCleGoogle } from "./repertoireBase.js";
-import { useFermetures } from "./fermetures.js";
-import { definirCleGoogle, googleActif } from "./routing.js";
+import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
 
 // REPERTOIRE (12 nov. 2026) : mes lieux habituels par leur nom, et les adresses de mes clientes.
 
 const waze = (a) => lienWazePoint(a);
+// Categorie d'une fiche -> rubrique de « Mes lieux »
+const GROUPE_FICHE = { moi: "maison", proches: "famille", clientes: "clientes", commercants: "restos" };
 const sansAccent = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 function Lieu({ l, changer, supprimer, connues, ouvert, ouvrir }) {
@@ -55,35 +55,6 @@ function Lieu({ l, changer, supprimer, connues, ouvert, ouvrir }) {
         <button type="button" className="tdb-bouton" onClick={() => ouvrir(false)}>← Retour au répertoire</button>
       </div>
     </details>
-  );
-}
-
-// Recherche d'adresses Google : Rebecca colle sa cle ici (jamais ecrite dans le programme)
-function RechercheGoogle() {
-  useFermetures(); // charge la cle deja enregistree
-  const [cle, setCle] = useState("");
-  const [message, setMessage] = useState("");
-  const enregistrer = async (valeur) => {
-    try {
-      await enregistrerCleGoogle(valeur);
-      definirCleGoogle(valeur);
-      setCle("");
-      setMessage(valeur ? (googleActif() ? "Clé enregistrée : la recherche Google est active." : "Cette clé n'a pas la bonne forme : vérifie que tu as tout copié.") : "Recherche Google arrêtée : retour au service gratuit.");
-    } catch {
-      setMessage("Enregistrement impossible : seule Rebecca peut régler la recherche Google.");
-    }
-  };
-  return (
-    <section className="tdb-bloc">
-      <h2>Recherche d'adresses Google</h2>
-      <p className="tdb-note">{googleActif() ? "✅ Active : écoles et magasins par leur nom, français, anglais ou hébreu, numéros de rue." : "Pas encore active : la recherche utilise le service gratuit."}</p>
-      <div className="dr-actions">
-        <input className="dr-tel" type="text" autoComplete="off" placeholder="Colle ici ta clé Google" value={cle} onChange={(e) => setCle(e.target.value)} />
-        <button type="button" className="tdb-bouton" disabled={!cle.trim()} onClick={() => enregistrer(cle.trim())}>Enregistrer la clé</button>
-        {googleActif() && <button type="button" className="dr-secondaire" onClick={() => enregistrer("")}>Arrêter la recherche Google</button>}
-      </div>
-      {message && <p className="tdb-note" role="status">{message}</p>}
-    </section>
   );
 }
 
@@ -127,6 +98,7 @@ export default function Repertoire({ aller = null }) {
   const [texte, setTexte] = useState("");
   const supprimes = useRef(new Set()); // lieux supprimes ici (a ne pas faire revenir a l'enregistrement)
   const [lieuOuvert, setLieuOuvert] = useState(""); // un seul lieu ouvert a la fois, avec sa fleche de retour
+  const [annonce, setAnnonce] = useState(""); // 19 nov. 2026 : « ✓ Fiche … enregistrée » apres la fermeture d'une fiche
 
   useEffect(() => {
     if (!modifie) {
@@ -163,7 +135,7 @@ export default function Repertoire({ aller = null }) {
           moi={moi}
           categorie={entree.categorie}
           changerCategorie={(v) => fc.changerCategorie(entree.cle, v).catch(() => {})}
-          retour={() => setFicheOuverte(null)}
+          retour={(msg) => { setFicheOuverte(null); setAnnonce(typeof msg === "string" ? msg : ""); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           ouvrirFicheCliente={aller ? (cle) => aller("clients", cle) : null}
           connues={lieuxConnus0}
         />
@@ -209,6 +181,7 @@ export default function Repertoire({ aller = null }) {
         <h1>Répertoire</h1>
         <p className="tdb-sous">Mes adresses habituelles et celles de mes clientes. Partout où je tape une adresse, j'écris le nom et elle se remplit.</p>
       </div>
+      {annonce && <p className="tdb-note" role="status">{annonce}</p>}
       <input className="dr-tel rp-large" type="search" placeholder="Chercher un nom (Alexia, Carrefour, école…)" value={texte} onChange={(e) => setTexte(e.target.value)} />
 
       <div className="tb-filtres" role="tablist" aria-label="Catégories">
@@ -230,7 +203,7 @@ export default function Repertoire({ aller = null }) {
               <strong>{x.nom}</strong>
               <small> · {x.telephone || "pas de téléphone"} · {libelleCategorie(x.rang)}{suivi && suivi[x.cle].derniere ? ` · dernière fois le ${suivi[x.cle].derniere.split("-").reverse().join("/")}` : ""}</small>
             </span>
-            <button type="button" className="tdb-bouton" onClick={() => setFicheOuverte(x.cle)}>Fiche</button>
+            <button type="button" className="tdb-bouton" onClick={() => { setAnnonce(""); setFicheOuverte(x.cle); }}>Fiche</button>
           </div>
         ))}
         <button type="button" className="dr-secondaire rp-large" onClick={() => setFicheOuverte({ nouvelle: { ...familleVide(), enfants: [], categorie: categorie === "moi" || categorie === "proches" || categorie === "commercants" ? categorie : "clientes" } })}>+ Nouvelle fiche</button>
@@ -249,10 +222,21 @@ export default function Repertoire({ aller = null }) {
       <div className="formulaire dr-formulaire">
         {TYPES_LIEU.map((t) => {
           const duType = lieux.filter((l) => l.type === t.v && voit(l.nom, l.note, l.adresse && l.adresse.label));
-          if (duType.length === 0) return null;
+          // 19 nov. 2026 : l'adresse de chaque fiche se range toute seule dans la bonne rubrique (sans doublon)
+          const desFiches = familles.filter((f) => GROUPE_FICHE[f.categorie || "clientes"] === t.v && cleAdresse(f.domicile) && !lieux.some((l) => cleAdresse(l.adresse) === cleAdresse(f.domicile)) && voit(f.nom, f.domicile.label));
+          if (duType.length === 0 && desFiches.length === 0) return null;
           return (
             <div key={t.v}>
               <p className="rp-type">{t.l}</p>
+              {desFiches.map((f) => (
+                <div key={"f" + f.id} className="rp-forfait">
+                  <span><strong>{f.nom || "Sans nom"}</strong><small> · {f.domicile.label}</small></span>
+                  <div className="rp-boutons">
+                    <a className="rp-waze" href={waze(f.domicile)} target="_blank" rel="noopener noreferrer">Waze</a>
+                    <button type="button" className="rp-waze" onClick={() => { setAnnonce(""); setFicheOuverte("fam:" + f.id); }}>Fiche</button>
+                  </div>
+                </div>
+              ))}
               {duType.map((l) => (
                 <Lieu key={l.id} l={l} connues={lieuxConnus} ouvert={lieuOuvert === l.id} ouvrir={(oui) => { setLieuOuvert((actuel) => (oui ? l.id : actuel === l.id ? "" : actuel)); if (!oui) window.scrollTo({ top: 0, behavior: "smooth" }); }} changer={(n) => changer(lieux.map((x) => (x.id === l.id ? n : x)))} supprimer={() => { supprimes.current.add(l.id); changer(lieux.filter((x) => x.id !== l.id)); }} />
               ))}
@@ -262,9 +246,10 @@ export default function Repertoire({ aller = null }) {
       </div>
       <button type="button" className="dr-secondaire rp-large" onClick={() => { const nouveau = lieuVide(); setTexte(""); setLieuOuvert(nouveau.id); changer([...lieux, nouveau]); }}>+ Ajouter un lieu</button>
 
-      <section className="tdb-bloc">
-        <h2>Adresses de mes clientes</h2>
-        <p className="tdb-note">Leurs adresses viennent de leurs comptes et se mettent à jour toutes seules.</p>
+      {/* 19 nov. 2026 (Rebecca) : ce bloc faisait doublon avec les fiches ; replié, il sert seulement à corriger ou masquer */}
+      <details className="tdb-bloc">
+        <summary>Adresses venant des comptes du site (corriger, masquer)</summary>
+        <p className="tdb-note">Leurs adresses viennent de leurs comptes et se mettent à jour toutes seules. Elles sont aussi proposées quand tu tapes un nom.</p>
         {clientes.length === 0 && <p className="tdb-note">Aucune cliente avec une adresse enregistrée{q ? " pour cette recherche" : ""}.</p>}
         {clientes.map((c) => (
           <details className="rp-journee" key={c.cle}>
@@ -302,9 +287,8 @@ export default function Repertoire({ aller = null }) {
             )}
           </details>
         ))}
-      </section>
+      </details>
 
-      <RechercheGoogle />
 
       <div className="rp-enregistrer">
         <button type="button" className="tdb-bouton" onClick={enregistrer} disabled={!modifie}>{modifie ? "Enregistrer mon répertoire" : "Tout est enregistré"}</button>

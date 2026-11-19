@@ -11,6 +11,7 @@ import { argentDe, champOperateur, lignesAReverser, parVehicule, soldesDe, valid
 import { libelleType, nomDe, vehiculesEffectifs } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import MonMoisVue from "./MonMoisVue.jsx";
+import ImportFichier from "./components/ImportFichier.jsx";
 import EssenceVue, { enregistrerEssence, useEssence } from "./EssenceVue.jsx";
 import { kmWolt, heuresWolt } from "./pricing/essence.js";
 import { repartirStatsWolt } from "./pricing/repartitionWolt.js";
@@ -776,6 +777,7 @@ export default function Finances({ membre = null, aller = null }) {
       {besoinDonnees && !lectureImpossible && !pret && <p className="admin-texte tb-pad">Chargement des finances…</p>}
       {vue === "annee" && pret && <Annee donnees={donnees} reglages={reglagesPersonne} personne={estRebecca && enEquipe ? personne : moi} membres={membres} vehicules={vehicules} enEquipe={enEquipe} />}
       {vue === "reverser" && pret && <AReverser donnees={donnees} moi={moi} membres={membres} />}
+      {estRebecca && pret && (vue === "wolt" || vue === "depenses" || vue === "essence") && <ImportFichier autresRevenus={donnees.autresRevenus || []} />}
       {vue === "wolt" && pret && <AutresRevenus lignes={donnees.autresRevenus} moi={moi} />}
       {vue === "monmois" && pret && estRebecca && <MonMoisVue donnees={donnees} aller={aller} />}
       {vue === "essence" && pret && estRebecca && <EssenceVue demandes={donnees.demandes} autresRevenus={donnees.autresRevenus} depenses={donnees.depenses || []} />}

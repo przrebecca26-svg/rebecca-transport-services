@@ -32,3 +32,4 @@
   .st-sans-impression { display: none; }
 }
 .st-rapport h2, .st-rapport p, .st-rapport td, .st-rapport .tb-clair { color: #191518; }
+.st-rapport .tb-bouton.tb-clair { color: #191518; background: transparent; border: 1px solid #b98b7f; }

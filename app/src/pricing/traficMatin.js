@@ -3,6 +3,9 @@
 // (Routes API, avec la cle Google deja enregistree par Rebecca). A la premiere ouverture de sa journee, chaque matin,
 // chaque trajet de la journee est recalcule avec le trafic prevu a son heure de depart : duree reelle et heure
 // de depart conseillee (avec 5 minutes de marge). Garde en memoire pour la journee ; bouton « Actualiser ».
+import { trajetACalculer } from "../services.js";
+import { kmEntre, MIN_PAR_KM } from "./coursesGroupees.js";
+
 export const MARGE_MIN = 5;
 
 const aPosition = (a) => !!a && Number.isFinite(a.lat) && Number.isFinite(a.lon);
@@ -19,7 +22,8 @@ export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
   const sortie = [];
   for (const e of [...fil].sort((a, b) => a.min - b.min)) {
     if (e.genre === "maison" && aPosition(domicile)) {
-      if (String(e.texte || "").startsWith("De retour") && precedent && !memeLieu(precedent.adresse, domicile)) {
+      // 19 nov. 2026 : apres une course ou une tache, « Partir de la maison » suppose d'y etre rentree -> trajet de retour
+      if (precedent && !memeLieu(precedent.adresse, domicile)) {
         sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: domicile, nomVers: "Maison", arriveeMin: e.min, quoi: "Retour à la maison" });
       }
       precedent = { adresse: domicile, nom: "Maison" };
@@ -33,6 +37,32 @@ export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
     precedent = { adresse: a, nom: e.lieu || String(a.label || "").split(",")[0] };
   }
   return sortie.filter((t) => t.arriveeMin >= maintenantMin);
+}
+
+// 19 nov. 2026 (Rebecca : « le trafic ne se met pas à jour avec les nouvelles courses ») : les courses acceptees
+// du jour (site ou « + Ajouter une course ») entrent dans le trafic. Une course = 2 etapes : recuperation a son heure,
+// depot a l'heure estimee (distance x 2 min/km, 5 min minimum). Course sans adresse precise : ignoree.
+const enMin = (h) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(h || ""));
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+const nomCourt = (a) => String((a && a.label) || "").split(",")[0];
+export function etapesCourses(courses = []) {
+  const sortie = [];
+  for (const d of courses) {
+    if (!d || d.statut === "en attente" || d.statut === "refusee" || d.statut === "annulee") continue;
+    if (d.service === "ramassage") continue; // deja dans la tournee
+    const t = trajetACalculer(d.service, d.details || {});
+    const debut = enMin(d.heure);
+    if (!t || debut == null) continue;
+    const [de, vers] = d.estRetour ? [t.arrivee, t.depart] : [t.depart, t.arrivee];
+    if (!aPosition(de) || !aPosition(vers)) continue;
+    const duree = Math.max(5, Math.round(kmEntre(de, vers) * MIN_PAR_KM));
+    const qui = d.nom ? ` (${d.nom})` : "";
+    sortie.push({ min: debut, genre: "arret", adresse: de, lieu: nomCourt(de), texte: `Récupérer${qui}` });
+    sortie.push({ min: debut + duree, genre: "arret", adresse: vers, lieu: nomCourt(vers), texte: `Déposer${qui}` });
+  }
+  return sortie;
 }
 
 // Heure de depart conseillee : arrivee - duree avec le trafic - marge

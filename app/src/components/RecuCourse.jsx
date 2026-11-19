@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { NOM, WHATSAPP } from "../contact.js";
@@ -29,7 +30,9 @@ export default function RecuCourse({ d }) {
   const du = duDe(d);
   const paye = encaisseDe(mvts, d.id);
   const numero = `${(d.date || aujourdhui()).replace(/-/g, "")}-${String(d.id).slice(0, 5).toUpperCase()}`;
-  return (
+  // 19 nov. 2026 : affiche par-dessus toute la page (avant, le reçu restait coincé dans la carte de la course :
+  // fond transparent, textes mélangés au Calendrier, bouton « Fermer » invisible)
+  return createPortal(
     <div className="st-rapport" role="dialog" aria-label="Reçu">
       <div className="st-page">
         <h2>{NOM}</h2>
@@ -53,6 +56,7 @@ export default function RecuCourse({ d }) {
         <button className="tb-bouton" onClick={imprimer}>Imprimer / PDF</button>
         <button className="tb-bouton tb-clair" onClick={() => setOuvert(false)}>Fermer</button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

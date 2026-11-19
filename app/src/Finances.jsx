@@ -380,6 +380,34 @@ function AutresRevenus({ lignes: toutes, moi }) {
     setEnCours(false);
   };
 
+  // 19 nov. 2026, 17h45 : réglages Wolt aussi accessibles par un bouton visible en haut de l'onglet Wolt
+  const panneauReglageWolt = (
+    <>
+                  <div className="fi-deux">
+                    <label className="pm-champ">Taux de retenue (%)<input inputMode="decimal" defaultValue={reglageWolt.taux} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, taux: e.target.value })} /></label>
+                    <label className="pm-champ">Calculée sur
+                      <select value={reglageWolt.base} onChange={(e) => sauverReglageWolt({ ...reglageWolt, base: e.target.value })}>
+                        <option value="revenu">le revenu (דמי משלוח)</option>
+                        <option value="total">revenu + pourboires</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="fi-deux">
+                    <label className="pm-champ">Caution par relevé (₪)<input inputMode="decimal" defaultValue={reglageWolt.caution} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, caution: e.target.value })} /></label>
+                    <label className="pm-champ">Argent reçu (jours après la fin)<input inputMode="numeric" defaultValue={reglageWolt.delai} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, delai: e.target.value })} /></label>
+                  </div>
+                  <p className="tb-note">Tu ne connais pas ton taux ? Recopie UNE facture, l'appli le calcule :</p>
+                  <div className="fi-deux">
+                    <label className="pm-champ">דמי משלוח (₪)<input inputMode="decimal" value={facture.revenu} onChange={(e) => setFacture({ ...facture, revenu: e.target.value })} /></label>
+                    <label className="pm-champ">סכום הניכוי (₪)<input inputMode="decimal" value={facture.retenue} onChange={(e) => setFacture({ ...facture, retenue: e.target.value })} /></label>
+                  </div>
+                  {Number(String(facture.revenu).replace(",", ".")) > 0 && (
+                    <button type="button" className="tb-bouton tb-clair" onClick={() => { sauverReglageWolt({ ...reglageWolt, base: "revenu", taux: tauxDepuisFacture(facture.revenu, facture.retenue) }); setVoirReglage(false); }}>
+                      Garder {tauxDepuisFacture(facture.revenu, facture.retenue)} % comme taux
+                    </button>
+                  )}
+                </>
+  );
   return (
     <section className="tb-liste fi">
       <div className="tb-bloc">
@@ -393,6 +421,13 @@ function AutresRevenus({ lignes: toutes, moi }) {
         {retenuesAnnee.caution > 0 && <p className="tb-note">Caution du sac : <strong>{shekels(retenuesAnnee.caution)}</strong> — rendue quand tu rends le sac.</p>}
         <p className="tb-note">Saisis ici ce que tu gagnes en dehors de Rebecca Services (Wolt…), par jour, par semaine ou par mois. Recopie le relevé de Wolt : revenu = « דמי משלוח », pourboires = « טיפים », retenue = « סכום הניכוי ». Ces revenus comptent dans le plafond de l'osek patur ; les pourboires restent à part.</p>
         {!form && !stats && <button className="tb-bouton" onClick={() => ouvrir(null)}>+ Ajouter un revenu</button>}
+        {!form && !stats && moi === ADMIN_ID && (
+          <>
+            <button className="tb-bouton tb-clair" onClick={() => setVoirReglage(!voirReglage)}>{voirReglage ? "Fermer les réglages Wolt" : "⚙️ Réglages Wolt"}</button>
+            <p className="tb-note">Retenue : <strong>{reglageWolt.taux} %</strong>{reglageWolt.caution ? ` · caution ${shekels(reglageWolt.caution)}` : ""} · argent reçu {reglageWolt.delai} jour{reglageWolt.delai > 1 ? "s" : ""} après la fin du relevé</p>
+            {voirReglage && <div className="ag-etape-actions">{panneauReglageWolt}</div>}
+          </>
+        )}
         {!form && !stats && lignesWolt.length > 0 && <button className="tb-bouton tb-clair" onClick={ouvrirStats}>Compléter avec « Vos statistiques » de Wolt</button>}
         {statsFait && <p className="tb-note" role="status">{statsFait}</p>}
       </div>
@@ -516,33 +551,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
           {moi === ADMIN_ID && /wolt/i.test(form.source || "Wolt") && (
             <div className="ag-etape-actions">
               <p className="tb-note">⚙️ Retenue calculée toute seule : <strong>{reglageWolt.taux} %</strong> du {reglageWolt.base === "total" ? "revenu + pourboires" : "revenu"}{reglageWolt.caution ? ` · caution ${shekels(reglageWolt.caution)}` : ""} · argent sur ton compte {reglageWolt.delai} jour{reglageWolt.delai > 1 ? "s" : ""} après la fin{form.fin ? ` (le ${jourCourt(dateVersement(form.fin, reglageWolt.delai))})` : ""}. <button type="button" className="ag-modifier" onClick={() => setVoirReglage(!voirReglage)}>{voirReglage ? "Fermer" : "Régler"}</button></p>
-              {voirReglage && (
-                <>
-                  <div className="fi-deux">
-                    <label className="pm-champ">Taux de retenue (%)<input inputMode="decimal" defaultValue={reglageWolt.taux} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, taux: e.target.value })} /></label>
-                    <label className="pm-champ">Calculée sur
-                      <select value={reglageWolt.base} onChange={(e) => sauverReglageWolt({ ...reglageWolt, base: e.target.value })}>
-                        <option value="revenu">le revenu (דמי משלוח)</option>
-                        <option value="total">revenu + pourboires</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div className="fi-deux">
-                    <label className="pm-champ">Caution par relevé (₪)<input inputMode="decimal" defaultValue={reglageWolt.caution} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, caution: e.target.value })} /></label>
-                    <label className="pm-champ">Argent reçu (jours après la fin)<input inputMode="numeric" defaultValue={reglageWolt.delai} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, delai: e.target.value })} /></label>
-                  </div>
-                  <p className="tb-note">Tu ne connais pas ton taux ? Recopie UNE facture, l'appli le calcule :</p>
-                  <div className="fi-deux">
-                    <label className="pm-champ">דמי משלוח (₪)<input inputMode="decimal" value={facture.revenu} onChange={(e) => setFacture({ ...facture, revenu: e.target.value })} /></label>
-                    <label className="pm-champ">סכום הניכוי (₪)<input inputMode="decimal" value={facture.retenue} onChange={(e) => setFacture({ ...facture, retenue: e.target.value })} /></label>
-                  </div>
-                  {Number(String(facture.revenu).replace(",", ".")) > 0 && (
-                    <button type="button" className="tb-bouton tb-clair" onClick={() => { sauverReglageWolt({ ...reglageWolt, base: "revenu", taux: tauxDepuisFacture(facture.revenu, facture.retenue) }); setVoirReglage(false); }}>
-                      Garder {tauxDepuisFacture(facture.revenu, facture.retenue)} % comme taux
-                    </button>
-                  )}
-                </>
-              )}
+              {voirReglage && panneauReglageWolt}
             </div>
           )}
           <p className="tb-note">Versé sur ton compte : <strong>{shekels(verseWolt({ revenu: Number(String(form.revenu).replace(",", ".")) || 0, pourboire: Number(String(form.pourboire).replace(",", ".")) || 0, retenue: Number(String(form.retenue).replace(",", ".")) || 0, caution: Number(String(form.caution).replace(",", ".")) || 0 }))}</strong> (à comparer avec « סכום סופי לתשלום »)</p>

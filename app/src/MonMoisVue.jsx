@@ -80,6 +80,7 @@ export default function MonMoisVue({ donnees, aller }) {
           <Ligne nom="Wolt" valeur={shekels(r.wolt)} ouvert={ouvert === "wolt"} basculer={bascule("wolt")}>
             {r.lignesWolt.length === 0 && <p className="tb-note">Aucune ligne Wolt ce mois-ci.</p>}
             {r.lignesWolt.map((l) => <p key={l.id} className="tb-note">{l.debut} → {l.fin} · {l.livraisons} livraisons · {shekels(Number(l.revenu) || 0)}</p>)}
+            {(r.woltRetenue > 0 || r.woltCaution > 0) && <p className="tb-note">Dans ce montant : {r.woltRetenue > 0 ? `retenue à la source ${shekels(r.woltRetenue)} (impôt déjà payé)` : ""}{r.woltRetenue > 0 && r.woltCaution > 0 ? " · " : ""}{r.woltCaution > 0 ? `caution du sac ${shekels(r.woltCaution)} (rendue avec le sac)` : ""}. Ils ne sont pas arrivés sur ton compte mais restent à toi.</p>}
             <p className="tb-note">Modifier ou supprimer : onglet Wolt.</p>
           </Ligne>
           {r.resteAEncaisser > 0 && (

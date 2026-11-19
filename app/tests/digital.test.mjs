@@ -219,3 +219,35 @@ import { shekels } from "../src/pricing/digital.js";
 test("montants lisibles", () => {
   egal([shekels(22700), shekels(360), shekels(1234.5), shekels(-450)], ["22 700 ₪", "360 ₪", "1 234,50 ₪", "−450 ₪"]);
 });
+
+import { validerAutreRevenu, verseWolt, totauxRetenues } from "../src/pricing/financesAnnee.js";
+section("Relevé Wolt (19 nov.)");
+test("retenue, caution et n° de facture : versé = revenu + pourboires − retenue − caution", () => {
+  const v = validerAutreRevenu({ source: "Wolt", periode: "semaine", debut: "2026-07-16", fin: "2026-07-22", livraisons: "19", revenu: "421,11", pourboire: "16.95", retenue: "131,42", caution: "300", numero: "117000001" });
+  egal(v.erreur, "");
+  egal([v.ligne.retenue, v.ligne.caution, v.ligne.numero], [131.42, 300, "117000001"]);
+  egal(verseWolt(v.ligne), 6.64);
+  const sans = validerAutreRevenu({ source: "Wolt", periode: "semaine", debut: "2026-11-08", fin: "2026-11-15", livraisons: "18", revenu: "516.02", pourboire: "12.71" });
+  egal(["retenue" in sans.ligne, verseWolt(sans.ligne)], [false, 528.73]);
+  vrai(validerAutreRevenu({ source: "Wolt", periode: "jour", debut: "2026-11-08", fin: "2026-11-08", livraisons: "1", revenu: "10", pourboire: "0", retenue: "-5" }).erreur);
+  egal(totauxRetenues([v.ligne, sans.ligne]), { retenue: 131.42, caution: 300 });
+});
+
+import { fabriquerPdf, versWinAnsi } from "../src/pricing/pdfSimple.js";
+import { recuPdf, carteCadeauPdf } from "../src/pricing/documentsPdf.js";
+section("PDF du reçu et de la carte cadeau (19 nov.)");
+const texteDe = (o) => String.fromCharCode(...o);
+test("un vrai fichier PDF, accents et ₪ lisibles", () => {
+  egal(versWinAnsi("é₪"), [0xe9, 73, 76, 83]);
+  egal(versWinAnsi("א")[0], 63);
+  const p = texteDe(fabriquerPdf({ elements: [{ t: "texte", x: 10, y: 10, texte: "Payé (test)" }] }));
+  vrai(p.startsWith("%PDF-1.4") && p.includes("%%EOF") && p.includes("Payé \\(test\\)"));
+  const xref = Number(/startxref\n(\d+)/.exec(p)[1]);
+  egal(p.slice(xref, xref + 4), "xref");
+});
+test("reçu et carte cadeau", () => {
+  const r = texteDe(recuPdf({ numero: "20261119-ABCDE", client: "Test", lignes: [{ libelle: "Livraison", montant: 30 }, { libelle: "Total", montant: 30, gras: true }] }));
+  vrai(r.includes("20261119-ABCDE") && r.includes("30 ILS"));
+  const c = texteDe(carteCadeauPdf({ montant: 100, pourNom: "R", acheteurNom: "T", code: "RS-577U-9J4P", solde: 10 }));
+  vrai(c.includes("RS-577U-9J4P") && c.includes("Solde : 10 ILS"));
+});

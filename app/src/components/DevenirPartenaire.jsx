@@ -120,7 +120,7 @@ export default function DevenirPartenaire({ onAccueil, onLegal }) {
       lot.set(ref, { ...c, creeLe: serverTimestamp() });
       lot.set(doc(db, "suiviPartenaires", ref.id), { ...suiviInitial(c), creeLe: serverTimestamp() });
       await lot.commit();
-      const docs = docsPour(f.vehicule);
+      const docs = docsPour(f.vehicule).filter((d) => f.documents[d.id]); // facultatifs : seulement s'ils sont là
       for (let i = 0; i < docs.length; i++) {
         setEtat((x) => ({ ...x, etape: `Envoi des documents (${i + 1}/${docs.length})…` }));
         await setDoc(doc(db, "documentsPartenaires", idDocument(ref.id, docs[i].id)), { candidature: ref.id, type: docs[i].id, image: f.documents[docs[i].id], creeLe: serverTimestamp() });
@@ -174,7 +174,7 @@ export default function DevenirPartenaire({ onAccueil, onLegal }) {
 
       <h3>Documents</h3>
       {!f.vehicule && <p className="aide">Choisissez d'abord votre moyen de déplacement : la liste des documents s'affiche ici.</p>}
-      {docs.map((d) => <PhotoDocument key={d.id} label={d.label} valeur={f.documents[d.id]} onChange={(img) => setDocument(d.id, img)} />)}
+      {docs.map((d) => <PhotoDocument key={d.id} label={d.facultatif ? d.label : d.label + " *"} valeur={f.documents[d.id]} onChange={(img) => setDocument(d.id, img)} />)}
       {e.documents && <span className="erreur" role="alert">{e.documents}</span>}
       {f.vehicule && <p className="aide">Vos documents sont visibles par Rebecca seule.</p>}
 

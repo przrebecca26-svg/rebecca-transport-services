@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { tableauCoursier, bornesMois, messageReleve } from "../pricing/coursiers.js";
+import { tableauCoursier, bornesMois, bornesSemaine, messageReleve } from "../pricing/coursiers.js";
 import "../coursiers.css";
 
 // TABLEAU DE BORD D'UN COURSIER PARTENAIRE (Rebecca, 18 nov. 2026, 12h27)
@@ -15,23 +15,49 @@ const decaler = (m, n) => {
   return d.toISOString().slice(0, 7);
 };
 
-export default function CompteCoursier({ nom = "", telephone = "", courses = [], reglements = [], vueAdmin = false, moisDepart }) {
+// 19 nov. 2026 (modèle du relevé Wolt) : relevé de la SEMAINE (dimanche → samedi) ou du mois, détail par course
+// (date, heure, lieu de récupération, montant), commission, retenue à la source si Rebecca en règle une.
+const jourIso = (d) => d.toISOString().slice(0, 10);
+const ajouterJours = (iso, n) => {
+  const d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return jourIso(d);
+};
+const jjmm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+export default function CompteCoursier({ nom = "", telephone = "", courses = [], reglements = [], vueAdmin = false, moisDepart, tauxRetenue = 0 }) {
   const [mois, setMois] = useState(moisDepart || new Date().toISOString().slice(0, 7));
+  const [periode, setPeriode] = useState("mois"); // "mois" | "semaine"
+  const [semaine, setSemaine] = useState(bornesSemaine(jourIso(new Date())).debut);
   const [ouverte, setOuverte] = useState("");
-  const t = useMemo(() => tableauCoursier({ courses, reglements, ...bornesMois(mois) }), [courses, reglements, mois]);
+  const bornes = periode === "semaine" ? bornesSemaine(semaine) : bornesMois(mois);
+  const t = useMemo(() => tableauCoursier({ courses, reglements, ...bornes, tauxRetenue }), [courses, reglements, bornes.debut, bornes.fin, tauxRetenue]); // eslint-disable-line react-hooks/exhaustive-deps
+  const libellePeriode = periode === "semaine" ? `du ${jjmm(bornes.debut)} au ${jjmm(bornes.fin)}` : "de " + libelleMois(mois);
   const toi = vueAdmin ? nom || "le coursier" : "toi";
   const reste = t.resteAPayer;
   const texteReste = reste > 0 ? (vueAdmin ? `Tu dois lui verser ${shekels(reste)}` : `Rebecca te doit ${shekels(reste)}`) : reste < 0 ? (vueAdmin ? `Il te doit ${shekels(-reste)}` : `Tu dois ${shekels(-reste)} à Rebecca`) : "Tout est réglé";
   const tel = String(telephone).replace(/\D/g, "").replace(/^0/, "972");
-  const lienWhatsApp = tel ? `https://wa.me/${tel}?text=${encodeURIComponent(messageReleve({ nom, periode: "de " + libelleMois(mois), compte: t }))}` : "";
+  const lienWhatsApp = tel ? `https://wa.me/${tel}?text=${encodeURIComponent(messageReleve({ nom, periode: libellePeriode, compte: t }))}` : "";
 
   return (
     <div className="cc">
-      <div className="cc-mois">
-        <button className="cc-fleche" onClick={() => setMois(decaler(mois, -1))} aria-label="Mois précédent">‹</button>
-        <strong>{libelleMois(mois)}</strong>
-        <button className="cc-fleche" onClick={() => setMois(decaler(mois, 1))} aria-label="Mois suivant">›</button>
+      <div className="tb-filtres" style={{ marginBottom: 8 }}>
+        <button className={"tb-filtre" + (periode === "semaine" ? " actif" : "")} onClick={() => setPeriode("semaine")}>Semaine</button>
+        <button className={"tb-filtre" + (periode === "mois" ? " actif" : "")} onClick={() => setPeriode("mois")}>Mois</button>
       </div>
+      {periode === "mois" ? (
+        <div className="cc-mois">
+          <button className="cc-fleche" onClick={() => setMois(decaler(mois, -1))} aria-label="Mois précédent">‹</button>
+          <strong>{libelleMois(mois)}</strong>
+          <button className="cc-fleche" onClick={() => setMois(decaler(mois, 1))} aria-label="Mois suivant">›</button>
+        </div>
+      ) : (
+        <div className="cc-mois">
+          <button className="cc-fleche" onClick={() => setSemaine(ajouterJours(semaine, -7))} aria-label="Semaine précédente">‹</button>
+          <strong>Semaine {libellePeriode}</strong>
+          <button className="cc-fleche" onClick={() => setSemaine(ajouterJours(semaine, 7))} aria-label="Semaine suivante">›</button>
+        </div>
+      )}
 
       <div className={`cc-reste ${reste > 0 ? "a-payer" : reste < 0 ? "doit" : "ok"}`}>
         <span>Reste à payer</span>
@@ -55,8 +81,9 @@ export default function CompteCoursier({ nom = "", telephone = "", courses = [],
           <p><span className="cc-pastille rebecca" />Commission Rebecca : <strong>{shekels(t.partRebecca)}</strong> ({t.pctRebecca.toLocaleString("fr-FR")} %)</p>
           {t.pourboires > 0 && <p className="cc-gris">+ Pourboires : {shekels(t.pourboires)} (100 % pour {toi}) → total pour {toi} : {shekels(t.partCoursier)}</p>}
         </div>
+        {t.retenue > 0 && <p className="cc-note">Retenue à la source ({t.tauxRetenue.toLocaleString("fr-FR")} %) : − {shekels(t.retenue)}, versée aux impôts pour {toi} (déjà déduite du reste à payer).</p>}
         {(t.versesAuCoursier > 0 || t.payesParCoursier > 0) && (
-          <p className="cc-note">Déjà réglé ce mois-ci : {t.versesAuCoursier > 0 && `${shekels(t.versesAuCoursier)} versés par Rebecca`}{t.versesAuCoursier > 0 && t.payesParCoursier > 0 && " · "}{t.payesParCoursier > 0 && `${shekels(t.payesParCoursier)} payés à Rebecca`}</p>
+          <p className="cc-note">Déjà réglé sur la période : {t.versesAuCoursier > 0 && `${shekels(t.versesAuCoursier)} versés par Rebecca`}{t.versesAuCoursier > 0 && t.payesParCoursier > 0 && " · "}{t.payesParCoursier > 0 && `${shekels(t.payesParCoursier)} payés à Rebecca`}</p>
         )}
       </section>
 
@@ -75,19 +102,20 @@ export default function CompteCoursier({ nom = "", telephone = "", courses = [],
 
       <section className="cc-bloc">
         <h3>Détail des courses</h3>
-        {t.lignes.length === 0 && <p className="cc-gris">Aucune course terminée ce mois-ci.</p>}
+        {t.lignes.length === 0 && <p className="cc-gris">Aucune course terminée sur cette période.</p>}
         {t.lignes.map((l, i) => {
           const cle = l.id || String(i);
           const vu = ouverte === cle;
           return (
             <button key={cle} className={`cc-course ${vu ? "ouverte" : ""}`} onClick={() => setOuverte(vu ? "" : cle)}>
               <span className="cc-ligne">
-                <span className="cc-date">{jj(l.date)}</span>
+                <span className="cc-date">{jj(l.date)}{l.heure ? ` ${l.heure}` : ""}</span>
                 <span className={`cc-badge ${l.parRebecca ? "rebecca" : "especes"}`}>{l.moyenLabel}</span>
                 <strong>{shekels(l.total)}</strong>
               </span>
               {vu && (
                 <span className="cc-detail">
+                  {l.lieu && <span>📍 {l.lieu}</span>}
                   <span>Prix de la course : {shekels(l.prix)}</span>
                   {l.pourboire > 0 && <span>Pourboire : {shekels(l.pourboire)}</span>}
                   <span>Commission Rebecca : − {shekels(l.partRebecca)}</span>

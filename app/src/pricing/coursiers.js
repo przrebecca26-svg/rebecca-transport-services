@@ -1,4 +1,5 @@
 import { SITE } from "../site.js";
+import { kmEntre, MIN_PAR_KM } from "./coursesGroupees.js";
 // COURSIERS PARTENAIRES - Rebecca Services (validé par Rebecca le 18 nov. 2026)
 // Règles :
 //  - un coursier partenaire ne fait QUE des livraisons et des courses (jamais transport de personnes,
@@ -12,7 +13,10 @@ import { SITE } from "../site.js";
 //  - fin du mois : solde positif -> Rebecca reverse ; solde négatif -> le coursier paie Rebecca ;
 //  - dette au-delà du plafond (150 ₪ par défaut) : plus de nouvelles courses ;
 //  - photo de preuve de livraison obligatoire pour terminer une course ;
-//  - aucune retenue automatique en cas de litige (Rebecca décide au cas par cas).
+//  - aucune retenue automatique en cas de litige (Rebecca décide au cas par cas) ;
+//  - 19 nov. 2026 : chaque coursier a SON sac isotherme (photo à l'inscription), Rebecca n'en fournit pas et ne
+//    demande pas de caution ; retenue à la source seulement si Rebecca en règle une pour lui (taux par coursier,
+//    0 % par défaut ou avec une exonération (אישור ניכוי במקור) envoyée dans ses documents).
 
 export const SERVICES_PARTENAIRE = ["livraison", "courses"];
 
@@ -95,7 +99,7 @@ const dansPeriode = (date, debut, fin) => typeof date === "string" && date.slice
 /* ---------- Compte du coursier sur une période ---------- */
 // reglements : versements déjà faits { date, sens: "vers_coursier" | "vers_rebecca", montant }
 export function compteCoursier({ courses = [], reglements = [], debut, fin }) {
-  const liste = courses.filter((c) => estTerminee(c) && dansPeriode(c.date, debut, fin)).map((c) => ({ id: c.id, date: c.date, moyen: c.moyen, ...ligneCourse(c) }));
+  const liste = courses.filter((c) => estTerminee(c) && dansPeriode(c.date, debut, fin)).map((c) => ({ id: c.id, date: c.date, heure: c.heure || "", lieu: c.lieu || "", moyen: c.moyen, ...ligneCourse(c) }));
   const somme = (k) => arrondi(liste.reduce((s, l) => s + l[k], 0));
   const regles = reglements.filter((r) => dansPeriode(r.date, debut, fin));
   const versesAuCoursier = arrondi(regles.filter((r) => r.sens === "vers_coursier").reduce((s, r) => s + (nombre(r.montant) || 0), 0));
@@ -158,6 +162,7 @@ export function messageReleve({ nom = "", periode = "", compte }) {
     `• Encaissé par Rebecca (Bit, Revolut, PayPal, carte) : ${compte.encaisseParRebecca} ₪`,
     `• Gardé en espèces : ${compte.gardeEnMain} ₪`,
     `• Commissions : ${compte.commissions} ₪`,
+    ...(compte.retenue > 0 ? [`• Retenue à la source (${compte.tauxRetenue} %) : ${compte.retenue} ₪ (versée aux impôts pour toi)`] : []),
     b.texte,
     "Merci pour ton travail !",
   ].join("\n");
@@ -176,12 +181,17 @@ export function documentsRequis(vehicule) {
     { id: "identite", label: "Teoudat zehout (pièce d'identité)" },
     { id: "osek", label: "Attestation osek (patour ou mourché)" },
   ];
+  // 19 nov. 2026 : sac isotherme personnel obligatoire pour tous (pas de sac prêté, pas de caution)
+  base.push({ id: "sac", label: "Photo de ton sac isotherme (le tien, pas un sac Wolt)" });
   if (vehicule === "voiture") return [...base, { id: "permis", label: "Permis de conduire" }, { id: "rishayon", label: "Carte grise (rishayon rekhev)" }, { id: "assurance", label: "Assurance du véhicule" }];
   if (vehicule === "scooter") return [...base, { id: "permis", label: "Permis moto / scooter" }, { id: "rishayon", label: "Carte grise (rishayon rekhev)" }, { id: "assurance", label: "Assurance du véhicule" }, { id: "topcase", label: "Photo du top-case" }];
   if (vehicule === "velo") return [...base, { id: "photoVelo", label: "Photo du vélo électrique" }];
   // pied : seulement la pièce d identité et l osek
   return base;
 }
+
+// Documents facultatifs (19 nov. 2026) : exonération de retenue à la source, si le coursier en a une
+export const DOCUMENTS_FACULTATIFS = [{ id: "retenue", label: "Exonération de retenue à la source (אישור ניכוי במקור), si tu en as une", facultatif: true }];
 
 export const STATUTS_CANDIDATURE = {
   brouillon: { label: "Brouillon", suivants: ["soumis"] },
@@ -250,8 +260,19 @@ export function terminer(mission, { photo, pourboire = 0, moyen } = {}) {
    Le même tableau pour le coursier et pour Rebecca (qui clique sur un coursier) :
    chaque course avec son prix, son moyen de paiement, sa part et celle de Rebecca ;
    ce qu'il a déjà en main (espèces), ce que Rebecca a encaissé pour lui, ce qui reste à lui payer. */
-export function tableauCoursier({ courses = [], reglements = [], debut, fin }) {
-  const c = compteCoursier({ courses, reglements, debut, fin });
+// Retenue à la source sur ce que Rebecca verse au coursier (19 nov. 2026) : taux propre à chaque coursier,
+// 0 % par défaut ; base = ce que Rebecca a encaissé pour lui moins ses commissions (jamais négatif).
+export function retenueCoursier(c, taux = 0) {
+  const t = Number(taux);
+  if (!Number.isFinite(t) || t <= 0 || t > 50) return { taux: 0, base: 0, montant: 0 };
+  const base = Math.max(0, arrondi(c.encaisseParRebecca - c.commissions));
+  return { taux: t, base, montant: arrondi((base * t) / 100) };
+}
+
+export function tableauCoursier({ courses = [], reglements = [], debut, fin, tauxRetenue = 0 }) {
+  const c0 = compteCoursier({ courses, reglements, debut, fin });
+  const retenue = retenueCoursier(c0, tauxRetenue);
+  const c = { ...c0, retenue: retenue.montant, tauxRetenue: retenue.taux, solde: arrondi(c0.solde - retenue.montant) };
   const lignes = c.lignes
     .map((l) => ({
       ...l,
@@ -336,6 +357,8 @@ export function missionDepuisDemande(d, { coursiers = [], reglages, commercantVa
 export const courseDeMission = (m) => ({
   id: m.id,
   date: (m.date || "").slice(0, 10),
+  heure: m.heure || "",
+  lieu: String((m.depart && m.depart.label) || m.titre || "").split(",")[0].slice(0, 60),
   statut: m.statut === "terminee" ? "terminee" : m.statut,
   prix: m.prix,
   pourboire: m.pourboire || 0,
@@ -376,4 +399,16 @@ export const lienAccesCoursier = (candidature, site = SITE) => `${site}/#/admin?
 export function lireAccesCoursier(hash) {
   const m = /[?&]coursier=([A-Za-z0-9]{10,40})/.exec(hash || "");
   return m ? m[1] : "";
+}
+
+// 19 nov. 2026 (modèle Wolt : on voit le trajet et le gain AVANT d'accepter) : distance récupération → livraison,
+// temps estimé et gain par km. Vide si les adresses n'ont pas de position.
+export function infosAvantAccepter(m = {}) {
+  const ok = (p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lon);
+  if (!ok(m.depart) || !ok(m.arrivee)) return "";
+  const km = Math.round(kmEntre(m.depart, m.arrivee) * 10) / 10;
+  const min = Math.max(5, Math.round(km * MIN_PAR_KM));
+  const pourToi = arrondi((Number(m.prix) || 0) - ((m.commission && Number(m.commission.montant)) || 0));
+  const parKm = km > 0 ? ` · ${(Math.round((pourToi / km) * 10) / 10).toLocaleString("fr-FR")} ₪/km` : "";
+  return `≈ ${km.toLocaleString("fr-FR")} km entre récupération et livraison · ≈ ${min} min${parKm}`;
 }

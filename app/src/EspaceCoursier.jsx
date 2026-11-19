@@ -7,6 +7,7 @@ import { REGLEMENT_COURSIERS } from "./pricing/partenaires.js";
 import { lienWazePoint, lienWhatsApp } from "./pricing/navigation.js";
 import { reduirePhoto } from "./photoReduite.js";
 import CompteCoursier from "./components/CompteCoursier.jsx";
+import { infosAvantAccepter } from "./pricing/coursiers.js";
 import "./coursiers.css";
 
 // ESPACE D'UN COURSIER PARTENAIRE (18 nov. 2026, étape 3, validée par Rebecca)
@@ -99,6 +100,7 @@ function Mission({ m, uid, bloque, prenom }) {
         <strong>{m.prix} ₪</strong>
       </div>
       <p className="cc-gris" style={{ margin: "4px 0" }}>{jj(m.date)} · {m.heure} · commission {m.commission && m.commission.montant} ₪ · pour toi {Math.round((m.prix - ((m.commission && m.commission.montant) || 0)) * 100) / 100} ₪ (+ pourboire)</p>
+      {m.statut === "proposee" && infosAvantAccepter(m) && <p style={{ margin: "4px 0" }}>🛣️ {infosAvantAccepter(m)}</p>}
       {m.depart && m.depart.label && <p style={{ margin: "4px 0" }}>📍 {m.depart.label}</p>}
       {m.arrivee && m.arrivee.label && <p style={{ margin: "4px 0" }}>🏁 {m.arrivee.label}</p>}
       {m.details && <p className="cc-gris" style={{ whiteSpace: "pre-line", margin: "4px 0" }}>{m.details}</p>}
@@ -179,7 +181,7 @@ export default function EspaceCoursier({ uid, fiche, deconnecter }) {
             {finies.map((m) => <Mission key={m.id} m={m} uid={uid} bloque={bloque} prenom={fiche.prenom} />)}
           </div>
         )}
-        {onglet === "compte" && <CompteCoursier nom={fiche.prenom} courses={miennes.map(courseDeMission)} reglements={reglements} />}
+        {onglet === "compte" && <CompteCoursier nom={fiche.prenom} courses={miennes.map(courseDeMission)} reglements={reglements} tauxRetenue={fiche.tauxRetenue || 0} />}
         {onglet === "reglement" && (
           <div className="cc-bloc">
             <h3>Règlement des coursiers</h3>

@@ -69,7 +69,7 @@ test("documents selon le véhicule", () => {
   vrai(documentsRequis("scooter").some((d) => d.id === "topcase"));
   vrai(!documentsRequis("velo").some((d) => d.id === "permis"));
 });
-const cand = { nom: "Dan Cohen", telephone: "054 123 4567", osek: "patour", vehicule: "velo", paiement: "Bit 0541234567", documents: { identite: "x", osek: "x", photoVelo: "x" }, engagement: true };
+const cand = { nom: "Dan Cohen", telephone: "054 123 4567", osek: "patour", vehicule: "velo", paiement: "Bit 0541234567", documents: { identite: "x", osek: "x", photoVelo: "x", sac: "x" }, engagement: true };
 test("candidature complète", () => {
   egal(erreursCandidature(cand), {});
   vrai(erreursCandidature({ ...cand, documents: {} }).documents);
@@ -127,18 +127,18 @@ test("parts, pourcentages et moyens de paiement", () => {
 
 section("Coursiers : inscription complète (étape 2)");
 import { erreursInscription, construireInscription, lireLienPartenaire, statutDe, libelleCandidature, messageDecision, SERVICES_PARTENAIRE as SP } from "../src/pricing/partenaires.js";
-const insc = { prenom: "Dan", nom: "Cohen", telephone: "054 123 4567", email: "dan@exemple.com", ville: "Netanya", vehicule: "scooter", services: ["livraison"], jours: ["Lundi"], osek: "patour", paiement: "Bit 0541234567", documents: { identite: "x", osek: "x", permis: "x", rishayon: "x", assurance: "x", topcase: "x" }, reglement: true, majeur: true, consentement: true };
+const insc = { prenom: "Dan", nom: "Cohen", telephone: "054 123 4567", email: "dan@exemple.com", ville: "Netanya", vehicule: "scooter", services: ["livraison"], jours: ["Lundi"], osek: "patour", paiement: "Bit 0541234567", documents: { identite: "x", osek: "x", permis: "x", rishayon: "x", assurance: "x", topcase: "x", sac: "x" }, reglement: true, majeur: true, consentement: true };
 test("formulaire complet", () => {
   egal(erreursInscription(insc), {});
   vrai(erreursInscription({ ...insc, documents: { identite: "x" } }).documents.includes("top-case"));
   vrai(erreursInscription({ ...insc, osek: "" }).osek);
   vrai(erreursInscription({ ...insc, reglement: false }).reglement);
-  egal(erreursInscription({ ...insc, vehicule: "pied", documents: { identite: "x", osek: "x" } }), {});
+  egal(erreursInscription({ ...insc, vehicule: "pied", documents: { identite: "x", osek: "x", sac: "x" } }), {});
 });
 test("seulement livraisons et courses", () => {
   egal(SP.map((s) => s.v), ["livraison", "courses"]);
   egal(construireInscription({ ...insc, services: ["livraison", "transport"] }).services, ["livraison"]);
-  egal(construireInscription(insc).documentsEnvoyes, ["identite", "osek", "permis", "rishayon", "assurance", "topcase"]);
+  egal(construireInscription(insc).documentsEnvoyes, ["identite", "osek", "sac", "permis", "rishayon", "assurance", "topcase"]);
   egal(construireInscription(insc).statut, "soumis");
 });
 test("lien de suivi et anciens statuts", () => {
@@ -173,4 +173,35 @@ test("solde cumulé, moyens, étapes, lien d'accès", () => {
   egal(etapeSuivante({ statut: "acceptee" }), "partie");
   egal(etapeSuivante({ statut: "acceptee", partieLe: 1, recupereeLe: 1 }), "livree");
   egal(lireAccesCoursier("#/admin?coursier=AbCdEf1234567890"), "AbCdEf1234567890");
+});
+
+// ---------- 19 nov. 2026 : modèle Wolt (sac personnel, retenue à la source, relevé de la semaine) ----------
+import { retenueCoursier, infosAvantAccepter, DOCUMENTS_FACULTATIFS } from "../src/pricing/coursiers.js";
+import { docsPour } from "../src/pricing/partenaires.js";
+section("Coursiers : sac personnel, retenue, relevé de la semaine (19 nov.)");
+test("photo du sac obligatoire, exonération de retenue facultative", () => {
+  vrai(documentsRequis("pied").some((d) => d.id === "sac"));
+  egal(erreursInscription({ ...insc, documents: { ...insc.documents, sac: undefined } }).documents.includes("sac isotherme"), true);
+  vrai(docsPour("scooter").some((d) => d.id === "retenue" && d.facultatif));
+  egal(erreursInscription(insc), {});
+  egal(construireInscription({ ...insc, documents: { ...insc.documents, retenue: "x" } }).documentsEnvoyes.slice(-1), ["retenue"]);
+  egal(DOCUMENTS_FACULTATIFS.length, 1);
+});
+test("retenue à la source : 0 % par défaut, sinon sur ce que Rebecca verse", () => {
+  const courses = [
+    { id: "a", date: "2026-11-16", heure: "12:00", lieu: "McDo", statut: "terminee", prix: 100, moyen: "bit", commission: { montant: 15 } },
+    { id: "b", date: "2026-11-17", statut: "terminee", prix: 40, moyen: "especes", commission: { montant: 6 } },
+  ];
+  const sans = tableauCoursier({ courses, ...bornesSemaine("2026-11-18") });
+  egal([sans.retenue, sans.resteAPayer], [0, 79]);
+  const avec = tableauCoursier({ courses, ...bornesSemaine("2026-11-18"), tauxRetenue: 30 });
+  egal([avec.retenue, avec.resteAPayer], [23.7, 55.3]);
+  egal(avec.lignes.find((l) => l.id === "a").lieu, "McDo");
+  vrai(messageReleve({ nom: "Dan", periode: "du 15/11 au 21/11", compte: avec }).includes("Retenue à la source (30 %) : 23.7 ₪"));
+  egal(retenueCoursier({ encaisseParRebecca: 10, commissions: 20 }, 30).montant, 0);
+});
+test("trajet et gain affichés avant d'accepter", () => {
+  const t = infosAvantAccepter({ depart: { lat: 32.3045, lon: 34.8735 }, arrivee: { lat: 32.315, lon: 34.87 }, prix: 30, commission: { montant: 4.5 } });
+  vrai(t.includes("km") && t.includes("₪/km"));
+  egal(infosAvantAccepter({ prix: 30 }), "");
 });

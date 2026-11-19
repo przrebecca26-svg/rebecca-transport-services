@@ -4,7 +4,7 @@ import { SITE } from "../site.js";
 // (Admin → Partenaires → « Visible sur le site », document reglages/partenaires.ouvert).
 // Une candidature acceptee devient un coequipier comme Jeremy (rubrique Equipe : acces, services, vehicules).
 
-import { documentsRequis } from "./coursiers.js";
+import { documentsRequis, DOCUMENTS_FACULTATIFS } from "./coursiers.js";
 
 export const VEHICULES = [
   { v: "voiture", l: "Voiture" },
@@ -116,7 +116,8 @@ export const OSEK = [
   { v: "mourche", l: "Osek mourché" },
 ];
 export const MAXP2 = { paiement: 200 };
-export const docsPour = (vehicule) => documentsRequis(vehicule);
+// Tous les documents à montrer (obligatoires puis facultatifs) ; seuls les obligatoires bloquent l'envoi
+export const docsPour = (vehicule) => [...documentsRequis(vehicule), ...DOCUMENTS_FACULTATIFS];
 
 export const REGLEMENT_COURSIERS = [
   "Je fais seulement des livraisons et des courses pour Rebecca Services (jamais de transport de personnes).",
@@ -126,6 +127,7 @@ export const REGLEMENT_COURSIERS = [
   "Paiements par Bit, Revolut, PayPal ou carte : encaissés par Rebecca et reversés en fin de mois. Espèces : je les garde, leur commission est déduite de mon compte.",
   "En fin de mois, si les commissions dépassent ce que Rebecca a encaissé pour moi, je lui verse la différence. Au-delà de 150 ₪ dus, je ne reçois plus de nouvelles courses jusqu'au paiement.",
   "Pour terminer une course, je prends une photo de preuve de livraison.",
+  "J'ai mon propre sac isotherme (photo envoyée à l'inscription) : Rebecca Services n'en fournit pas et ne demande pas de caution. Je n'utilise jamais un sac prêté par une autre société (Wolt…).",
   "Je ne travaille jamais pendant Chabbat et les fêtes juives.",
   "Je respecte les clients, le code de la route et la confidentialité de ce que je transporte.",
   "Rebecca peut suspendre mon compte en cas de problème. Un litige se règle au cas par cas, jamais par une retenue automatique.",
@@ -146,7 +148,7 @@ export function erreursInscription(f) {
   if (propre(f.paiement, MAXP2.paiement).length < 4) e.paiement = "Indiquez où vous verser l'argent (Bit, PayBox ou compte bancaire).";
   if (f.vehicule) {
     const docs = f.documents || {};
-    const manquants = docsPour(f.vehicule).filter((d) => !docs[d.id]);
+    const manquants = documentsRequis(f.vehicule).filter((d) => !docs[d.id]);
     if (manquants.length) e.documents = "Il manque : " + manquants.map((d) => d.label).join(", ") + ".";
   }
   if (f.reglement !== true) e.reglement = "Lisez et acceptez le règlement des coursiers.";
@@ -171,7 +173,7 @@ export function construireInscription(f) {
     dispos: propre(f.dispos, MAXP.dispos),
     osek: f.osek,
     paiement: propre(f.paiement, MAXP2.paiement),
-    documentsEnvoyes: docsPour(f.vehicule).map((d) => d.id),
+    documentsEnvoyes: docsPour(f.vehicule).filter((d) => !d.facultatif || (f.documents || {})[d.id]).map((d) => d.id),
     experience: propre(f.experience, MAXP.experience),
     message: propre(f.message, MAXP.message),
     reglement: true,

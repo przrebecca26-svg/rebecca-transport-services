@@ -34,7 +34,7 @@ function Documents({ c }) {
         const d = versions[0];
         return (
           <div key={a.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "4px 0" }}>
-            {d ? <img src={d.image} alt={a.label} onClick={() => setGrand(grand === d.id ? "" : d.id)} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, cursor: "pointer" }} /> : <span style={{ width: 56 }}>❌</span>}
+            {d ? <img src={d.image} alt={a.label} onClick={() => setGrand(grand === d.id ? "" : d.id)} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, cursor: "pointer" }} /> : <span style={{ width: 56 }}>{a.facultatif ? "—" : "❌"}</span>}
             <span className="tb-note">{a.label}{versions.length > 1 ? ` · ${versions.length} versions (la plus récente)` : ""}</span>
           </div>
         );
@@ -177,6 +177,34 @@ function SupprimerEnDeux({ onOui }) {
 }
 
 // 18 nov. 2026 (étape 3) : coursiers liés à leur compte -> activation, disponibilité, compte, versements
+// 19 nov. 2026 : retenue à la source d'un coursier (0 % par défaut ; selon ses papiers : exonération envoyée ou non)
+function TauxRetenue({ k, setInfo }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [v, setV] = useState(String(k.tauxRetenue || 0));
+  const enregistrer = async () => {
+    const n = Number(String(v).replace(",", "."));
+    if (!Number.isFinite(n) || n < 0 || n > 50) return setInfo("Taux invalide (0 à 50 %).");
+    try {
+      await updateDoc(doc(db, "coursiers", k.id), { tauxRetenue: n, majLe: serverTimestamp() });
+      setOuvert(false);
+      setInfo(`Retenue à la source de ${k.prenom} : ${n} % ✓`);
+    } catch {
+      setInfo("Enregistrement impossible.");
+    }
+  };
+  if (!ouvert) return <button className="lien" onClick={() => setOuvert(true)}>Retenue à la source : {k.tauxRetenue || 0} % — modifier</button>;
+  return (
+    <div className="tb-actions" style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
+      <label className="pm-champ" style={{ maxWidth: 200 }}>Retenue à la source (%)
+        <input inputMode="decimal" value={v} onChange={(e) => setV(e.target.value.replace(/[^0-9.,]/g, ""))} />
+      </label>
+      <button className="tb-bouton" onClick={enregistrer}>Enregistrer</button>
+      <button className="tb-bouton tb-clair" onClick={() => setOuvert(false)}>Annuler</button>
+      <p className="tb-note" style={{ width: "100%" }}>0 % s'il t'a envoyé une exonération (document « retenue à la source » de sa candidature). Demande à ton comptable si tu dois en faire une.</p>
+    </div>
+  );
+}
+
 function Versement({ k, setInfo }) {
   const [sens, setSens] = useState("vers_coursier");
   const [montant, setMontant] = useState("");
@@ -235,7 +263,7 @@ function Coursiers({ candidatures, setInfo }) {
     const t = taux || {};
     const propre = reglagesCommission({ normale: { taux: t.nt, minimum: t.nm }, commercant: { taux: t.ct, minimum: t.cm }, plafondDette: t.pd });
     try {
-      await setDoc(doc(db, "reglages", "coursiers"), { ...propre, majLe: serverTimestamp() });
+      await setDoc(doc(db, "reglages", "coursiers"), { ...propre, majLe: serverTimestamp() }, { merge: true });
       setVoirTaux(false);
       setInfo("Commissions enregistrées ✓ (les courses déjà proposées gardent leur commission).");
     } catch {
@@ -265,7 +293,8 @@ function Coursiers({ candidatures, setInfo }) {
                   {k.statut === "suspendu" && <button className="tb-bouton" onClick={() => statut(k, "actif")}>Réactiver</button>}
                   {k.statut === "actif" && <Versement k={k} setInfo={setInfo} />}
                 </div>
-                {k.statut !== "a_activer" && <CompteCoursier vueAdmin nom={k.prenom} telephone={k.telephone} courses={ms.map(courseDeMission)} reglements={rs} />}
+                {k.statut !== "a_activer" && <TauxRetenue k={k} setInfo={setInfo} />}
+                {k.statut !== "a_activer" && <CompteCoursier vueAdmin nom={k.prenom} telephone={k.telephone} courses={ms.map(courseDeMission)} reglements={rs} tauxRetenue={k.tauxRetenue || 0} />}
               </div>
             )}
           </div>

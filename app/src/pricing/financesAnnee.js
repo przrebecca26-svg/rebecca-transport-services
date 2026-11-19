@@ -173,9 +173,28 @@ export function validerAutreRevenu(f) {
   if (revenu + pourboire === 0) return { erreur: "Indique le revenu et/ou le pourboire." };
   if ((revenu < 0 || pourboire < 0) && detail.length < 3) return { erreur: "Pour un montant négatif (correction), un détail est obligatoire." };
   if (detail.length > 200) return { erreur: "Détail trop long (200 caractères maximum)." };
+  // 19 nov. 2026 (relevé Wolt) : retenue à la source, caution du sac, numéro de facture (facultatifs)
+  const retenue = Math.round(lire(f.retenue) * 100) / 100;
+  const caution = Math.round(lire(f.caution) * 100) / 100;
+  const numero = String(f.numero || "").trim();
+  if (![retenue, caution].every((x) => Number.isFinite(x) && x >= 0 && x <= 100000)) return { erreur: "Retenue ou caution invalide (montant positif)." };
+  if (numero.length > 30) return { erreur: "Numéro de facture trop long (30 caractères maximum)." };
   const ligne = { source, periode: f.periode, debut: f.debut, fin: f.fin, livraisons, revenu, pourboire };
   if (detail) ligne.detail = detail;
+  if (retenue) ligne.retenue = retenue;
+  if (caution) ligne.caution = caution;
+  if (numero) ligne.numero = numero;
   return { erreur: "", ligne };
+}
+
+// Ce que Wolt a vraiment versé sur le compte : revenu + pourboires - retenue à la source - caution du sac
+export function verseWolt(l = {}) {
+  return Math.round((nb(l.revenu) + nb(l.pourboire) - nb(l.retenue) - nb(l.caution)) * 100) / 100;
+}
+// Totaux d'une liste de lignes (une année, un mois) : retenue = impôt déjà payé ; caution = rendue avec le sac
+export function totauxRetenues(lignes = []) {
+  const s = (k) => Math.round(lignes.reduce((t, l) => t + nb(l[k]), 0) * 100) / 100;
+  return { retenue: s("retenue"), caution: s("caution") };
 }
 
 /* ---------- Encaisse / reste a encaisser (13 nov. 2026, 09h07) ----------

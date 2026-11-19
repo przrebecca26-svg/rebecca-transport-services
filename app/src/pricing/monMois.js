@@ -76,5 +76,8 @@ export function monMois(mois, { demandes = [], mouvements = [], depenses = [], a
     idsReste,
     lignesDepenses: dep,
     lignesWolt: autresRevenus.filter((r) => !r.operateur && String(r.debut || "").slice(0, 7) === mois),
+    // 19 nov. 2026 : retenue à la source (impôt déjà payé) et caution du sac, déjà comptées dans le revenu Wolt
+    woltRetenue: cents(autresRevenus.filter((r) => !r.operateur && String(r.debut || "").slice(0, 7) === mois).reduce((s, r) => s + nb(r.retenue), 0)),
+    woltCaution: cents(autresRevenus.filter((r) => !r.operateur && String(r.debut || "").slice(0, 7) === mois).reduce((s, r) => s + nb(r.caution), 0)),
   };
 }

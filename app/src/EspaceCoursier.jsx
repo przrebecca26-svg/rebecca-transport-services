@@ -99,11 +99,24 @@ function Mission({ m, uid, bloque, prenom }) {
         <strong>{m.titre}</strong>
         <strong>{m.prix} ₪</strong>
       </div>
-      <p className="cc-gris" style={{ margin: "4px 0" }}>{jj(m.date)} · {m.heure} · commission {m.commission && m.commission.montant} ₪ · pour toi {Math.round((m.prix - ((m.commission && m.commission.montant) || 0)) * 100) / 100} ₪ (+ pourboire)</p>
-      {m.statut === "proposee" && infosAvantAccepter(m) && <p style={{ margin: "4px 0" }}>🛣️ {infosAvantAccepter(m)}</p>}
-      {m.depart && m.depart.label && <p style={{ margin: "4px 0" }}>📍 {m.depart.label}</p>}
-      {m.arrivee && m.arrivee.label && <p style={{ margin: "4px 0" }}>🏁 {m.arrivee.label}</p>}
-      {m.details && <p className="cc-gris" style={{ whiteSpace: "pre-line", margin: "4px 0" }}>{m.details}</p>}
+      {/* 19 nov. 2026 (Rebecca) : AVANT d'accepter, le coursier partenaire voit seulement l'argent (prix, ma commission,
+          ce qu'il touche, ce qu'il me doit s'il est payé en espèces) ; les adresses, les km et le temps APRÈS avoir accepté. */}
+      {(() => {
+        const com = Math.round(((m.commission && Number(m.commission.montant)) || 0) * 100) / 100;
+        const net = Math.round(((Number(m.prix) || 0) - com) * 100) / 100;
+        return (
+          <div style={{ margin: "4px 0" }}>
+            <p className="cc-gris" style={{ margin: "2px 0" }}>{jj(m.date)} · {m.heure}</p>
+            <p style={{ margin: "2px 0" }}>Prix de la course : <strong>{m.prix} ₪</strong> · commission Rebecca Services : − {com} ₪</p>
+            <p style={{ margin: "2px 0" }}>Pour toi : <strong>{net} ₪</strong> (+ pourboire, 100 % pour toi)</p>
+            <p className="cc-gris" style={{ margin: "2px 0" }}>Payé par Bit, Revolut, PayPal ou carte : Rebecca te reverse {net} ₪. Payé en espèces : tu gardes {m.prix} ₪ et tu dois {com} ₪ à Rebecca.</p>
+          </div>
+        );
+      })()}
+      {m.statut !== "proposee" && infosAvantAccepter(m) && <p style={{ margin: "4px 0" }}>🛣️ {infosAvantAccepter(m)}</p>}
+      {m.statut !== "proposee" && m.depart && m.depart.label && <p style={{ margin: "4px 0" }}>📍 {m.depart.label}</p>}
+      {m.statut !== "proposee" && m.arrivee && m.arrivee.label && <p style={{ margin: "4px 0" }}>🏁 {m.arrivee.label}</p>}
+      {m.statut !== "proposee" && m.details && <p className="cc-gris" style={{ whiteSpace: "pre-line", margin: "4px 0" }}>{m.details}</p>}
       {m.statut === "proposee" && (
         <button className="tb-bouton" disabled={bloque} onClick={accepter}>{bloque ? "Règle d'abord ton compte" : "✓ J'accepte cette course"}</button>
       )}

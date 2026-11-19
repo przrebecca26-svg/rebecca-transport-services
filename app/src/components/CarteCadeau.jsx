@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { IDEES_CADEAU, MONTANTS_CADEAU, MOYENS_CADEAU, STATUTS_CADEAU, genererCode, lienCarte, messageOffrir, nouvelleCarte, validerCarte } from "../pricing/cartesCadeaux.js";
+import { CONDITIONS_CADEAU, IDEES_CADEAU, MONTANTS_CADEAU, MOYENS_CADEAU, STATUTS_CADEAU, dateFrCadeau, finValidite, genererCode, messageOffrir, nouvelleCarte, statutAffiche, validerCarte } from "../pricing/cartesCadeaux.js";
 import { lignesPaiement, normaliserRevolut } from "../pricing/suiteClient.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 
 // CARTE CADEAU (18 nov. 2026) - page publique : offrir une carte (#/cadeau) ou voir sa carte (#/cadeau/ID).
 // Firebase n'est charge qu'ici.
+// 19 nov. 2026 : validite 1 an, non remboursable, toutes les activites ; carte imprimable / PDF a la charte.
+const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
 const charger = () => Promise.all([import("../firebase.js"), import("firebase/firestore")]);
 
 function Paiement({ carte, id, onAnnonce }) {
@@ -50,9 +52,11 @@ export function VoirCarte({ id, onAccueil }) {
   if (carte === undefined) return <p className="aide" style={{ padding: 24 }}>Chargement…</p>;
   if (!carte) return <div className="bloc" style={{ maxWidth: 520, margin: "24px auto", padding: 20 }}><h2>Carte introuvable</h2><button className="bouton" onClick={onAccueil}>Voir le site</button></div>;
   const active = carte.statut === "active" || carte.statut === "utilisee";
+  const statut = statutAffiche(carte, aujourdhui());
+  const fin = finValidite(carte);
   return (
     <div className="bloc" style={{ maxWidth: 520, margin: "24px auto", padding: 20 }}>
-      <div style={{ borderRadius: 18, padding: 22, background: "linear-gradient(135deg, #141214, #3a2a2e)", border: "1px solid #c9967a", textAlign: "center", marginBottom: 16 }}>
+      <div className="carte-cadeau-impr" style={{ borderRadius: 18, padding: 22, background: "linear-gradient(135deg, #141214, #3a2a2e)", border: "1px solid #c9967a", textAlign: "center", marginBottom: 16 }}>
         <p style={{ letterSpacing: 3, color: "#e7a9b4", margin: 0 }}>CARTE CADEAU</p>
         <h2 style={{ margin: "8px 0", color: "#faf6f2" }}>Rebecca Services</h2>
         <p style={{ fontSize: 34, margin: "6px 0", color: "#faf6f2" }}><strong>{carte.montant} ₪</strong></p>
@@ -61,11 +65,15 @@ export function VoirCarte({ id, onAccueil }) {
         {carte.message && <p style={{ fontStyle: "italic", color: "#faf6f2" }}>« {carte.message} »</p>}
         {active && <p style={{ fontSize: 20, letterSpacing: 2, color: "#faf6f2" }}><strong>{carte.code}</strong></p>}
         {active && <p style={{ color: "#e7a9b4", margin: 0 }}>Solde : {carte.solde} ₪</p>}
+        {active && fin && <p style={{ color: "#faf6f2", marginBottom: 0 }}>Valable jusqu'au {dateFrCadeau(fin)}</p>}
+        <p style={{ color: "#b9aeb0", fontSize: 12, marginBottom: 0 }}>{CONDITIONS_CADEAU}</p>
+        <p style={{ color: "#e7a9b4", fontSize: 12, margin: "6px 0 0" }}>rebeccaservices.com · WhatsApp 054-738-0193</p>
       </div>
-      <p className="aide">État : {STATUTS_CADEAU[carte.statut] || carte.statut}</p>
+      <p className="aide">État : {STATUTS_CADEAU[statut] || carte.statut}</p>
       {(carte.statut === "a_payer" || carte.statut === "paiement_annonce") && <Paiement carte={carte} id={id} onAnnonce={lire} />}
-      {carte.statut === "active" && (
+      {statut === "active" && (
         <>
+          <button type="button" className="bouton sans-impression" onClick={() => window.print()}>🖨️ Imprimer ou enregistrer en PDF</button>
           <p className="aide">Pour l'utiliser : réservez sur le site ou sur WhatsApp, et donnez le code à Rebecca au moment de payer.</p>
           {carte.pourTel && <a className="bouton" href={lienWhatsApp(carte.pourTel, messageOffrir(carte, id))} target="_blank" rel="noopener noreferrer">🎁 Envoyer la carte à {carte.pourNom} sur WhatsApp</a>}
           {!carte.pourTel && <a className="bouton" href={`https://wa.me/?text=${encodeURIComponent(messageOffrir(carte, id))}`} target="_blank" rel="noopener noreferrer">🎁 Envoyer la carte sur WhatsApp</a>}
@@ -108,6 +116,7 @@ export default function OffrirCarte({ onAccueil }) {
     <div className="bloc" style={{ maxWidth: 520, margin: "24px auto", padding: 20 }}>
       <h2>🎁 Offrir une carte cadeau</h2>
       <p className="aide">Un trajet aéroport, un soin beauté, des courses… La personne choisit quand elle veut. Valable sur tous les services Rebecca Services.</p>
+      <p className="aide">{CONDITIONS_CADEAU}</p>
       <p><strong>Montant</strong></p>
       <div className="pourboire-boutons" style={{ flexWrap: "wrap" }}>
         {MONTANTS_CADEAU.map((m) => <button key={m} type="button" className={String(m) === String(f.montant) ? "actif" : ""} onClick={() => setF({ ...f, montant: String(m) })}>{m} ₪</button>)}

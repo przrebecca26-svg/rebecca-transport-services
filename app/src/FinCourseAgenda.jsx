@@ -11,6 +11,8 @@ import { synchroniserSuivi } from "./suiviClient.js";
 import { heureArrivee } from "./arrivee.js";
 import { getDocs } from "firebase/firestore";
 import { normaliserCode, utiliserCarte } from "./pricing/cartesCadeaux.js";
+import { comprendreEncaissement } from "./pricing/saisieVocale.js";
+import Dicter from "./components/Dicter.jsx";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
@@ -222,6 +224,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
             </div>
           )}
           <p className="tb-note">Ou en détail (autre montant, pourboire, ajout) :</p>
+          <Dicter exemple="Ex. : 85 en espèces, 5 de pourboire" comprendre={comprendreEncaissement} remplir={(r) => setCaisse((c) => ({ ...c, recu: r.recu || c.recu, pourboire: r.pourboire || c.pourboire, ajout: r.ajout || c.ajout, moyen: r.moyen || c.moyen }))} />
           <p className="tb-note">Prix {trajet === "simple" ? "de la course" : "de l'aller-retour"} : {prixDe(d)} ₪{Number(d.ajustement) ? ` (ajout / déduction ${d.ajustement > 0 ? "+" : ""}${d.ajustement} ₪ → ${duDe(d)} ₪)` : ""} · déjà encaissé : {encaisseDe(mouvements, d.id)} ₪ · reste : {reste} ₪</p>
           <label className="ag-champ">Reçu pour la course (₪)<input type="text" inputMode="decimal" value={caisse.recu} onChange={(x) => setCaisse({ ...caisse, recu: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="ag-champ">Ajout / déduction (₪) — supplément pas prévu (ex. 20) ou remise (ex. -20)<input type="text" inputMode="text" value={caisse.ajout} onChange={(x) => setCaisse({ ...caisse, ajout: x.target.value.replace(/[^0-9.,\-−]/g, "") })} placeholder="0" /></label>

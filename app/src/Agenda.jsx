@@ -25,6 +25,8 @@ import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
 import { TYPES_TACHE, etapeValidable, iconeTache } from "./pricing/tournee.js";
+import { comprendreDateHeure } from "./pricing/saisieVocale.js";
+import Dicter from "./components/Dicter.jsx";
 import { ajouterJours, etiquettesDuJour, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
 // Agenda de Rebecca : jour, semaine, mois, avec Chabbat, fetes, creneaux personnels, courses et fermetures gerees par Rebecca.
@@ -711,6 +713,19 @@ function FormTache({ date, journee, initial = null, onFin }) {
   return (
     <div className="ag-tache-form">
       <h4>{initial ? "Modifier la tâche" : `Nouvelle tâche · ${libelleJour(date)}`}</h4>
+      {!initial && (
+        <Dicter
+          exemple="Ex. : rendez-vous personnel docteur à 10 heures"
+          comprendre={(t) => {
+            const { date: dit, heure } = comprendreDateHeure(t, date);
+            if (!heure) return { erreur: "Dis l'heure, par exemple : « docteur à 10 heures »." };
+            const quoi = String(t).replace(/\b(ajoute|note|mets?)\b/gi, "").replace(/\b(demain|apr[eè]s-demain|aujourd'hui)\b/gi, "").replace(/\b(à|a)?\s*\d{1,2}\s*(h|heures?|:)\s*\d{0,2}/gi, "").replace(/\s+/g, " ").trim().replace(/^[,.\s]+|[,.\s]+$/g, "");
+            const autreJour = dit && dit !== date;
+            return { heure, quoi: quoi.slice(0, 80), autreJour: autreJour ? dit : "", resume: `${quoi || "Tâche"} · ${heure.replace(":", "h")}${autreJour ? ` (attention : tu as dit le ${dit.split("-").reverse().join("/")}, ouvre ce jour-là dans le calendrier)` : ""}` };
+          }}
+          remplir={(r) => setF((x) => ({ ...x, type: x.type || "autre", quoi: x.quoi || r.quoi, debut: r.heure, fin: decaler(r.heure, 60) }))}
+        />
+      )}
 
       <fieldset className="champ">
         <legend>1. Quelle activité ?</legend>

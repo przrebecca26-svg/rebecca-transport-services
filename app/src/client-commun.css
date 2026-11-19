@@ -61,3 +61,11 @@
 .dispo-bandeau.ferme .pastille { background: #e0707e; box-shadow: 0 0 0 4px rgba(224, 112, 126, 0.2); }
 .dispo-bandeau strong { display: block; color: var(--blanc); font-size: 15px; }
 .dispo-bandeau span { display: block; color: var(--rose); font-size: 13px; }
+
+/* 19 nov. 2026 : carte cadeau imprimable (Imprimer -> Enregistrer en PDF sur iPhone) */
+@media print {
+  body * { visibility: hidden; }
+  .carte-cadeau-impr, .carte-cadeau-impr * { visibility: visible; }
+  .carte-cadeau-impr { position: absolute; left: 0; right: 0; top: 0; margin: 0 auto; max-width: 520px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sans-impression { display: none !important; }
+}

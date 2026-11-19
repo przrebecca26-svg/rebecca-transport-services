@@ -255,3 +255,11 @@ export function messageEnRouteResto(d) {
   const v = (d && d.details) || {};
   return [`Bonjour${v.destinataire ? " " + String(v.destinataire).split(" ")[0] : ""}, c'est Rebecca Services 🛵`, `Je vous apporte votre commande de ${d.nom}, j'arrive dans quelques minutes.`, "Merci !"].join("\n");
 }
+// Merci et avis : au RESTAURANT (jamais à son client : article 6 du contrat)
+export function messageMerciResto(d, heure = "") {
+  const v = (d && d.details) || {};
+  return [`Bonjour ${d.nom}, c'est Rebecca Services 🛵`, `La commande${v.destinataire ? " de " + v.destinataire : ""} est bien livrée ✓${heure ? " à " + heure.replace(":", "h") : ""}.`, "Elle est ajoutée à votre relevé de la semaine. Merci pour votre confiance !", "Rebecca"].join("\n");
+}
+export function messageAvisResto(d) {
+  return [`Bonjour ${d.nom}, c'est Rebecca 🙏`, "Merci de me confier vos livraisons ! Un petit retour sur la façon dont ça se passe (délais, soin, échanges) m'aiderait beaucoup : répondez simplement à ce message.", "Rebecca Services · rebeccaservices.com"].join("\n");
+}

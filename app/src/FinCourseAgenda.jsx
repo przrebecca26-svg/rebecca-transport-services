@@ -13,7 +13,7 @@ import { getDocs } from "firebase/firestore";
 import { normaliserCode, utiliserCarte } from "./pricing/cartesCadeaux.js";
 import { comprendreEncaissement } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
-import { estLivraisonResto, messageEnRouteResto } from "./pricing/restos.js";
+import { estLivraisonResto, messageAvisResto, messageEnRouteResto, messageMerciResto } from "./pricing/restos.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
@@ -108,7 +108,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     await enregistrer(r.champs);
     setCompteur(null);
   };
-  const lienMerci = lienWhatsApp(d.telephone, messageFin(d, reste));
+  const lienMerci = lienWhatsApp(d.telephone, resto ? messageMerciResto(d, c.depose || "") : messageFin(d, reste));
 
   const enregistrer = async (champs) => {
     if (!champs) return;
@@ -138,7 +138,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const texteSms = messagePaiement(d, reste, liensPaiement);
   const lienPaiement = texteSms ? lienWhatsApp(d.telephone, texteSms) : null;
   const lienRdv = beaute ? lienWhatsApp(d.telephone, messageReprendreRdv(d)) : null;
-  const lienAvis = finTrajet && !d.avisDemandeLe ? lienWhatsApp(d.telephone, messageAvis(d)) : null;
+  const lienAvis = finTrajet && !d.avisDemandeLe ? lienWhatsApp(d.telephone, resto ? messageAvisResto(d) : messageAvis(d)) : null;
   const annuler = () => enregistrer(champsAnnulerEtape(d));
 
   // 18 nov. 2026 (suggestion validée) : encaisser en un geste. Le moyen choisi par la cliente est proposé d'office.
@@ -261,9 +261,9 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
         </div>
       )}
       {resto && <p className="tb-note">📋 Livraison de {d.nom} : payée avec son relevé de la semaine (le dimanche).</p>}
-      {!resto && (merci || (fait && reste === 0 && !caisse)) && lienMerci && (
+      {(resto ? fait : merci || (fait && reste === 0 && !caisse)) && lienMerci && (
         <div className="tb-actions">
-          <a className="tb-bouton" href={lienMerci} target="_blank" rel="noopener noreferrer" onClick={() => setMerci(false)}>💬 Envoyer le merci (WhatsApp)</a>
+          <a className="tb-bouton" href={lienMerci} target="_blank" rel="noopener noreferrer" onClick={() => setMerci(false)}>💬 Envoyer le merci{resto ? " au restaurant" : ""} (WhatsApp)</a>
         </div>
       )}
       {boutonRappel}
@@ -277,9 +277,9 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           <a className="tb-bouton tb-clair" href={lienRdv} target="_blank" rel="noopener noreferrer" onClick={() => { mail(SUJETS.rdv, messageReprendreRdv(d)); noter({ prochainRdvProposeLe: aujourdhui }); }}>📅 Proposer le prochain rendez-vous</a>
         </div>
       )}
-      {!resto && lienAvis && (
+      {lienAvis && (
         <div className="tb-actions">
-          <a className="tb-bouton tb-clair" href={lienAvis} target="_blank" rel="noopener noreferrer" onClick={() => { mail(SUJETS.avis, messageAvis(d)); noter({ avisDemandeLe: aujourdhui }); }}>⭐ Demander un avis</a>
+          <a className="tb-bouton tb-clair" href={lienAvis} target="_blank" rel="noopener noreferrer" onClick={() => { if (!resto) mail(SUJETS.avis, messageAvis(d)); noter({ avisDemandeLe: aujourdhui }); }}>⭐ Demander un avis{resto ? " au restaurant" : ""}</a>
         </div>
       )}
       {/* 19 nov. 2026, 15h42 : le reçu PDF reste disponible dès qu'un paiement est noté (pas seulement « à faire ») */}

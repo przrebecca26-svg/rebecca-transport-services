@@ -30,8 +30,8 @@ export function tarifsStandard(reglage) {
 }
 
 export const FORMULES_RESTO = [
-  { v: "A", titre: "Formule A · À la demande", resume: "Vous m'envoyez une livraison quand vous en avez besoin. Je l'accepte selon mes disponibilités. Aucun minimum de livraisons." },
-  { v: "B", titre: "Formule B · Créneaux réservés", resume: "Je suis disponible pour vous, garanti, sur les créneaux que vous choisissez (ex. jeudi soir). Prix réduit, avec un minimum de livraisons payées par créneau." },
+  { v: "A", titre: "Formule A · À la demande, sans engagement", resume: "Vous m'envoyez une livraison quand vous en avez besoin. Je l'accepte selon mes disponibilités. Aucun engagement, aucun minimum de livraisons." },
+  { v: "B", titre: "Formule B · Créneaux réservés, avec engagement", resume: "Je suis disponible pour vous, garanti, sur les créneaux que vous choisissez (ex. jeudi soir). En échange d'un prix réduit, vous vous engagez sur ces créneaux : un minimum de livraisons payées par créneau." },
 ];
 export const FORMES = [
   { v: "patur", l: "Osek patur (עוסק פטור)" },

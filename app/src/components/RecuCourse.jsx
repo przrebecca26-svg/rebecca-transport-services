@@ -24,7 +24,15 @@ export default function RecuCourse({ d }) {
     getDoc(doc(db, "reglages", "paiement")).then((x) => setOsek(x.exists() ? x.data().osek || "" : "")).catch(() => {});
     return onSnapshot(query(collection(db, "mouvements"), where("resId", "==", d.id)), (s) => setMvts(s.docs.map((x) => x.data())), () => {});
   }, [ouvert, d.id]);
+  // 19 nov. 2026, 15h47 : dans l'icône de l'écran d'accueil, iOS bloque « Imprimer » : on passe par le PDF
+  // (menu de partage → « Imprimer »). Dans Safari, l'impression normale marche.
+  const dansIcone = () => (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
   const imprimer = () => {
+    if (dansIcone()) {
+      partager();
+      setInfo("Pour imprimer : dans le menu qui s'ouvre, descends et touche « Imprimer ».");
+      return;
+    }
     window.print();
     if (!d.recuFaitLe) updateDoc(doc(db, "demandes", d.id), { recuFaitLe: aujourdhui(), majLe: serverTimestamp() }).catch(() => {});
   };
@@ -44,7 +52,7 @@ export default function RecuCourse({ d }) {
       { libelle: "Total", montant: du, gras: true },
       ...paiements.map((m) => ({ libelle: `Payé le ${dateFr(m.date)} · ${m.moyen}`, montant: m.montant })),
       ...(d.payeAuCoursier ? [{ libelle: "Payé en espèces au coursier", montant: du }] : []),
-      { libelle: soldeOk ? "Payé ✓" : "Reste à payer", montant: soldeOk ? 0 : du - paye, gras: true },
+      { libelle: soldeOk ? "Reste à payer (tout est payé ✓)" : "Reste à payer", montant: soldeOk ? 0 : du - paye, gras: true },
     ];
     try {
       const octets = recuPdf({ nom: NOM, sousTitre: `Netanya · WhatsApp ${WHATSAPP}${osek ? ` · Osek n° ${osek}` : ""}`, numero, edite: dateFr(aujourdhui()), client: `${d.nom || ""}${d.telephone ? ` · ${d.telephone}` : ""}`, lignes, merci: "Merci pour votre confiance. « Votre temps est précieux, je vous aide à en profiter. »" });
@@ -72,7 +80,7 @@ export default function RecuCourse({ d }) {
             <tr><td><b>Total</b></td><td><b>{shekels(du)}</b></td></tr>
             {paiements.map((m, i) => <tr key={i}><td>Payé le {dateFr(m.date)} · {m.moyen}</td><td>{shekels(m.montant)}</td></tr>)}
             {d.payeAuCoursier && <tr><td>Payé en espèces au coursier</td><td>{shekels(du)}</td></tr>}
-            <tr><td><b>{soldeOk ? "Payé ✓" : "Reste à payer"}</b></td><td><b>{soldeOk ? shekels(0) : shekels(du - paye)}</b></td></tr>
+            <tr><td><b>{soldeOk ? "Reste à payer (tout est payé ✓)" : "Reste à payer"}</b></td><td><b>{soldeOk ? shekels(0) : shekels(du - paye)}</b></td></tr>
           </tbody>
         </table>
         <p className="st-petit">Merci pour votre confiance. « Votre temps est précieux, je vous aide à en profiter. »</p>

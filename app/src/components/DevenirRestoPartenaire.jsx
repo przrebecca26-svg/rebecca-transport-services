@@ -74,7 +74,7 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
       const texte = emailContrat(signe, ref.id, lienContrat(ref.id));
       const sujet = `Contrat de partenariat livraison ${numeroContrat(ref.id, signe.signeLe)} - Rebecca Services`;
       const [a, b] = await Promise.all([envoyerEmailA(c.email, c.responsable, sujet, texte), envoyerEmailA(EMAIL_REBECCA, "Rebecca", `🤝 ${c.nom} a signé · ${sujet}`, texte)]);
-      setFini({ id: ref.id, c: signe, mails: a && b });
+      setFini({ id: ref.id, c: signe, mails: a && b, mailResto: a });
       aller("merci");
     } catch {
       setErreurs(["L'envoi n'a pas marché. Vérifiez la connexion et réessayez, ou écrivez-moi sur WhatsApp."]);
@@ -230,7 +230,7 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
         <section className="pp-bloc pp-centre">
           <h2>Merci, c'est signé ! 🤝</h2>
           <p>Bienvenue chez les partenaires de Rebecca Services, {fini.c.responsable}.</p>
-          <p className="pp-note">Contrat n° {numeroContrat(fini.id, fini.c.signeLe)}. {fini.mails ? `Une copie vient d'être envoyée à ${fini.c.email}.` : "Gardez une copie avec le bouton ci-dessous."}</p>
+          <p className="pp-note">Contrat n° {numeroContrat(fini.id, fini.c.signeLe)}. {fini.mailResto ? `Une copie vient d'être envoyée à ${fini.c.email}.` : "L'e-mail n'a pas pu partir : gardez une copie avec le bouton ci-dessous."}</p>
           <button type="button" className="pp-bouton" onClick={() => partagerPdf(contratPdf(fini.c, fini.id), `Contrat-${numeroContrat(fini.id, fini.c.signeLe)}.pdf`, "Contrat de partenariat")}>📄 Télécharger le contrat (PDF)</button>
           <a className="pp-lien" href={`#/contrat-resto/${fini.id}`}>Voir le contrat en ligne</a>
           <p>Prochaine étape : je valide votre inscription et je vous envoie sur WhatsApp le lien de votre espace, pour m'envoyer vos livraisons.</p>

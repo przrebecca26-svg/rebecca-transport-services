@@ -246,8 +246,10 @@ export function contratPdf(c, id) {
   const place = (h) => {
     if (y + h > H - 50) nouvellePage(false);
   };
+  // La police du PDF n'a pas l'hébreu (« עוסק פטור » sortait en « ???? ») : on le retire, le français suffit
+  const sansHebreu = (t) => String(t).replace(/\s*\([\u0590-\u05FF\s״׳"'.]+\)/g, "").replace(/[\u0590-\u05FF]+/g, "");
   const ecrire = (texte, taille = 10, gras = false, couleur = NOIR, ecart = 4) => {
-    for (const l of couper(texte, taille, L - 2 * m, gras)) {
+    for (const l of couper(sansHebreu(texte), taille, L - 2 * m, gras)) {
       place(taille + 4);
       el.push({ t: "texte", x: m, y, texte: l, taille, gras, couleur });
       y += taille + 4;

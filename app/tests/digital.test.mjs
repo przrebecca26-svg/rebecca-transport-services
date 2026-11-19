@@ -251,3 +251,12 @@ test("reçu et carte cadeau", () => {
   const c = texteDe(carteCadeauPdf({ montant: 100, pourNom: "R", acheteurNom: "T", code: "RS-577U-9J4P", solde: 10 }));
   vrai(c.includes("RS-577U-9J4P") && c.includes("Solde : 10 ILS"));
 });
+
+import { sauvegardeJson, COLLECTIONS_SAUVEGARDE } from "../src/pricing/sauvegarde.js";
+section("Sauvegarde manuelle complète (19 nov.)");
+test("la sauvegarde contient aussi Wolt, Répertoire, cartes cadeaux, réglages…", () => {
+  const j = JSON.parse(sauvegardeJson({ demandes: [], mouvements: [], depenses: [], autres: { autresRevenus: [{ id: "w", revenu: 516.02 }], cartesCadeaux: [{ id: "c", code: "RS-577U-9J4P" }] } }));
+  egal([j.nombre.autresRevenus, j.nombre.cartesCadeaux, j.autres.cartesCadeaux[0].code], [1, 1, "RS-577U-9J4P"]);
+  vrai(COLLECTIONS_SAUVEGARDE.includes("cartesCadeaux") && COLLECTIONS_SAUVEGARDE.includes("autresRevenus"));
+  egal("autres" in JSON.parse(sauvegardeJson({ demandes: [], mouvements: [], depenses: [] })), false);
+});

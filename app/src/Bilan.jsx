@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { indicateurs } from "./pricing/comptes.js";
 import { TYPES, decaler, libelle, periodeDe, suivantPossible } from "./pricing/bilan.js";
-import { journalCsv, joursEntre, nomFichier, sauvegardeJson } from "./pricing/sauvegarde.js";
+import { COLLECTIONS_SAUVEGARDE, journalCsv, joursEntre, nomFichier, sauvegardeJson } from "./pricing/sauvegarde.js";
 import { faitPar } from "./pricing/reverser.js";
 import { lignesDe } from "./pricing/equipe.js";
 import SauvegardesAuto from "./components/SauvegardesAuto.jsx";
@@ -99,11 +99,20 @@ export default function Bilan({ personne = "tous" }) {
     .sort((a, b) => b[1] - a[1]);
   const nbCourses = ind.nbCoursesTerminees;
 
-  const sauvegarder = () => {
+  const sauvegarder = async () => {
     setErreurFichier("");
     try {
       const jour = aujourdhui();
-      telecharger(nomFichier("sauvegarde", jour, "json"), sauvegardeJson({ demandes, mouvements, depenses }), "application/json");
+      // 19 nov. 2026 : toutes les autres collections lisibles (Rebecca les lit toutes ; un coéquipier seulement les siennes)
+      const autres = {};
+      for (const nom of COLLECTIONS_SAUVEGARDE) {
+        try {
+          autres[nom] = (await getDocs(collection(db, nom))).docs.map((x) => ({ id: x.id, ...x.data() }));
+        } catch {
+          /* collection non lisible pour ce compte : ignorée */
+        }
+      }
+      telecharger(nomFichier("sauvegarde", jour, "json"), sauvegardeJson({ demandes, mouvements, depenses, autres }), "application/json");
       noterSauvegarde(jour);
       setDerniere(jour);
     } catch {

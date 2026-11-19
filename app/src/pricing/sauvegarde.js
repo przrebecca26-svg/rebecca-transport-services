@@ -26,15 +26,20 @@ export function nettoyer(v) {
 const enAscii = (json) => json.replace(/[\u0080-\uffff]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
 
 // Copie complete (format JSON) : demandes, mouvements d'argent, depenses
-export function sauvegardeJson({ demandes, mouvements, depenses }, maintenant = new Date()) {
+// 19 nov. 2026 (test C9) : « autres » = toutes les autres collections (Wolt, Répertoire, cartes cadeaux, réglages,
+// coursiers...), pour que la sauvegarde manuelle soit vraiment COMPLÈTE, comme celle du dimanche.
+export const COLLECTIONS_SAUVEGARDE = ["autresRevenus", "clients", "clientsAdmin", "suivi", "commandes", "paiementsDeclares", "projetsDigital", "projetsDigitalPrive", "trajetsPartages", "recharges", "creditMouvements", "avis", "promos", "codesClient", "catalogue", "reglages", "fermetures", "equipe", "vehicules", "reversements", "coursiers", "missionsCoursiers", "reglementsCoursiers", "candidaturesPartenaires", "missionsEquipe", "cartesCadeaux", "admin", "agendaJours", "creneauxOccupes", "disposEquipe", "autorisations", "activites"];
+export function sauvegardeJson({ demandes, mouvements, depenses, autres = null }, maintenant = new Date()) {
+  const plus = autres && typeof autres === "object" ? autres : null;
   return enAscii(JSON.stringify(
     {
       application: "Rebecca Transport & Services",
       exporteLe: maintenant.toISOString(),
-      nombre: { demandes: demandes.length, mouvements: mouvements.length, depenses: depenses.length },
+      nombre: { demandes: demandes.length, mouvements: mouvements.length, depenses: depenses.length, ...(plus ? Object.fromEntries(Object.entries(plus).map(([k, v]) => [k, v.length])) : {}) },
       demandes: nettoyer(demandes),
       mouvements: nettoyer(mouvements),
       depenses: nettoyer(depenses),
+      ...(plus ? { autres: nettoyer(plus) } : {}),
     },
     null,
     2

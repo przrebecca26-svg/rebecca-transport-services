@@ -41,7 +41,7 @@ const VUES = [
   { id: "bilan", label: "Bilan", rebecca: true },
   { id: "wolt", label: "Wolt" },
   { id: "depenses", label: "Dépenses" },
-  { id: "essence", label: "Essence", rebecca: true }, // 13 nov. 2026 : pleins, travail (Rebecca Services, Wolt) et perso
+  { id: "essence", label: "⛽ Carburant", rebecca: true }, // 19 nov. 2026 : renommé (essence = carburant, tout au même endroit) ; // 13 nov. 2026 : pleins, travail (Rebecca Services, Wolt) et perso
 ];
 
 const COLLECTIONS = ["demandes", "mouvements", "depenses", "autresRevenus", "avis", "recharges", "creditMouvements", "reversements"];
@@ -728,7 +728,7 @@ export default function Finances({ membre = null, aller = null }) {
       {vue === "reverser" && pret && <AReverser donnees={donnees} moi={moi} membres={membres} />}
       {vue === "wolt" && pret && <AutresRevenus lignes={donnees.autresRevenus} moi={moi} />}
       {vue === "monmois" && pret && estRebecca && <MonMoisVue donnees={donnees} aller={aller} />}
-      {vue === "essence" && pret && estRebecca && <EssenceVue demandes={donnees.demandes} autresRevenus={donnees.autresRevenus} />}
+      {vue === "essence" && pret && estRebecca && <EssenceVue demandes={donnees.demandes} autresRevenus={donnees.autresRevenus} depenses={donnees.depenses || []} />}
     </>
   );
 }

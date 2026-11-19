@@ -6,6 +6,8 @@ import { champOperateur } from "./pricing/reverser.js";
 import { CATEGORIES, moisDe, moisDecale, resumeMois, totalCategorie, validerDepense } from "./pricing/depenses.js";
 import { comprendreDepenses } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
+import { enregistrerEssence, useEssence } from "./EssenceVue.jsx";
+import { ajouterPlein, estCarburant } from "./pricing/essence.js";
 import "./paiements.css";
 import "./depenses.css";
 
@@ -47,6 +49,7 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
   const [aSupprimer, setASupprimer] = useState(null);
   // 19 nov. 2026 : modifier une dépense (même formulaire, pré-rempli)
   const [enModif, setEnModif] = useState(null);
+  const [info, setInfo] = useState("");
   const supprimer = async (id) => {
     try {
       await deleteDoc(doc(db, "depenses", id));
@@ -71,13 +74,20 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
     setErreur("");
   }, [montant, motif, date, categorie]);
 
-  const resume = useMemo(() => resumeMois(depenses || [], mois), [depenses, mois]);
+  // 19 nov. 2026, 14h50 (Rebecca : « carburant toujours à part, dans l'onglet Essence ») : pour Rebecca, le carburant
+  // ne s'affiche plus ici ; il est dans Finances → ⛽ Carburant. Une dépense « Carburant » devient un plein.
+  const rebecca = moi === ADMIN_ID;
+  const essence = useEssence();
+  const visibles = useMemo(() => (rebecca ? (depenses || []).filter((x) => !estCarburant(x)) : depenses || []), [depenses, rebecca]);
+  const resume = useMemo(() => resumeMois(visibles, mois), [visibles, mois]);
+  const carburantMois = useMemo(() => (rebecca ? resumeMois((depenses || []).filter(estCarburant), mois).total : 0), [depenses, rebecca, mois]);
 
   if (lectureImpossible) return <p className="admin-erreur tb-pad" role="alert">Lecture des dépenses impossible. Vérifie la connexion et les règles Firebase.</p>;
   if (depenses === null) return <p className="admin-texte tb-pad">Chargement des dépenses…</p>;
 
   const ouvrir = (m) => {
     setMode(m);
+    setInfo("");
     setCategorie(CATEGORIES[0]);
     setMontant("");
     setDate(aujourdhui());
@@ -129,6 +139,15 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
     setEnCours(true);
     setErreur("");
     try {
+      if (rebecca && estCarburant(aConfirmer) && aConfirmer.montant > 0) {
+        if (!essence) throw new Error("essence");
+        await enregistrerEssence(ajouterPlein(essence, { date: aConfirmer.date, montant: aConfirmer.montant, litres: 0, compteur: 0 }));
+        if (enModif) await deleteDoc(doc(db, "depenses", enModif));
+        setInfo(`⛽ ${euros(aConfirmer.montant)} de carburant ajoutés dans Finances → Carburant (avec tes pleins).`);
+        fermer();
+        setEnCours(false);
+        return;
+      }
       if (enModif) {
         const { date: dt, categorie: ca, montant: mo, motif: mf = "", vehicule: ve = "" } = aConfirmer;
         await updateDoc(doc(db, "depenses", enModif), { date: dt, categorie: ca, montant: mo, motif: mf, vehicule: ve });
@@ -178,6 +197,9 @@ export default function Depenses({ moi = ADMIN_ID, vehicules = [] }) {
           </ul>
         )}
         {resume.lignes.length === 0 && <p className="tb-note">Aucune dépense ce mois-ci.</p>}
+        {rebecca && carburantMois > 0 && <p className="tb-note">⛽ Carburant ce mois : {euros(carburantMois)} → dans l'onglet ⛽ Carburant (pas compté ici).</p>}
+        {rebecca && <p className="tb-note">Carburant / essence : choisis « Carburant », il ira tout seul dans l'onglet ⛽ Carburant.</p>}
+        {info && <p className="tb-note" role="status">{info}</p>}
         <p className="tb-note">Ces dépenses servent à calculer ton bénéfice : chiffre d'affaires réalisé moins dépenses.</p>
 
         {mode === null && (

@@ -4,6 +4,7 @@ import { db } from "../firebase.js";
 import { SITE } from "../site.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { contratDe } from "../pricing/commercants.js";
+import { validerContratResto } from "../contratsRestosBase.js";
 import { lienResto, messageLienResto, nouvelleCleResto, restoDepuisFiche } from "../pricing/restos.js";
 
 // LIEN PRIVÉ DU RESTAURANT (V2, 19 nov. 2026) - dans le contrat de la fiche « Commerçant partenaire ».
@@ -26,6 +27,8 @@ export default function LienResto({ f, changer }) {
       if (nouvelle && cle) await updateDoc(doc(db, "restos", cle), { actif: false, majLe: serverTimestamp() }).catch(() => {});
       await setDoc(doc(db, "restos", k), { ...restoDepuisFiche(f), majLe: serverTimestamp() });
       if (nouvelle) changer({ ...f, contratPro: { ...c, lienResto: k } });
+      // 19 nov. 2026 : restaurant inscrit par le lien -> créer son espace = contresigner son contrat
+      if (nouvelle && f.resto && f.resto.contratId) await validerContratResto(f.resto.contratId).catch(() => {});
       setInfo(nouvelle ? "✓ Lien créé. Touche « Enregistrer » en bas de la fiche pour le garder, puis envoie-le au restaurant." : "✓ Lien mis à jour (nom, adresse, tarifs).");
     } catch {
       setInfo("Impossible pour l'instant : vérifie la connexion et les règles Firebase v29.");

@@ -10,6 +10,7 @@ import SimulateurDevis from "./SimulateurDevis.jsx";
 import RamassageScolaire from "./RamassageScolaire.jsx";
 import Repertoire from "./Repertoire.jsx";
 import { useChargerRepertoire } from "./repertoireBase.js";
+import { useImportContratsRestos } from "./contratsRestosBase.js";
 import Demandes from "./Demandes.jsx";
 import Transferts, { useTransfertsATraiter } from "./Transferts.jsx";
 import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
@@ -317,6 +318,7 @@ export default function Admin() {
   const donneesEquipe = useEquipeDonnees(); // J3 : equipe et vehicules (lecture refusee avant les regles v9 = Rebecca seule)
   const role = user ? roleDe({ estAdmin, fiche: equipe.fiche, demande: equipe.demande }) : "aucun";
   useChargerRepertoire(role === "admin" || role === "equipe"); // repertoire d'adresses : charge une fois pour tous les champs d'adresse
+  useImportContratsRestos(role === "admin"); // 19 nov. 2026 : un restaurant qui signe arrive tout seul dans le Répertoire
   const permises = rubriquesPour(role); // null = toutes (Rebecca)
   const rubriques = ordonner(permises ? RUBRIQUES.filter((r) => permises.includes(r.id)) : RUBRIQUES.filter((r) => r.id !== "mesfinances"), ordreMenu);
   if ((role === "admin" || role === "equipe") && rubriques.length && !rubriques.some((r) => r.id === onglet)) {

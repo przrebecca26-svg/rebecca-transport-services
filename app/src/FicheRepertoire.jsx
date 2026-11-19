@@ -297,6 +297,8 @@ function InfosResto({ f, changer, connues }) {
       <div className="champ"><label>Horaires d'ouverture et jours de fermeture<input type="text" maxLength={200} value={r.horaires || ""} placeholder="Ex. : dim-jeu 11h-23h, vendredi 11h-14h, fermé Chabbat" onChange={(x) => setR("horaires", x.target.value)} /></label></div>
       <div className="champ"><label>Nom légal (pour les relevés et reçus)<input type="text" maxLength={200} value={r.nomLegal || ""} onChange={(x) => setR("nomLegal", x.target.value)} /></label></div>
       <div className="champ"><label>N° d'entreprise (ח.פ / עוסק)<input type="text" inputMode="numeric" maxLength={20} value={r.numero || ""} onChange={(x) => setR("numero", x.target.value)} /></label></div>
+      {r.email && <div className="champ"><label>E-mail<input type="email" maxLength={200} value={r.email} onChange={(x) => setR("email", x.target.value)} /></label></div>}
+      {r.contratId && <p className="tdb-note">📄 Inscrit en ligne : <a href={`#/contrat-resto/${r.contratId}`} target="_blank" rel="noopener noreferrer">voir le contrat signé</a>. Créer le lien du restaurant (plus bas) contresigne le contrat.</p>}
       <p className="rp-type">Autres contacts</p>
       {(f.membres || []).map((m) => (
         <div key={m.id} className="rp-correction">

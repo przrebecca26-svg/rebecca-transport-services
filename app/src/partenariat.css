@@ -1,0 +1,44 @@
+/* PAGE « DEVENIR RESTAURANT PARTENAIRE » ET CONTRAT EN LIGNE (19 nov. 2026) - noir, rose poudré, or rose, blanc cassé */
+.pp { max-width: 720px; margin: 0 auto; padding: 16px 14px 40px; color: #f8f3f1; font-family: var(--g-sans, -apple-system, sans-serif); }
+.pp h1, .pp h2, .pp h3 { font-family: var(--g-titre, "Manrope", sans-serif); margin: 0 0 8px; }
+.pp h2 { font-size: 26px; }
+.pp h3 { font-size: 19px; color: #f1aeb7; margin-top: 14px; }
+.pp p { line-height: 1.55; }
+.pp-entete { display: flex; align-items: center; gap: 14px; padding: 8px 2px 18px; border-bottom: 1px solid rgba(201, 150, 122, 0.5); margin-bottom: 16px; }
+.pp-entete h1 { font-size: 22px; letter-spacing: 0.04em; }
+.pp-entete p { margin: 2px 0 0; color: #c9967a; font-style: italic; font-size: 14px; }
+.pp-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #c9967a; }
+.pp-bloc { background: #191518; border: 1px solid rgba(185, 120, 112, 0.45); border-radius: 20px; padding: 18px; margin-bottom: 14px; }
+.pp-hero { background: linear-gradient(160deg, #241b1f, #120e10); text-align: center; padding: 28px 18px; }
+.pp-sur { text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px; color: #c9967a; margin: 0 0 6px; }
+.pp-centre { text-align: center; display: grid; gap: 12px; justify-items: center; }
+.pp-bouton { background: #f1aeb7; color: #141214; border: 0; border-radius: 999px; padding: 14px 22px; font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 10px; }
+.pp-bouton:disabled { opacity: 0.5; }
+.pp-lien { background: none; border: 0; color: #f1aeb7; text-decoration: underline; font-size: 15px; cursor: pointer; padding: 6px 0; }
+.pp-retour { background: none; border: 0; color: #f1aeb7; font-size: 15px; padding: 0 0 10px; cursor: pointer; }
+.pp-note { color: #c8bcbc; font-size: 14px; }
+.pp-services, .pp-avantages { display: grid; gap: 10px; }
+.pp-service, .pp-avantage { display: flex; gap: 12px; align-items: center; background: #100d0f; border-radius: 14px; padding: 10px 12px; }
+.pp-service img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; }
+.pp-icone, .pp-avantage > span { width: 46px; height: 46px; display: grid; place-items: center; font-size: 24px; border-radius: 50%; background: #241b1f; flex: none; }
+.pp-service b, .pp-avantage b { display: block; }
+.pp-service small, .pp-avantage small { color: #c8bcbc; }
+.pp-etapes { padding-left: 20px; display: grid; gap: 8px; }
+.pp-formules { display: grid; gap: 12px; }
+@media (min-width: 640px) { .pp-formules { grid-template-columns: 1fr 1fr; } }
+.pp-formule { background: #100d0f; border: 1px solid rgba(201, 150, 122, 0.6); border-radius: 16px; padding: 14px; text-align: left; color: #f8f3f1; }
+.pp-formule ul { padding-left: 18px; margin: 8px 0 0; }
+.pp-formule strong { color: #f1aeb7; }
+.pp-choix { cursor: pointer; display: grid; gap: 6px; font: inherit; }
+.pp-choix small { color: #c8bcbc; }
+.pp-choix.actif { border: 2px solid #f1aeb7; background: #2a1f24; }
+.pp-article { border-bottom: 1px solid rgba(185, 120, 112, 0.3); padding: 10px 0; }
+.pp-article summary { font-weight: 700; cursor: pointer; }
+.pp-article p { color: #e4dad8; font-size: 15px; }
+.pp-case { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0 6px; font-weight: 600; }
+.pp-case input { width: 22px; height: 22px; flex: none; }
+.pp-champ { display: grid; gap: 6px; margin: 10px 0; font-weight: 600; font-size: 15px; }
+.pp-champ input, .pp-champ select { background: #100d0f; color: #f8f3f1; border: 1px solid rgba(185, 120, 112, 0.6); border-radius: 12px; padding: 12px; font-size: 16px; font-weight: 400; }
+.pp-erreurs { background: rgba(216, 90, 104, 0.15); border: 1px solid #d85a68; border-radius: 12px; padding: 10px 10px 10px 28px; color: #ffd3d8; }
+.pp-statut { font-weight: 700; color: #f1aeb7; }
+.pp-pied { display: grid; justify-items: center; gap: 4px; color: #8f8385; font-size: 13px; padding-top: 10px; }

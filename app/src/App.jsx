@@ -34,6 +34,9 @@ import InstallerAppli from "./components/InstallerAppli.jsx";
 import { lireLienCarte } from "./pricing/cartesCadeaux.js";
 import { lireLienResto } from "./pricing/restos.js";
 const EspaceResto = lazy(() => import("./components/EspaceResto.jsx")); // 19 nov. 2026 (V2) : #/resto/CLE
+const DevenirRestoPartenaire = lazy(() => import("./components/DevenirRestoPartenaire.jsx")); // 19 nov. 2026 : #/restaurant-partenaire
+const ContratRestoVue = lazy(() => import("./components/ContratRestoVue.jsx")); // 19 nov. 2026 : #/contrat-resto/ID
+const lireContratResto = (h) => { const m = /^#\/contrat-resto\/([A-Za-z0-9]{10,40})$/.exec(h || ""); return m ? m[1] : ""; };
 const OffrirCarte = lazy(() => import("./components/CarteCadeau.jsx"));
 const VoirCarte = lazy(() => import("./components/CarteCadeau.jsx").then((m) => ({ default: m.VoirCarte })));
 import "./client-commun.css";
@@ -411,6 +414,8 @@ export default function App() {
   // 19 nov. 2026 (V2) : suivi GPS en direct de la voiture (#/position/ID)
   const [lienPositionVu, setLienPositionVu] = useState(() => lireLienPosition(window.location.hash));
   const [lienResto, setLienResto] = useState(() => lireLienResto(window.location.hash));
+  const [lienInscriptionResto, setLienInscriptionResto] = useState(() => window.location.hash === "#/restaurant-partenaire");
+  const [lienContratResto, setLienContratResto] = useState(() => lireContratResto(window.location.hash));
   const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
   useEffect(() => {
     const suivre = () => {
@@ -425,6 +430,8 @@ export default function App() {
       setLienCadeau(window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash));
       setLienPositionVu(lireLienPosition(window.location.hash));
       setLienResto(lireLienResto(window.location.hash));
+      setLienInscriptionResto(window.location.hash === "#/restaurant-partenaire");
+      setLienContratResto(lireContratResto(window.location.hash));
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -488,6 +495,17 @@ export default function App() {
         <main>
           <Suspense fallback={chargement}>
             <SuiviProjet id={lienProjetVu} onAccueil={quitterLien} />
+          </Suspense>
+        </main>
+      </div>
+    );
+  const quitterResto = () => { window.location.hash = ""; setLienInscriptionResto(false); setLienContratResto(""); aller({ nom: "accueil" }); };
+  if (lienInscriptionResto || lienContratResto)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            {lienContratResto ? <ContratRestoVue id={lienContratResto} onAccueil={quitterResto} /> : <DevenirRestoPartenaire onAccueil={quitterResto} />}
           </Suspense>
         </main>
       </div>

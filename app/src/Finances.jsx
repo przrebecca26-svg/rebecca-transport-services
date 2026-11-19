@@ -4,7 +4,8 @@ import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Bilan from "./Bilan.jsx";
 import Depenses from "./Depenses.jsx";
-import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu, verseWolt, totauxRetenues } from "./pricing/financesAnnee.js";
+import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu, verseWolt, totauxRetenues, lireReglageWolt, retenueAuto, tauxDepuisFacture, dateVersement } from "./pricing/financesAnnee.js";
+import { setDoc } from "firebase/firestore";
 import { ADMIN_ID, lignesDe, syntheseMembre } from "./pricing/equipe.js";
 import { argentDe, champOperateur, lignesAReverser, parVehicule, soldesDe, validerReversement } from "./pricing/reverser.js";
 import { libelleType, nomDe, vehiculesEffectifs } from "./pricing/quiFait.js";
@@ -271,6 +272,12 @@ function AutresRevenus({ lignes: toutes, moi }) {
   // 16 nov. 2026 : recopier « Vos statistiques » de Wolt et partager livraisons, pourboires et km sur les lignes saisies
   const [stats, setStats] = useState(null); // null = ferme ; { debut, fin, livraisons, pourboires, km }
   const [statsFait, setStatsFait] = useState("");
+  // 19 nov. 2026, 15h54 : retenue, caution et date de versement calculées toutes seules (réglage admin/wolt)
+  const [reglageWolt, setReglageWolt] = useState(lireReglageWolt({}));
+  const [voirReglage, setVoirReglage] = useState(false);
+  const [facture, setFacture] = useState({ revenu: "", retenue: "" });
+  useEffect(() => (moi === ADMIN_ID ? onSnapshot(doc(db, "admin", "wolt"), (s) => setReglageWolt(lireReglageWolt(s.exists() ? s.data() : {})), () => {}) : undefined), [moi]);
+  const sauverReglageWolt = (r) => setDoc(doc(db, "admin", "wolt"), { ...lireReglageWolt(r), majLe: serverTimestamp() }).catch(() => setErreur("Enregistrement impossible."));
 
   const triees = [...lignes].sort((a, b) => String(b.debut).localeCompare(String(a.debut)));
   const visibles = voirTout ? triees : triees.filter((l) => String(l.debut).startsWith(String(annee)));
@@ -312,7 +319,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
     setStatsFait("");
     if (l) {
       setEdition(l.id);
-      setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "", retenue: l.retenue ? String(l.retenue) : "", caution: l.caution ? String(l.caution) : "", numero: l.numero || "", km: essence && essence.woltKm[l.id] ? String(essence.woltKm[l.id]) : "", heures: essence && essence.woltHeures && essence.woltHeures[l.id] ? String(essence.woltHeures[l.id]) : "" });
+      setForm({ source: l.source || "Wolt", periode: l.periode, debut: l.debut, fin: l.fin, livraisons: String(l.livraisons ?? ""), revenu: String(l.revenu ?? ""), pourboire: String(l.pourboire ?? ""), detail: l.detail || "", retenue: l.retenue ? String(l.retenue) : "", caution: l.caution ? String(l.caution) : "", numero: l.numero || "", retenueManuelle: !!l.retenue, cautionManuelle: !!l.caution, km: essence && essence.woltKm[l.id] ? String(essence.woltKm[l.id]) : "", heures: essence && essence.woltHeures && essence.woltHeures[l.id] ? String(essence.woltHeures[l.id]) : "" });
     } else {
       setEdition(null);
       setForm(formulaireVide());
@@ -327,6 +334,13 @@ function AutresRevenus({ lignes: toutes, moi }) {
   const changer = (champ, valeur) => {
     const f = { ...form, [champ]: valeur };
     if (champ === "periode" || champ === "debut") f.fin = finProposee(f.periode, f.debut);
+    // Retenue et caution remplies toutes seules tant qu'elle ne les a pas tapées elle-même
+    if (champ === "retenue") f.retenueManuelle = true;
+    if (champ === "caution") f.cautionManuelle = true;
+    if (/wolt/i.test(f.source || "Wolt") && (champ === "revenu" || champ === "pourboire")) {
+      if (!f.retenueManuelle && reglageWolt.taux > 0) { const r = retenueAuto(f.revenu, f.pourboire, reglageWolt); f.retenue = r > 0 ? String(r) : ""; }
+      if (!f.cautionManuelle && reglageWolt.caution > 0 && !f.caution) f.caution = String(reglageWolt.caution);
+    }
     setForm(f);
   };
 
@@ -495,6 +509,38 @@ function AutresRevenus({ lignes: toutes, moi }) {
             N° de facture (facultatif)
             <input value={form.numero} maxLength={30} onChange={(e) => changer("numero", e.target.value)} placeholder="ex. 117000013" />
           </label>
+          {moi === ADMIN_ID && /wolt/i.test(form.source || "Wolt") && (
+            <div className="ag-etape-actions">
+              <p className="tb-note">⚙️ Retenue calculée toute seule : <strong>{reglageWolt.taux} %</strong> du {reglageWolt.base === "total" ? "revenu + pourboires" : "revenu"}{reglageWolt.caution ? ` · caution ${shekels(reglageWolt.caution)}` : ""} · argent sur ton compte {reglageWolt.delai} jour{reglageWolt.delai > 1 ? "s" : ""} après la fin{form.fin ? ` (le ${jourCourt(dateVersement(form.fin, reglageWolt.delai))})` : ""}. <button type="button" className="ag-modifier" onClick={() => setVoirReglage(!voirReglage)}>{voirReglage ? "Fermer" : "Régler"}</button></p>
+              {voirReglage && (
+                <>
+                  <div className="fi-deux">
+                    <label className="pm-champ">Taux de retenue (%)<input inputMode="decimal" defaultValue={reglageWolt.taux} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, taux: e.target.value })} /></label>
+                    <label className="pm-champ">Calculée sur
+                      <select value={reglageWolt.base} onChange={(e) => sauverReglageWolt({ ...reglageWolt, base: e.target.value })}>
+                        <option value="revenu">le revenu (דמי משלוח)</option>
+                        <option value="total">revenu + pourboires</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="fi-deux">
+                    <label className="pm-champ">Caution par relevé (₪)<input inputMode="decimal" defaultValue={reglageWolt.caution} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, caution: e.target.value })} /></label>
+                    <label className="pm-champ">Argent reçu (jours après la fin)<input inputMode="numeric" defaultValue={reglageWolt.delai} onBlur={(e) => sauverReglageWolt({ ...reglageWolt, delai: e.target.value })} /></label>
+                  </div>
+                  <p className="tb-note">Tu ne connais pas ton taux ? Recopie UNE facture, l'appli le calcule :</p>
+                  <div className="fi-deux">
+                    <label className="pm-champ">דמי משלוח (₪)<input inputMode="decimal" value={facture.revenu} onChange={(e) => setFacture({ ...facture, revenu: e.target.value })} /></label>
+                    <label className="pm-champ">סכום הניכוי (₪)<input inputMode="decimal" value={facture.retenue} onChange={(e) => setFacture({ ...facture, retenue: e.target.value })} /></label>
+                  </div>
+                  {Number(String(facture.revenu).replace(",", ".")) > 0 && (
+                    <button type="button" className="tb-bouton tb-clair" onClick={() => { sauverReglageWolt({ ...reglageWolt, base: "revenu", taux: tauxDepuisFacture(facture.revenu, facture.retenue) }); setVoirReglage(false); }}>
+                      Garder {tauxDepuisFacture(facture.revenu, facture.retenue)} % comme taux
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
           <p className="tb-note">Versé sur ton compte : <strong>{shekels(verseWolt({ revenu: Number(String(form.revenu).replace(",", ".")) || 0, pourboire: Number(String(form.pourboire).replace(",", ".")) || 0, retenue: Number(String(form.retenue).replace(",", ".")) || 0, caution: Number(String(form.caution).replace(",", ".")) || 0 }))}</strong> (à comparer avec « סכום סופי לתשלום »)</p>
           <label className="pm-champ">
             Détail (facultatif, obligatoire pour une correction négative)
@@ -528,9 +574,13 @@ function AutresRevenus({ lignes: toutes, moi }) {
             {l.periode === "jour" ? jourCourt(l.debut) : `${jourCourt(l.debut)} → ${jourCourt(l.fin)}`} · {l.livraisons} livraison{l.livraisons > 1 ? "s" : ""}
             {Number(l.pourboire) ? ` · pourboires ${shekels(Number(l.pourboire))}` : ""}
           </span>
-          {(Number(l.retenue) > 0 || Number(l.caution) > 0 || l.numero) && (
+          {(Number(l.retenue) > 0 || Number(l.caution) > 0 || l.numero || (moi === ADMIN_ID && /wolt/i.test(l.source || "Wolt"))) && (
             <span className="tb-quand">
-              Versé {shekels(verseWolt(l))}
+              {(() => {
+                const le = /wolt/i.test(l.source || "Wolt") ? dateVersement(l.fin || l.debut, reglageWolt.delai) : "";
+                return le ? (le <= aujourdhui() ? `✓ Versé le ${jourCourt(le)} : ` : `💶 Versement prévu le ${jourCourt(le)} : `) : "Versé ";
+              })()}
+              {shekels(verseWolt(l))}
               {Number(l.retenue) > 0 ? ` · retenue ${shekels(Number(l.retenue))}` : ""}
               {Number(l.caution) > 0 ? ` · caution ${shekels(Number(l.caution))}` : ""}
               {l.numero ? ` · facture ${l.numero}` : ""}

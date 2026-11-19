@@ -122,3 +122,13 @@ test("où je suis : maison, arrivée, retard", () => {
   egal(bilanArrivee(fil[0], 3, 820).aLHeure, true);
   egal(prochaineEtape(fil, 830).texte, "Prendre Joy");
 });
+
+// 19 nov. 2026, 15h54 : Wolt automatique
+import { retenueAuto, tauxDepuisFacture, dateVersement, lireReglageWolt } from "../src/pricing/financesAnnee.js";
+test("Wolt : retenue et versement automatiques", () => {
+  egal(retenueAuto(438.5, 20, { taux: 5, base: "revenu" }), 21.93);
+  egal(retenueAuto(438.5, 20, { taux: 5, base: "total" }), 22.93);
+  egal(tauxDepuisFacture(438.5, 21.93), 5);
+  egal(dateVersement("2026-11-15", 2), "2026-11-17");
+  egal(lireReglageWolt({ taux: "7,5", delai: "2" }).taux, 7.5);
+});

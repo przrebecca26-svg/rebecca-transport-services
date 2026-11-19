@@ -20,7 +20,7 @@ const ecrire = (jour, v) => {
     /* navigation privee */
   }
 };
-const signature = (t) => t.map((x) => `${x.de.lat},${x.de.lon}>${x.vers.lat},${x.vers.lon}@${x.arriveeMin}`).join("|");
+const signature = (t) => t.filter((x) => !x.fait).map((x) => `${x.de.lat},${x.de.lon}>${x.vers.lat},${x.vers.lon}@${x.arriveeMin}`).join("|");
 
 export default function TraficDuMatin({ jour, fil, domicile }) {
   const maintenant = () => {
@@ -36,20 +36,25 @@ export default function TraficDuMatin({ jour, fil, domicile }) {
     if (!googleActif()) return setEtat("Ajoute ta clé Google (Répertoire) pour avoir le trafic réel.");
     setEtat("Calcul avec le trafic…");
     const lignes = [];
-    try {
-      // 19 nov. 2026 : seulement les trajets pas encore faits (moins d'appels Google, liste plus claire)
-      for (const t of trajets.filter((x) => x.arriveeMin >= maintenant() - 5)) {
-        const estime = Math.max(maintenant(), t.arriveeMin - 30);
+    const avant = (lire(jour) || {}).lignes || [];
+    let erreur = "";
+    // 19 nov. 2026 : seulement les trajets pas encore faits (moins d'appels Google, liste plus claire).
+    // 14h33 : un trajet en erreur n'arrete plus tout ; on garde son ancien calcul s'il y en a un.
+    for (const t of trajets.filter((x) => !x.fait && x.arriveeMin > maintenant())) {
+      try {
+        const estime = Math.max(maintenant() + 1, t.arriveeMin - 30);
         const d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
-        lignes.push({ nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, avec: Math.round(d.avecTrafic / 60), normal: Math.round(d.normal / 60), partir: departConseille(t.arriveeMin, d.avecTrafic) });
+        lignes.push({ cle: t.cle, nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, avec: Math.round(d.avecTrafic / 60), normal: Math.round(d.normal / 60), partir: departConseille(t.arriveeMin, d.avecTrafic) });
+      } catch (e) {
+        erreur = e && e.message ? e.message : "Trafic indisponible";
+        const vieux = avant.find((l) => l.cle === t.cle && l.arriveeMin === t.arriveeMin) || avant.find((l) => l.nomDe === t.nomDe && l.nomVers === t.nomVers && l.arriveeMin === t.arriveeMin);
+        if (vieux) lignes.push({ ...vieux, cle: t.cle });
       }
-      const v = { sig, calculeMs: Date.now(), calculeA: new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }), lignes };
-      ecrire(jour, v);
-      setRes(v);
-      setEtat("");
-    } catch (e) {
-      setEtat(e && e.message ? `${e.message}.` : "Trafic indisponible pour l'instant.");
     }
+    const v = { sig, calculeMs: Date.now(), calculeA: new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }), lignes, erreur };
+    ecrire(jour, v);
+    setRes(v);
+    setEtat(erreur ? `${erreur} (réseau ou Google) : certains trajets gardent le calcul précédent.` : "");
   };
   // Une fois par jour (ou si la journee a change) : calcul automatique a l'ouverture
   useEffect(() => {
@@ -66,12 +71,14 @@ export default function TraficDuMatin({ jour, fil, domicile }) {
 
   if (!trajets.length) return null;
   const now = maintenant();
+  // Trajet fait (etape cochee) ou arrivee passee : il disparait tout de suite, sans attendre le recalcul
+  const faits = new Set(trajets.filter((t) => t.fait).map((t) => t.cle));
   return (
     <div className="tb-bloc">
       <h3>🚦 Trafic de ma journée</h3>
       {res && res.lignes && res.lignes.length > 0 && (
         <>
-          {res.lignes.filter((l) => l.arriveeMin >= now - 5).map((l, i) => {
+          {res.lignes.filter((l) => l.arriveeMin > now && !faits.has(l.cle)).map((l, i) => {
             const tard = l.partir < now && l.arriveeMin > now;
             return (
               <div key={i} className="tb-adresse">

@@ -267,7 +267,11 @@ export async function dureeAvecTrafic(de, vers, departIsoTexte, signal) {
     headers: { "Content-Type": "application/json", "X-Goog-Api-Key": cleGoogle, "X-Goog-FieldMask": "routes.duration,routes.staticDuration" },
     body: JSON.stringify(corps),
   });
-  if (!rep.ok) throw new Error(rep.status === 403 ? "Routes API non activée sur la clé Google" : "Trafic indisponible");
+  if (!rep.ok) {
+    // 19 nov. 2026, 14h33 : heure de depart refusee (deja passee pour Google) -> on redemande « maintenant »
+    if (rep.status === 400 && corps.departureTime) return dureeAvecTrafic(de, vers, "", signal);
+    throw new Error(rep.status === 403 ? "Routes API non activée sur la clé Google" : `Trafic indisponible (${rep.status})`);
+  }
   const r = ((await rep.json()).routes || [])[0];
   if (!r) throw new Error("Aucun itinéraire");
   const s = (t) => parseFloat(String(t || "0").replace("s", "")) || 0;

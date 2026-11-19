@@ -7,6 +7,7 @@ import { lienWhatsApp } from "./pricing/navigation.js";
 import { detailsRefaire, lirePourboire, nomFavoriValide, nettoyer, peutAnnuler, statutSuivi } from "./profil.js";
 import { dateFr } from "./CompteChamps.jsx";
 import Pourboire from "./Pourboire.jsx";
+import PayerPourboire from "./components/PayerPourboire.jsx";
 import { rafraichir } from "./client.js";
 
 // Espace entre les boutons et liens (Refaire, Modifier, Annuler, Favori)
@@ -38,6 +39,7 @@ function Avis({ suivi, onFait }) {
   const [enCours, setEnCours] = useState(false);
   const [, setTic] = useState(0);
   const [fait, setFait] = useState(false);
+  const [tipEnvoye, setTipEnvoye] = useState(0);
 
   useEffect(() => setErreur(""), [etoiles, commentaire, pourboire]);
 
@@ -48,6 +50,7 @@ function Avis({ suivi, onFait }) {
     setEnCours(true);
     try {
       await setDoc(doc(db, "avis", suivi.id), { uid: suivi.uid, etoiles, commentaire: nettoyer(commentaire, 600), pourboire: tip.montant, creeLe: serverTimestamp() });
+      setTipEnvoye(tip.montant || 0);
       setFait(true);
       onFait(suivi.id);
     } catch {
@@ -65,6 +68,7 @@ function Avis({ suivi, onFait }) {
             Laissez-le aussi sur Google
           </a>
         )}
+        {tipEnvoye > 0 && <PayerPourboire montant={tipEnvoye} />}
       </div>
     );
   }
@@ -193,6 +197,12 @@ export default function CompteHistorique({ client, onRefaire, onModifier }) {
               </p>
             )}
             {d.pourboire > 0 && <p className="hist-paye">Pourboire prévu : {d.pourboire} ₪</p>}
+            {d.pourboire > 0 && d.statut === "terminée" && (
+              <details>
+                <summary className="lien">💝 Envoyer mon pourboire</summary>
+                <PayerPourboire montant={d.pourboire} />
+              </details>
+            )}
             {d.messageClient && <p className="compte-info">{d.messageClient}</p>}
 
             <div className="compte-boutons" style={BOUTONS}>

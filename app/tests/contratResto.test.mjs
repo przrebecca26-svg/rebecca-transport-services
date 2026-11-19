@@ -58,3 +58,12 @@ test("PDF : pas de « ???? » pour l'hébreu de la forme d'entreprise", () => {
   egal(texte.includes("????"), false);
   egal(texte.includes("Osek patur n"), true);
 });
+test("formule B : créneaux avec heures, minimum garanti 150 ₪, clients jamais démarchés", () => {
+  egal(erreursFormulaire({ ...rempli, formule: "B", creneaux: "jeudi soir" }, sig).length, 1);
+  egal(erreursFormulaire({ ...rempli, formule: "B", creneaux: "jeudi 18h-21h" }, sig), []);
+  const c = { ...contratPropre({ ...rempli, formule: "B", creneaux: "jeudi 18h-21h" }, tarifsStandard(null), sig), signeLe: "2026-11-20T10:05" };
+  const tout = articlesContrat(c).map((a) => a.lignes.join(" ")).join(" ");
+  egal(tout.includes("soit 150 ₪"), true);
+  egal(tout.includes("même avec leur accord"), true);
+  egal(tout.includes("Revolut, espèces ou virement"), true);
+});

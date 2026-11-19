@@ -77,3 +77,34 @@ export function messageReleve(nom, r, contrat) {
 export function paiementsSemaine(r, moyen, date) {
   return r.lignes.filter((l) => l.reste > 0).map((l) => ({ kind: "paiement", resId: l.d.id, date, montant: l.reste, moyen }));
 }
+
+// CLIENTS D'UN RESTAURANT PARTENAIRE (19 nov. 2026, Rebecca) : les clients des restaurants ne se mélangent pas avec
+// mes clientes. Ils sont listés dans la fiche du restaurant (onglet « Ses clients »), à partir de ses livraisons.
+// Une case « Aussi dans mes clientes » crée leur fiche chez moi quand elles me demandent un autre service.
+const telCourt = (t) => String(t || "").replace(/\D/g, "").replace(/^972/, "0");
+export function clientsDuResto(livraisons = []) {
+  const parTel = new Map();
+  for (const d of livraisons) {
+    const x = d && d.details;
+    if (!x || !x.commandeResto) continue;
+    const tel = telCourt(x.telDestinataire);
+    const nom = String(x.destinataire || "").trim();
+    const cle = tel.length >= 9 ? tel : nom.toLowerCase();
+    if (!cle) continue;
+    const c = parTel.get(cle) || { cle, nom, telephone: tel, nb: 0, derniere: "", adresse: null, livraisons: [] };
+    c.nb += d.statut === "annulee" || d.statut === "refusee" ? 0 : 1;
+    // Historique : chaque livraison (date, heure, adresse, note du restaurant = ce qu'elle a commandé, prix, statut)
+    c.livraisons.push({ id: d.id, date: String(d.date || ""), heure: String(d.heure || ""), adresse: x.livraison ? x.livraison.label : "", note: String(x.instructions || ""), prix: typeof d.prixFinal === "number" ? d.prixFinal : null, statut: d.statut || "" });
+    if (String(d.date || "") >= c.derniere) {
+      c.derniere = String(d.date || "");
+      if (nom) c.nom = nom;
+      if (x.livraison) c.adresse = x.livraison;
+    }
+    parTel.set(cle, c);
+  }
+  for (const c of parTel.values()) c.livraisons.sort((a, b) => (b.date + b.heure).localeCompare(a.date + a.heure));
+  return [...parTel.values()].sort((a, b) => b.derniere.localeCompare(a.derniere));
+}
+// La cliente du restaurant est-elle aussi « ma » cliente ? (une fiche du Répertoire, hors restaurants, au même numéro)
+export const ficheMaCliente = (client, familles = []) =>
+  client.telephone.length >= 9 ? familles.find((f) => f.categorie !== "commercants" && [f.telephone, f.telephone2].some((t) => telCourt(t) === client.telephone)) || null : null;

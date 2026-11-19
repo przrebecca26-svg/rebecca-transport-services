@@ -38,3 +38,17 @@ test("fiche restaurant : infos gardées, jamais pour une famille", () => {
   egal(restoLu(null), { recuperation: "", horaires: "", nomLegal: "", numero: "" });
   egal(chercherRepertoire("ohi", 5, { lieux: [], clients: [], familles: [lu] })[0].titre, "Ohi Sushi · Restaurant");
 });
+
+import { clientsDuResto, ficheMaCliente } from "../src/pricing/commercants.js";
+test("clients d'un restaurant : séparés, avec historique, case « aussi dans mes clientes »", () => {
+  const cmd = { cle: "K", id: "c" };
+  const d = (id, date, tel, nom, extra = {}) => ({ id, date, heure: "19:30", statut: "terminee", prixFinal: 35, details: { commandeResto: cmd, destinataire: nom, telDestinataire: tel, livraison: { label: "Herzl 1, Netanya" }, instructions: "2 rolls saumon" }, ...extra });
+  const l = clientsDuResto([d("a", "2026-11-10", "+972 54-111-2233", "Dana"), d("b", "2026-11-18", "0541112233", "Dana C."), d("c", "2026-11-12", "0529998877", "Yossi"), { id: "x", date: "2026-11-15", details: {} }]);
+  egal(l.map((c) => [c.nom, c.telephone, c.nb]), [["Dana C.", "0541112233", 2], ["Yossi", "0529998877", 1]]);
+  egal(l[0].livraisons.map((x) => x.id), ["b", "a"]);
+  egal(l[0].livraisons[0].note, "2 rolls saumon");
+  egal(ficheMaCliente(l[0], [{ telephone: "054-111-2233", categorie: "clientes" }]) !== null, true);
+  egal(ficheMaCliente(l[0], [{ telephone: "054-111-2233", categorie: "commercants" }]), null);
+  egal(lireFamilles([{ id: "r", nom: "R", categorie: "commercants", habitudes: { "0541112233": "sans wasabi", vide: " " } }])[0].habitudes, { "0541112233": "sans wasabi" });
+  egal(lireFamilles([{ id: "f", nom: "F", categorie: "clientes", depuisResto: "r" }])[0].depuisResto, "r");
+});

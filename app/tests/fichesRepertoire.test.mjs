@@ -116,6 +116,10 @@ test("cartes cadeaux offertes et reçues (même téléphone)", () => {
   const r = _resume([], [], "2026-11-19", [{ acheteurTel: "054-111-2222", pourTel: "", statut: "active", solde: 100 }, { acheteurTel: "052", pourTel: "0541112222", statut: "a_payer" }, { acheteurTel: "050-999-0000" }], ["054-111-2222"]);
   egal([r.cartesOffertes, r.cartesRecues, r.cartes.length], [1, 1, 2]);
 });
-test("Moi et Famille et amis ne sont jamais rangés fidèles ou inactives", () => {
-  egal(_suivi({ rang: "proches", clients: [], telephone: "0541112222" }, [_d("a", "2026-01-01", 60)], [], "2026-11-19"), { fidele: false, inactive: false });
+test("Famille et amis : jamais à relancer, mais fidèle si elle est aussi cliente (Alexia)", () => {
+  const vieux = _suivi({ rang: "proches", clients: [], telephone: "0541112222" }, [_d("a", "2026-01-01", 60)], [], "2026-11-19");
+  egal([vieux.fidele, vieux.inactive], [false, false]);
+  const alexia = _suivi({ rang: "proches", clients: [], telephone: "0541112222" }, [_d("a", "2026-11-10", 70), _d("b", "2026-11-12", 70), _d("c", "2026-11-18", 70)], [], "2026-11-19");
+  egal([alexia.fidele, alexia.inactive], [true, false]);
+  egal(_suivi({ rang: "moi", clients: [], telephone: "0541112222" }, [_d("a", "2026-11-10", 70), _d("b", "2026-11-12", 70), _d("c", "2026-11-18", 70)], [], "2026-11-19"), { fidele: false, inactive: false });
 });

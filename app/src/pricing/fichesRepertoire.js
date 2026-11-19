@@ -83,7 +83,7 @@ export const pourQui = (liste, moi, estAdmin, admin = "rebecca") => (estAdmin ? 
 
 // RÉSUMÉ DE LA FICHE (19 nov. 2026, V2 « fiches clientes intelligentes ») : calculé avec ce qui est déjà enregistré.
 // Fidèle = au moins 3 prestations terminées sur les 6 derniers mois ; inactive = dernière prestation il y a plus de
-// 2 mois (comme les relances). « Moi » et « Famille et amis » ne sont jamais rangés fidèles ou inactives.
+// 2 mois (comme les relances). « Moi » n'est jamais rangé ; « Famille et amis » peut être fidèle, jamais inactive.
 export const FIDELE_MIN = 3;
 export const FIDELE_JOURS = 183;
 export const INACTIVE_JOURS = 60;
@@ -124,8 +124,12 @@ export const FILTRES_SUIVI = [
   { v: "inactives", l: "💤 Inactives (+2 mois)" },
 ];
 export function suiviDeLEntree(e, demandes = [], mouvements = [], aujourdhui = "") {
-  if (["moi", "proches", "commercants"].includes(e.rang || rangDe(e))) return { fidele: false, inactive: false };
+  const rang = e.rang || rangDe(e);
+  if (["moi", "commercants"].includes(rang)) return { fidele: false, inactive: false };
   const r = resumeFiche(demandesDeLEntree(e, demandes, []), mouvements, aujourdhui);
+  // 19 nov. 2026 (test C12) : une amie qui est aussi cliente (Alexia) compte dans les fidèles, comme sur sa fiche ;
+  // la famille et les amis ne sont jamais proposés à la relance.
+  if (rang === "proches") return { ...r, inactive: false };
   // Une cliente qui a dit « non » aux relances n'apparaît jamais dans la liste à relancer
   return e.famille && e.famille.relances === "non" ? { ...r, inactive: false } : r;
 }

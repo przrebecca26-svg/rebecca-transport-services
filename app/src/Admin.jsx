@@ -36,6 +36,7 @@ import { EquipeContexte, useEquipeDonnees } from "./equipeContexte.jsx";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { demandeAcces, roleDe, rubriquesPour } from "./pricing/espaceEquipe.js";
 import BandeauEnAttente from "./components/BandeauEnAttente.jsx";
+import CommandesRestoAdmin from "./components/CommandesRestoAdmin.jsx"; // 19 nov. 2026 (V2) : bouton En ligne + restaurants
 import { jouerSon, useStylesNotif } from "./sons.js";
 import "./admin.css";
 import "./theme-admin.css";
@@ -390,6 +391,7 @@ export default function Admin() {
         </nav>
         <main className="ts-contenu">
           <BandeauEnAttente />
+          {role === "admin" && <CommandesRestoAdmin aller={aller} />}
           {aTraiter > 0 && onglet !== "transferts" && (
             <button type="button" className="tr-bandeau" onClick={() => aller("transferts")}>
               🔔 {aTraiter === 1 ? "1 course à accepter ou une réponse à voir" : `${aTraiter} courses à accepter ou réponses à voir`} · Voir

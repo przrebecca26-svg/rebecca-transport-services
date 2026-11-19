@@ -32,6 +32,8 @@ import { lireLienPartenaire } from "./pricing/partenaires.js";
 import LienPartenaire from "./components/LienPartenaire.jsx";
 import InstallerAppli from "./components/InstallerAppli.jsx";
 import { lireLienCarte } from "./pricing/cartesCadeaux.js";
+import { lireLienResto } from "./pricing/restos.js";
+const EspaceResto = lazy(() => import("./components/EspaceResto.jsx")); // 19 nov. 2026 (V2) : #/resto/CLE
 const OffrirCarte = lazy(() => import("./components/CarteCadeau.jsx"));
 const VoirCarte = lazy(() => import("./components/CarteCadeau.jsx").then((m) => ({ default: m.VoirCarte })));
 import "./client-commun.css";
@@ -408,6 +410,7 @@ export default function App() {
   // 18 nov. 2026 : carte cadeau (#/cadeau = offrir, #/cadeau/ID = voir sa carte)
   // 19 nov. 2026 (V2) : suivi GPS en direct de la voiture (#/position/ID)
   const [lienPositionVu, setLienPositionVu] = useState(() => lireLienPosition(window.location.hash));
+  const [lienResto, setLienResto] = useState(() => lireLienResto(window.location.hash));
   const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
   useEffect(() => {
     const suivre = () => {
@@ -421,6 +424,7 @@ export default function App() {
       setSuiviPartenaire(lireLienPartenaire(window.location.hash));
       setLienCadeau(window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash));
       setLienPositionVu(lireLienPosition(window.location.hash));
+      setLienResto(lireLienResto(window.location.hash));
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -484,6 +488,16 @@ export default function App() {
         <main>
           <Suspense fallback={chargement}>
             <SuiviProjet id={lienProjetVu} onAccueil={quitterLien} />
+          </Suspense>
+        </main>
+      </div>
+    );
+  if (lienResto && !admin)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            <EspaceResto cle={lienResto} onAccueil={() => { window.location.hash = ""; setLienResto(""); aller({ nom: "accueil" }); }} />
           </Suspense>
         </main>
       </div>

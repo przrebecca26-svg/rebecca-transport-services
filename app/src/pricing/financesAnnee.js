@@ -188,13 +188,20 @@ export function validerAutreRevenu(f) {
 }
 
 // Ce que Wolt a vraiment versé sur le compte : revenu + pourboires - retenue à la source - caution du sac
-export function verseWolt(l = {}) {
-  return Math.round((nb(l.revenu) + nb(l.pourboire) - nb(l.retenue) - nb(l.caution)) * 100) / 100;
+// 19 nov. 2026, 17h26 : une ligne Wolt SANS retenue notée (ex. lignes importées) prend la retenue du réglage
+// (taux %) : Rebecca règle son taux une fois et toutes les lignes affichent le vrai montant versé.
+export function retenueDe(l = {}, reglage = null) {
+  if (nb(l.retenue) > 0) return nb(l.retenue);
+  if (reglage && Number(reglage.taux) > 0 && /wolt/i.test(l.source || "Wolt")) return retenueAuto(l.revenu, l.pourboire, reglage);
+  return 0;
+}
+export function verseWolt(l = {}, reglage = null) {
+  return Math.round((nb(l.revenu) + nb(l.pourboire) - retenueDe(l, reglage) - nb(l.caution)) * 100) / 100;
 }
 // Totaux d'une liste de lignes (une année, un mois) : retenue = impôt déjà payé ; caution = rendue avec le sac
-export function totauxRetenues(lignes = []) {
-  const s = (k) => Math.round(lignes.reduce((t, l) => t + nb(l[k]), 0) * 100) / 100;
-  return { retenue: s("retenue"), caution: s("caution") };
+export function totauxRetenues(lignes = [], reglage = null) {
+  const s = (f) => Math.round(lignes.reduce((t, l) => t + f(l), 0) * 100) / 100;
+  return { retenue: s((l) => retenueDe(l, reglage)), caution: s((l) => nb(l.caution)) };
 }
 
 /* ---------- Encaisse / reste a encaisser (13 nov. 2026, 09h07) ----------

@@ -39,7 +39,7 @@ function contenu(json) {
 // 13 nov. 2026 : categorie choisie pour une cliente du site sans fiche famille (partagee : Rebecca et Jeremy la voient)
 export function lireCategories(json) {
   const sortie = {};
-  for (const [cle, v] of Object.entries(contenu(json).categories).slice(0, 2000)) if (["moi", "proches", "clientes"].includes(v)) sortie[String(cle).slice(0, 80)] = v;
+  for (const [cle, v] of Object.entries(contenu(json).categories).slice(0, 2000)) if (["moi", "proches", "clientes", "commercants"].includes(v)) sortie[String(cle).slice(0, 80)] = v;
   return sortie;
 }
 

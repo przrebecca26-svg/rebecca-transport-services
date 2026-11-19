@@ -4,7 +4,7 @@ import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Bilan from "./Bilan.jsx";
 import Depenses from "./Depenses.jsx";
-import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu, verseWolt, totauxRetenues, lireReglageWolt, retenueAuto, tauxDepuisFacture, dateVersement } from "./pricing/financesAnnee.js";
+import { ACTIVITES, NOMS_MOIS, PERIODES, PLAFOND_DEFAUT, encaisseAnnee, etatPlafond, finProposee, jourDansAnnee, joursAnnee, syntheseAnnee, validerAutreRevenu, verseWolt, retenueDe, totauxRetenues, lireReglageWolt, retenueAuto, tauxDepuisFacture, dateVersement } from "./pricing/financesAnnee.js";
 import { setDoc } from "firebase/firestore";
 import { ADMIN_ID, lignesDe, syntheseMembre } from "./pricing/equipe.js";
 import { argentDe, champOperateur, lignesAReverser, parVehicule, soldesDe, validerReversement } from "./pricing/reverser.js";
@@ -283,7 +283,7 @@ function AutresRevenus({ lignes: toutes, moi }) {
   const triees = [...lignes].sort((a, b) => String(b.debut).localeCompare(String(a.debut)));
   const visibles = voirTout ? triees : triees.filter((l) => String(l.debut).startsWith(String(annee)));
   const totalAnnee = triees.filter((l) => String(l.debut).startsWith(String(annee))).reduce((s, l) => s + (Number(l.revenu) || 0), 0);
-  const retenuesAnnee = totauxRetenues(triees.filter((l) => String(l.debut).startsWith(String(annee))));
+  const retenuesAnnee = totauxRetenues(triees.filter((l) => String(l.debut).startsWith(String(annee))), reglageWolt);
 
   const lignesWolt = triees.filter((l) => /wolt/i.test(l.source || "Wolt"));
   const apercu = stats && (stats.livraisons || stats.pourboires || stats.km) ? repartirStatsWolt(lignes, stats) : null;
@@ -575,14 +575,14 @@ function AutresRevenus({ lignes: toutes, moi }) {
             {l.periode === "jour" ? jourCourt(l.debut) : `${jourCourt(l.debut)} → ${jourCourt(l.fin)}`} · {l.livraisons} livraison{l.livraisons > 1 ? "s" : ""}
             {Number(l.pourboire) ? ` · pourboires ${shekels(Number(l.pourboire))}` : ""}
           </span>
-          {(Number(l.retenue) > 0 || Number(l.caution) > 0 || l.numero || (moi === ADMIN_ID && /wolt/i.test(l.source || "Wolt"))) && (
+          {(retenueDe(l, reglageWolt) > 0 || Number(l.caution) > 0 || l.numero || (moi === ADMIN_ID && /wolt/i.test(l.source || "Wolt"))) && (
             <span className="tb-quand">
               {(() => {
                 const le = /wolt/i.test(l.source || "Wolt") ? dateVersement(l.fin || l.debut, reglageWolt.delai) : "";
                 return le ? (le <= aujourdhui() ? `✓ Versé le ${jourCourt(le)} : ` : `💶 Versement prévu le ${jourCourt(le)} : `) : "Versé ";
               })()}
-              {shekels(verseWolt(l))}
-              {Number(l.retenue) > 0 ? ` · retenue ${shekels(Number(l.retenue))}` : ""}
+              {shekels(verseWolt(l, reglageWolt))}
+              {retenueDe(l, reglageWolt) > 0 ? ` · retenue ${shekels(retenueDe(l, reglageWolt))}${Number(l.retenue) > 0 ? "" : ` (${reglageWolt.taux} %)`}` : ""}
               {Number(l.caution) > 0 ? ` · caution ${shekels(Number(l.caution))}` : ""}
               {l.numero ? ` · facture ${l.numero}` : ""}
             </span>

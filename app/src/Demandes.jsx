@@ -153,6 +153,7 @@ function BlocRetour({ d, executer, enCours }) {
   return (
     <div className="tb-bloc">
       <h3>Retour</h3>
+      {ar && !ouvert && `${det.dateRetour || ""} ${det.heureRetour || ""}` < `${d.date || ""} ${d.heure || ""}` && <p className="admin-erreur" role="alert">⚠️ Le retour est avant l'aller : touche « Modifier le retour » pour le corriger.</p>}
       {ar && !ouvert && <p>Aller-retour · retour le <strong>{jour(det.dateRetour, true)} à {det.heureRetour}</strong>{aeroport ? (det.numeroVolRetour ? ` · vol ${String(det.numeroVolRetour).toUpperCase()}${det.villeVolRetour ? ` (${det.villeVolRetour})` : ""}` : " · numéro de vol du retour à ajouter") : ""}</p>}
       {!ar && !ouvert && <p className="tb-note">Aller simple.</p>}
       {!ouvert ? (
@@ -394,7 +395,9 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
   const changerStatut = (s) => executer({ statut: s, ...(s === "terminee" ? { realisePar: d.attribueA || "rebecca" } : {}) });
   // J3 : la personne qui accepte fait la course (sauf si elle est deja attribuee) ; modifiable ensuite
   const quiAccepte = d.attribueA || moi;
-  const accepterChamps = () => executer({ statut: "acceptee", ...(d.attribueA ? {} : { attribueA: moi }) });
+  // 19 nov. 2026 (test C2) : accepter sans toucher au prix = le prix estimé devient le prix convenu (la cliente
+  // ne voit plus « estimation » dans son historique)
+  const accepterChamps = () => executer({ statut: "acceptee", ...(d.attribueA ? {} : { attribueA: moi }), ...(typeof d.prixFinal !== "number" && !d.surDevis && typeof d.prixEstime === "number" ? { prixFinal: d.prixEstime } : {}) });
 
   // Accepter : on verifie d'abord l'enchainement avec les autres courses acceptees du meme jour
   const accepter = async () => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import RechercheGoogle from "./components/RechercheGoogle.jsx"; // 19 nov. 2026 : venue du Répertoire
 import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { MAX_AVIS_PUBLICS, avisPublic, lireAvisPublics, normaliserRevolut } from "./pricing/suiteClient.js";
 import { db } from "./firebase.js";
@@ -455,6 +456,7 @@ export default function Reglages() {
       <Plafond />
       <Minimum />
       <PaiementEnLigne />
+      <RechercheGoogle />
       <AvisSurLeSite />
       <EmailsClientes />
       <ReglagesAuto />

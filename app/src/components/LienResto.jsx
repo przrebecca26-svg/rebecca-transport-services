@@ -19,7 +19,7 @@ export default function LienResto({ f, changer }) {
   const publier = async (nouvelle) => {
     setInfo("");
     if (!String(f.nom || "").trim() || !String(f.telephone || "").trim()) return setInfo("Mets d'abord le nom et le téléphone du restaurant.");
-    if (!f.domicile) return setInfo("Mets d'abord l'adresse du restaurant (« Adresse de la maison » ci-dessus) : c'est là que tu récupères les commandes.");
+    if (!f.domicile) return setInfo("Mets d'abord l'adresse du restaurant (« Adresse du restaurant » ci-dessus) : c'est là que tu récupères les commandes.");
     setEnCours(true);
     try {
       const k = nouvelle ? nouvelleCleResto() : cle;

@@ -9,6 +9,9 @@ export const TYPES_LIEU = [
   { v: "maison", l: "Maison" },
   { v: "famille", l: "Famille et amis" },
   { v: "ecole", l: "Écoles et activités" },
+  // 19 nov. 2026 : rubriques pour ranger les adresses des clientes et des restaurants partenaires
+  { v: "clientes", l: "Clientes" },
+  { v: "restos", l: "Restaurants partenaires" },
   { v: "magasin", l: "Magasins" },
   { v: "autre", l: "Autres" },
 ];
@@ -176,7 +179,7 @@ export function chercherRepertoire(texte, max = 5, source = courant) {
     if (sansAccent(l.nom).includes(q) || sansAccent(l.note).includes(q)) trouves.push({ titre: l.nom, sous: l.adresse.label, adresse: l.adresse });
   }
   for (const f of source.familles || []) {
-    if (f.domicile && sansAccent(f.nom).includes(q)) trouves.push({ titre: `${f.nom} · Domicile`, sous: f.domicile.label, adresse: f.domicile });
+    if (f.domicile && sansAccent(f.nom).includes(q)) trouves.push({ titre: `${f.nom} · ${f.categorie === "commercants" ? "Restaurant" : "Domicile"}`, sous: f.domicile.label, adresse: f.domicile });
     for (const x of f.adresses || []) {
       if (sansAccent(f.nom).includes(q) || sansAccent(x.nom).includes(q)) trouves.push({ titre: `${f.nom} · ${x.nom || "Adresse"}`, sous: x.adresse.label, adresse: x.adresse });
     }

@@ -34,6 +34,13 @@ const ONGLETS = [
   { id: "finances", l: "Finances" },
   { id: "suivi", l: "Suivi beauté", admin: true }, // 13 nov. 2026 : seances, cures, produits, prochain RDV
 ];
+// 19 nov. 2026 (Rebecca) : la fiche d'un restaurant n'est pas celle d'une famille -> Infos, Livraisons, Finances
+const ONGLETS_RESTO = [
+  { id: "membres", l: "Infos" },
+  { id: "historique", l: "Livraisons" },
+  { id: "finances", l: "Finances" },
+];
+const LIENS_RESTO = ["Responsable", "Caisse", "Cuisine", "Livreur", "Autre"];
 const STATUTS = { terminee: "faite", acceptee: "à venir", "en attente": "en attente", refusee: "refusée", annulee: "annulée" };
 const shekels = (n) => `${(Math.round(Number(n || 0) * 100) / 100).toLocaleString("fr-FR")} ₪`;
 const jj = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(2, 4)}` : "");
@@ -60,6 +67,8 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
       await enregistrerRepertoire(rep.lieux, rep.corrections, existe ? rep.familles.map((x) => (x.id === f.id ? f : x)) : [...rep.familles, f]);
       setModifie(false);
       setMessage("C'est enregistré.");
+      // 19 nov. 2026 (Rebecca) : une fois enregistrée, la fiche se referme et on revient au Répertoire
+      retour(`✓ Fiche « ${String(f.nom || "").trim() || "sans nom"} » enregistrée.`);
     } catch {
       setMessage("Enregistrement impossible. Vérifie la connexion.");
     }
@@ -73,7 +82,9 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
   // 13 nov. 2026, 09h39 : Rebecca voit tout, avec le nom de qui a fait la course ; Jeremy ne voit que les siennes
   const liste = pourQui(demandesDeLEntree(e, demandes || [], estAdmin ? comptes : []), moi, estAdmin, ADMIN_ID);
   const qui = (d) => nomDe(membres, faiteParDe(d, ADMIN_ID));
-  const onglets = ONGLETS.filter((o) => !o.admin || estAdmin);
+  const estResto = !!f && f.categorie === "commercants";
+  const onglets = estResto ? ONGLETS_RESTO : ONGLETS.filter((o) => !o.admin || estAdmin);
+  const ongletVu = onglets.some((o) => o.id === onglet) ? onglet : "membres";
   const resume = resumeFiche(liste, mouvements || [], new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), cartes, telsEntree(e));
 
   return (
@@ -93,11 +104,11 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
 
       <div className="tb-filtres" role="tablist" aria-label="Fiche">
         {onglets.map((o) => (
-          <button key={o.id} role="tab" aria-selected={onglet === o.id} className={"tb-filtre" + (onglet === o.id ? " actif" : "")} onClick={() => setOnglet(o.id)}>{o.l}</button>
+          <button key={o.id} role="tab" aria-selected={ongletVu === o.id} className={"tb-filtre" + (ongletVu === o.id ? " actif" : "")} onClick={() => setOnglet(o.id)}>{o.l}</button>
         ))}
       </div>
 
-      {onglet === "membres" && (
+      {ongletVu === "membres" && (
         <section className="tdb-bloc">
           {!f ? (
             <>
@@ -107,7 +118,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
             </>
           ) : (
             <>
-              <Membres f={f} changer={changer} connues={connues} />
+              {estResto ? <InfosResto f={f} changer={changer} connues={connues} /> : <Membres f={f} changer={changer} connues={connues} />}
               {f.categorie === "commercants" && <ContratPro f={f} changer={changer} />}
               {f.categorie === "commercants" && estAdmin && <LienResto f={f} changer={changer} />}
               <div className="bloc">
@@ -144,7 +155,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
         </section>
       )}
 
-      {onglet === "enfants" && (
+      {ongletVu === "enfants" && (
         f ? (
           <div className="formulaire dr-formulaire">
             <Famille f={f} connues={connues} ouvert ouvrir={() => {}} changer={changer} supprimer={() => window.confirm("Supprimer toute la fiche de cette famille ?") && enregistrerRepertoire(rep.lieux, rep.corrections, rep.familles.filter((x) => x.id !== f.id)).then(retour)} />
@@ -154,7 +165,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
         )
       )}
 
-      {onglet === "historique" && (
+      {ongletVu === "historique" && (
         <section className="tdb-bloc">
           {liste.length === 0 && <p className="tdb-note">Rien pour l'instant.</p>}
           <ul className="ag-fil">
@@ -178,16 +189,54 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
         </section>
       )}
 
-      {onglet === "suivi" && estAdmin && <SuiviBeaute cle={entree.cle} />}
-      {onglet === "finances" && <FinancesFiche e={e} liste={liste} mouvements={mouvements || []} comptes={estAdmin ? comptes : []} familles={rep.familles} estAdmin={estAdmin} qui={qui} membres={membres} />}
+      {ongletVu === "suivi" && estAdmin && <SuiviBeaute cle={entree.cle} />}
+      {ongletVu === "finances" && <FinancesFiche e={e} liste={liste} mouvements={mouvements || []} comptes={estAdmin ? comptes : []} familles={rep.familles} estAdmin={estAdmin} qui={qui} membres={membres} />}
 
       {f && (
         <div className="rp-enregistrer">
           <button type="button" className="tdb-bouton" onClick={enregistrer} disabled={!modifie}>{modifie ? "Enregistrer la fiche" : "Tout est enregistré"}</button>
+          <button type="button" className="dr-secondaire" onClick={() => (modifie && !window.confirm("Quitter sans enregistrer ?") ? null : retour())}>← Retour au Répertoire</button>
           {message && <p className="tdb-note" role="status">{message}</p>}
         </div>
       )}
     </div>
+  );
+}
+
+// 19 nov. 2026 : onglet « Infos » d'un restaurant ou commerce partenaire (pas d'autre parent, d'enfants ni d'âge)
+function InfosResto({ f, changer, connues }) {
+  const set = (cle, v) => changer({ ...f, [cle]: v });
+  const r = f.resto || {};
+  const setR = (cle, v) => set("resto", { ...r, [cle]: v });
+  const setM = (id, cle, v) => set("membres", f.membres.map((m) => (m.id === id ? { ...m, [cle]: v } : m)));
+  return (
+    <>
+      <div className="champ"><label>Nom du restaurant / commerce<input type="text" maxLength={60} value={f.nom} onChange={(x) => set("nom", x.target.value)} /></label></div>
+      <div className="champ"><label>Téléphone du restaurant<input type="tel" inputMode="tel" maxLength={20} value={f.telephone} onChange={(x) => set("telephone", x.target.value)} /></label></div>
+      <div className="champ"><label>Responsable (nom)<input type="text" maxLength={60} value={f.nom2 || ""} onChange={(x) => set("nom2", x.target.value)} /></label></div>
+      <div className="champ"><label>Portable du responsable<input type="tel" inputMode="tel" maxLength={20} value={f.telephone2 || ""} onChange={(x) => set("telephone2", x.target.value)} /></label></div>
+      <Adresse id={"md" + f.id} label="Adresse du restaurant" valeur={f.domicile} changer={(v) => set("domicile", v)} connues={connues} />
+      <p className="tdb-note">C'est là que tu récupères les commandes (point de départ des livraisons).</p>
+      <div className="champ"><label>Où récupérer les commandes (comptoir, porte de derrière, parking…)<input type="text" maxLength={200} value={r.recuperation || ""} onChange={(x) => setR("recuperation", x.target.value)} /></label></div>
+      <div className="champ"><label>Horaires d'ouverture et jours de fermeture<input type="text" maxLength={200} value={r.horaires || ""} placeholder="Ex. : dim-jeu 11h-23h, vendredi 11h-14h, fermé Chabbat" onChange={(x) => setR("horaires", x.target.value)} /></label></div>
+      <div className="champ"><label>Nom légal (pour les relevés et reçus)<input type="text" maxLength={200} value={r.nomLegal || ""} onChange={(x) => setR("nomLegal", x.target.value)} /></label></div>
+      <div className="champ"><label>N° d'entreprise (ח.פ / עוסק)<input type="text" inputMode="numeric" maxLength={20} value={r.numero || ""} onChange={(x) => setR("numero", x.target.value)} /></label></div>
+      <p className="rp-type">Autres contacts</p>
+      {(f.membres || []).map((m) => (
+        <div key={m.id} className="rp-correction">
+          <div className="champ"><label>Nom<input type="text" maxLength={60} value={m.nom} onChange={(x) => setM(m.id, "nom", x.target.value)} /></label></div>
+          <div className="champ"><label>Rôle
+            <select value={m.lien} onChange={(x) => setM(m.id, "lien", x.target.value)}>
+              <option value="">Choisir…</option>
+              {[...LIENS_RESTO, ...(m.lien && !LIENS_RESTO.includes(m.lien) ? [m.lien] : [])].map((l) => <option key={l}>{l}</option>)}
+            </select>
+          </label></div>
+          <div className="champ"><label>Téléphone<input type="tel" inputMode="tel" maxLength={20} value={m.telephone} onChange={(x) => setM(m.id, "telephone", x.target.value)} /></label></div>
+          <button type="button" className="dr-secondaire" onClick={() => set("membres", f.membres.filter((x) => x.id !== m.id))}>Retirer {m.nom || "ce contact"}</button>
+        </div>
+      ))}
+      <button type="button" className="dr-secondaire" onClick={() => set("membres", [...(f.membres || []), nouveauMembre()])}>+ Ajouter un contact (caisse, cuisine…)</button>
+    </>
   );
 }
 

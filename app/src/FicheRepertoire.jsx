@@ -19,7 +19,7 @@ import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { encaisseBrut } from "./pricing/comptes.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { addDoc, serverTimestamp } from "firebase/firestore";
-import { clientsDuResto, ficheMaCliente, FORMULES, contratDe, messageReleve, paiementsSemaine, prixPro, releveSemaine, semaineDe, semaineDecalee } from "./pricing/commercants.js";
+import { clientsDuResto, ficheMaCliente, restosDuClient, FORMULES, contratDe, messageReleve, paiementsSemaine, prixPro, releveSemaine, semaineDe, semaineDecalee } from "./pricing/commercants.js";
 import { validerMouvement } from "./pricing/comptes.js";
 import { champOperateur } from "./pricing/reverser.js";
 import { TARIFS } from "./pricing/config.js";
@@ -191,7 +191,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
       )}
 
       {ongletVu === "suivi" && estAdmin && <SuiviBeaute cle={entree.cle} />}
-      {ongletVu === "clientsResto" && estResto && <ClientsResto f={f} liste={liste} rep={rep} changer={changer} />}
+      {ongletVu === "clientsResto" && estResto && <ClientsResto f={f} liste={liste} rep={rep} changer={changer} toutes={demandes || []} />}
       {ongletVu === "finances" && <FinancesFiche e={e} liste={liste} mouvements={mouvements || []} comptes={estAdmin ? comptes : []} familles={rep.familles} estAdmin={estAdmin} qui={qui} membres={membres} />}
 
       {f && (
@@ -208,7 +208,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
 // 19 nov. 2026 (Rebecca) : les clients du restaurant restent chez le restaurant ; la case « Aussi dans mes clientes »
 // crée sa fiche dans mes clientes (quand elle me demande un autre service). Décochée : sa fiche repart, si elle a été
 // créée ici et qu'elle n'a rien d'autre.
-function ClientsResto({ f, liste, rep, changer }) {
+function ClientsResto({ f, liste, rep, changer, toutes }) {
   const habitudes = f.habitudes || {};
   const [info, setInfo] = useState("");
   const [enCours, setEnCours] = useState("");
@@ -247,6 +247,10 @@ function ClientsResto({ f, liste, rep, changer }) {
               <span><strong>{c.nom || "Sans nom"}</strong><small> · {c.telephone || "pas de téléphone"}{c.derniere ? ` · dernière le ${jj(c.derniere)}` : ""}</small></span>
               <b>{c.nb} livraison{c.nb > 1 ? "s" : ""}</b>
             </summary>
+            {(() => {
+              const chez = restosDuClient(c.telephone, toutes);
+              return chez.length > 0 ? <p className="tdb-note">🍽️ Commande chez : {chez.map((r) => `${r.nom} (${r.nb})`).join(" · ")}</p> : null;
+            })()}
             <label className="champ">
               <input type="checkbox" checked={aussi} disabled={enCours === c.cle || (!aussi && c.telephone.length < 9)} onChange={(x) => basculer(c, x.target.checked)} /> Aussi dans mes clientes
             </label>

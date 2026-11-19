@@ -72,7 +72,10 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
         window.dispatchEvent(new Event("rs-ici"));
         const ou = ouSuisJe(x, domicile);
         if (ou) noterOu(ou);
-        setInfo(x.precision > PRECISION_MAX_M ? `Position approximative (à ${x.precision} m près) : touche « 📍 Préciser ma position ».` : "");
+        // 19 nov. 2026, 19h : le bouton répond toujours quelque chose (avant : rien ne s'affichait à la maison)
+        if (x.precision > PRECISION_MAX_M) setInfo(`Position approximative (à ${x.precision} m près) : touche « 📍 Préciser ma position ».`);
+        else if (silencieux) setInfo("");
+        else setInfo(ou === "maison" ? "📍 Position trouvée : tu es à la maison." : `📍 Position trouvée (à ${x.precision} m près).`);
         setEnCours(false);
         fini(x);
       },
@@ -171,6 +174,7 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
       )}
 
       {dehors && !ici2 && <p className="tb-note">Touche « 📍 Me localiser » : ton trajet jusqu'à la prochaine étape se calcule depuis là où tu es.</p>}
+      {dehors && ici2 && !prochaine && <p className="tb-note">Pas d'autre étape aujourd'hui.</p>}
       {prochaine && !bilan && <p className="tb-note">Calcul du trajet depuis ta position…</p>}
       {bilan && (
         <div className="ag-etape-actions">

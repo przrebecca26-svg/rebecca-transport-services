@@ -7,7 +7,7 @@ import { useTournee } from "./tourneeBase.js";
 import { nomPartage, STATUTS_PARTAGE } from "./pricing/partageRamassage.js";
 import { useDemandesRamassage } from "./prioriteBase.js";
 import { textePriorite, arriveeFr } from "./pricing/prioriteRamassage.js";
-import { changerStatutPartage, telSimple } from "./partageBase.js";
+import { changerStatutPartage, supprimerPartage, telSimple } from "./partageBase.js";
 import { arriveeMs } from "./pricing/prioriteRamassage.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
@@ -42,6 +42,21 @@ function TrajetsPartages({ ouvrir }) {
     if ((arriveeMs(depuis) || 0) < (arriveeMs(actuel) || Infinity)) await changer(recente.id, "en cours", { prioriteDepuis: depuis });
   };
   const [lecture, setLecture] = useState("");
+  // Supprimer (19 nov. 2026) : une confirmation « Oui / Non » sous la demande
+  const [aSupprimer, setASupprimer] = useState("");
+  const [enSuppr, setEnSuppr] = useState(false);
+  const [msgSuppr, setMsgSuppr] = useState("");
+  const supprimer = async (id) => {
+    setEnSuppr(true);
+    try {
+      await supprimerPartage(id);
+      setMsgSuppr("Demande supprimée.");
+    } catch {
+      setMsgSuppr("Suppression impossible. Vérifie la connexion.");
+    }
+    setASupprimer("");
+    setEnSuppr(false);
+  };
   useEffect(
     () =>
       onSnapshot(
@@ -51,11 +66,12 @@ function TrajetsPartages({ ouvrir }) {
       ),
     []
   );
-  if (!liste.length && !lecture) return null;
+  if (!liste.length && !lecture && !msgSuppr) return null;
   return (
     <section className="tdb-bloc">
       <h2>Demandes du site (devis modifiables)</h2>
       {lecture && <p className="rp-alerte">{lecture}</p>}
+      {msgSuppr && <p className="tdb-note">{msgSuppr}</p>}
       {liste.map((d) => (
         <div className="rp-forfait" key={d.id}>
           <span>
@@ -76,7 +92,15 @@ function TrajetsPartages({ ouvrir }) {
             {d.statut === "en cours" && plusRecente(d) && <button type="button" className="rp-waze" onClick={() => garderRecente(d, plusRecente(d))}>Doublon : garder la plus récente</button>}
             {d.statut === "en cours" && <button type="button" className="rp-waze" onClick={() => changer(d.id, "refusee")}>Refusé ❌</button>}
             {d.statut === "en cours" && <button type="button" className="rp-waze" onClick={() => changer(d.id, "annulee")}>Annulé</button>}
+            {aSupprimer !== d.id && <button type="button" className="rp-waze" onClick={() => { setASupprimer(d.id); setMsgSuppr(""); }}>Supprimer</button>}
           </div>
+          {aSupprimer === d.id && (
+            <div className="rp-boutons">
+              <small>Supprimer cette demande ? Elle disparaît aussi de « Demandes » et le lien des familles ne marchera plus.</small>
+              <button type="button" className="rp-waze" disabled={enSuppr} onClick={() => supprimer(d.id)}>Oui, supprimer</button>
+              <button type="button" className="rp-waze" disabled={enSuppr} onClick={() => setASupprimer("")}>Non</button>
+            </div>
+          )}
         </div>
       ))}
       <p className="tdb-note">Chaque demande du site a son lien : la cliente la modifie sans en refaire une. « Doublon : garder la plus récente » annule l'ancienne et donne sa place (priorité) à la nouvelle.</p>

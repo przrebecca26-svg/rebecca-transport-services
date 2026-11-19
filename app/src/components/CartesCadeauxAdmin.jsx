@@ -32,7 +32,7 @@ export default function CartesCadeauxAdmin() {
       <p className="tb-note">🎁 Les clientes offrent une carte depuis l'accueil du site (lien direct : rebeccaservices.com/#/cadeau). Soldes encore à utiliser : {Math.round(encours)} ₪. Toutes les activités, valable 1 an, non remboursable.</p>
       {tri.length === 0 && <p className="admin-texte tb-pad">Aucune carte cadeau pour l'instant.</p>}
       {tri.map((c) => {
-        const msgAcheteur = `Bonjour ${c.acheteurNom}, merci pour votre paiement ! 🎁 La carte cadeau pour ${c.pourNom} est active : ${lienCarte(c.id)}\nVous pouvez l'envoyer depuis ce lien. Rebecca`;
+        const msgAcheteur = `Bonjour ${c.acheteurNom}, merci pour votre paiement ! 🎁 La carte cadeau pour ${c.pourNom} est active : ${lienCarte(c.id)}\nValable jusqu'au ${dateFrCadeau(finValidite(c) || champsActivation(aujourdhui()).expireLe)}, sur toutes les activités (non remboursable).\nVous pouvez l'envoyer depuis ce lien. Rebecca`;
         return (
           <div key={c.id} className="tb-bloc">
             <h3>{c.montant} ₪ · pour {c.pourNom} <small>({STATUTS_CADEAU[statutAffiche(c, jour)] || c.statut})</small></h3>

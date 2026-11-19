@@ -13,6 +13,7 @@ import { messageTest } from "../../src/pricing/notifications.js";
 import { SOURCES_SITE, maintenantIsrael, messageMatin, messageSite, messageSoir, rappelsAvant, paiementsEnRetard, messageRetards, demandesSansReponse, nbEnAttente, volsASuivre, signalVol, messageVol, choisirVol, semainePassee, messageSemaine } from "../../src/pricing/planningNotif.js";
 import { adresseRecherche } from "../../src/pricing/vols.js";
 import { envoyerNotification } from "../outils/webPush.mjs";
+import { avecLocalisation, estDehors, lireStyles, styliser } from "../../src/pricing/sonsNotif.js";
 
 export const config = { schedule: "*/2 * * * *" };
 
@@ -194,7 +195,8 @@ export default async function alerteDemandes() {
         messages.push(m);
         await noter(entetes, { matinFait: aujourdhui });
       }
-      if (veutAvant) messages.push(...rappelsAvant(maintenant, donnees));
+      // 19 nov. 2026, 15h42 : Rebecca est dehors (« Je sors » ou détectée à l'ouverture) -> « 📍 Localise-toi »
+      if (veutAvant) messages.push(...rappelsAvant(maintenant, donnees).map((m) => (estDehors(reglage, aujourdhui) ? avecLocalisation(m) : m)));
 
       // 3. Vols en retard (toutes les 10 minutes) : alerte seulement quand l'état change
       if (reglage.notifVols !== false && min % 10 < 2) {
@@ -268,7 +270,9 @@ export default async function alerteDemandes() {
     }
 
     if (messages.length) {
-      const { rapport } = await notifier(entetes, messages.slice(0, 15));
+      // 19 nov. 2026 : emoji choisi par type en tête du titre (Réglages → Notifications)
+      const styles = lireStyles(reglage.notifStyles || "{}");
+      const { rapport } = await notifier(entetes, messages.slice(0, 15).map((m) => styliser(m, styles)));
       journal.push(rapport);
     }
   }

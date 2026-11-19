@@ -3,6 +3,37 @@ import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from 
 import { db } from "./firebase.js";
 import { motDePasseRobot } from "./pricing/rappelsAuto.js";
 import { VAPID_PUBLIQUE, etatTelephone, idAbonnement } from "./pricing/notifications.js";
+import { SONS, TYPES_NOTIF, lireStyles } from "./pricing/sonsNotif.js";
+import { jouerSon } from "./sons.js";
+
+// 19 nov. 2026, 15h42 : un emoji et un son par type de notification (comme les clochettes de Wolt)
+function SonsEtEmojis({ a, setInfo }) {
+  const styles = lireStyles(a.notifStyles || "{}");
+  const changer = (type, champ, valeur) => {
+    const suite = { ...styles, [type]: { ...styles[type], [champ]: valeur } };
+    setDoc(doc(db, "reglages", "alerteDemandes"), { notifStyles: JSON.stringify(suite), majLe: serverTimestamp() }, { merge: true }).catch(() => setInfo("Enregistrement impossible."));
+  };
+  return (
+    <div style={{ marginTop: 12 }}>
+      <h4>🔔 Sons et emojis</h4>
+      <p className="tb-note">L'emoji s'affiche en tête de chaque notification, même téléphone verrouillé : tu sais ce que c'est sans ouvrir l'appli. Le son se joue quand l'appli est ouverte (sur iPhone, une appli installée depuis Safari garde le son normal d'iOS quand elle est fermée).</p>
+      {TYPES_NOTIF.map((t) => (
+        <div key={t.id} className="ag-etape-actions">
+          <p><strong>{t.label}</strong></p>
+          <label className="ag-champ">Emoji en tête
+            <input type="text" maxLength={12} value={styles[t.id].emoji} onChange={(x) => changer(t.id, "emoji", x.target.value)} />
+          </label>
+          <label className="ag-champ">Son dans l'appli
+            <select value={styles[t.id].son} onChange={(x) => { changer(t.id, "son", x.target.value); jouerSon(x.target.value); }}>
+              {SONS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </label>
+          <button type="button" className="ag-modifier" onClick={() => jouerSon(styles[t.id].son)}>▶︎ Écouter</button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // RAPPELS ENVOYES TOUT SEULS (17 nov. 2026) - reglage a faire une seule fois.
 // Chaque soir vers 19h, Netlify envoie par e-mail les rappels de demain (retours d'aller-retour, rendez-vous beaute).
@@ -127,7 +158,7 @@ function NotificationsTelephone() {
             ["notifSite", "🔔 Tout ce qui arrive sur le site (demandes, rendez-vous, commandes Epoxy, paiements annoncés, devis Digital, ramassage, recharges, avis, coursiers)"],
             ["notifSoir", "📅 À 19h : le résumé de demain (courses, RDV, trajets scolaires, rappels WhatsApp)"],
             ["notifMatin", "☀️ À 7h : ma journée, course par course"],
-            ["notifAvant", "⏰ 15 minutes avant chaque course, RDV, trajet scolaire ou tâche"],
+            ["notifAvant", "⏰ 15 minutes avant chaque course, RDV, trajet scolaire ou tâche (avec « 📍 Localise-toi » si tu es dehors)"],
             ["notifAttente", "⏳ Une demande attend ma réponse depuis 2 heures (jamais la nuit)"],
             ["notifRetard", "💸 Chaque jour vers 10h : les paiements en retard (course finie depuis 3 jours, reste à encaisser)"],
             ["notifVols", "✈️ Le vol d'une cliente est en retard ou annulé"],
@@ -140,6 +171,7 @@ function NotificationsTelephone() {
           ))}
         </div>
       )}
+      {a.notifications === true && <SonsEtEmojis a={a} setInfo={setInfo} />}
       {a.notifications === true && nb > 0 && <button className="tb-bouton tb-clair" onClick={tester}>Envoyer un test</button>}
       {nb === -1 && <p className="tb-note">⚠️ Lecture des téléphones refusée : les règles Firebase v23 ne sont pas encore publiées.</p>}
       {a.testDemande && a.testDemande !== a.testFait && <p className="tb-note">⏳ Test en attente : le robot passe toutes les 2 minutes.</p>}

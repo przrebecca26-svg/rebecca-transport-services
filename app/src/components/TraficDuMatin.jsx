@@ -37,12 +37,13 @@ export default function TraficDuMatin({ jour, fil, domicile }) {
     setEtat("Calcul avec le trafic…");
     const lignes = [];
     try {
-      for (const t of trajets) {
+      // 19 nov. 2026 : seulement les trajets pas encore faits (moins d'appels Google, liste plus claire)
+      for (const t of trajets.filter((x) => x.arriveeMin >= maintenant() - 5)) {
         const estime = Math.max(maintenant(), t.arriveeMin - 30);
         const d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
         lignes.push({ nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, avec: Math.round(d.avecTrafic / 60), normal: Math.round(d.normal / 60), partir: departConseille(t.arriveeMin, d.avecTrafic) });
       }
-      const v = { sig, calculeA: new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }), lignes };
+      const v = { sig, calculeMs: Date.now(), calculeA: new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }), lignes };
       ecrire(jour, v);
       setRes(v);
       setEtat("");
@@ -54,15 +55,23 @@ export default function TraficDuMatin({ jour, fil, domicile }) {
   useEffect(() => {
     if (trajets.length && (!res || res.sig !== sig)) calculer();
   }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 19 nov. 2026 (Rebecca : « je dois actualiser, ce n'est pas à jour ») : recalcul tout seul toutes les 20 minutes
+  useEffect(() => {
+    const t = setInterval(() => {
+      const r = lire(jour);
+      if (trajets.length && (!r || !r.calculeMs || Date.now() - r.calculeMs > 20 * 60000)) calculer();
+    }, 60000);
+    return () => clearInterval(t);
+  }, [jour, sig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!trajets.length) return null;
   const now = maintenant();
   return (
     <div className="tb-bloc">
-      <h3>🚦 Trafic de ce matin</h3>
+      <h3>🚦 Trafic de ma journée</h3>
       {res && res.lignes && res.lignes.length > 0 && (
         <>
-          {res.lignes.map((l, i) => {
+          {res.lignes.filter((l) => l.arriveeMin >= now - 5).map((l, i) => {
             const tard = l.partir < now && l.arriveeMin > now;
             return (
               <div key={i} className="tb-adresse">
@@ -74,7 +83,7 @@ export default function TraficDuMatin({ jour, fil, domicile }) {
               </div>
             );
           })}
-          <p className="tb-note">Calculé à {res.calculeA} avec le trafic réel de Google (5 min de marge comprises).</p>
+          <p className="tb-note">Calculé à {res.calculeA} avec le trafic réel de Google (5 min de marge comprises). Mis à jour tout seul toutes les 20 min et à chaque changement de ta journée.</p>
         </>
       )}
       {etat && <p className="tb-note">{etat}</p>}

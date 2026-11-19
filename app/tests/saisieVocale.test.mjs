@@ -80,3 +80,17 @@ test("premier créneau libre", () => {
 test("« 20 minutes » n'est pas une date", () => {
   egal(comprendreDateHeure("docteur à 10h, compter 20 minutes", "2026-11-19").date, "");
 });
+
+// 19 nov. 2026 : « sort plus tot, je la ramene a la maison » = trajet ponctuel ecole -> maison, trajet habituel retire
+import { trajetPonctuel, retirerCeJour, ajouterTrajetCeJour, appliquerJour } from "../src/pricing/tournee.js";
+test("ramener un enfant à la maison plus tôt", () => {
+  const ecole = { label: "École", lat: 32.31, lon: 34.85 };
+  const maison = { label: "Maison", lat: 32.29, lon: 34.84 };
+  const p = trajetPonctuel({ date: "2026-11-19", sens: "recuperer", heure: "13:10", de: ecole, a: maison, nom: "Shyrel" });
+  egal(p.type, "sortie");
+  const j = ajouterTrajetCeJour(retirerCeJour({}, "2026-11-19", ["t1"]), "2026-11-19", [p]);
+  egal(j["2026-11-19"].retires.includes("t1"), true);
+  const liste = appliquerJour([{ id: "t1", jours: [] }], "2026-11-19", j);
+  egal(liste.some((r) => r.id === "t1"), false);
+  egal(liste.some((r) => r.nom === "Shyrel"), true);
+});

@@ -229,3 +229,34 @@ export function encaisseAnnee({ annee, demandes = [], mouvements = [], depenses 
   const t = (k) => cents(mois.reduce((s, m) => s + m[k], 0));
   return { mois, totaux: { encaisse: t("encaisse"), troc: t("troc"), reste: t("reste"), total: cents(t("encaisse") + t("troc") + t("reste")), wolt: t("wolt"), depenses: t("depenses"), beneficeEncaisse: t("beneficeEncaisse") } };
 }
+
+/* ---------- Wolt automatique (19 nov. 2026, 15h54) ----------
+   Rebecca : « je reprends les statistiques de la semaine ; quand je reçois la facture je sais combien ils ont prélevé
+   à la source, et l'argent arrive 2 jours après la fin du relevé (jusqu'au 15 -> le 17). Je ne vais pas rentrer dans
+   chaque facture : ça doit se calculer tout seul quand je mets le montant. » Réglage : taux de retenue (%) appliqué
+   au revenu (ou au revenu + pourboires), caution fixe par relevé, délai de versement en jours. */
+export const REGLAGE_WOLT_DEFAUT = { taux: 0, base: "revenu", caution: 0, delai: 2 };
+export function lireReglageWolt(o = {}) {
+  const n = (x, max) => { const v = Number(String(x ?? "").replace(",", ".")); return Number.isFinite(v) && v >= 0 && v <= max ? v : null; };
+  return {
+    taux: n(o.taux, 50) ?? REGLAGE_WOLT_DEFAUT.taux,
+    base: o.base === "total" ? "total" : "revenu",
+    caution: n(o.caution, 1000) ?? REGLAGE_WOLT_DEFAUT.caution,
+    delai: Math.round(n(o.delai, 30) ?? REGLAGE_WOLT_DEFAUT.delai),
+  };
+}
+// Retenue calculée (₪, 2 décimales) d'après le réglage
+export function retenueAuto(revenu, pourboire, r = REGLAGE_WOLT_DEFAUT) {
+  const base = nb(revenu) + (r.base === "total" ? nb(pourboire) : 0);
+  return Math.round(base * (Number(r.taux) || 0)) / 100;
+}
+// Taux d'après une facture : retenue ÷ base × 100 (2 décimales)
+export function tauxDepuisFacture(revenu, retenue, pourboire = 0, base = "revenu") {
+  const b = nb(revenu) + (base === "total" ? nb(pourboire) : 0);
+  return b > 0 ? Math.round((nb(retenue) / b) * 10000) / 100 : 0;
+}
+// Date du versement : fin du relevé + délai (jours)
+export function dateVersement(fin, delai = 2) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fin || "")) return "";
+  return new Date(Date.parse(`${fin}T12:00:00Z`) + (Number(delai) || 0) * 86400000).toISOString().slice(0, 10);
+}

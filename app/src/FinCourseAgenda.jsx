@@ -22,6 +22,9 @@ import {
   ETAPES_CHRONO, apresChamps, duDe, resteDe, avanceRetour, bilanTrajet, champsModifChrono, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageFin,
   messageAvis, messageEnRoute, messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
 } from "./pricing/finCourse.js";
+import { sansAttendre } from "./ecritureRapide.js";
+const addDocVite = (...a) => sansAttendre(addDoc(...a));
+const updateDocVite = (...a) => sansAttendre(updateDoc(...a));
 
 // Fin d'une course directement depuis l'agenda (17 nov. 2026) :
 // 📍 Récupérée → ✓ Déposée (= course faite) → 🏠 Rentrée, chacun avec l'heure ;
@@ -110,7 +113,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     setErreur("");
     setEnCours(true);
     try {
-      await updateDoc(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() });
+      await updateDocVite(doc(db, "demandes", d.id), { ...champs, majLe: serverTimestamp() });
       synchroniserSuivi(apresChamps(d, champs));
     } catch {
       setErreur("Enregistrement impossible. Vérifie la connexion.");
@@ -154,8 +157,8 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
     if (err) return setErreur(err);
     setEnCours(true);
     try {
-      await addDoc(collection(db, "mouvements"), { ...correction, creeLe: serverTimestamp() });
-      await updateDoc(doc(db, "demandes", d.id), { pourboire: Math.round(((Number(d.pourboire) || 0) + x) * 100) / 100, majLe: serverTimestamp() });
+      await addDocVite(collection(db, "mouvements"), { ...correction, creeLe: serverTimestamp() });
+      await updateDocVite(doc(db, "demandes", d.id), { pourboire: Math.round(((Number(d.pourboire) || 0) + x) * 100) / 100, majLe: serverTimestamp() });
       setVersTip("");
       setErreur("");
     } catch {
@@ -184,13 +187,13 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
         const carte = { id: s.docs[0].id, ...s.docs[0].data() };
         const u = utiliserCarte(carte, paiement.montant, aujourdhui, d.id);
         if (u.erreur) { setErreur(u.erreur); setEnCours(false); return; }
-        await updateDoc(doc(db, "cartesCadeaux", carte.id), { ...u, majLe: serverTimestamp() });
+        await updateDocVite(doc(db, "cartesCadeaux", carte.id), { ...u, majLe: serverTimestamp() });
       }
-      if (paiement) await addDoc(collection(db, "mouvements"), { ...paiement, creeLe: serverTimestamp() });
-      if (Object.keys(r.champs).length) await updateDoc(doc(db, "demandes", d.id), { ...r.champs, majLe: serverTimestamp() });
+      if (paiement) await addDocVite(collection(db, "mouvements"), { ...paiement, creeLe: serverTimestamp() });
+      if (Object.keys(r.champs).length) await updateDocVite(doc(db, "demandes", d.id), { ...r.champs, majLe: serverTimestamp() });
       if (paiement) {
         synchroniserSuivi(d, [...mouvements, paiement]);
-        await updateDoc(doc(db, "demandes", d.id), { recuAFaire: true, recuFaitLe: "", majLe: serverTimestamp() }).catch(() => {});
+        await updateDocVite(doc(db, "demandes", d.id), { recuAFaire: true, recuFaitLe: "", majLe: serverTimestamp() }).catch(() => {});
       }
       setCaisse(null);
       setMerci(true);

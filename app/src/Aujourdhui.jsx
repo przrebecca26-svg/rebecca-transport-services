@@ -7,7 +7,6 @@ import { Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID, attribueA } from "./pricing/equipe.js";
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
-import CoursesGroupees from "./components/CoursesGroupees.jsx";
 import { avisADemander, messageAvis, messageRappelRetour, messageRelance, rappelsDemain, recusAFaire, relancesClientes, resteDe } from "./pricing/finCourse.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { messageRappelRdv, messageRelanceEpoxy, rappelsRdvDemain, relancesEpoxy } from "./pricing/suiteClient.js";
@@ -424,7 +423,6 @@ export default function Aujourdhui({ aller }) {
     <section className="aj">
       <h2 className="aj-date">{jourLong(jour)}</h2>
       <button className="tb-bouton am-ajouter" onClick={() => aller("demandes", "nouvelle")}>+ Ajouter une course</button>
-      <CoursesGroupees demandes={equipier ? demandes.filter((d) => attribueA(d) === moi || (d.statut === "en attente" && !d.attribueA)) : demandes} jour={jour} ouvrir={ouvrir} />
 
       <div className="aj-resume">
         <button className="aj-chiffre" onClick={() => document.getElementById("aj-jour")?.scrollIntoView({ behavior: "smooth" })}>

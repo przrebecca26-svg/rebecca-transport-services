@@ -8,6 +8,8 @@ import PeriodeTB from "./PeriodeTB.jsx";
 import TuileActivite from "./components/TuileActivite.jsx";
 import ChiffresDetail from "./components/ChiffresDetail.jsx";
 import Aujourdhui from "./Aujourdhui.jsx";
+import CoursesGroupees from "./components/CoursesGroupees.jsx";
+import { attribueA } from "./pricing/equipe.js";
 import { chiffresDuMembre, tuileVisible } from "./pricing/espaceEquipe.js";
 
 // Tableau de bord general (D2a, 9 nov. 2026) : 4 indicateurs G3 sur la periode choisie, les 8 activites,
@@ -68,6 +70,8 @@ export default function TableauDeBord({ aller, membre = null }) {
         <h1>Bonjour {membre ? String(membre.nom || "").split(" ")[0] : "Rebecca"}</h1>
         <p className="tdb-sous">{membre ? "Tes courses et tes encaissements" : "Vue générale de Rebecca Services"}</p>
       </div>
+      {/* 19 nov. 2026 : courses groupées tout en haut dès qu'une course est partie (test C3) */}
+      {demandes && <CoursesGroupees demandes={membre ? demandes.filter((d) => attribueA(d) === membre.id || (d.statut === "en attente" && !d.attribueA)) : demandes} jour={new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" })} ouvrir={(id) => aller("demandes", id)} />}
       <PeriodeTB type={type} changer={setType} />
       {erreur && <p className="tdb-erreur" role="alert">{erreur}</p>}
       <ChiffresDetail

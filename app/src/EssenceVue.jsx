@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { comprendrePlein } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
-import { ajouterPlein, essenceDuMois, lireEssence, retirerPlein, modifierPlein } from "./pricing/essence.js";
+import { ajouterPlein, avecCarburant, essenceDuMois, estCarburant, lireEssence, retirerPlein, modifierPlein } from "./pricing/essence.js";
 import { useKmReel } from "./kmReel.js";
 import { TARIFS } from "./pricing/config.js";
 
@@ -27,7 +27,10 @@ export function useEssence() {
 }
 export const enregistrerEssence = (e) => setDoc(REF(), { json: JSON.stringify(e), majLe: serverTimestamp() });
 
-export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
+// 19 nov. 2026, 14h50 (Rebecca : « carburant et essence c'est la même chose, ça doit être dans l'onglet Essence ») :
+// les dépenses « Carburant » notées dans Dépenses apparaissent ici avec les pleins (comptées une seule fois).
+// « Modifier » une telle ligne la transforme en vrai plein (litres, compteur) et la retire des Dépenses.
+export default function EssenceVue({ demandes = [], autresRevenus = [], depenses = [] }) {
   const e = useEssence();
   const [mois, setMois] = useState(aujourdhui().slice(0, 7));
   const [form, setForm] = useState(null);
@@ -35,7 +38,8 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
   const reel = useKmReel(mois, demandes);
   if (!e) return <p className="admin-texte tb-pad">Chargement…</p>;
   const wolt = autresRevenus.filter((l) => !l.operateur && /wolt/i.test(l.source || "Wolt"));
-  const s = essenceDuMois(mois, e, demandes, wolt, TARIFS, reel);
+  const carburant = depenses.filter((x) => !x.operateur && estCarburant(x) && Number(x.montant) > 0);
+  const s = essenceDuMois(mois, avecCarburant(e, carburant), demandes, wolt, TARIFS, reel);
   const sauver = async (suite) => {
     setErreur("");
     try {
@@ -46,7 +50,19 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
       return false;
     }
   };
-  const pleinsMois = e.pleins.filter((p) => p.date.startsWith(mois)).sort((a, b) => b.date.localeCompare(a.date));
+  const pleinsMois = avecCarburant(e, carburant).pleins.filter((p) => p.date.startsWith(mois)).sort((a, b) => b.date.localeCompare(a.date));
+  const idDepense = (p) => (p.depense ? String(p.id).replace(/^dep-/, "") : "");
+  const enregistrerForm = async () => {
+    const dep = form.depense;
+    const suite = form.id && !dep ? modifierPlein(e, form.id, form) : ajouterPlein(e, form);
+    if (!(await sauver(suite))) return;
+    if (dep) await deleteDoc(doc(db, "depenses", dep)).catch(() => setErreur("Plein enregistré, mais l'ancienne ligne de Dépenses n'a pas pu être retirée : supprime-la dans Dépenses."));
+    setForm(null);
+  };
+  const supprimerLigne = async (p) => {
+    if (!p.depense) return sauver(retirerPlein(e, p.id));
+    try { await deleteDoc(doc(db, "depenses", idDepense(p))); } catch { setErreur("Suppression impossible. Vérifie la connexion."); }
+  };
   const pct = (x) => (s.total > 0 ? ` (${Math.round((x / s.total) * 100)} %)` : "");
 
   return (
@@ -57,38 +73,39 @@ export default function EssenceVue({ demandes = [], autresRevenus = [] }) {
           <strong style={{ alignSelf: "center" }}>{nomMois(mois)}</strong>
           <button type="button" className="tb-bouton tb-clair" onClick={() => setMois(decaler(mois, 1))}>›</button>
         </div>
-        <p className="bl-gros"><span>Essence payée</span><strong>{shekels(s.total)}</strong></p>
+        <p className="bl-gros"><span>Carburant payé</span><strong>{shekels(s.total)}</strong></p>
         <p className="tb-note">{s.nbPleins} plein{s.nbPleins > 1 ? "s" : ""}{s.litres ? ` · ${s.litres} L` : ""}{s.kmTotal ? ` · ${km(s.kmTotal)} roulés (compteur)` : ""}</p>
         <p>🚗 <strong>Rebecca Services</strong> : {shekels(s.essenceRS)}{pct(s.essenceRS)} · {km(s.kmRS)} <small>(courses {km(s.kmCourses)} + tournée {km(s.kmTournee)}{s.kmCalcules ? ", calculés sur tes vraies adresses" : ", calcul en cours…"})</small></p>
         <p>🛵 <strong>Wolt</strong> : {shekels(s.essenceWolt)}{pct(s.essenceWolt)} · {km(s.kmWolt)} · {s.livraisonsWolt} livraisons · gagné {shekels(s.gainsWolt)} → <strong>{shekels(s.gainWoltNet)}</strong> après essence</p>
         <p>🏠 <strong>Perso</strong> : {shekels(s.essencePerso)}{pct(s.essencePerso)}{s.kmPerso != null ? ` · ${km(s.kmPerso)}` : ""}</p>
-        <p className="tb-note">Ces pleins ne sont pas comptés dans tes dépenses : ils ne changent pas ton bénéfice. {s.kmTotal ? "La part de chacun suit les km roulés." : "Note le compteur à chaque plein pour une répartition au km près ; sinon c'est km × consommation de ta voiture."} La part déductible aux impôts, c'est le comptable qui la fixe.</p>
+        <p className="tb-note">Tout le carburant est ici (pleins, et ce que tu notes « Carburant » dans Dépenses) ; il n'est pas compté dans l'onglet Dépenses. Dans « Mon mois », seule la part travail est retirée de ce que tu gagnes. {s.kmTotal ? "La part de chacun suit les km roulés." : "Note le compteur à chaque plein pour une répartition au km près ; sinon c'est km × consommation de ta voiture."} La part déductible aux impôts, c'est le comptable qui la fixe.</p>
         {!form && <button type="button" className="tb-bouton" onClick={() => setForm({ date: aujourdhui(), montant: "", litres: "", compteur: "" })}>+ Ajouter un plein</button>}
       </div>
 
       {form && (
         <div className="tb-bloc pm-form">
-          <h4>{form.id ? "Modifier le plein" : "Nouveau plein"}</h4>
+          <h4>{form.id || form.depense ? "Modifier le plein" : "Nouveau plein"}</h4>
+          {form.depense && <p className="tb-note">Noté dans Dépenses : en enregistrant, il devient un plein ici (tu peux ajouter litres et compteur).</p>}
           {!form.id && <Dicter exemple="Ex. : plein de 240, 31 litres, compteur 85661" comprendre={comprendrePlein} remplir={(r) => setForm((f) => ({ ...f, montant: r.montant || f.montant, litres: r.litres || f.litres, compteur: r.compteur || f.compteur }))} />}
           <label className="pm-champ">Date<input type="date" value={form.date} onChange={(x) => setForm({ ...form, date: x.target.value })} /></label>
           <label className="pm-champ">Montant (₪)<input inputMode="decimal" value={form.montant} onChange={(x) => setForm({ ...form, montant: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="pm-champ">Litres (facultatif)<input inputMode="decimal" value={form.litres} onChange={(x) => setForm({ ...form, litres: x.target.value.replace(/[^0-9.,]/g, "") })} /></label>
           <label className="pm-champ">Compteur kilométrique (facultatif)<input inputMode="numeric" value={form.compteur} onChange={(x) => setForm({ ...form, compteur: x.target.value.replace(/[^0-9]/g, "") })} /></label>
           <div className="tb-actions">
-            <button type="button" className="tb-bouton" disabled={!(Number(String(form.montant).replace(",", ".")) > 0)} onClick={async () => (await sauver(form.id ? modifierPlein(e, form.id, form) : ajouterPlein(e, form))) && setForm(null)}>Enregistrer</button>
+            <button type="button" className="tb-bouton" disabled={!(Number(String(form.montant).replace(",", ".")) > 0)} onClick={enregistrerForm}>Enregistrer</button>
             <button type="button" className="tb-bouton tb-clair" onClick={() => setForm(null)}>Annuler</button>
           </div>
         </div>
       )}
 
       <div className="tb-bloc">
-        <h4>Pleins du mois</h4>
-        {pleinsMois.length === 0 && <p className="tb-note">Aucun plein ce mois-ci.</p>}
+        <h4>Carburant du mois</h4>
+        {pleinsMois.length === 0 && <p className="tb-note">Aucun carburant ce mois-ci.</p>}
         {pleinsMois.map((p) => (
           <p key={p.id}>
-            {p.date.slice(8, 10)}/{p.date.slice(5, 7)} · <strong>{shekels(p.montant)}</strong>{p.litres ? ` · ${p.litres} L` : ""}{p.compteur ? ` · compteur ${p.compteur.toLocaleString("fr-FR")}` : ""}{" "}
-            <button type="button" className="fm-petit clair" onClick={() => { setForm({ id: p.id, date: p.date, montant: String(p.montant), litres: p.litres ? String(p.litres) : "", compteur: p.compteur ? String(p.compteur) : "" }); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* */ } }}>Modifier</button>{" "}
-            <button type="button" className="fm-petit clair" onClick={() => sauver(retirerPlein(e, p.id))}>Supprimer</button>
+            {p.date.slice(8, 10)}/{p.date.slice(5, 7)} · <strong>{shekels(p.montant)}</strong>{p.litres ? ` · ${p.litres} L` : ""}{p.compteur ? ` · compteur ${p.compteur.toLocaleString("fr-FR")}` : ""}{p.depense ? <small> · noté dans Dépenses</small> : null}{" "}
+            <button type="button" className="fm-petit clair" onClick={() => { setForm({ id: p.depense ? "" : p.id, depense: idDepense(p), date: p.date, montant: String(p.montant), litres: p.litres ? String(p.litres) : "", compteur: p.compteur ? String(p.compteur) : "" }); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* */ } }}>Modifier</button>{" "}
+            <button type="button" className="fm-petit clair" onClick={() => supprimerLigne(p)}>Supprimer</button>
           </p>
         ))}
       </div>

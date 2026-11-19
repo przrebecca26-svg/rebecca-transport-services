@@ -18,6 +18,8 @@ import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
 import { useMaJournee } from "./maJournee.js";
 import TraficDuMatin from "./components/TraficDuMatin.jsx";
+import ListeAttenteAdmin from "./components/ListeAttenteAdmin.jsx";
+import PartagerPosition from "./components/PartagerPosition.jsx";
 import { etapesCourses } from "./pricing/traficMatin.js";
 import AddressField from "./components/AddressField.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
@@ -424,6 +426,7 @@ function Evenement({ d, aujourdhui, admin = false }) {
             {appel && <a className="tb-bouton tb-clair" href={appel}>Appeler</a>}
           </div>
           <p className="tb-note">Pour accepter, refuser ou changer le prix : onglet Demandes.</p>
+          {admin && d.statut === "acceptee" && <PartagerPosition d={d} />}
           {admin && (suppr === "" ? (
             <button type="button" className="ag-modifier" onClick={() => setSuppr("?")}>Supprimer cette course</button>
           ) : suppr === "?" ? (
@@ -1256,6 +1259,7 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>
 
+      {moi === ADMIN_ID && <ListeAttenteAdmin />}
       {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <TraficDuMatin jour={ref} fil={[...maJournee.fil(ref), ...etapesCourses(parDate[ref] || [])]} domicile={maJournee.domicile} />}
       {vue === "jour" && <JourListe equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} valide={tourneeOk && ref <= aujourdhui && ref >= ajouterJours(aujourdhui, -1) ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 

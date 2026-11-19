@@ -6,6 +6,7 @@ import { auth } from "../firebase.js";
 import { CATALOGUE_DEPART, ACTIVITES_DEPART, avecAjustement, libellePrix, libelleDuree } from "../pricing/catalogue.js";
 import { creneauxDuJour, cellulesDe, cellulesLibres, idAgenda } from "../pricing/rendezvous.js";
 import ProchainsCreneaux from "./ProchainsCreneaux.jsx";
+import ListeAttente from "./ListeAttente.jsx";
 import { TARIFS } from "../pricing/config.js";
 import { enregistrerDemande, messageEchec } from "../demandes.js";
 import { ecouterCatalogue, ecouterPhotos } from "../catalogueClient.js";
@@ -183,6 +184,7 @@ export default function CatalogueRegenx({ onRetour }) {
           <div className="creneaux">
             <p>Créneaux disponibles :</p>
             {creneaux.filter((c) => c.libre).length === 0 && <p>Aucun créneau libre ce jour.</p>}
+            <ListeAttente service="regenx" date={date} prestation={(selection && selection.nom) || ""} />
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {creneaux.map((c) => (
                 <button

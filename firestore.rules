@@ -1,4 +1,9 @@
 rules_version = '2';
+// Regles Rebecca Services v31 (19 novembre 2026, assistance clients) = v30 +
+//   - assistance/{ID} : conversation ouverte par un client (avec ou sans compte) depuis le bouton « 💬 Assistance ».
+//     Lecture par le lien (identifiant impossible a deviner) ; la liste : Rebecca seule. Le client signale seulement
+//     « nouveau message » ; Rebecca change le statut. Le robot note seulement « notification envoyee » (notifieLe).
+//   - assistance/{ID}/messages : messages du client (tant que la conversation n'est pas resolue) et de Rebecca.
 // Regles Rebecca Services v30 (19 novembre 2026, restaurants partenaires inscrits en ligne) = v29 +
 //   - contratsRestos/{ID} : un restaurant (sans compte) signe le contrat de partenariat sur #/restaurant-partenaire.
 //     Creation seulement avec les champs du contrat, statut « signe », signature au doigt (traits), signeLe = maintenant.
@@ -1281,6 +1286,57 @@ service cloud.firestore {
         && !("notifieLe" in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["notifieLe"])
         && request.resource.data.notifieLe is string && request.resource.data.notifieLe.size() <= 30;
+    }
+
+    // v31 : ASSISTANCE CLIENTS (bouton « 💬 Assistance », sans IA)
+    function conversationValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["sujet", "titre", "urgence", "nom", "telephone", "email", "resume", "demandeId", "source", "statut", "ferme", "dernierDe", "aLire", "uid", "creeLe", "majLe"])
+        && d.keys().hasAll(["sujet", "titre", "urgence", "nom", "telephone", "email", "resume", "demandeId", "source", "statut", "ferme", "dernierDe", "aLire", "creeLe", "majLe"])
+        && d.sujet in ["suivi", "livraison", "modifier", "objet", "prix", "paiement", "reserver", "zones", "horaires", "ramassage", "restaurant", "beaute", "epoxy", "digital", "compte", "reclamation", "autre"]
+        && d.titre is string && d.titre.size() <= 120
+        && d.urgence in ["normale", "haute"]
+        && d.nom is string && d.nom.size() >= 2 && d.nom.size() <= 80
+        && d.telephone is string && d.telephone.size() >= 9 && d.telephone.size() <= 20
+        && d.email is string && d.email.size() <= 120
+        && d.resume is string && d.resume.size() <= 600
+        && d.demandeId is string && d.demandeId.size() <= 40
+        && d.source in ["site", "resto", "suivi"]
+        && d.statut == "nouvelle" && d.ferme is bool && d.dernierDe == "client" && d.aLire == true
+        && (!("uid" in d) || (compteVerifie() && d.uid == request.auth.uid))
+        && d.creeLe == request.time && d.majLe == request.time;
+    }
+    match /assistance/{id} {
+      allow get: if true;
+      allow list: if estAdmin();
+      allow read: if estRobot();
+      allow create: if conversationValide();
+      allow delete: if estAdmin();
+      // Le client (avec le lien) : « nouveau message » seulement, tant que ce n'est pas resolu
+      allow update: if resource.data.statut != "resolue"
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dernierDe", "aLire", "majLe"])
+        && request.resource.data.dernierDe == "client" && request.resource.data.aLire == true
+        && request.resource.data.majLe == request.time;
+      // Rebecca : statut, lu, reponse
+      allow update: if estAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "aLire", "dernierDe", "majLe"])
+        && request.resource.data.statut in ["nouvelle", "en_cours", "attente", "resolue"];
+      // Le robot : « notification envoyee »
+      allow update: if estRobot()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["notifieLe"])
+        && request.resource.data.notifieLe is string && request.resource.data.notifieLe.size() <= 30;
+
+      match /messages/{mid} {
+        allow read: if true;
+        allow delete: if estAdmin();
+        allow create: if request.resource.data.keys().hasOnly(["de", "texte", "creeLe"])
+          && request.resource.data.texte is string && request.resource.data.texte.size() >= 1 && request.resource.data.texte.size() <= 2000
+          && request.resource.data.creeLe == request.time
+          && ((request.resource.data.de == "client"
+                && existsAfter(/databases/$(database)/documents/assistance/$(id))
+                && getAfter(/databases/$(database)/documents/assistance/$(id)).data.statut != "resolue")
+            || (request.resource.data.de == "rebecca" && estAdmin()));
+      }
     }
 
     // Tout le reste : Rebecca peut lire, mais rien d'autre n'est ecrit sans regle precise

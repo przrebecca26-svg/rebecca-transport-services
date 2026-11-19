@@ -14,6 +14,7 @@ await import("./coursesGroupees.test.mjs");
 await import("./commercants.test.mjs");
 await import("./restos.test.mjs");
 await import("./contratResto.test.mjs");
+await import("./assistance.test.mjs");
 await import("./abonnement.test.mjs");
 await import("./rappelsAuto.test.mjs");
 await import("./notifications.test.mjs");

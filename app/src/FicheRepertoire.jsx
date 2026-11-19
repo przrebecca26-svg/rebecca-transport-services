@@ -17,6 +17,11 @@ import { releveDuMois } from "./pricing/suiteClient.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { encaisseBrut } from "./pricing/comptes.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
+import { addDoc, serverTimestamp } from "firebase/firestore";
+import { FORMULES, contratDe, messageReleve, paiementsSemaine, prixPro, releveSemaine, semaineDe, semaineDecalee } from "./pricing/commercants.js";
+import { validerMouvement } from "./pricing/comptes.js";
+import { champOperateur } from "./pricing/reverser.js";
+import { TARIFS } from "./pricing/config.js";
 
 // FICHE DU REPERTOIRE (13 nov. 2026, 09h13) : une fiche par famille ou par cliente, 4 onglets.
 // Membres (qui je veux : mari, mere, niece...), Enfants (ecoles, activites, horaires -> tournee), Historique (tout ce
@@ -102,6 +107,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
           ) : (
             <>
               <Membres f={f} changer={changer} connues={connues} />
+              {f.categorie === "commercants" && <ContratPro f={f} changer={changer} />}
               <div className="bloc">
                 <p className="rp-type">Contact et relances</p>
                 <label className="champ">Comment la contacter de préférence
@@ -285,6 +291,7 @@ function FinancesFiche({ e, liste, mouvements, comptes, familles, estAdmin, qui 
       <Totaux titre={estAdmin && personnesQuiOntFait.length > 1 ? "Total" : ""} faites={faites} mouvements={mouvements} />
       {estAdmin && personnesQuiOntFait.length > 1 && personnesQuiOntFait.map((n) => <Totaux key={n} titre={n} faites={faites.filter((d) => qui(d) === n)} mouvements={mouvements} />)}
       {!estAdmin && <p className="tdb-note">Seulement les courses que tu as faites pour cette cliente.</p>}
+      {estAdmin && e.famille && e.famille.categorie === "commercants" && <ReleveCommercant e={e} liste={liste} mouvements={mouvements} />}
       {estAdmin && <Releve e={e} liste={liste} mouvements={mouvements} lies={lies} />}
       {lies.map((c) => (
         <div key={c.id} className="bloc">
@@ -319,5 +326,93 @@ function ResumeFiche({ r }) {
       {r.nbPrestations > 0 && <p className="tdb-note">Panier moyen {r.panierMoyen} ₪ · total payé {Math.round(r.depenses)} ₪{r.resteAPayer > 0 ? ` · reste à payer ${Math.round(r.resteAPayer)} ₪` : ""}</p>}
       {r.cartes.length > 0 && <p className="tdb-note">🎁 Cartes cadeaux : {r.cartesOffertes} offerte(s), {r.cartesRecues} reçue(s){r.cartes.filter((c) => c.statut === "active").length ? ` · solde actif ${r.cartes.filter((c) => c.statut === "active").reduce((t, c) => t + (Number(c.solde) || 0), 0)} ₪` : ""}</p>}
     </section>
+  );
+}
+
+// RESTAURANTS ET COMMERÇANTS PARTENAIRES, version simple (19 nov. 2026) : contrat (Annexe 1) dans la fiche
+function ContratPro({ f, changer }) {
+  const c = contratDe(f);
+  const [km, setKm] = useState("");
+  const maj = (k, v) => changer({ ...f, contratPro: { ...c, [k]: v } });
+  const nombre = (k, label) => (
+    <label className="champ">{label}
+      <input inputMode="decimal" value={c[k]} onChange={(x) => maj(k, Number(x.target.value.replace(/[^0-9.]/g, "")) || 0)} />
+    </label>
+  );
+  const conseil = prixPro(c, km);
+  return (
+    <div className="bloc">
+      <p className="rp-type">🍕 Contrat de livraison (commerçant partenaire)</p>
+      <label className="champ">Formule
+        <select value={c.formule} onChange={(x) => maj("formule", x.target.value)}>{FORMULES.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>
+      </label>
+      {nombre("jusqua3", "Livraison jusqu'à 3 km (₪)")}
+      {nombre("de3a6", "Livraison de 3 à 6 km (₪)")}
+      {nombre("enPlus", "Commande en plus dans la même tournée (₪)")}
+      {c.formule === "B" && nombre("minimumCreneau", "Minimum de livraisons payées par créneau")}
+      {c.formule === "B" && (
+        <label className="champ">Créneaux réservés
+          <input value={c.creneaux} maxLength={120} placeholder="Ex. : jeudi 18h-21h, samedi soir" onChange={(x) => maj("creneaux", x.target.value)} />
+        </label>
+      )}
+      <label className="champ">Il paie chaque dimanche par
+        <select value={c.moyen} onChange={(x) => maj("moyen", x.target.value)}>{["Bit", "Revolut", "Espèces", "Virement"].map((m) => <option key={m}>{m}</option>)}</select>
+      </label>
+      <label className="champ">Prix conseillé : km de la course
+        <input inputMode="decimal" value={km} onChange={(x) => setKm(x.target.value.replace(/[^0-9.]/g, ""))} placeholder="ex. 2.5" />
+      </label>
+      {km && <p className="tdb-note">{conseil != null ? `Prix pro : ${conseil} ₪ (commande en plus : ${c.enPlus} ₪).` : "Au-delà de 6 km : sur devis."}</p>}
+      <p className="tdb-note">Ses livraisons : « + Ajouter une course » avec son téléphone. Elles arrivent dans son relevé de la semaine (onglet Finances).</p>
+    </div>
+  );
+}
+
+const jourJ = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+const dfr = (d) => d.split("-").reverse().join("/");
+function ReleveCommercant({ e, liste, mouvements }) {
+  const { moi } = useEquipeContexte();
+  const [semaine, setSemaine] = useState(() => semaineDecalee(semaineDe(jourJ()), new Date().getDay() === 0 ? -1 : 0));
+  const [info, setInfo] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const c = contratDe(e.famille);
+  const r = releveSemaine(liste, mouvements, semaine);
+  const nom = (e.famille && e.famille.nom) || e.nom;
+  const payer = async () => {
+    const lignes = paiementsSemaine(r, c.moyen, jourJ()).map((m) => ({ ...m, ...champOperateur(moi) }));
+    const err = lignes.map((m) => validerMouvement(m, TARIFS)).find(Boolean);
+    if (err) return setInfo(err);
+    if (!window.confirm(`Noter ${r.reste} ₪ reçus de ${nom} par ${c.moyen} pour la semaine du ${dfr(r.debut)} ?`)) return undefined;
+    setEnCours(true);
+    try {
+      for (const m of lignes) await addDoc(collection(db, "mouvements"), { ...m, creeLe: serverTimestamp() });
+      setInfo("✓ Semaine payée : c'est noté dans Finances.");
+    } catch {
+      setInfo("Enregistrement impossible. Vérifie la connexion.");
+    }
+    setEnCours(false);
+    return undefined;
+  };
+  return (
+    <div className="bloc">
+      <p className="rp-type">🍕 Relevé de la semaine</p>
+      <div className="tb-actions">
+        <button type="button" className="tb-bouton tb-clair" onClick={() => setSemaine(semaineDecalee(semaine, -1))}>←</button>
+        <span className="tdb-note">du {dfr(r.debut)} au {dfr(r.fin)} · paiement le {dfr(r.paiementLe)}</span>
+        <button type="button" className="tb-bouton tb-clair" onClick={() => setSemaine(semaineDecalee(semaine, 1))}>→</button>
+      </div>
+      {r.lignes.length === 0 ? <p className="tdb-note">Aucune livraison terminée cette semaine.</p> : (
+        <ul className="pm-resume">
+          {r.lignes.map((l) => (
+            <li key={l.d.id}><span>{dfr(l.d.date)}{l.d.heure ? ` ${l.d.heure.replace(":", "h")}` : ""} · {l.d.nom || "livraison"}</span><strong>{l.du} ₪ <small>{l.reste === 0 ? "· payé" : `· reste ${l.reste} ₪`}</small></strong></li>
+          ))}
+        </ul>
+      )}
+      <p className="tdb-note"><b>{r.nb} livraison{r.nb > 1 ? "s" : ""} · dû {r.du} ₪ · payé {r.paye} ₪ · reste {r.reste} ₪</b></p>
+      <div className="tb-actions">
+        {e.telephone && r.nb > 0 && <a className="tb-bouton" href={lienWhatsApp(e.telephone, messageReleve(nom, r, c))} target="_blank" rel="noopener noreferrer">💬 Envoyer le relevé</a>}
+        {r.reste > 0 && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={payer}>✓ Semaine payée ({r.reste} ₪ · {c.moyen})</button>}
+      </div>
+      {info && <p className="tdb-note" role="status">{info}</p>}
+    </div>
   );
 }

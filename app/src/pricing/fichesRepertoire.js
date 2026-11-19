@@ -13,6 +13,7 @@ export const CATEGORIES = [
   { v: "moi", l: "Moi" },
   { v: "proches", l: "Famille et amis" },
   { v: "clientes", l: "Cliente (avec ou sans compte : automatique)" },
+  { v: "commercants", l: "Commerçant partenaire (restaurant, boutique)" },
 ];
 // 13 nov. 2026, 09h39 : a l'affichage, les clientes se rangent toutes seules : avec compte sur le site, ou sans compte
 export const AFFICHAGE = [
@@ -20,8 +21,9 @@ export const AFFICHAGE = [
   { v: "proches", l: "Famille et amis" },
   { v: "avecCompte", l: "Clientes avec compte" },
   { v: "sansCompte", l: "Clientes sans compte" },
+  { v: "commercants", l: "Commerçants partenaires" },
 ];
-export const rangDe = (e) => (e.categorie === "moi" || e.categorie === "proches" ? e.categorie : e.clients.some((c) => c.avecCompte) ? "avecCompte" : "sansCompte");
+export const rangDe = (e) => (e.categorie === "moi" || e.categorie === "proches" || e.categorie === "commercants" ? e.categorie : e.clients.some((c) => c.avecCompte) ? "avecCompte" : "sansCompte");
 export const libelleCategorie = (v) => (AFFICHAGE.find((c) => c.v === v) || AFFICHAGE[3]).l;
 
 // Tous les numeros d'une famille (parent, autre parent, membres)
@@ -40,7 +42,7 @@ export function entreesRepertoire(familles = [], fiches = [], categories = {}) {
     if (prises.has(c.cle) || telNormalise(c.telephone).length < 6) continue;
     entrees.push({ cle: c.cle, type: "client", nom: c.nom, telephone: c.telephone, categorie: categories[c.cle] || "clientes", famille: null, clients: [c] });
   }
-  const ordre = { moi: 0, proches: 1, avecCompte: 2, sansCompte: 3 };
+  const ordre = { moi: 0, proches: 1, avecCompte: 2, sansCompte: 3, commercants: 4 };
   for (const e of entrees) e.rang = rangDe(e);
   return entrees.sort((a, b) => ordre[a.rang] - ordre[b.rang] || a.nom.localeCompare(b.nom, "fr"));
 }
@@ -122,7 +124,7 @@ export const FILTRES_SUIVI = [
   { v: "inactives", l: "💤 Inactives (+2 mois)" },
 ];
 export function suiviDeLEntree(e, demandes = [], mouvements = [], aujourdhui = "") {
-  if ((e.rang || rangDe(e)) === "moi" || (e.rang || rangDe(e)) === "proches") return { fidele: false, inactive: false };
+  if (["moi", "proches", "commercants"].includes(e.rang || rangDe(e))) return { fidele: false, inactive: false };
   const r = resumeFiche(demandesDeLEntree(e, demandes, []), mouvements, aujourdhui);
   // Une cliente qui a dit « non » aux relances n'apparaît jamais dans la liste à relancer
   return e.famille && e.famille.relances === "non" ? { ...r, inactive: false } : r;

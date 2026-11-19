@@ -76,6 +76,29 @@ export async function envoyerMailClient(d, sujet, message) {
   }
 }
 
+// 19 nov. 2026 : e-mail à une adresse donnée (contrat d'un restaurant partenaire : au restaurant et à Rebecca).
+// Utilisable depuis une page publique (le modèle est lu dans reglages/emails, lisible par tous). Renvoie true si parti.
+export async function envoyerEmailA(email, nom, sujet, message) {
+  if (!EMAIL_OK.test(String(email || "").trim())) return false;
+  const modele = await modeleClient().catch(() => "");
+  if (!modele) return false;
+  try {
+    const r = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_id: EMAILJS.service,
+        template_id: modele,
+        user_id: EMAILJS.cle,
+        template_params: { to_email: String(email).trim(), to_name: String(nom || "").slice(0, 100), sujet: String(sujet).slice(0, 150), message: String(message).slice(0, 3000), message_html: enHtml(message) },
+      }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export const SUJETS = {
   merci: "Merci pour votre confiance - Rebecca Services",
   rappel: "Petit rappel pour votre retour - Rebecca Services",

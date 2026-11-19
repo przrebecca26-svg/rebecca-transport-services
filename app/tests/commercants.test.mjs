@@ -31,11 +31,11 @@ import { chercherRepertoire } from "../src/pricing/repertoire.js";
 test("fiche restaurant : infos gardées, jamais pour une famille", () => {
   const resto = { id: "r1", nom: "Ohi Sushi", telephone: "053-4909590", categorie: "commercants", nom2: "Cousin", domicile: { label: "Sha'ar HaGai 12, Netanya", lat: 32.3, lon: 34.85 }, resto: { recuperation: "Comptoir", horaires: "dim-jeu 11h-23h", nomLegal: "Ohi SARL", numero: "123456789", pirate: "x" } };
   const [lu] = lireFamilles([resto]);
-  egal(lu.resto, { recuperation: "Comptoir", horaires: "dim-jeu 11h-23h", nomLegal: "Ohi SARL", numero: "123456789" });
+  egal(lu.resto, { recuperation: "Comptoir", horaires: "dim-jeu 11h-23h", nomLegal: "Ohi SARL", numero: "123456789", email: "", contratId: "" });
   egal(lu.nom2, "Cousin");
   const [fam] = lireFamilles([{ ...resto, categorie: "clientes" }]);
   egal(fam.resto, undefined);
-  egal(restoLu(null), { recuperation: "", horaires: "", nomLegal: "", numero: "" });
+  egal(restoLu(null), { recuperation: "", horaires: "", nomLegal: "", numero: "", email: "", contratId: "" });
   egal(chercherRepertoire("ohi", 5, { lieux: [], clients: [], familles: [lu] })[0].titre, "Ohi Sushi · Restaurant");
 });
 

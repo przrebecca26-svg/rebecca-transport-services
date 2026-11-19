@@ -1,4 +1,9 @@
 rules_version = '2';
+// Regles Rebecca Services v30 (19 novembre 2026, restaurants partenaires inscrits en ligne) = v29 +
+//   - contratsRestos/{ID} : un restaurant (sans compte) signe le contrat de partenariat sur #/restaurant-partenaire.
+//     Creation seulement avec les champs du contrat, statut « signe », signature au doigt (traits), signeLe = maintenant.
+//     Lecture par le lien du contrat (identifiant impossible a deviner) ; la liste : Rebecca seule.
+//     Rebecca : ajout au Repertoire (importe, ficheId) et contresignature (statut « valide »). Le robot : notifieLe.
 // Regles Rebecca Services v29 (19 novembre 2026, V2 espace restaurant) = v28 +
 //   - restos/{CLE} : l'espace d'un restaurant partenaire (nom, telephone, adresse, tarifs). La cle du lien prive
 //     #/resto/CLE est impossible a deviner : qui la connait lit la page. Rebecca seule cree, change ou desactive.
@@ -1228,6 +1233,54 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["notifieLe"])
           && request.resource.data.notifieLe is string && request.resource.data.notifieLe.size() <= 30;
       }
+    }
+
+    // v30 : contrat de partenariat signe en ligne par un restaurant (page publique #/restaurant-partenaire)
+    function tarifsContrat(t) {
+      return t is map && t.keys().hasOnly(["jusqua3", "de3a6", "enPlus", "minimumCreneau"])
+        && t.keys().hasAll(["jusqua3", "de3a6", "enPlus", "minimumCreneau"])
+        && t.jusqua3 is int && t.jusqua3 >= 0 && t.jusqua3 <= 999
+        && t.de3a6 is int && t.de3a6 >= 0 && t.de3a6 <= 999
+        && t.enPlus is int && t.enPlus >= 0 && t.enPlus <= 999
+        && t.minimumCreneau is int && t.minimumCreneau >= 0 && t.minimumCreneau <= 50;
+    }
+    function contratRestoValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["version", "statut", "formule", "tarifs", "creneaux", "moyen", "nom", "nomLegal", "forme", "numero", "adresse", "recuperation", "horaires", "responsable", "fonction", "telephone", "portable", "email", "signataire", "signature", "signeLe"])
+        && d.keys().hasAll(["version", "statut", "formule", "tarifs", "creneaux", "moyen", "nom", "nomLegal", "forme", "numero", "adresse", "recuperation", "horaires", "responsable", "fonction", "telephone", "portable", "email", "signataire", "signature", "signeLe"])
+        && d.statut == "signe"
+        && d.formule in ["A", "B"]
+        && tarifsContrat(d.tarifs)
+        && d.moyen in ["Bit", "Revolut", "Espèces", "Virement"]
+        && d.forme in ["patur", "murshe", "societe"]
+        && d.numero is string && d.numero.matches("^[0-9]{8,10}$")
+        && adresseResto(d.adresse)
+        && chaineMax(d, "version", 20) && chaineMax(d, "creneaux", 200)
+        && d.nom is string && d.nom.size() >= 2 && d.nom.size() <= 60
+        && d.nomLegal is string && d.nomLegal.size() >= 2 && d.nomLegal.size() <= 120
+        && chaineMax(d, "recuperation", 200) && chaineMax(d, "horaires", 200)
+        && d.responsable is string && d.responsable.size() >= 2 && d.responsable.size() <= 60
+        && chaineMax(d, "fonction", 60) && chaineMax(d, "telephone", 20) && chaineMax(d, "portable", 20)
+        && d.email is string && d.email.size() <= 120 && d.email.matches("^[^ @]+@[^ @]+[.][^ @]{2,}$")
+        && d.signataire is string && d.signataire.size() >= 2 && d.signataire.size() <= 60
+        && d.signature is string && d.signature.size() >= 20 && d.signature.size() <= 12000 && d.signature.matches("^[0-9,|]+$")
+        && d.signeLe == request.time;
+    }
+    match /contratsRestos/{id} {
+      allow get: if true;
+      allow list: if estAdmin();
+      allow read: if estRobot();
+      allow create: if contratRestoValide();
+      allow delete: if estAdmin();
+      // Rebecca : fiche ajoutee au Repertoire, contresignature
+      allow update: if estAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["importe", "ficheId", "importeLe", "statut", "valideLe"])
+        && request.resource.data.statut in ["signe", "valide"];
+      // Le robot : « notification envoyee » (une seule fois)
+      allow update: if estRobot()
+        && !("notifieLe" in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["notifieLe"])
+        && request.resource.data.notifieLe is string && request.resource.data.notifieLe.size() <= 30;
     }
 
     // Tout le reste : Rebecca peut lire, mais rien d'autre n'est ecrit sans regle precise

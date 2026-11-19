@@ -6,6 +6,7 @@ import { lienWhatsApp } from "./pricing/navigation.js";
 import { OSEK, STATUTS_CANDIDATURE, VEHICULE_UNIQUE, docsPour, libelleCandidature, lienSuiviPartenaire, messageDecision, resumeCandidature, statutDe } from "./pricing/partenaires.js";
 import { STATUTS_CANDIDATURE as REGLES_STATUTS, decision, reglagesCommission, soldeCumule, courseDeMission, estBloque, lienAccesCoursier } from "./pricing/coursiers.js";
 import CompteCoursier from "./components/CompteCoursier.jsx";
+import RestosPartenaires from "./components/RestosPartenaires.jsx";
 
 // PARTENAIRES (17 nov. 2026 ; validation complète le 18 nov., étape 2 des coursiers partenaires) - Rebecca seule.
 // Candidatures des coursiers : documents (photos), décisions datées (en vérification, complément demandé avec
@@ -348,6 +349,7 @@ export default function Partenaires({ aller }) {
           <span>{ouvert ? "Visible sur le site (lien en bas de page)" : "Cachée : aucun lien sur le site (tu peux la tester avec le lien direct)"}</span>
         </label>
       </div>
+      <RestosPartenaires aller={aller} />
       <Coursiers candidatures={liste} setInfo={setInfo} />
       <div className="tb-bloc">
         <h3>Candidatures ({liste.length})</h3>

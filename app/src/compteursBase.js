@@ -35,7 +35,8 @@ export function useCompteurs(role) {
   const digital = useCompte(admin, () => query(collection(db, "projetsDigital"), where("statut", "==", "nouvelle")));
   const candidats = useCompte(admin, () => query(collection(db, "candidaturesPartenaires"), where("statut", "in", ["nouvelle", "soumis"])));
   const aActiver = useCompte(admin, () => query(collection(db, "coursiers"), where("statut", "==", "a_activer"))); // 18 nov. 2026
-  const partenaires = (candidats || 0) + (aActiver || 0);
+  const restosSignes = useCompte(admin, () => query(collection(db, "contratsRestos"), where("statut", "==", "signe"))); // 19 nov. 2026 : restaurants à activer
+  const partenaires = (candidats || 0) + (aActiver || 0) + (restosSignes || 0);
   // 17 nov. 2026 : rappels, avis, relances et recus a faire (onglet Aujourd'hui du Tableau de bord)
   const [aFaire, setAFaire] = useState(0);
   useEffect(() => {

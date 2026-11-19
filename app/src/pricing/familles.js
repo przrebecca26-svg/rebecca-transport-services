@@ -66,10 +66,11 @@ export const familleVide = () => ({ id: nouvelIdFiche(), nom: "", telephone: "",
 // Contrat d'un commercant partenaire (19 nov. 2026) : chiffres et textes propres, lien prive du restaurant
 const prixLu = (x) => (Number.isFinite(Number(x)) && Number(x) >= 0 && Number(x) <= 1000 ? Math.round(Number(x) * 100) / 100 : undefined);
 // 19 nov. 2026 : infos propres a un restaurant / commerce partenaire (fiche « Commerçant partenaire »)
-export const CHAMPS_RESTO = ["recuperation", "horaires", "nomLegal", "numero"];
+// email et contratId : 19 nov. 2026, restaurant inscrit tout seul avec le lien « Devenir restaurant partenaire »
+export const CHAMPS_RESTO = ["recuperation", "horaires", "nomLegal", "numero", "email", "contratId"];
 export function restoLu(r) {
   const o = r && typeof r === "object" ? r : {};
-  return Object.fromEntries(CHAMPS_RESTO.map((k) => [k, String(o[k] || "").slice(0, k === "numero" ? 20 : 200)]));
+  return Object.fromEntries(CHAMPS_RESTO.map((k) => [k, String(o[k] || "").slice(0, k === "numero" ? 20 : k === "contratId" ? 40 : 200)]));
 }
 
 function contratLu(c) {

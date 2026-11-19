@@ -69,34 +69,46 @@ export function couper(texte, taille, largeurMax, gras = false) {
 // (y compté depuis le HAUT de la page, comme à l'écran)
 // -> Uint8Array du fichier PDF
 export function fabriquerPdf({ largeur = A4.largeur, hauteur = A4.hauteur, fond = "", elements = [], titre = "" } = {}) {
-  const flux = []; // octets du contenu de page
-  const ecrire = (s) => { for (const ch of s) flux.push(ch.charCodeAt(0) & 255); };
-  if (fond) ecrire(`${couleur(fond)} rg 0 0 ${num(largeur)} ${num(hauteur)} re f\n`);
-  for (const e of elements) {
-    if (e.t === "rect") {
-      const y = hauteur - e.y - e.h;
-      if (e.fond) ecrire(`${couleur(e.fond)} rg ${num(e.x)} ${num(y)} ${num(e.w)} ${num(e.h)} re f\n`);
-      if (e.bord) ecrire(`${couleur(e.bord)} RG ${num(e.epaisseur || 1)} w ${num(e.x)} ${num(y)} ${num(e.w)} ${num(e.h)} re S\n`);
-    } else if (e.t === "trait") {
-      ecrire(`${couleur(e.couleur, "#cccccc")} RG ${num(e.epaisseur || 0.8)} w ${num(e.x1)} ${num(hauteur - e.y1)} m ${num(e.x2)} ${num(hauteur - e.y2)} l S\n`);
-    } else if (e.t === "texte") {
-      const taille = e.taille || 11;
-      const w = largeurTexte(e.texte, taille, e.gras);
-      const x = e.align === "centre" ? e.x - w / 2 : e.align === "droite" ? e.x - w : e.x;
-      ecrire(`BT /${e.gras ? "F2" : "F1"} ${num(taille)} Tf ${couleur(e.couleur)} rg ${num(x)} ${num(hauteur - e.y)} Td (`);
-      for (const b of echapper(versWinAnsi(e.texte))) flux.push(b);
-      ecrire(") Tj ET\n");
+  return fabriquerPdfPages({ largeur, hauteur, fond, pages: [elements], titre });
+}
+
+// 19 nov. 2026 : plusieurs pages (contrat des restaurants partenaires). pages = [[elements], [elements], ...]
+export function fabriquerPdfPages({ largeur = A4.largeur, hauteur = A4.hauteur, fond = "", pages = [[]], titre = "" } = {}) {
+  const contenus = pages.map((elements) => {
+    const flux = []; // octets du contenu de la page
+    const ecrire = (s) => { for (const ch of s) flux.push(ch.charCodeAt(0) & 255); };
+    if (fond) ecrire(`${couleur(fond)} rg 0 0 ${num(largeur)} ${num(hauteur)} re f\n`);
+    for (const e of elements) {
+      if (e.t === "rect") {
+        const y = hauteur - e.y - e.h;
+        if (e.fond) ecrire(`${couleur(e.fond)} rg ${num(e.x)} ${num(y)} ${num(e.w)} ${num(e.h)} re f\n`);
+        if (e.bord) ecrire(`${couleur(e.bord)} RG ${num(e.epaisseur || 1)} w ${num(e.x)} ${num(y)} ${num(e.w)} ${num(e.h)} re S\n`);
+      } else if (e.t === "trait") {
+        ecrire(`${couleur(e.couleur, "#cccccc")} RG ${num(e.epaisseur || 0.8)} w 1 J ${num(e.x1)} ${num(hauteur - e.y1)} m ${num(e.x2)} ${num(hauteur - e.y2)} l S\n`);
+      } else if (e.t === "texte") {
+        const taille = e.taille || 11;
+        const w = largeurTexte(e.texte, taille, e.gras);
+        const x = e.align === "centre" ? e.x - w / 2 : e.align === "droite" ? e.x - w : e.x;
+        ecrire(`BT /${e.gras ? "F2" : "F1"} ${num(taille)} Tf ${couleur(e.couleur)} rg ${num(x)} ${num(hauteur - e.y)} Td (`);
+        for (const b of echapper(versWinAnsi(e.texte))) flux.push(b);
+        ecrire(") Tj ET\n");
+      }
     }
-  }
+    return flux;
+  });
+  const n = contenus.length;
+  // Objets : 1 catalogue, 2 pages, 3-4 polices, puis pour chaque page : la page et son contenu, puis les infos
   const objets = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(largeur)} ${num(hauteur)}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>`,
+    `<< /Type /Pages /Kids [${contenus.map((_, i) => `${5 + 2 * i} 0 R`).join(" ")}] /Count ${n} >>`,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
-    null, // flux de contenu
-    `<< /Title (${String.fromCharCode(...echapper(versWinAnsi(titre || "Rebecca Services")))}) /Producer (Rebecca Services) >>`,
   ];
+  contenus.forEach((flux, i) => {
+    objets.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(largeur)} ${num(hauteur)}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${6 + 2 * i} 0 R >>`);
+    objets.push(flux);
+  });
+  objets.push(`<< /Title (${String.fromCharCode(...echapper(versWinAnsi(titre || "Rebecca Services")))}) /Producer (Rebecca Services) >>`);
   const sortie = [];
   const ajouter = (s) => { for (const ch of s) sortie.push(ch.charCodeAt(0) & 255); };
   ajouter("%PDF-1.4\n%âãÏÓ\n");
@@ -104,9 +116,9 @@ export function fabriquerPdf({ largeur = A4.largeur, hauteur = A4.hauteur, fond 
   objets.forEach((o, i) => {
     positions.push(sortie.length);
     ajouter(`${i + 1} 0 obj\n`);
-    if (o === null) {
-      ajouter(`<< /Length ${flux.length} >>\nstream\n`);
-      for (const b of flux) sortie.push(b);
+    if (Array.isArray(o)) {
+      ajouter(`<< /Length ${o.length} >>\nstream\n`);
+      for (const b of o) sortie.push(b);
       ajouter("\nendstream");
     } else ajouter(o);
     ajouter("\nendobj\n");

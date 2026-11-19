@@ -1,4 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import VoirPosition from "./components/VoirPosition.jsx";
+import { lireLienPosition } from "./pricing/positionDirect.js";
 import ServiceForm from "./components/ServiceForm.jsx";
 import DemandeRamassage from "./components/DemandeRamassage.jsx";
 import PartageRamassage from "./components/PartageRamassage.jsx";
@@ -404,6 +406,8 @@ export default function App() {
   const [lienPartenaire, setLienPartenaire] = useState(() => window.location.hash === "#/partenaire");
   const [suiviPartenaire, setSuiviPartenaire] = useState(() => lireLienPartenaire(window.location.hash));
   // 18 nov. 2026 : carte cadeau (#/cadeau = offrir, #/cadeau/ID = voir sa carte)
+  // 19 nov. 2026 (V2) : suivi GPS en direct de la voiture (#/position/ID)
+  const [lienPositionVu, setLienPositionVu] = useState(() => lireLienPosition(window.location.hash));
   const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
   useEffect(() => {
     const suivre = () => {
@@ -416,6 +420,7 @@ export default function App() {
       setLienPartenaire(window.location.hash === "#/partenaire");
       setSuiviPartenaire(lireLienPartenaire(window.location.hash));
       setLienCadeau(window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash));
+      setLienPositionVu(lireLienPosition(window.location.hash));
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -480,6 +485,14 @@ export default function App() {
           <Suspense fallback={chargement}>
             <SuiviProjet id={lienProjetVu} onAccueil={quitterLien} />
           </Suspense>
+        </main>
+      </div>
+    );
+  if (lienPositionVu && !admin)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <VoirPosition id={lienPositionVu} onAccueil={quitterLien} />
         </main>
       </div>
     );

@@ -3,6 +3,8 @@ rules_version = '2';
 //   - autresRevenus : retenue a la source, caution du sac et numero de facture (facultatifs) ;
 //   - documentsPartenaires : photo du sac isotherme personnel (« sac ») et exoneration de retenue (« retenue »).
 //   - depenses : une ligne saisie par erreur ou en test peut etre modifiee ou supprimee (Rebecca : toutes ; coequipier : les siennes).
+//   - positions : suivi GPS en direct d'une course (Rebecca ecrit, la cliente lit avec son lien).
+//   - listeAttente : liste d'attente beaute (inscription publique controlee, Rebecca seule lit et efface).
 //   - mouvements : Rebecca seule peut supprimer un paiement note par erreur ou en test (et une course avec ses paiements).
 // Regles Rebecca Services v27 (18 novembre 2026, 23h30, securite) = v26 +
 //   - agenda des rendez-vous : un creneau n'est retenu par une cliente QU'AVEC une vraie demande enregistree dans la
@@ -1095,6 +1097,42 @@ service cloud.firestore {
 
     // Trajets de la tournee confies a un coequipier pour une date (heures et etapes du ramassage) :
     // l'equipe les lit (chacun voit ses missions dans son planning), Rebecca seule les cree et les retire.
+    // v28 (19 nov. 2026) : liste d'attente beaute. Tout le monde peut s'inscrire (forme controlee) ; Rebecca seule lit et efface.
+    function attenteValide() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["service", "prestation", "date", "plage", "prenom", "telephone", "note", "statut", "creeLe"])
+        && d.keys().hasAll(["service", "date", "plage", "prenom", "telephone", "statut", "creeLe"])
+        && d["service"] in ["nails", "hair", "slim", "regenx"]
+        && d.date is string && d.date.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+        && d.plage in ["journee", "matin", "apresmidi"]
+        && d.prenom is string && d.prenom.size() >= 2 && d.prenom.size() <= 60
+        && d.telephone is string && d.telephone.size() >= 9 && d.telephone.size() <= 20
+        && d.get("prestation", "") is string && d.get("prestation", "").size() <= 100
+        && d.get("note", "") is string && d.get("note", "").size() <= 300
+        && d.statut == "en attente"
+        && d.creeLe == request.time;
+    }
+    // v28 (19 nov. 2026) : suivi GPS en direct. Rebecca ecrit sa position pendant une course (document = identifiant
+    // de la course, impossible a deviner) ; la cliente la lit avec son lien. Effacee a la fin du partage.
+    match /positions/{id} {
+      allow get: if true;
+      allow list: if estAdmin();
+      allow delete: if estAdmin();
+      allow create, update: if estAdmin()
+        && request.resource.data.keys().hasOnly(["lat", "lon", "prenom", "actif", "majLe"])
+        && request.resource.data.lat is number && request.resource.data.lat >= -90 && request.resource.data.lat <= 90
+        && request.resource.data.lon is number && request.resource.data.lon >= -180 && request.resource.data.lon <= 180
+        && request.resource.data.prenom is string && request.resource.data.prenom.size() <= 30
+        && request.resource.data.actif is bool
+        && request.resource.data.majLe == request.time;
+    }
+
+    match /listeAttente/{id} {
+      allow create: if attenteValide();
+      allow read, update, delete: if estAdmin();
+      allow read: if estRobot();
+    }
+
     match /missionsEquipe/{id} {
       allow read: if gestion();
       allow create, update: if estAdmin()

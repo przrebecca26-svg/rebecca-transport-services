@@ -233,7 +233,7 @@ export default function Repertoire({ aller = null }) {
             <button type="button" className="tdb-bouton" onClick={() => setFicheOuverte(x.cle)}>Fiche</button>
           </div>
         ))}
-        <button type="button" className="dr-secondaire rp-large" onClick={() => setFicheOuverte({ nouvelle: { ...familleVide(), enfants: [], categorie: categorie === "moi" || categorie === "proches" ? categorie : "clientes" } })}>+ Nouvelle fiche</button>
+        <button type="button" className="dr-secondaire rp-large" onClick={() => setFicheOuverte({ nouvelle: { ...familleVide(), enfants: [], categorie: categorie === "moi" || categorie === "proches" || categorie === "commercants" ? categorie : "clientes" } })}>+ Nouvelle fiche</button>
       </section>
       {(estAdmin || familles.length > 0) && (
         <details className="tdb-bloc">

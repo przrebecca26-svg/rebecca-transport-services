@@ -4,6 +4,7 @@ import { db } from "./firebase.js";
 import { calculerDurees } from "./routing.js";
 import { cleLieu, joursAVenir, lieuxDesTrajets, lireJours, lireTournee, tableDurees } from "./pricing/tournee.js";
 import { ajouterJours } from "./pricing/calendrier.js";
+import { sansAttendre } from "./ecritureRapide.js";
 
 // MA TOURNEE SCOLAIRE - lecture et enregistrement (12 nov. 2026)
 // Document PRIVE admin/tournee (lisible et modifiable par Rebecca seule) : noms, adresses et horaires des enfants
@@ -68,5 +69,5 @@ export function useJoursTournee(actif = true) {
 }
 export const enregistrerJours = (jours) => {
   const hier = ajouterJours(new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), -1);
-  return setDoc(REF_JOURS(), { json: JSON.stringify(joursAVenir(jours, hier)), majLe: serverTimestamp() });
+  return sansAttendre(setDoc(REF_JOURS(), { json: JSON.stringify(joursAVenir(jours, hier)), majLe: serverTimestamp() }));
 };

@@ -26,7 +26,7 @@ import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
 import { TYPES_TACHE, etapeValidable, iconeTache } from "./pricing/tournee.js";
-import { comprendreDateHeure } from "./pricing/saisieVocale.js";
+import { comprendreDateHeure, demandeCreneau, dureeDite, quoiDeTache, trouverCreneau } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
 import { ajouterJours, etiquettesDuJour, vacancesDuJour, vacancesDuCalendrier, joursADecider, localVersUtc, periodesFermees, prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 
@@ -597,7 +597,7 @@ const decaler = (h, minutes) => {
   return deuxChiffres(Math.floor(t / 60)) + ":" + deuxChiffres(t % 60);
 };
 
-function FormTache({ date, journee, initial = null, onFin }) {
+function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdhui = "" }) {
   const rep = useRepertoire();
   const enfants = listeEnfants(rep.familles);
   // 15 nov. 2026 : mes lieux + la maison de chaque famille + ses adresses favorites, en un geste
@@ -716,15 +716,28 @@ function FormTache({ date, journee, initial = null, onFin }) {
       <h4>{initial ? "Modifier la tâche" : `Nouvelle tâche · ${libelleJour(date)}`}</h4>
       {!initial && (
         <Dicter
-          exemple="Ex. : rendez-vous personnel docteur à 10 heures"
+          exemple="Ex. : docteur à 10 heures · ou : sortir le chien, 20 minutes, trouve-moi un créneau"
           comprendre={(t) => {
-            const { date: dit, heure } = comprendreDateHeure(t, date);
-            if (!heure) return { erreur: "Dis l'heure, par exemple : « docteur à 10 heures »." };
-            const quoi = String(t).replace(/\b(ajoute|note|mets?)\b/gi, "").replace(/\b(demain|apr[eè]s-demain|aujourd'hui)\b/gi, "").replace(/\b(à|a)?\s*\d{1,2}\s*(h|heures?|:)\s*\d{0,2}/gi, "").replace(/\s+/g, " ").trim().replace(/^[,.\s]+|[,.\s]+$/g, "");
-            const autreJour = dit && dit !== date;
-            return { heure, quoi: quoi.slice(0, 80), autreJour: autreJour ? dit : "", resume: `${quoi || "Tâche"} · ${heure.replace(":", "h")}${autreJour ? ` (attention : tu as dit le ${dit.split("-").reverse().join("/")}, ouvre ce jour-là dans le calendrier)` : ""}` };
+            const { date: dit, heure: dite } = comprendreDateHeure(t, date);
+            const duree = dureeDite(t);
+            const quoi = quoiDeTache(t);
+            let heure = dite;
+            let trouve = false;
+            // 19 nov. 2026 (test C13) : pas d'heure mais une durée ou « trouve-moi un créneau » -> premier créneau libre
+            if (!heure && (duree || demandeCreneau(t))) {
+              const n = new Date();
+              const depuis = date === aujourdhui ? n.getHours() * 60 + n.getMinutes() + 5 : 0;
+              const debut = trouverCreneau(occupe, duree || 30, { depuis });
+              if (debut == null) return { erreur: `Pas de créneau libre de ${duree || 30} minutes ce jour-là (entre 7h et 21h). Dis une heure, ou choisis un autre jour.` };
+              heure = `${deuxChiffres(Math.floor(debut / 60))}:${deuxChiffres(debut % 60)}`;
+              trouve = true;
+            }
+            if (!heure) return { erreur: "Dis l'heure (« docteur à 10 heures ») ou la durée (« 20 minutes, trouve-moi un créneau »)." };
+            const fin = decaler(heure, duree || 60);
+            const autreJour = dit && dit !== date && !trouve;
+            return { heure, fin, quoi, autreJour: autreJour ? dit : "", resume: `${quoi || "Tâche"} · ${heure.replace(":", "h")} → ${fin.replace(":", "h")}${trouve ? " (premier créneau libre de ta journée)" : ""}${autreJour ? ` (attention : tu as dit le ${dit.split("-").reverse().join("/")}, ouvre ce jour-là dans le calendrier)` : ""}` };
           }}
-          remplir={(r) => setF((x) => ({ ...x, type: x.type || "autre", quoi: x.quoi || r.quoi, debut: r.heure, fin: decaler(r.heure, 60) }))}
+          remplir={(r) => setF((x) => ({ ...x, type: x.type || "autre", quoi: x.quoi || r.quoi, debut: r.heure, fin: r.fin }))}
         />
       )}
 
@@ -898,10 +911,10 @@ function FormTache({ date, journee, initial = null, onFin }) {
 }
 
 // « + Ajouter une tâche » : une course perso, un rendez-vous... qui bloque ce creneau
-function AjoutTache({ date, journee }) {
+function AjoutTache({ date, journee, occupe = [], aujourdhui = "" }) {
   const [ouvert, setOuvert] = useState(false);
   if (!ouvert) return <button type="button" className="tb-bouton tb-clair ag-ajout" onClick={() => setOuvert(true)}>+ Ajouter une tâche</button>;
-  return <FormTache date={date} journee={journee} onFin={() => setOuvert(false)} />;
+  return <FormTache date={date} journee={journee} occupe={occupe} aujourdhui={aujourdhui} onFin={() => setOuvert(false)} />;
 }
 
 // Trajets retires ce jour-la, avec « Remettre », et « Remettre la journee normale »
@@ -939,6 +952,20 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
     ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);
+  // 19 nov. 2026 : ce qui occupe deja la journee (en minutes), pour « trouve-moi un créneau » dans la dictée
+  const occupe = [
+    ...fil.map((e) => (e.genre === "tache" ? { debut: e.min, fin: enMinutes(e.jusqua) } : { debut: e.min - 10, fin: e.min + 10 })),
+    ...evenements.map((d) => {
+      const ets = etapesCourses([d]);
+      const debut = enMinutes(d.heure);
+      return ets.length ? { debut: ets[0].min, fin: ets[ets.length - 1].min } : { debut, fin: debut + 45 };
+    }),
+    ...missions.map((m) => ({ debut: enMinutes(m.debut), fin: enMinutes(m.fin) })),
+    ...fermetures.flatMap((c) => (c.type !== "chabbat_fete" ? [] : [
+      ...(c.commence && c.entree ? [{ debut: enMinutes(c.entree.heure) - 60, fin: 24 * 60 }] : []),
+      ...(c.finit && c.sortie ? [{ debut: 0, fin: enMinutes(c.sortie.heure) + 60 }] : []),
+    ])),
+  ].filter((o) => o.debut < 24 * 60);
   // Les etapes qui se suivent sont regroupees dans une meme liste ; une course coupe la liste
   const blocs = [];
   for (const l of lignes) {
@@ -966,7 +993,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
         )
       )}
       {fermetures.length === 0 && lignes.length === 0 && !calcul && <p className="ag-libre">Libre</p>}
-      {journee && <AjoutTache date={jour} journee={journee} />}
+      {journee && <AjoutTache date={jour} journee={journee} occupe={occupe} aujourdhui={aujourdhui} />}
     </div>
   );
 }

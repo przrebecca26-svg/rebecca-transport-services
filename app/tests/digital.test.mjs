@@ -138,7 +138,7 @@ test("lecture REST et mot de passe", () => {
   egal(motDePasseRobot().length, 24);
 });
 
-import { trajetsDuJour, departConseille, departIso, secondes } from "../src/pricing/traficMatin.js";
+import { trajetsDuJour, departConseille, departIso, secondes, etapesCourses } from "../src/pricing/traficMatin.js";
 section("Trafic du matin");
 test("trajets de la journée depuis la maison", () => {
   const maison = { label: "Maison", lat: 32.3, lon: 34.85 };
@@ -154,6 +154,31 @@ test("trajets de la journée depuis la maison", () => {
   const t = trajetsDuJour(fil, maison, 0);
   egal(t.map((x) => `${x.nomDe}>${x.nomVers}`), ["Maison>École Ouziel", "École Ouziel>Gan", "Gan>Maison"]);
   egal(trajetsDuJour(fil, maison, 490).length, 2);
+});
+test("les courses acceptées du jour entrent dans le trafic (19 nov.)", () => {
+  const maison = { label: "Maison", lat: 32.3, lon: 34.85 };
+  const ecole = { label: "École Ouziel, Netanya", lat: 32.31, lon: 34.86 };
+  const neot = { label: "Neot Shaked, Netanya", lat: 32.29, lon: 34.87 };
+  const centre = { label: "Centre, Netanya", lat: 32.33, lon: 34.86 };
+  const courses = [
+    { id: "a", service: "transport", statut: "acceptee", heure: "11:40", nom: "Deborah", details: { depart: neot, arrivee: centre } },
+    { id: "b", service: "livraison", statut: "terminee", heure: "11:30", details: {} }, // sans adresse : ignorée
+    { id: "c", service: "transport", statut: "en attente", heure: "12:00", details: { depart: neot, arrivee: centre } },
+  ];
+  const e = etapesCourses(courses);
+  egal(e.map((x) => x.texte), ["Récupérer (Deborah)", "Déposer (Deborah)"]);
+  vrai(e[1].min > e[0].min);
+  const fil = [
+    { min: 450, genre: "maison", texte: "Partir de la maison" },
+    { min: 470, genre: "arret", adresse: ecole, lieu: "École Ouziel", texte: "Déposer Shyrel" },
+    { min: 490, genre: "maison", texte: "De retour à la maison" },
+    { min: 830, genre: "maison", texte: "Partir de la maison" },
+    ...e,
+  ];
+  const t = trajetsDuJour(fil, maison, 0);
+  egal(t.map((x) => `${x.nomDe}>${x.nomVers}`), ["Maison>École Ouziel", "École Ouziel>Maison", "Maison>Neot Shaked", "Neot Shaked>Centre", "Centre>Maison"]);
+  const retour = etapesCourses([{ ...courses[0], estRetour: true }]);
+  egal(retour.map((x) => x.lieu), ["Centre", "Neot Shaked"]);
 });
 test("départ conseillé et heure d'Israël", () => {
   egal(departConseille(470, 900), 450);

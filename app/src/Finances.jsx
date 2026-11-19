@@ -283,6 +283,8 @@ function AutresRevenus({ lignes: toutes, moi }) {
   const triees = [...lignes].sort((a, b) => String(b.debut).localeCompare(String(a.debut)));
   const visibles = voirTout ? triees : triees.filter((l) => String(l.debut).startsWith(String(annee)));
   const totalAnnee = triees.filter((l) => String(l.debut).startsWith(String(annee))).reduce((s, l) => s + (Number(l.revenu) || 0), 0);
+  // 19 nov. 2026, 17h41 : le gros chiffre = tout ce que Wolt a payé (livraisons + pourboires, « סה״כ הכנסות »)
+  const pourboiresAnnee = triees.filter((l) => String(l.debut).startsWith(String(annee))).reduce((s, l) => s + (Number(l.pourboire) || 0), 0);
   const retenuesAnnee = totauxRetenues(triees.filter((l) => String(l.debut).startsWith(String(annee))), reglageWolt);
 
   const lignesWolt = triees.filter((l) => /wolt/i.test(l.source || "Wolt"));
@@ -384,8 +386,9 @@ function AutresRevenus({ lignes: toutes, moi }) {
         <h3>Revenus Wolt et autres</h3>
         <p className="bl-gros">
           <span>Total {annee}</span>
-          <strong>{shekels(totalAnnee)}</strong>
+          <strong>{shekels(totalAnnee + pourboiresAnnee)}</strong>
         </p>
+        {pourboiresAnnee > 0 && <p className="tb-note">Livraisons : <strong>{shekels(totalAnnee)}</strong> (compte dans le plafond de l'osek patur) + pourboires : <strong>{shekels(pourboiresAnnee)}</strong></p>}
         {retenuesAnnee.retenue > 0 && <p className="tb-note">Retenue à la source {annee} : <strong>{shekels(retenuesAnnee.retenue)}</strong> — impôt déjà payé pour toi, à donner au comptable.</p>}
         {retenuesAnnee.caution > 0 && <p className="tb-note">Caution du sac : <strong>{shekels(retenuesAnnee.caution)}</strong> — rendue quand tu rends le sac.</p>}
         <p className="tb-note">Saisis ici ce que tu gagnes en dehors de Rebecca Services (Wolt…), par jour, par semaine ou par mois. Recopie le relevé de Wolt : revenu = « דמי משלוח », pourboires = « טיפים », retenue = « סכום הניכוי ». Ces revenus comptent dans le plafond de l'osek patur ; les pourboires restent à part.</p>
@@ -569,12 +572,12 @@ function AutresRevenus({ lignes: toutes, moi }) {
         <button key={l.id} className="tb-carte" onClick={() => ouvrir(l)}>
           <span className="tb-ligne">
             <strong>{l.source}</strong>
-            <strong>{shekels(Number(l.revenu) || 0)}</strong>
+            <strong>{shekels((Number(l.revenu) || 0) + (Number(l.pourboire) || 0))}</strong>
           </span>
           <span className="tb-quand">
             {l.periode === "jour" ? jourCourt(l.debut) : `${jourCourt(l.debut)} → ${jourCourt(l.fin)}`} · {l.livraisons} livraison{l.livraisons > 1 ? "s" : ""}
-            {Number(l.pourboire) ? ` · pourboires ${shekels(Number(l.pourboire))}` : ""}
           </span>
+          {Number(l.pourboire) ? <span className="tb-quand">Livraisons {shekels(Number(l.revenu) || 0)} + pourboires {shekels(Number(l.pourboire))}</span> : null}
           {(retenueDe(l, reglageWolt) > 0 || Number(l.caution) > 0 || l.numero || (moi === ADMIN_ID && /wolt/i.test(l.source || "Wolt"))) && (
             <span className="tb-quand">
               {(() => {

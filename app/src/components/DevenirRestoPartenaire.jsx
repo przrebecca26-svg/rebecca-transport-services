@@ -31,7 +31,7 @@ const AVANTAGES = [
   ["📍", "Suivi et preuve", "Heure d'arrivée, suivi de la voiture, photo de remise si le client est absent."],
   ["🧾", "Un relevé clair chaque semaine", "Toutes les livraisons, le total et ce qui est payé : les mêmes chiffres des deux côtés."],
   ["🤝", "Vos clients restent les vôtres", "Je livre en votre nom et je ne démarche jamais vos clients."],
-  ["🔓", "Sans durée minimum", "Un mois d'essai, et vous pouvez arrêter à tout moment avec un simple préavis de 7 jours."],
+  ["🔓", "Avec ou sans engagement, au choix", "Formule A sans engagement, formule B avec engagement sur vos créneaux. Dans les deux cas : un mois d'essai, puis arrêt possible à tout moment avec 7 jours de préavis."],
 ];
 const lienContrat = (id) => `${SITE}/#/contrat-resto/${id}`;
 const maintenantIsrael = () => {

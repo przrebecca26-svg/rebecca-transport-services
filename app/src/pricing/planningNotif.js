@@ -116,7 +116,7 @@ export const SOURCES_SITE = [
   // 18 nov. 2026 (tests) : plus de notification « trajetsPartages » : chaque demande de ramassage cree aussi une
   // demande (notifiee ci-dessus, avec l'heure et le prix). Sinon Rebecca recevait deux notifications.
   { collection: "recharges", texte: (d) => ({ titre: "💳 Recharge de crédit annoncée", corps: `${d.montant} ₪ par ${d.moyen} · à confirmer` }) },
-  { collection: "avis", texte: (d) => ({ titre: "⭐ Nouvel avis", corps: `${"★".repeat(Math.max(1, Math.min(5, d.etoiles || 5)))} ${court(d.commentaire, 120)}` }) },
+  { collection: "avis", texte: (d) => ({ titre: "⭐ Nouvel avis", corps: `${"★".repeat(Math.max(1, Math.min(5, d.etoiles || 5)))}${Number(d.pourboire) > 0 ? ` · 💝 pourboire ${d.pourboire} ₪` : ""} ${court(d.commentaire, 120)}` }) },
   { collection: "cartesCadeaux", texte: (d) => ({ titre: "🎁 Carte cadeau commandée", corps: `${d.montant} ₪ pour ${court(d.pourNom, 30)} · de ${court(d.acheteurNom, 30)} · paiement ${d.moyen}` }) },
   { collection: "cartesCadeaux", champ: "annonceLe", cle: "cartesCadeauxPaye", texte: (d) => ({ titre: "💰 Carte cadeau payée (à confirmer)", corps: `${d.montant} ₪ par ${d.moyen} · ${court(d.acheteurNom, 30)} pour ${court(d.pourNom, 30)}` }) },
 ];

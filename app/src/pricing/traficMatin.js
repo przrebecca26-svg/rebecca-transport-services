@@ -18,15 +18,19 @@ export const enHeure = (min) => {
 // Trajets de la journee : de la maison (ou de l'etape precedente) jusqu'a chaque etape qui a une adresse.
 // fil = etapes de « ma journee » (min = heure en minutes, adresse = { label, lat, lon }, lieu = nom).
 export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
-  let precedent = aPosition(domicile) ? { adresse: domicile, nom: "Maison" } : null;
+  let precedent = aPosition(domicile) ? { adresse: domicile, nom: "Maison", min: null } : null;
   const sortie = [];
   for (const e of [...fil].sort((a, b) => a.min - b.min)) {
     if (e.genre === "maison" && aPosition(domicile)) {
       // 19 nov. 2026 : apres une course ou une tache, « Partir de la maison » suppose d'y etre rentree -> trajet de retour
       if (precedent && !memeLieu(precedent.adresse, domicile)) {
-        sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: domicile, nomVers: "Maison", arriveeMin: e.min, quoi: "Retour à la maison" });
+        // 19 nov. 2026 (Rebecca : « Herzl → Maison, arrivée 13h56, quel rapport ? ») : on rentre JUSTE APRES l'etape
+        // precedente (et pas a l'heure ou on repart de la maison)
+        const route = Math.max(5, Math.round(kmEntre(precedent.adresse, domicile) * MIN_PAR_KM));
+        const arrivee = precedent.min != null ? Math.min(e.min, precedent.min + route) : e.min;
+        sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: domicile, nomVers: "Maison", arriveeMin: arrivee, quoi: "Retour à la maison" });
       }
-      precedent = { adresse: domicile, nom: "Maison" };
+      precedent = { adresse: domicile, nom: "Maison", min: e.min };
       continue;
     }
     const a = e.adresse;
@@ -34,7 +38,7 @@ export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
     if (precedent && !memeLieu(precedent.adresse, a)) {
       sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: a, nomVers: e.lieu || String(a.label || "").split(",")[0], arriveeMin: e.min, quoi: e.texte || "" });
     }
-    precedent = { adresse: a, nom: e.lieu || String(a.label || "").split(",")[0] };
+    precedent = { adresse: a, nom: e.lieu || String(a.label || "").split(",")[0], min: e.min };
   }
   return sortie.filter((t) => t.arriveeMin >= maintenantMin);
 }
@@ -50,7 +54,8 @@ const nomCourt = (a) => String((a && a.label) || "").split(",")[0];
 export function etapesCourses(courses = []) {
   const sortie = [];
   for (const d of courses) {
-    if (!d || d.statut === "en attente" || d.statut === "refusee" || d.statut === "annulee") continue;
+    // 19 nov. 2026 : une course deja terminee ne compte plus dans le trafic
+    if (!d || d.statut === "en attente" || d.statut === "refusee" || d.statut === "annulee" || d.statut === "terminee") continue;
     if (d.service === "ramassage") continue; // deja dans la tournee
     const t = trajetACalculer(d.service, d.details || {});
     const debut = enMin(d.heure);

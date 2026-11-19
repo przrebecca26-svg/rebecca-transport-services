@@ -177,6 +177,7 @@ export function useMaJournee(actif) {
     },
     remettre: (date, ids) => sauver(remettreCeJour(jours, date, ids)),
     // 19 nov. 2026 (Rebecca : Shyrel sort plus tot) : les trajets d'une etape, pour choisir l'enfant concerne
+    heureDuJour: (date, id) => (((jours[date] || {}).heures || {})[id]) || "",
     trajetsDe: (ids) => (ids || []).map((id) => tousEtAjouts.find((r) => r.id === id)).filter(Boolean),
     // « Sort plus tôt → je la ramène à la maison » : ce jour-la, l'enfant quitte son trajet habituel et un trajet
     // ecole -> maison est cree a la nouvelle heure. Le reste de la journee se recalcule tout seul.

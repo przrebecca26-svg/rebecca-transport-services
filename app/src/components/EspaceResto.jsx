@@ -155,6 +155,7 @@ export default function EspaceResto({ cle, onAccueil }) {
                 {e === "acceptee" && c.par && c.par !== "Rebecca" ? ` · livrée par ${c.par}` : ""}
                 {e === "refusee" && c.motif ? ` · ${c.motif}` : ""}
               </p>
+              {e === "acceptee" && c.etape && <p className="tdb-note">🚗 {c.etape}</p>}
               {e === "nouvelle" && <button type="button" className="bouton-secondaire" onClick={() => annuler(c)}>Annuler cette commande</button>}
             </div>
           );

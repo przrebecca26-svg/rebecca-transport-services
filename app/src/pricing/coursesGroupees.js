@@ -41,7 +41,7 @@ export function coursesEnCours(demandes = [], jour = "") {
   return demandes.filter((d) => {
     if (d.statut !== "acceptee" || d.date !== jour || !SERVICES_GROUPABLES.includes(d.service)) return false;
     const c = chronoDe(d);
-    return (c.depart || c.prise) && !c.depose;
+    return (c.depart || c.arrivee || c.prise) && !c.depose;
   });
 }
 // Arrets restant a faire : si deja recuperee, seulement deposer

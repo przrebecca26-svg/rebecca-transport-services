@@ -20,3 +20,16 @@ test("messages", () => {
   vrai(/sont bien arrivés/.test(messageEtape("depose", ["Joy", "Liel"])));
   vrai(/est avec moi/.test(messageEtape("avecMoi", ["Joy"])));
 });
+
+import { avancementDe } from "../src/pricing/suiteClient.js";
+import { majSuivi } from "../src/pricing/restos.js";
+section("Étape « Je suis arrivée » (client, restaurant, assistance)");
+test("avancement : arrivée sur place", () => {
+  vrai(/arrivée sur place/.test(avancementDe({ chrono: { simple: { depart: "12:30", arrivee: "12:40" } } })));
+  vrai(/Prise en charge/.test(avancementDe({ chrono: { simple: { depart: "12:30", arrivee: "12:40", prise: "12:45" } } })));
+});
+test("restaurant : l'étape suit la livraison", () => {
+  const m = majSuivi({ statut: "acceptee", prix: 30 }, { statut: "acceptee", prixFinal: 30, chrono: { simple: { arrivee: "19:10" } } });
+  vrai(m && /arrivée sur place/.test(m.etape));
+  egal(majSuivi({ statut: "acceptee", prix: 30, etape: m.etape }, { statut: "acceptee", prixFinal: 30, chrono: { simple: { arrivee: "19:10" } } }), null);
+});

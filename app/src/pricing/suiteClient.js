@@ -144,12 +144,12 @@ export function messagePaiement(d, montant, liens) {
 }
 
 /* ---------- 7. Suivi de la course pour la cliente ---------- */
-const TEXTES_AVANCEMENT = { depart: "Rebecca est en route", prise: "Prise en charge", depose: "Déposée ✅", maison: "Course terminée ✅" };
+const TEXTES_AVANCEMENT = { depart: "Rebecca est en route", arrivee: "Rebecca est arrivée sur place (en attente)", prise: "Prise en charge", depose: "Déposée ✅", maison: "Course terminée ✅" };
 export function avancementDe(d) {
   const c = d && d.chrono ? d.chrono : {};
   const t = d && d.details && d.details.typeTrajet === "ar" ? (c.retour && Object.values(c.retour).some(Boolean) ? "retour" : "aller") : "simple";
   const x = c[t] || {};
-  for (const id of ["maison", "depose", "prise", "depart"]) {
+  for (const id of ["maison", "depose", "prise", "arrivee", "depart"]) {
     if (/^\d{2}:\d{2}$/.test(x[id] || "")) {
       // 18 nov. 2026 : suivi en direct, heure d'arrivee calculee au depart (position de Rebecca + temps de route)
       const eta = id === "depart" && /^\d{2}:\d{2}$/.test((d.arriveeEstimee || {})[t] || "") ? ` · arrivée prévue vers ${heureFr(d.arriveeEstimee[t])}` : "";

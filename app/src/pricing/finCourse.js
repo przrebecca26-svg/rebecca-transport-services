@@ -161,6 +161,8 @@ export function messageRappelRetour(d, reste = 0) {
 
 export const ETAPES_CHRONO = [
   { id: "depart", bouton: "🚗 Partie", libelle: "Partie" }, // 17 nov. 2026, 11h35 : le trajet maison -> cliente compte aussi
+  // 20 nov. 2026 (Rebecca) : arrivée sur place, en attente (le client, la maman, le restaurant, l'assistance le voient)
+  { id: "arrivee", bouton: "📍 Je suis arrivée", libelle: "Arrivée" },
   { id: "prise", bouton: "📍 Récupérée", libelle: "Récupérée" },
   { id: "depose", bouton: "✓ Déposée", libelle: "Déposée" },
   { id: "maison", bouton: "🏠 Rentrée", libelle: "Rentrée à la maison" },
@@ -172,7 +174,8 @@ export const chronoDe = (d) => ((d && d.chrono) || {})[trajetDe(d)] || {};
 export function prochaineEtape(d) {
   const c = chronoDe(d);
   const fait = faitDe(d);
-  if (!c.depart && !c.prise && !fait) return "depart";
+  if (!c.depart && !c.arrivee && !c.prise && !fait) return "depart";
+  if (!c.arrivee && !c.prise && !fait) return "arrivee";
   if (!c.prise && !fait) return "prise";
   if (!c.depose && !fait) return "depose";
   if (!c.maison) return "maison";
@@ -260,6 +263,10 @@ export function essenceTrajet(d, carburant = CARBURANT, parKm = null) {
 }
 
 /* ---------- Autres messages : en route, avis ---------- */
+// 20 nov. 2026 : « Je suis arrivée » (sur place, j'attends)
+export function messageArrivee(d) {
+  return [bonjour(d), "Je suis arrivée 📍 Je vous attends devant.", ...lignesSite(d), "À tout de suite, Rebecca"].join("\n");
+}
 export function messageEnRoute(d, maintenant = heureMaintenant()) {
   // 18 nov. 2026 : l'heure d'arrivee calculee au depart (position + temps de route) passe avant l'heure prevue
   const eta = Object.values(d.arriveeEstimee || {}).find((h) => HEURE_OK.test(h || "") && h > maintenant);

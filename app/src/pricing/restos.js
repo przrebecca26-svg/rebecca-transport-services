@@ -1,3 +1,4 @@
+import { avancementDe } from "./suiteClient.js";
 // ESPACE RESTAURANT + BOUTON « EN LIGNE » (V2, 19 nov. 2026) - regles pures - Rebecca Services
 // Decisions de Rebecca (19 nov., 16h25) :
 //  - la commande arrive par les DEUX moyens : le lien prive du restaurant (#/resto/CLE) ET WhatsApp (Rebecca la saisit) ;
@@ -226,6 +227,9 @@ export function majSuivi(c, demande, mouvements = []) {
     if (!!c.payee !== paye) maj.payee = paye;
   } else if (demande.statut === "annulee" && c.statut === "acceptee") maj.statut = "annulee";
   else if (demande.statut === "acceptee" && typeof demande.prixFinal === "number" && c.prix !== demande.prixFinal) maj.prix = demande.prixFinal;
+  // 20 nov. 2026 : où en est la livraison (en route, arrivée au restaurant, récupérée, livrée), vu par le restaurant
+  const etape = String(avancementDe(demande) || "").slice(0, 120);
+  if (etape && c.statut !== "annulee" && (c.etape || "") !== etape) maj.etape = etape;
   return Object.keys(maj).length ? maj : null;
 }
 

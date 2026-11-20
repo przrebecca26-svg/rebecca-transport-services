@@ -21,7 +21,7 @@ import { useEssence } from "./EssenceVue.jsx";
 import { estBeaute, messagePaiement, messageReprendreRdv } from "./pricing/suiteClient.js";
 import {
   ETAPES_CHRONO, apresChamps, duDe, resteDe, avanceRetour, bilanTrajet, champsModifChrono, coutKm, champsAnnulerEtape, champsEtape, chronoDe, encaisseDe, faitDe, messageFin,
-  messageAvis, messageEnRoute, messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
+  messageArrivee, messageAvis, messageEnRoute, messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
 } from "./pricing/finCourse.js";
 import { sansAttendre } from "./ecritureRapide.js";
 const addDocVite = (...a) => sansAttendre(addDoc(...a));
@@ -101,7 +101,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
   const bilan = bilanTrajet(d, cout.parKm);
   const avance = avanceRetour(d, mouvements);
   // 17 nov. 2026, 12h03 : corriger toutes les heures et le compteur apres coup
-  const ouvrirCompteur = () => setCompteur(compteur ? null : { depart: c.depart || "", prise: c.prise || "", depose: c.depose || "", maison: c.maison || "", kmDepart: c.kmDepart || "", kmDepose: c.kmDepose || "", kmMaison: c.kmMaison || "" });
+  const ouvrirCompteur = () => setCompteur(compteur ? null : { depart: c.depart || "", arrivee: c.arrivee || "", prise: c.prise || "", depose: c.depose || "", maison: c.maison || "", kmDepart: c.kmDepart || "", kmDepose: c.kmDepose || "", kmMaison: c.kmMaison || "" });
   const enregistrerCompteur = async () => {
     const r = champsModifChrono(d, compteur, moi);
     if (r.erreur) return setErreur(r.erreur);
@@ -133,7 +133,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
         .catch(() => {});
     }
   };
-  const lienEnRoute = c.depart && !c.prise ? (resto ? lienWhatsApp(v.telDestinataire || "", messageEnRouteResto(d)) : lienWhatsApp(d.telephone, messageEnRoute(d))) : null;
+  const lienEnRoute = c.depart && !c.arrivee && !c.prise ? (resto ? lienWhatsApp(v.telDestinataire || "", messageEnRouteResto(d)) : lienWhatsApp(d.telephone, messageEnRoute(d))) : null;
   const finTrajet = fait && trajet !== "aller";
   const texteSms = messagePaiement(d, reste, liensPaiement);
   const lienPaiement = texteSms ? lienWhatsApp(d.telephone, texteSms) : null;
@@ -217,10 +217,12 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       </div>
       <div className="tb-actions">
         {suivante && <button type="button" className="tb-bouton" disabled={enCours} onClick={() => cocher(suivante)}>{beaute ? "✓ Fait" : ETAPES_CHRONO.find((e) => e.id === suivante).bouton}</button>}
+        {suivante === "arrivee" && !beaute && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => cocher("prise")}>📍 Récupérée</button>}
+        {c.arrivee && !c.prise && !resto && !beaute && lienWhatsApp(d.telephone, messageArrivee(d)) && <a className="tb-bouton tb-clair" href={lienWhatsApp(d.telephone, messageArrivee(d))} target="_blank" rel="noopener noreferrer">💬 Je suis arrivée</a>}
         {suivante === "depart" && !beaute && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => cocher("prise")}>📍 Récupérée</button>}
         {lienEnRoute && !beaute && <a className="tb-bouton tb-clair" href={lienEnRoute} target="_blank" rel="noopener noreferrer" onClick={() => !resto && mail(SUJETS.enRoute, messageEnRoute(d))}>💬 Je suis en route{resto ? " (au client)" : ""}</a>}
         {(c.prise || fait || beaute) && !resto && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={ouvrirCaisse}>{caisse ? "Fermer" : reste > 0 ? `💰 Encaissé (reste ${reste} ₪)` : "💰 Encaissé ✓"}</button>}
-        {(c.prise || fait) && <button type="button" className="ag-modifier" disabled={enCours} onClick={annuler}>Annuler la dernière étape</button>}
+        {(c.arrivee || c.prise || fait) && <button type="button" className="ag-modifier" disabled={enCours} onClick={annuler}>Annuler la dernière étape</button>}
       </div>
       {trajet === "aller" && v.dateRetour && <p className="tb-note">Retour prévu le {v.dateRetour.split("-").reverse().join("/")}{v.heureRetour ? ` à ${v.heureRetour.replace(":", "h")}` : ""}.</p>}
       {caisse && (

@@ -56,7 +56,8 @@ test("lien du site partout ; sans compte : créer son compte", () => {
 
 test("partie → récupérée : approche comptée, essence et gain réel", () => {
   egal(F.prochaineEtape(ar()), "depart");
-  egal(F.prochaineEtape(ar({ chrono: { aller: { depart: "08:30" } } })), "prise");
+  egal(F.prochaineEtape(ar({ chrono: { aller: { depart: "08:30" } } })), "arrivee"); // 20 nov. 2026 : « Je suis arrivée » entre « Partie » et « Récupérée »
+  egal(F.prochaineEtape(ar({ chrono: { aller: { depart: "08:30", arrivee: "08:45" } } })), "prise");
   const d = ar({ kmEstime: 25, chrono: { aller: { depart: "08:30", prise: "08:50", depose: "09:35", maison: "10:20" } }, allerFaitA: "09:35" });
   const b = F.bilanTrajet(d);
   egal([b.approche, b.course, b.retourMaison, b.total, b.parHeure], [20, 45, 45, 110, 82]);

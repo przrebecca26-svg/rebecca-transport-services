@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import ChoixAge from "./components/ChoixAge.jsx";
 import { Adresse, Famille } from "./Familles.jsx";
@@ -74,6 +74,19 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
       retour(`✓ Fiche « ${String(f.nom || "").trim() || "sans nom"} » enregistrée.`);
     } catch {
       setMessage("Enregistrement impossible. Vérifie la connexion.");
+    }
+  };
+  // 20 nov. 2026 (Rebecca) : supprimer une fiche (tests, restaurants qui n'ont pas signé...)
+  const supprimerFiche = async () => {
+    const nom = String(f.nom || "").trim() || "sans nom";
+    const lienActif = f.contratPro && f.contratPro.lienResto;
+    if (!window.confirm(`Supprimer la fiche « ${nom} » ?${lienActif ? "\nSon lien restaurant sera désactivé." : ""}\nLes courses déjà faites restent dans l'historique et les finances.`)) return;
+    try {
+      if (lienActif) await updateDoc(doc(db, "restos", f.contratPro.lienResto), { actif: false, majLe: serverTimestamp() }).catch(() => {});
+      await enregistrerRepertoire(rep.lieux, rep.corrections, rep.familles.filter((x) => x.id !== f.id));
+      retour(`🗑️ Fiche « ${nom} » supprimée.`);
+    } catch {
+      setMessage("Suppression impossible. Vérifie la connexion.");
     }
   };
   // Cliente du site sans famille : on lui cree sa fiche famille (pour ajouter des membres et des enfants)
@@ -201,6 +214,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
           <button type="button" className="tdb-bouton" onClick={enregistrer} disabled={!modifie}>{modifie ? "Enregistrer la fiche" : "Tout est enregistré"}</button>
           <button type="button" className="dr-secondaire" onClick={() => (modifie && !window.confirm("Quitter sans enregistrer ?") ? null : retour())}>← Retour au Répertoire</button>
           {message && <p className="tdb-note" role="status">{message}</p>}
+          {estAdmin && rep.familles.some((x) => x.id === f.id) && <button type="button" className="tb-bouton ag-danger" onClick={supprimerFiche}>🗑️ Supprimer cette fiche</button>}
         </div>
       )}
     </div>

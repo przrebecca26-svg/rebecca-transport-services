@@ -129,7 +129,7 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
             return (
               <div key={i} className="tb-adresse">
                 <div>
-                  <p>{l.nomDe} → {l.nomVers}</p>
+                  <p dir="ltr">{/* 20 nov. 2026 : noms en hébreu isolés, sinon la ligne s'affiche à l'envers (Alexia → Gan au lieu de Gan → Alexia) */}<bdi>{l.nomDe}</bdi> → <bdi>{l.nomVers}</bdi></p>
                   <small>{l.avec} min {l.sansTrafic ? "(sans le trafic)" : "avec le trafic"}{!l.sansTrafic && l.normal && l.avec > l.normal ? ` (normal ${l.normal} min, +${l.avec - l.normal})` : ""} · arrivée {enHeure(l.arriveeMin)}</small>
                   {l.apresMin != null && l.partir < l.apresMin && <small className="fm-erreur"> ⚠️ Tu dois partir avant la fin de « {l.apresQuoi || "ta tâche"} » ({enHeure(l.apresMin)}) : avance-la ou raccourcis-la.</small>}
                   {l.apresMin != null && l.partir >= l.apresMin && <small> · après « {l.apresQuoi || "ta tâche"} » (fini {enHeure(l.apresMin)})</small>}

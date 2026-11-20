@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
+import RetourAdmin from "./components/RetourAdmin.jsx";
 import "./styles.css";
 import { lireParrain } from "./pricing/suiteClient.js";
 
@@ -68,5 +69,6 @@ class Filet extends React.Component {
 createRoot(document.getElementById("root")).render(
   <Filet>
     <App />
+    <RetourAdmin />
   </Filet>
 );

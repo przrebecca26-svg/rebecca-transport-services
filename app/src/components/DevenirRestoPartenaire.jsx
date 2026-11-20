@@ -3,6 +3,7 @@ import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/f
 import { db } from "../firebase.js";
 import AddressField from "./AddressField.jsx";
 import SignatureDoigt from "./SignatureDoigt.jsx";
+import { telBloque } from "../pagesSiteBase.js";
 import { SITE } from "../site.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { envoyerEmailA } from "../mailClient.js";
@@ -64,6 +65,11 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
     const e = erreursFormulaire(f, signature);
     setErreurs(e);
     if (e.length) return;
+    // 20 nov. 2026 : numéro bloqué par Rebecca (Réglages -> Pages du site) : message neutre
+    if ((await telBloque("restoPartenaire", f.telephone).catch(() => false)) || (await telBloque("restoPartenaire", f.portable).catch(() => false))) {
+      setErreurs(["Ce service n'est pas disponible pour le moment. Écrivez à Rebecca sur WhatsApp."]);
+      return;
+    }
     setEnCours(true);
     try {
       const ref = doc(collection(db, "contratsRestos"));

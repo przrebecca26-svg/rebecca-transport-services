@@ -43,3 +43,6 @@
 .pp-statut { font-weight: 700; color: #f1aeb7; }
 .pp-pied { display: grid; justify-items: center; gap: 4px; color: #8f8385; font-size: 13px; padding-top: 10px; }
 .pp-oblig { color: #f1aeb7; font-weight: 700; }
+.pp-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+.pp-table th, .pp-table td { border-bottom: 1px solid rgba(185, 120, 112, 0.35); padding: 6px 4px; text-align: left; vertical-align: top; }
+.pp-table th { color: #c9967a; font-weight: 600; }

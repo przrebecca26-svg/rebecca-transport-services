@@ -7,6 +7,7 @@ import { SITE } from "../site.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { envoyerEmailA } from "../mailClient.js";
 import { partagerPdf } from "../pricing/pdfSimple.js";
+import { MIN_HEURES, tableauMinimums } from "../pricing/creneauxResto.js";
 import {
   EMAIL_REBECCA, FORMES, FORMULES_RESTO, MOYENS, articlesContrat, contratPdf, contratPropre, emailContrat, erreursFormulaire,
   formulaireVide, numeroContrat, tarifsStandard,
@@ -147,7 +148,8 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
                     <li>Jusqu'à 3 km : <strong>{tarifs[x.v].jusqua3} ₪</strong></li>
                     <li>De 3 à 6 km : <strong>{tarifs[x.v].de3a6} ₪</strong></li>
                     <li>Commande en plus dans la même tournée : <strong>{tarifs[x.v].enPlus} ₪</strong></li>
-                    {x.v === "B" && <li>Minimum : <strong>{tarifs.B.minimumCreneau} livraisons payées par créneau</strong></li>}
+                    <li>Article très lourd (pack d'eau, carton lourd) : <strong>+{tarifs[x.v].tresLourd} ₪</strong> · sacs ordinaires sans supplément</li>
+                    {x.v === "B" && <li>Minimum : <strong>{tarifs.B.parHeure} ₪ par heure de créneau</strong>, créneau de {MIN_HEURES} h au moins ({MIN_HEURES * tarifs.B.parHeure} ₪)</li>}
                     <li>Au-delà de 6 km : sur devis</li>
                   </ul>
                 </div>
@@ -155,11 +157,20 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
             </div>
             <div className="pp-formule" style={{ marginTop: 12 }}>
               <b>Formule B : le minimum par créneau</b>
-              <p>Chaque créneau réservé comporte un minimum de facturation équivalent à {tarifs.B.minimumCreneau} livraisons de base, soit {tarifs.B.minimumCreneau * tarifs.B.jusqua3} ₪ minimum. Si le montant des livraisons réellement effectuées dépasse ce minimum, seul leur montant réel est facturé.</p>
+              <p>Un créneau dure {MIN_HEURES} heures au moins. Chaque créneau réservé a un minimum de facturation de {tarifs.B.parHeure} ₪ par heure. Les livraisons faites pendant le créneau comptent dans ce minimum, à leur vrai prix ; si leur montant dépasse le minimum, seul leur montant réel est facturé.</p>
+              <table className="pp-table">
+                <thead><tr><th>Durée du créneau</th><th>Minimum facturé</th><th>Équivaut à</th><th>Au-delà</th></tr></thead>
+                <tbody>
+                  {tableauMinimums(tarifs.B.parHeure, tarifs.B.jusqua3).map((l) => (
+                    <tr key={l.heures}><td>{l.heures} h</td><td><strong>{l.minimum} ₪</strong></td><td>{String(l.livraisons).replace(".", ",")} livraisons à {tarifs.B.jusqua3} ₪</td><td>dès {l.auDela} livraisons, il paie ses livraisons ({l.auDelaMontant} ₪)</td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <p>Exemples pour un créneau de {MIN_HEURES} heures :</p>
               <ul>
-                {[0, 2, tarifs.B.minimumCreneau].map((n) => <li key={n}>{n} livraison{n > 1 ? "s" : ""}{n ? ` à ${tarifs.B.jusqua3} ₪` : ""} : <strong>{Math.max(n * tarifs.B.jusqua3, tarifs.B.minimumCreneau * tarifs.B.jusqua3)} ₪</strong></li>)}
-                <li>{tarifs.B.minimumCreneau} livraisons à {tarifs.B.de3a6} ₪ : <strong>{Math.max(tarifs.B.minimumCreneau * tarifs.B.de3a6, tarifs.B.minimumCreneau * tarifs.B.jusqua3)} ₪</strong></li>
-                <li>{tarifs.B.minimumCreneau + 1} livraisons à {tarifs.B.jusqua3} ₪ : <strong>{Math.max((tarifs.B.minimumCreneau + 1) * tarifs.B.jusqua3, tarifs.B.minimumCreneau * tarifs.B.jusqua3)} ₪</strong></li>
+                {[0, 2, 5].map((n) => <li key={n}>{n} livraison{n > 1 ? "s" : ""}{n ? ` à ${tarifs.B.jusqua3} ₪` : ""} : <strong>{Math.max(n * tarifs.B.jusqua3, MIN_HEURES * tarifs.B.parHeure)} ₪</strong></li>)}
+                <li>5 livraisons à {tarifs.B.de3a6} ₪ : <strong>{Math.max(5 * tarifs.B.de3a6, MIN_HEURES * tarifs.B.parHeure)} ₪</strong></li>
+                <li>6 livraisons à {tarifs.B.jusqua3} ₪ : <strong>{Math.max(6 * tarifs.B.jusqua3, MIN_HEURES * tarifs.B.parHeure)} ₪</strong></li>
               </ul>
               <p>Le minimum n'est jamais ajouté une seconde fois au montant des livraisons. Toute annulation d'un créneau réservé moins de 24 heures avant son début entraîne la facturation du minimum garanti du créneau ; annulé au moins 24 heures avant, rien n'est facturé.</p>
               <p>Pendant les créneaux réservés et confirmés, Rebecca Services organise la disponibilité d'un livreur pour vos commandes, dans les limites de la zone desservie et des capacités opérationnelles convenues. Les horaires de prise en charge sont confirmés selon le volume de commandes et les conditions de circulation.</p>
@@ -207,7 +218,7 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
               </button>
             ))}
           </div>
-          {f.formule === "B" && <label className="pp-champ">Vos créneaux réservés <span className="pp-oblig">*</span><input type="text" maxLength={200} value={f.creneaux} placeholder="Jour et heures : ex. jeudi 18h-21h, dimanche 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
+          {f.formule === "B" && <label className="pp-champ">Vos créneaux réservés <span className="pp-oblig">*</span><input type="text" maxLength={200} value={f.creneaux} placeholder="Jour et heures (2 h minimum) : ex. jeudi 19h-21h, dim-jeu 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
           <label className="pp-champ">Paiement du relevé, chaque dimanche, par
             <select value={f.moyen} onChange={(e) => maj("moyen", e.target.value)}>{MOYENS.map((m) => <option key={m}>{m}</option>)}</select>
           </label>

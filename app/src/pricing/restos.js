@@ -46,7 +46,7 @@ export function restoDepuisFiche(f) {
     nom: String((f && f.nom) || "").trim().slice(0, 60) || "Restaurant",
     telephone: String((f && f.telephone) || "").trim().slice(0, 20),
     adresse,
-    tarifs: { jusqua3: c.jusqua3, de3a6: c.de3a6, enPlus: c.enPlus },
+    tarifs: { jusqua3: c.jusqua3, de3a6: c.de3a6, enPlus: c.enPlus, tresLourd: c.tresLourd ?? 5 },
     moyen: c.moyen,
     ficheId: String((f && f.id) || "").slice(0, 40),
     actif: true,
@@ -73,11 +73,19 @@ export function validerCommande(f) {
   if (!adresseNette(f.adresse)) return "Indiquez l'adresse de livraison.";
   if (!HEURE_OK.test(f.pretA || "")) return "Indiquez l'heure à laquelle la commande est prête.";
   if (String(f.note || "").length > 300) return "La note est trop longue (300 caractères au plus).";
+  if (!(lourdsDe(f) >= 0 && lourdsDe(f) <= 30)) return "Articles très lourds : entre 0 et 30.";
   return "";
 }
+// 20 nov. 2026 : articles très lourds (pack d'eau, carton lourd) = supplément par article ; sacs ordinaires gratuits
+export const lourdsDe = (f) => {
+  const n = Math.round(Number((f && f.tresLourds) || 0));
+  return Number.isFinite(n) ? n : -1;
+};
 // Document a ecrire (creeLe ajoute au moment de l'ecriture). source : "lien" (le restaurant) ou "whatsapp" (Rebecca)
 export function commandePropre(f, jour, source = "lien") {
+  const lourds = Math.max(0, Math.min(30, lourdsDe(f)));
   return {
+    ...(lourds > 0 ? { tresLourds: lourds } : {}),
     client: String(f.client).trim().slice(0, 60),
     telClient: String(f.telClient).trim().slice(0, 20),
     adresse: adresseNette(f.adresse),
@@ -132,7 +140,12 @@ export function heurePlus(heureActuelle, n) {
 
 /* ---------- Prix et livraison ---------- */
 // Prix du contrat selon les km (null = au-dela de 6 km ou km inconnus : Rebecca tape le prix)
-export const prixCommande = (tarifs, km) => prixPro(contratDe({ contratPro: tarifs || {} }), km);
+export function prixCommande(tarifs, km, tresLourds = 0) {
+  const c = contratDe({ contratPro: tarifs || {} });
+  const p = prixPro(c, km);
+  const n = Math.max(0, Math.round(Number(tresLourds) || 0));
+  return p == null ? null : cents(p + n * (Number(c.tresLourd) || 0));
+}
 
 // La livraison qui entre dans le Calendrier (meme forme qu'une course ajoutee a la main, source « manuel »).
 // Le telephone est celui du RESTAURANT : elle compte dans son releve de la semaine (Repertoire -> fiche -> Finances).
@@ -152,6 +165,7 @@ export function demandeDepuisCommande(resto, c, { cle, id, prix, km = null, minu
     `Livraison : ${details.livraison ? details.livraison.label : ""}`,
     `Client : ${c.client} · ${c.telClient}`,
   ];
+  if (c.tresLourds > 0) lignes.push(`Articles très lourds : ${c.tresLourds}`);
   if (c.note) lignes.push("", c.note);
   return {
     service: "livraison",
@@ -232,6 +246,7 @@ export function messageWhatsAppResto(nomResto, f) {
     String(f.client || "").trim() ? `Client : ${String(f.client).trim()}${f.telClient ? " · " + String(f.telClient).trim() : ""}` : "",
     f.adresse && f.adresse.label ? `Adresse : ${f.adresse.label}` : "",
     f.pretA ? `Prête à ${h(f.pretA)}` : "",
+    lourdsDe(f) > 0 ? `Articles très lourds : ${lourdsDe(f)}` : "",
     String(f.note || "").trim() ? `Note : ${String(f.note).trim()}` : "",
   ].filter(Boolean).join("\n");
 }

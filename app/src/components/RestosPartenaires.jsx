@@ -21,8 +21,8 @@ function PrixStandard() {
   }, [reglage, t]);
   if (!t) return null;
   const maj = (f, k, v) => setT({ ...t, [f]: { ...t[f], [k]: Math.max(0, Math.min(999, Math.round(Number(v) || 0))) } });
-  const enregistrer = () => setDoc(doc(db, "reglages", "restos"), { A: t.A, B: t.B, majLe: serverTimestamp() }).then(() => setInfo("✓ Prix enregistrés : la page d'inscription les affiche tout de suite."), () => setInfo("Enregistrement impossible."));
-  const CHAMPS = [["jusqua3", "Jusqu'à 3 km"], ["de3a6", "De 3 à 6 km"], ["enPlus", "Commande en plus"]];
+  const enregistrer = () => setDoc(doc(db, "reglages", "restos"), { A: { ...t.A, parHeure: 0 }, B: t.B, majLe: serverTimestamp() }).then(() => setInfo("✓ Prix enregistrés : la page d'inscription les affiche tout de suite."), () => setInfo("Enregistrement impossible."));
+  const CHAMPS = [["jusqua3", "Jusqu'à 3 km"], ["de3a6", "De 3 à 6 km"], ["enPlus", "Commande en plus"], ["tresLourd", "Article très lourd (pack d'eau…)"]];
   return (
     <details>
       <summary className="tb-note">Prix des formules sur la page d'inscription</summary>
@@ -32,7 +32,7 @@ function PrixStandard() {
           {CHAMPS.map(([k, l]) => (
             <div key={k} className="champ"><label>{l} (₪)<input type="number" inputMode="numeric" value={t[f][k]} onChange={(e) => maj(f, k, e.target.value)} /></label></div>
           ))}
-          {f === "B" && <div className="champ"><label>Minimum de livraisons par créneau<input type="number" inputMode="numeric" value={t.B.minimumCreneau} onChange={(e) => maj("B", "minimumCreneau", e.target.value)} /></label></div>}
+          {f === "B" && <div className="champ"><label>Minimum par heure de créneau (₪) · créneau de 2 h au moins<input type="number" inputMode="numeric" value={t.B.parHeure} onChange={(e) => maj("B", "parHeure", e.target.value)} /></label></div>}
         </div>
       ))}
       <div className="tb-actions">

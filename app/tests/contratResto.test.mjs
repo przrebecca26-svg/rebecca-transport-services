@@ -26,7 +26,7 @@ test("contrat propre : champs des règles v30", () => {
   const c = contratPropre(rempli, tarifsStandard(null), sig);
   egal(c.numero, "512345678");
   egal(c.email, "contact@ohisushi.co.il");
-  egal(c.tarifs, { jusqua3: 35, de3a6: 45, enPlus: 20, minimumCreneau: 0 });
+  egal(c.tarifs, { jusqua3: 35, de3a6: 45, enPlus: 20, minimumCreneau: 0, parHeure: 0, tresLourd: 5 });
   egal(Object.keys(c).length, 20);
   const b = contratPropre({ ...rempli, formule: "B", creneaux: "jeudi soir" }, tarifsStandard({ B: { jusqua3: 28 } }), sig);
   egal([b.tarifs.jusqua3, b.tarifs.minimumCreneau, b.creneaux], [28, 5, "jeudi soir"]);
@@ -63,7 +63,31 @@ test("formule B : créneaux avec heures, minimum garanti 150 ₪, clients jamais
   egal(erreursFormulaire({ ...rempli, formule: "B", creneaux: "jeudi 18h-21h" }, sig), []);
   const c = { ...contratPropre({ ...rempli, formule: "B", creneaux: "jeudi 18h-21h" }, tarifsStandard(null), sig), signeLe: "2026-11-20T10:05" };
   const tout = articlesContrat(c).map((a) => a.lignes.join(" ")).join(" ");
-  egal(tout.includes("soit 150 ₪"), true);
+  egal(tout.includes("2 h = 150 ₪"), true);
   egal(tout.includes("même avec leur accord"), true);
   egal(tout.includes("Revolut, espèces ou virement"), true);
+});
+import { demandeComplement, lireCreneaux, erreursCreneaux, minimumCreneau, minimumsSemaine, tableauMinimums } from "../src/pricing/creneauxResto.js";
+import { prixCommande, commandePropre } from "../src/pricing/restos.js";
+test("créneaux B : 2 h minimum, 75 ₪ par heure, complément seulement", () => {
+  egal(lireCreneaux("dim-jeu 19h30-21h30")[0].jours, [0, 1, 2, 3, 4]);
+  egal(erreursCreneaux("jeudi 18h-19h").length, 1);
+  egal([minimumCreneau(2), minimumCreneau(3), minimumCreneau(5), minimumCreneau(1)], [150, 225, 375, 150]);
+  egal(tableauMinimums(75, 30).map((l) => l.minimum), [150, 225, 300, 375]);
+  const s = { debut: "2026-11-15", fin: "2026-11-21" };
+  const liv = [{ statut: "terminee", date: "2026-11-19", heure: "19:00", prixFinal: 30 }, { statut: "terminee", date: "2026-11-19", heure: "20:30", prixFinal: 40 }];
+  const m = minimumsSemaine("jeudi 19h-21h", liv, s);
+  egal([m.length, m[0].livre, m[0].complement, m[0].facture], [1, 70, 80, false]);
+  const deja = [...liv, { statut: "terminee", date: "2026-11-19", heure: "19:00", prixFinal: 80, details: { minimumCreneau: "2026-11-19|19:00" } }];
+  egal(minimumsSemaine("jeudi 19h-21h", deja, s)[0], { ...m[0], facture: true });
+  const d = demandeComplement({ id: "f1", nom: "Ohi Sushi", telephone: "0541234567" }, m[0], "Bit");
+  egal([d.prixFinal, d.statut, d.source, d.details.famille, d.details.minimumCreneau, d.heure], [80, "terminee", "manuel", "f1", "2026-11-19|19:00", "19:00"]);
+  egal(demandeComplement({ id: "f1", nom: "X", telephone: "0541234567" }, { ...m[0], facture: true }, "Bit"), null);
+  egal(demandeComplement({ id: "f1", nom: "X", telephone: "" }, m[0], "Bit"), null);
+});
+test("article très lourd : +5 ₪ chacun, sacs ordinaires gratuits", () => {
+  egal(prixCommande({ jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 }, 2, 3), 50);
+  egal(prixCommande({ jusqua3: 35, de3a6: 45, enPlus: 20 }, 4), 45);
+  egal(commandePropre({ client: "A", telClient: "0541234567", adresse: { label: "x" }, pretA: "12:00", tresLourds: 2 }, "2026-11-20").tresLourds, 2);
+  egal("tresLourds" in commandePropre({ client: "A", telClient: "0541234567", adresse: { label: "x" }, pretA: "12:00" }, "2026-11-20"), false);
 });

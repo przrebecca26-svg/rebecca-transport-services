@@ -566,7 +566,7 @@ function ReleveCommercant({ e, liste, mouvements }) {
               </li>
             ))}
           </ul>
-          <p className="tdb-note">Le complément ne se facture que si le créneau était réservé et n'a pas été annulé au moins 24 h avant. Les livraisons comptent à leur vrai prix : on ne facture que la différence.</p>
+          <p className="tdb-note">Le complément ne se facture que si le créneau était réservé et n'a pas été annulé 24 h ou plus avant. Si toi tu n'as pas pu assurer le créneau, ne le facture pas : il ne paie que ses livraisons. Les livraisons comptent à leur vrai prix : on ne facture que la différence.</p>
         </>
       )}
       <p className="tdb-note"><b>{r.nb} livraison{r.nb > 1 ? "s" : ""} · dû {r.du} ₪ · payé {r.paye} ₪ · reste {r.reste} ₪</b></p>

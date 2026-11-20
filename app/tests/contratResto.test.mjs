@@ -84,6 +84,11 @@ test("créneaux B : 2 h minimum, 75 ₪ par heure, complément seulement", () =>
   egal([d.prixFinal, d.statut, d.source, d.details.famille, d.details.minimumCreneau, d.heure], [80, "terminee", "manuel", "f1", "2026-11-19|19:00", "19:00"]);
   egal(demandeComplement({ id: "f1", nom: "X", telephone: "0541234567" }, { ...m[0], facture: true }, "Bit"), null);
   egal(demandeComplement({ id: "f1", nom: "X", telephone: "" }, m[0], "Bit"), null);
+  // 20 nov. 9h33 : demi-heure et créneaux joints
+  egal(minimumsSemaine("jeudi 19h30-22h", [], s)[0].minimum, 187.5);
+  const j = minimumsSemaine("jeudi 19h-21h, jeudi 21h-23h", [], s);
+  egal([j.length, j[0].heures, j[0].minimum], [1, 4, 300]);
+  egal(minimumsSemaine("jeudi 18h-20h, jeudi 21h-23h", [], s).length, 2);
 });
 test("article très lourd : +5 ₪ chacun, sacs ordinaires gratuits", () => {
   egal(prixCommande({ jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 }, 2, 3), 50);

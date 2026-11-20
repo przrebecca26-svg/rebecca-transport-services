@@ -91,8 +91,15 @@ export function minimumsSemaine(texte, livraisons = [], semaine, parHeure = PAR_
   for (let i = 0; i < 7; i++) {
     const date = plusJours(semaine.debut, i);
     const jour = new Date(date + "T12:00:00Z").getUTCDay();
-    for (const x of creneaux) {
-      if (!x.jours.includes(jour)) continue;
+    // 20 nov. 2026 (décision de Rebecca) : créneaux du même jour qui se touchent ou se chevauchent = un seul créneau
+    const duJour = creneaux.filter((x) => x.jours.includes(jour)).map((x) => ({ debut: x.debut, fin: x.fin })).sort((a, b) => enMinutes(a.debut) - enMinutes(b.debut));
+    const joints = [];
+    for (const x of duJour) {
+      const der = joints[joints.length - 1];
+      if (der && enMinutes(x.debut) <= enMinutes(der.fin)) { if (enMinutes(x.fin) > enMinutes(der.fin)) der.fin = x.fin; }
+      else joints.push({ ...x });
+    }
+    for (const x of joints.map((j) => ({ ...j, heures: cents((enMinutes(j.fin) - enMinutes(j.debut)) / 60) }))) {
       const dedans = vraies.filter((d) => d.date === date && /^\d{2}:\d{2}$/.test(d.heure || "") && enMinutes(d.heure) >= enMinutes(x.debut) && enMinutes(d.heure) < enMinutes(x.fin));
       const livre = cents(dedans.reduce((s, d) => s + (Number(d.prixFinal) || Number(d.prixEstime) || 0), 0));
       const minimum = minimumCreneau(x.heures, parHeure);

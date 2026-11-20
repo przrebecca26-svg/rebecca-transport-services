@@ -32,7 +32,7 @@ const AVANTAGES = [
   ["📍", "Suivi et preuve", "Heure d'arrivée, suivi de la voiture, photo de remise si le client est absent."],
   ["🧾", "Un relevé clair chaque semaine", "Toutes les livraisons, le total et ce qui est payé : les mêmes chiffres des deux côtés."],
   ["🤝", "Vos clients restent les vôtres", "Je livre en votre nom et je ne démarche jamais vos clients."],
-  ["🔓", "Un mois d'essai", "Un mois d'essai, puis résiliation possible avec 7 jours de préavis."],
+  ["🔓", "Un mois d'essai", "Pendant le mois d'essai, vous arrêtez quand vous voulez ; ensuite, résiliation possible avec 7 jours de préavis."],
 ];
 const lienContrat = (id) => `${SITE}/#/contrat-resto/${id}`;
 const maintenantIsrael = () => {
@@ -147,10 +147,10 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
                   <ul>
                     <li>Jusqu'à 3 km : <strong>{tarifs[x.v].jusqua3} ₪</strong></li>
                     <li>De 3 à 6 km : <strong>{tarifs[x.v].de3a6} ₪</strong></li>
-                    <li>Commande en plus dans la même tournée : <strong>{tarifs[x.v].enPlus} ₪</strong></li>
+                    <li>Commande en plus dans la même tournée : <strong>{tarifs[x.v].enPlus} ₪</strong> <small>(même restaurant, prête à 10 minutes près ; la livraison la plus chère compte comme principale)</small></li>
                     <li>Article très lourd (pack d'eau, carton lourd) : <strong>+{tarifs[x.v].tresLourd} ₪</strong> · sacs ordinaires sans supplément</li>
                     {x.v === "B" && <li>Minimum : <strong>{tarifs.B.parHeure} ₪ par heure de créneau</strong>, créneau de {MIN_HEURES} h au moins ({MIN_HEURES * tarifs.B.parHeure} ₪)</li>}
-                    <li>Au-delà de 6 km : sur devis</li>
+                    <li>Au-delà de 6 km : sur devis, accepté avant le départ{x.v === "B" ? " (compte dans le minimum du créneau)" : ""}</li>
                   </ul>
                 </div>
               ))}
@@ -159,20 +159,21 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
               <b>Formule B : le minimum par créneau</b>
               <p>Un créneau dure {MIN_HEURES} heures au moins. Chaque créneau réservé a un minimum de facturation de {tarifs.B.parHeure} ₪ par heure. Les livraisons faites pendant le créneau comptent dans ce minimum, à leur vrai prix ; si leur montant dépasse le minimum, seul leur montant réel est facturé.</p>
               <table className="pp-table">
-                <thead><tr><th>Durée du créneau</th><th>Minimum facturé</th><th>Équivaut à</th><th>Au-delà</th></tr></thead>
+                <thead><tr><th>Durée du créneau</th><th>Minimum facturé</th><th>Exemple : équivaut à</th><th>Au-delà</th></tr></thead>
                 <tbody>
                   {tableauMinimums(tarifs.B.parHeure, tarifs.B.jusqua3).map((l) => (
                     <tr key={l.heures}><td>{l.heures} h</td><td><strong>{l.minimum} ₪</strong></td><td>{String(l.livraisons).replace(".", ",")} livraisons à {tarifs.B.jusqua3} ₪</td><td>dès {l.auDela} livraisons, il paie ses livraisons ({l.auDelaMontant} ₪)</td></tr>
                   ))}
                 </tbody>
               </table>
+              <p className="pp-note">Créneaux à la demi-heure possibles : 2 h 30 = {String(2.5 * tarifs.B.parHeure).replace(".", ",")} ₪. Deux créneaux qui se touchent ou se chevauchent le même jour comptent comme un seul créneau. Les équivalences sont des exemples à {tarifs.B.jusqua3} ₪ la livraison : seul le minimum par heure compte.</p>
               <p>Exemples pour un créneau de {MIN_HEURES} heures :</p>
               <ul>
                 {[0, 2, 5].map((n) => <li key={n}>{n} livraison{n > 1 ? "s" : ""}{n ? ` à ${tarifs.B.jusqua3} ₪` : ""} : <strong>{Math.max(n * tarifs.B.jusqua3, MIN_HEURES * tarifs.B.parHeure)} ₪</strong></li>)}
                 <li>5 livraisons à {tarifs.B.de3a6} ₪ : <strong>{Math.max(5 * tarifs.B.de3a6, MIN_HEURES * tarifs.B.parHeure)} ₪</strong></li>
                 <li>6 livraisons à {tarifs.B.jusqua3} ₪ : <strong>{Math.max(6 * tarifs.B.jusqua3, MIN_HEURES * tarifs.B.parHeure)} ₪</strong></li>
               </ul>
-              <p>Le minimum n'est jamais ajouté une seconde fois au montant des livraisons. Toute annulation d'un créneau réservé moins de 24 heures avant son début entraîne la facturation du minimum garanti du créneau ; annulé au moins 24 heures avant, rien n'est facturé.</p>
+              <p>Le minimum n'est jamais ajouté une seconde fois au montant des livraisons. Toute annulation d'un créneau réservé moins de 24 heures avant son début (heure d'Israël) entraîne la facturation du minimum garanti du créneau ; annulé 24 heures ou plus avant, rien n'est facturé. Si Rebecca Services ne peut pas assurer un créneau, elle vous prévient au plus vite et le minimum de ce créneau n'est pas facturé : vous ne payez que les livraisons faites.</p>
               <p>Pendant les créneaux réservés et confirmés, Rebecca Services organise la disponibilité d'un livreur pour vos commandes, dans les limites de la zone desservie et des capacités opérationnelles convenues. Les horaires de prise en charge sont confirmés selon le volume de commandes et les conditions de circulation.</p>
             </div>
             <p className="pp-note">Prix fixes, sans TVA (osek patur). Aucune livraison pendant Chabbat et les fêtes.</p>
@@ -214,7 +215,7 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
             {FORMULES_RESTO.map((x) => (
               <button key={x.v} type="button" className={"pp-formule pp-choix" + (f.formule === x.v ? " actif" : "")} aria-pressed={f.formule === x.v} onClick={() => maj("formule", x.v)}>
                 <b>{f.formule === x.v ? "✓ " : ""}{x.titre}</b>
-                <small>{tarifs[x.v].jusqua3} ₪ jusqu'à 3 km · {tarifs[x.v].de3a6} ₪ de 3 à 6 km{x.v === "B" ? ` · minimum ${tarifs.B.minimumCreneau} livraisons par créneau` : ""}</small>
+                <small>{tarifs[x.v].jusqua3} ₪ jusqu'à 3 km · {tarifs[x.v].de3a6} ₪ de 3 à 6 km{x.v === "B" ? ` · minimum ${tarifs.B.parHeure} ₪ par heure de créneau (${MIN_HEURES} h au moins)` : ""}</small>
               </button>
             ))}
           </div>

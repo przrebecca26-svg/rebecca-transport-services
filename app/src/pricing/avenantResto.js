@@ -6,6 +6,7 @@
 import { avecCreneaux, grilleA, grilleKm, KM_MAX_GRILLE } from "./commercants.js";
 import { erreursCreneaux, lireCreneaux, minimumCreneau } from "./creneauxResto.js";
 import { libelleFormuleResto, signatureValide } from "./contratResto.js";
+import { A4, couper, fabriquerPdfPages } from "./pdfSimple.js";
 
 const txt = (x, n) => String(x == null ? "" : x).trim().slice(0, n);
 export const FORMULES_AVENANT = ["A", "B", "AB"];
@@ -57,7 +58,7 @@ const grilleTexte = (t) => `${grilleKm(t).map((x) => `${x.de ? `de ${x.de} à ${
 const jourFr = (d) => (/^\d{4}-\d{2}-\d{2}/.test(d || "") ? d.slice(0, 10).split("-").reverse().join("/") : "");
 
 // Texte de l'avenant (e-mail au restaurant et à Rebecca, après l'acceptation)
-export function texteAvenant({ nom, numero, av, contrat, jour }) {
+export function texteAvenant({ nom, numero, av, contrat, jour, parRebecca = false }) {
   const lignes = [
     `Avenant au contrat de partenariat livraison${numero ? ` n° ${numero}` : ""} – ${nom}`,
     "",
@@ -75,7 +76,9 @@ export function texteAvenant({ nom, numero, av, contrat, jour }) {
   lignes.push(
     "Toutes les autres conditions du contrat restent inchangées.",
     "",
-    `Demandé et signé électroniquement par ${av.signataire} pour ${nom} ; accepté par Rebecca Perez pour Rebecca Services le ${jourFr(jour)}.`,
+    parRebecca
+      ? `Modification faite par Rebecca Perez pour Rebecca Services le ${jourFr(jour)}, en accord avec ${nom}.`
+      : `Demandé et signé électroniquement par ${av.signataire} pour ${nom} ; accepté par Rebecca Perez pour Rebecca Services le ${jourFr(jour)}.`,
     "",
     "Rebecca Services · 054-738-0193 · rebeccaservices.com",
   );
@@ -91,3 +94,55 @@ export const texteDemandeAvenant = (av) =>
     "",
     "Pour accepter ou refuser : espace privé → Partenaires → Restaurants partenaires.",
   ].filter((l, i) => l || i > 1).join("\n");
+
+// 20 nov. 2026 (Rebecca) : historique des changements de formule dans la fiche (onglet « Formule et contrat »).
+// Une ligne par changement : demandé par le restaurant (accepté / refusé) ou fait par Rebecca.
+export function ligneHistorique({ jour, ancienne, formule, creneaux = "", statut, par, signataire = "", motif = "" }) {
+  return {
+    le: /^\d{4}-\d{2}-\d{2}$/.test(jour || "") ? jour : "",
+    ancienne: FORMULES_AVENANT.includes(ancienne) ? ancienne : "A",
+    formule: FORMULES_AVENANT.includes(formule) ? formule : "A",
+    creneaux: txt(creneaux, 200),
+    statut: ["acceptee", "refusee", "modifiee"].includes(statut) ? statut : "acceptee",
+    par: par === "rebecca" ? "rebecca" : "restaurant",
+    signataire: txt(signataire, 60),
+    motif: txt(motif, 200),
+  };
+}
+export const historiqueAvenants = (contratPro) =>
+  [...(((contratPro || {}).avenants) || [])].sort((a, b) => String(b.le || "").localeCompare(String(a.le || "")));
+export const ajouterHistorique = (contratPro, ligne) => ({ ...(contratPro || {}), avenants: [...(((contratPro || {}).avenants) || []), ligne].slice(-50) });
+export const libelleStatutAvenant = (l) =>
+  l.statut === "refusee" ? "✗ Refusé" : l.statut === "modifiee" ? "✓ Modifié par Rebecca" : "✓ Accepté";
+
+// PDF d'un avenant (même style que le contrat)
+export function avenantPdf(texte, titre = "Avenant") {
+  const L = A4.largeur;
+  const H = A4.hauteur;
+  const m = 50;
+  const pages = [];
+  let el = [
+    { t: "rect", x: 0, y: 0, w: L, h: 104, fond: "#141214" },
+    { t: "texte", x: m, y: 48, texte: "Rebecca Services", taille: 22, gras: true, couleur: "#faf6f2" },
+    { t: "texte", x: m, y: 74, texte: "Avenant au contrat de partenariat livraison", taille: 11, couleur: "#e7a9b4" },
+    { t: "trait", x1: 0, y1: 104, x2: L, y2: 104, couleur: "#c9967a", epaisseur: 3 },
+  ];
+  let y = 136;
+  const sansHebreu = (t) => String(t).replace(/[\u0590-\u05FF]+/g, "");
+  for (const para of String(texte || "").split("\n")) {
+    const lignes = para.trim() ? couper(sansHebreu(para), 10.5, L - 2 * m, false) : [""];
+    for (const l of lignes) {
+      if (y > H - 60) {
+        pages.push(el);
+        el = [];
+        y = 60;
+      }
+      if (l) el.push({ t: "texte", x: m, y, texte: l, taille: 10.5, couleur: "#141214" });
+      y += 15;
+    }
+    y += 3;
+  }
+  pages.push(el);
+  pages.forEach((p, i) => p.push({ t: "texte", x: L / 2, y: H - 24, texte: `rebeccaservices.com · page ${i + 1} / ${pages.length}`, taille: 8, couleur: "#c9967a", align: "centre" }));
+  return fabriquerPdfPages({ fond: "#faf6f2", pages, titre });
+}

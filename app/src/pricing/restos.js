@@ -75,7 +75,7 @@ export function peutCommander({ resto, etat, jour, dispo }) {
 export const JOURS_PROGRAMMATION = 30;
 export function peutProgrammer({ resto, aujourdhui, jourChoisi, pretA, dispo, fermeture }) {
   if (!resto || resto.actif === false) return { ok: false, raison: "Ce lien n'est plus actif. Contactez Rebecca sur WhatsApp." };
-  if (dispo && dispo.ouvert === false) return { ok: false, raison: `${dispo.titre}. ${dispo.detail || ""}`.trim() };
+  // 20 nov. 2026 (Rebecca) : une commande programmée peut partir même pendant Chabbat ; elle attend dans « À valider »
   if (!/^\d{4}-\d{2}-\d{2}$/.test(jourChoisi || "")) return { ok: false, raison: "Choisissez le jour de la livraison." };
   if (aujourdhui && jourChoisi <= aujourdhui) return { ok: false, raison: "Pour aujourd'hui, choisissez « Aujourd'hui »." };
   if (aujourdhui && jourChoisi > ajouterJoursR(aujourdhui, JOURS_PROGRAMMATION)) return { ok: false, raison: `Au plus ${JOURS_PROGRAMMATION} jours à l'avance.` };

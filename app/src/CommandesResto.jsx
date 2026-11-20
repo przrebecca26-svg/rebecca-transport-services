@@ -10,12 +10,13 @@ import { lienWhatsApp } from "./pricing/navigation.js";
 // (carte de la commande, avec « En ligne »), et la livraison acceptée se gère dans le Calendrier.
 const h = (x) => String(x || "").replace(":", "h");
 const jourFr = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? new Date(d + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : d);
+// 20 nov. 2026 (Rebecca) : À valider / En cours / Terminées, chaque commande se range toute seule
 const FILTRES = [
+  { v: "nouvelle", l: "À valider" },
+  { v: "acceptee", l: "En cours" },
+  { v: "livree", l: "Terminées" },
+  { v: "refus", l: "Refusées / annulées" },
   { v: "tous", l: "Toutes" },
-  { v: "nouvelle", l: "En attente" },
-  { v: "acceptee", l: "Acceptées" },
-  { v: "livree", l: "Livrées" },
-  { v: "refus", l: "Refusées" },
 ];
 const dansFiltre = (f, e) => f === "tous" || (f === "refus" ? ["refusee", "expiree", "annulee"].includes(e) : e === f);
 
@@ -34,7 +35,7 @@ export function useCompteurCommandesResto(actif) {
 export default function CommandesResto({ aller }) {
   const restos = useRestos();
   const commandes = useCommandes(restos);
-  const [filtre, setFiltre] = useState("tous");
+  const [filtre, setFiltre] = useState("");
   const [maintenant, setMaintenant] = useState(Date.now());
   useEffect(() => {
     const id = setInterval(() => setMaintenant(Date.now()), 15000);
@@ -42,9 +43,12 @@ export default function CommandesResto({ aller }) {
   }, []);
   const nom = (cle) => (restos.find((r) => r.cle === cle) || {}).nom || "Restaurant";
   const avecEtat = commandes.map((c) => ({ ...c, etat: etatCommande(c, maintenant) }));
+  // Onglet ouvert : « À valider » s'il y en a, sinon « En cours »
+  const vu = filtre || (avecEtat.some((c) => c.etat === "nouvelle") ? "nouvelle" : "acceptee");
+  const plusTotDabord = vu === "nouvelle" || vu === "acceptee";
   const liste = avecEtat
-    .filter((c) => dansFiltre(filtre, c.etat))
-    .sort((a, b) => (String(b.jour) + String(b.pretA)).localeCompare(String(a.jour) + String(a.pretA)));
+    .filter((c) => dansFiltre(vu, c.etat))
+    .sort((a, b) => (plusTotDabord ? 1 : -1) * (String(a.jour) + String(a.pretA)).localeCompare(String(b.jour) + String(b.pretA)));
   const jours = [...new Set(liste.map((c) => c.jour))];
   const aujourdhui = utcVersLocal(maintenant).date;
 
@@ -52,11 +56,11 @@ export default function CommandesResto({ aller }) {
     <div className="tdb devis-rapide">
       <div className="tdb-tete">
         <h1>Commandes restaurants</h1>
-        <p className="tdb-sous">Les commandes de tes restaurants partenaires sur 14 jours, avec tous les détails. Pour répondre : passe « 🟢 En ligne », la commande apparaît en grand en haut de l'écran.</p>
+        <p className="tdb-sous">Les commandes de tes restaurants partenaires sur 14 jours, avec tous les détails. À valider, en cours, terminées : chaque commande se range toute seule.</p>
       </div>
       <div className="tb-filtres" role="tablist" aria-label="Commandes">
         {FILTRES.map((f) => (
-          <button key={f.v} role="tab" aria-selected={filtre === f.v} className={"tb-filtre" + (filtre === f.v ? " actif" : "")} onClick={() => setFiltre(f.v)}>
+          <button key={f.v} role="tab" aria-selected={vu === f.v} className={"tb-filtre" + (vu === f.v ? " actif" : "")} onClick={() => setFiltre(f.v)}>
             {f.l} <span>{avecEtat.filter((c) => dansFiltre(f.v, c.etat)).length}</span>
           </button>
         ))}
@@ -68,13 +72,15 @@ export default function CommandesResto({ aller }) {
           <h2>{j === aujourdhui ? "Aujourd'hui" : jourFr(j)}</h2>
           {liste.filter((c) => c.jour === j).map((c) => (
             <div key={c.cle + c.id} className="bloc">
-              <p className="rp-type">🍕 {nom(c.cle)} · prête à {h(c.pretA)}</p>
+              <p className="rp-type">🍕 {nom(c.cle)} · prête à {h(c.pretA)}{c.programmee ? " · 📅 programmée" : ""}</p>
               <p><strong>{LIBELLES[c.etat] || c.etat}</strong>{typeof c.prix === "number" ? ` · ${c.prix} ₪` : ""}{typeof c.km === "number" ? ` · ${String(c.km).replace(".", ",")} km` : ""}{c.par ? ` · par ${c.par}` : ""}{c.source === "whatsapp" ? " · saisie WhatsApp" : ""}</p>
               <p>👤 {c.client || "Client"}{c.telClient ? <> · <a className="rp-waze" href={lienWhatsApp(c.telClient)} target="_blank" rel="noopener noreferrer">{c.telClient}</a></> : null}</p>
               {c.adresse && c.adresse.label && <p>🏠 {c.adresse.label}</p>}
               {c.note && <p className="tdb-note">📝 {c.note}</p>}
               {c.tresLourds > 0 && <p className="tdb-note">📦 {c.tresLourds} article{c.tresLourds > 1 ? "s" : ""} très lourd{c.tresLourds > 1 ? "s" : ""}</p>}
               {c.motif && <p className="tdb-note">Motif : {c.motif}</p>}
+              {c.etat === "acceptee" && c.etape && <p className="tdb-note">🚗 {c.etape}</p>}
+              {c.etat === "nouvelle" && <p className="tdb-note">{c.programmee ? "Réponds avec la carte en bas de l'écran (pas de délai)." : "Passe « 🟢 En ligne » : la carte pour répondre apparaît en bas de l'écran."}</p>}
               {c.demandeId && (
                 <div className="rp-boutons">
                   <button type="button" className="rp-waze" onClick={() => aller("demandes", c.demandeId)}>Ouvrir la livraison</button>

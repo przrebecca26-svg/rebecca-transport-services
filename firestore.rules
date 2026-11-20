@@ -1,5 +1,9 @@
 rules_version = '2';
-// Regles Rebecca Services v31 (19 novembre 2026, assistance clients) = v30 +
+// Regles Rebecca Services v32 (20 novembre 2026, restaurants : formule A + B et changement de formule) = v31 +
+//   - contratsRestos : formule « AB » (A + B) et prix A (tarifsA) pour les commandes hors creneaux ;
+//   - restos/{cle} : formule, creneaux et prix A (tarifsA) : le bon prix selon l'heure de la commande ;
+//   - avenantsResto/{cle} : le restaurant demande un changement de formule (signe au doigt) ; Rebecca accepte ou refuse.
+// v31 (19 novembre 2026, assistance clients) = v30 +
 //   - assistance/{ID} : conversation ouverte par un client (avec ou sans compte) depuis le bouton « 💬 Assistance ».
 //     Lecture par le lien (identifiant impossible a deviner) ; la liste : Rebecca seule. Le client signale seulement
 //     « nouveau message » ; Rebecca change le statut. Le robot note seulement « notification envoyee » (notifieLe).

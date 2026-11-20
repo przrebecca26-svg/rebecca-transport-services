@@ -21,24 +21,27 @@ const ecrire = (jour, v) => {
     /* navigation privee */
   }
 };
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 const signature = (t) => t.filter((x) => !x.fait).map((x) => `${x.de.lat},${x.de.lon}>${x.vers.lat},${x.vers.lon}@${x.arriveeMin}`).join("|");
 
 // 19 nov. 2026, 15h42 : ici = ma position quand je suis dehors (le prochain trajet part de là) ;
 // appli ouverte : 2 clochettes (au choix) à l'heure de partir.
-export default function TraficDuMatin({ jour, fil, domicile, ici = null }) {
+export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMaison = false }) {
   const styles = useStylesNotif(true);
   const maintenant = () => {
     const [h, m] = new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }).split(":").map(Number);
     return h * 60 + m;
   };
+  const base = useMemo(() => trajetsDuJour(fil, domicile, 0), [fil, domicile]);
   const trajets = useMemo(() => {
-    const t = trajetsDuJour(fil, domicile, 0);
+    const t = base;
     if (!ici) return t;
     const now = maintenant();
     const i = t.findIndex((x) => !x.fait && x.arriveeMin > now);
     return i < 0 ? t : t.map((x, k) => (k === i ? { ...x, de: ici, nomDe: "📍 Ma position", cle: `${x.cle}@ici` } : x));
-  }, [fil, domicile, ici && ici.lat, ici && ici.lon]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sig = signature(trajets);
+  }, [base, ici && ici.lat, ici && ici.lon]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 20 nov. 2026 (erreur 429 de Google) : ma position ne relance plus tout le calcul, seulement un vrai changement de journée
+  const sig = signature(base);
   const [res, setRes] = useState(() => lire(jour));
   const [etat, setEtat] = useState("");
 
@@ -53,7 +56,15 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null }) {
     for (const t of trajets.filter((x) => !x.fait && x.arriveeMin > maintenant())) {
       try {
         const estime = Math.max(maintenant() + 1, t.arriveeMin - 30);
-        const d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
+        if (lignes.length) await pause(400);
+        let d;
+        try {
+          d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
+        } catch (e1) {
+          if (!/429/.test(String(e1 && e1.message))) throw e1;
+          await pause(2500);
+          d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
+        }
         lignes.push({ cle: t.cle, nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, avec: Math.round(d.avecTrafic / 60), normal: Math.round(d.normal / 60), partir: departConseille(t.arriveeMin, d.avecTrafic), apresMin: t.apresMin, apresQuoi: t.apresQuoi });
       } catch (e) {
         erreur = e && e.message ? e.message : "Trafic indisponible";
@@ -105,6 +116,9 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null }) {
   const now = maintenant();
   // Trajet fait (etape cochee) ou arrivee passee : il disparait tout de suite, sans attendre le recalcul
   const faits = new Set(trajets.filter((t) => t.fait).map((t) => t.cle));
+  // 20 nov. 2026 : déjà rentrée (« 🏠 À la maison ») -> le prochain « → Maison » ne s'affiche plus
+  const prochainRetour = aLaMaison ? res && res.lignes && res.lignes.find((l) => l.arriveeMin > now && !faits.has(l.cle)) : null;
+  if (prochainRetour && prochainRetour.nomVers === "Maison") faits.add(prochainRetour.cle);
   return (
     <div className="tb-bloc">
       <h3>🚦 Trafic de ma journée</h3>

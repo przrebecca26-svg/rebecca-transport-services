@@ -1346,7 +1346,7 @@ export default function Agenda() {
 
       {moi === ADMIN_ID && <ListeAttenteAdmin />}
       {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <MaPositionBloc jour={ref} fil={filTrafic} domicile={maJournee.domicile} journee={maJournee} courses={parDate[ref] || []} />}
-      {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <TraficDuMatin jour={ref} fil={filTrafic} domicile={maJournee.domicile} ici={dehorsIci} />}
+      {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <TraficDuMatin jour={ref} fil={filTrafic} domicile={maJournee.domicile} ici={dehorsIci} aLaMaison={ouAujourdhui === "maison"} />}
       {vue === "jour" && <JourListe equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} valide={tourneeOk && ref <= aujourdhui && ref >= ajouterJours(aujourdhui, -1) ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
       {vue === "semaine" && jours.map((j) => <JourListe key={j} titre equipier={moi !== ADMIN_ID} fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}

@@ -9,6 +9,9 @@ import { encaisseBrut } from "../pricing/comptes.js";
 const shekels = (n) => `${(Math.round(Number(n || 0) * 100) / 100).toLocaleString("fr-FR")} ₪`;
 const jj = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : "");
 
+// 20 nov. 2026 : statut écrit en clair (« Terminée » et non « terminee »)
+const STATUT_LISIBLE = { nouvelle: "Nouvelle", attente: "En attente", en_attente: "En attente", acceptee: "Acceptée", confirmee: "Confirmée", terminee: "Terminée", annulee: "Annulée", refusee: "Refusée" };
+
 export default function DetailCourses({ demandes = [], mouvements = [], aller = null, peutSupprimer = false, vide = "Aucune course." }) {
   const [message, setMessage] = useState("");
   const [aConfirmer, setAConfirmer] = useState("");
@@ -55,7 +58,7 @@ export default function DetailCourses({ demandes = [], mouvements = [], aller = 
               <strong>{jj(d.date)}</strong> · {d.nom || "?"} · {d.serviceTitre || d.service}
               <small>
                 {typeof prix === "number" ? ` · ${shekels(prix)}` : ""} · encaissé {shekels(recu)}
-                {d.pourboire ? ` · pourboire ${shekels(d.pourboire)} (à part)` : ""} · {d.statut}
+                {d.pourboire ? ` · pourboire ${shekels(d.pourboire)} (à part)` : ""} · {STATUT_LISIBLE[d.statut] || d.statut}
               </small>
             </span>
             <span className="tdb-detail-boutons">

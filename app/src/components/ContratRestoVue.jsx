@@ -25,8 +25,14 @@ export default function ContratRestoVue({ id, onAccueil }) {
   if (c === undefined) return <div className="pp"><section className="pp-bloc">Chargement…</section></div>;
   if (!c) return <div className="pp"><section className="pp-bloc">Ce contrat est introuvable.<br /><button type="button" className="pp-lien" onClick={onAccueil}>rebeccaservices.com</button></section></div>;
   const numero = numeroContrat(id, c.signeLe);
+  const retour = (() => { try { return sessionStorage.getItem("rs-retour-contrat") || ""; } catch { return ""; } })();
+  const revenir = () => {
+    try { sessionStorage.removeItem("rs-retour-contrat"); } catch { /* rien */ }
+    window.location.hash = retour;
+  };
   return (
     <div className="pp">
+      {retour && <button type="button" className="pp-lien" style={{ display: "block", margin: "10px 16px 0", fontSize: 16 }} onClick={revenir}>← Retour à Partenaires</button>}
       <header className="pp-entete">
         <img src="/brand/logo-medaillon%20.png" alt="Rebecca Services" className="pp-logo" />
         <div>

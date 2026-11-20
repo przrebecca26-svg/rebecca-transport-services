@@ -116,6 +116,14 @@ export default function EspaceResto({ cle, onAccueil }) {
   };
   const annuler = (c) => updateDoc(doc(db, "restos", cle, "commandesResto", c.id), { statut: "annulee" }).catch(() => setErreur("Annulation impossible pour l'instant."));
 
+  const avecB = resto.formule === "B" || resto.formule === "AB";
+  const prixAffiche = trajet && typeof trajet.km === "number" ? prixCommande(tarifsResto(resto, jourCmd, f.pretA || heure), trajet.km, f.tresLourds) : null;
+  const infosWhatsApp = {
+    jour: programmee && jourChoisi ? jourChoisi : "",
+    prix: prixAffiche != null ? prixAffiche : undefined,
+    km: trajet && typeof trajet.km === "number" ? trajet.km : undefined,
+    formule: avecB ? (dansSonCreneau(resto, jourCmd, f.pretA || heure) ? "B" : "A") : "",
+  };
   const duJour = commandes.filter((c) => c.jour === jour).sort((a, b) => (b.pretA || "").localeCompare(a.pretA || ""));
   const aVenir = commandes.filter((c) => c.jour > jour && !["annulee", "refusee", "expiree"].includes(c.statut)).sort((a, b) => (a.jour + a.pretA).localeCompare(b.jour + b.pretA));
   const r = releveResto(commandes, semaine);
@@ -181,7 +189,7 @@ export default function EspaceResto({ cle, onAccueil }) {
         {erreur && <p className="erreur" role="alert">{erreur}</p>}
         <p>
           <button type="button" disabled={envoi || !possible.ok} onClick={envoyer}>{envoi ? "Envoi…" : "Envoyer la commande"}</button>{" "}
-          <a className="bouton-secondaire" href={lienWhatsApp(WHATSAPP, messageWhatsAppResto(resto.nom, f))} target="_blank" rel="noopener noreferrer">💬 Par WhatsApp</a>
+          <a className="bouton-secondaire" href={lienWhatsApp(WHATSAPP, messageWhatsAppResto(resto.nom, f, infosWhatsApp))} target="_blank" rel="noopener noreferrer">💬 Par WhatsApp</a>
         </p>
         <p className="tb-note">{programmee ? "Commande programmée : Rebecca vous répond dès qu'elle la voit (pas de refus automatique). Vous pouvez l'annuler tant qu'elle n'a pas répondu." : "Sans réponse en 5 minutes, la commande est refusée automatiquement : vous pouvez alors la confier à quelqu'un d'autre."}</p>
       </div>

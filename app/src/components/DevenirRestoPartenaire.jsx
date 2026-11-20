@@ -161,14 +161,14 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
               <b>Formule B : le minimum par créneau</b>
               <p>Un créneau dure {MIN_HEURES} heures au moins. Chaque créneau réservé a un minimum de facturation de {tarifs.B.parHeure} ₪ par heure. Les livraisons faites pendant le créneau comptent dans ce minimum, à leur vrai prix ; si leur montant dépasse le minimum, seul leur montant réel est facturé.</p>
               <table className="pp-table">
-                <thead><tr><th>Durée du créneau</th><th>Minimum facturé</th><th>Exemple : équivaut à</th><th>Au-delà</th></tr></thead>
+                <thead><tr><th>Durée</th><th>Minimum</th><th>Équivaut à</th><th>Au-delà</th></tr></thead>
                 <tbody>
                   {tableauMinimums(tarifs.B.parHeure, tarifs.B.jusqua3).map((l) => (
-                    <tr key={l.heures}><td>{l.heures} h</td><td><strong>{l.minimum} ₪</strong></td><td>{String(l.livraisons).replace(".", ",")} livraisons à {tarifs.B.jusqua3} ₪</td><td>dès {l.auDela} livraisons, il paie ses livraisons ({l.auDelaMontant} ₪)</td></tr>
+                    <tr key={l.heures}><td>{l.heures} h</td><td><strong>{l.minimum} ₪</strong></td><td>{Number.isInteger(l.livraisons) ? l.livraisons : `${Math.floor(l.livraisons)} ou ${Math.ceil(l.livraisons)}`} livraisons</td><td>dès {l.auDela} : {l.auDelaMontant} ₪</td></tr>
                   ))}
                 </tbody>
               </table>
-              <p className="pp-note">Créneaux à la demi-heure possibles : 2 h 30 = {String(2.5 * tarifs.B.parHeure).replace(".", ",")} ₪. Deux créneaux qui se touchent ou se chevauchent le même jour comptent comme un seul créneau. Les équivalences sont des exemples à {tarifs.B.jusqua3} ₪ la livraison : seul le minimum par heure compte.</p>
+              <p className="pp-note">Créneaux à la demi-heure possibles : 2 h 30 = {String(2.5 * tarifs.B.parHeure).replace(".", ",")} ₪. Deux créneaux qui se touchent ou se chevauchent le même jour comptent comme un seul créneau. Le tableau compte des livraisons à {tarifs.B.jusqua3} ₪ (jusqu'à 3 km) : ce sont des exemples, seul le minimum par heure compte. « Au-delà » : à partir de ce nombre de livraisons, vous payez simplement vos livraisons.</p>
               <p>Exemples pour un créneau de {MIN_HEURES} heures :</p>
               <ul>
                 {[0, 2, 5].map((n) => <li key={n}>{n} livraison{n > 1 ? "s" : ""}{n ? ` à ${tarifs.B.jusqua3} ₪` : ""} : <strong>{Math.max(n * tarifs.B.jusqua3, MIN_HEURES * tarifs.B.parHeure)} ₪</strong></li>)}

@@ -8,6 +8,7 @@ import { messageRetard } from "../pricing/suiteClient.js";
 import { lienWazePoint, lienWhatsApp } from "../pricing/navigation.js";
 import { useRepertoire } from "../repertoireBase.js";
 import { sansAttendre } from "../ecritureRapide.js";
+import { boutonsEtape, boutonSuivant, messageEtape } from "../pricing/etapesEnfants.js";
 
 // OÙ JE SUIS (19 nov. 2026, 15h42) - Calendrier, vue Jour, aujourd'hui (Rebecca seule).
 // - « 🏠 Je suis rentrée » / « 🚗 Je sors » : le robot le sait ; si je suis dehors, son rappel 15 min avant une
@@ -145,8 +146,28 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
     return parentsAPrevenir(rep.familles || [], prochaine.texte).map((p) => ({ cle: p.famille, texte: p.nom || "les parents", wa: lienWhatsApp(p.telephone, messageRetard(p.prenoms, bilan.retard)) })).filter((x) => x.wa);
   })();
 
-  const cocherIci = async () => {
-    const e = ouiFait;
+  // 20 nov. 2026 (Rebecca) : à un arrêt de la tournée, Arrivée -> Récupérés -> Je pars (ou Arrivée -> Déposés),
+  // avec un message pour la maman à chaque moment. Gardé dans ce téléphone pour la journée.
+  const CLE_ET = `rs-etapes-${jour || aujourdhui}`;
+  const [etapes, setEtapes] = useState(() => { try { return JSON.parse(localStorage.getItem(CLE_ET) || "{}"); } catch { return {}; } });
+  const arret = (() => {
+    const e = ouiFait || (dehors ? suivante : null);
+    return e && e.ids && !e.demandeId && (e.sorte === "prise" || e.sorte === "depose") ? e : null;
+  })();
+  const cleArret = arret ? `${arret.texte}@${arret.min}` : "";
+  const faitsArret = (cleArret && etapes[cleArret]) || {};
+  const parentsArret = arret ? parentsAPrevenir(rep.familles || [], arret.texte) : [];
+  const apresArret = arret ? [...fil].filter((x) => x.min > arret.min && !x.fait && x.genre === "arret").sort((a, b) => a.min - b.min)[0] : null;
+  const toucherEtape = async (b) => {
+    const suite = { ...etapes, [cleArret]: { ...faitsArret, [b.id]: heureIsrael().replace(":", "h") } };
+    setEtapes(suite);
+    try { localStorage.setItem(CLE_ET, JSON.stringify(suite)); } catch { /* */ }
+    if (b.valide) await cocher(arret);
+  };
+  const dernierFait = arret ? [...boutonsEtape(arret.sorte)].reverse().find((b) => faitsArret[b.id]) : null;
+
+  const cocherIci = () => cocher(ouiFait);
+  const cocher = async (e) => {
     if (!e) return;
     try {
       if (e.demandeId && e.sorte) {
@@ -177,7 +198,26 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
         <button type="button" className="ag-modifier" disabled={enCours} onClick={() => localiser(false)}>{ici && ici.precision > PRECISION_MAX_M ? "📍 Préciser ma position" : "📍 Me localiser"}</button>
       </div>
 
-      {ouiFait && (
+      {arret && (
+        <div className="ag-etape-actions">
+          <p>🚸 <strong>{arret.texte}</strong>{arret.lieu ? ` · ${arret.lieu}` : ""} ({enHeure(arret.min)})</p>
+          {boutonsEtape(arret.sorte).filter((b) => faitsArret[b.id]).map((b) => <p key={b.id} className="tb-note">✓ {b.l.replace(/^\S+\s/, "")} à {faitsArret[b.id]}</p>)}
+          {dernierFait && parentsArret.length > 0 && (
+            <div className="tb-actions">
+              {parentsArret.map((pa) => {
+                const wa = lienWhatsApp(pa.telephone, messageEtape(dernierFait.id, pa.prenoms, arret.lieu, faitsArret[dernierFait.id], dernierFait.id === "depart" && apresArret ? enHeure(apresArret.min) : ""));
+                return wa ? <a key={pa.famille} className="tb-bouton tb-clair" href={wa} target="_blank" rel="noopener noreferrer">💬 Prévenir {pa.nom || "la maman"}</a> : null;
+              })}
+            </div>
+          )}
+          {boutonSuivant(arret.sorte, faitsArret) && (() => {
+            const b = boutonSuivant(arret.sorte, faitsArret);
+            return <button type="button" className="tb-bouton" onClick={() => toucherEtape(b)}>{b.l}</button>;
+          })()}
+        </div>
+      )}
+
+      {ouiFait && !arret && (
         <div className="ag-etape-actions">
           <p>📍 <strong>Tu es arrivée {ouiFait.lieu ? `à ${ouiFait.lieu}` : ""} ?</strong> {ouiFait.texte} ({enHeure(ouiFait.min)})</p>
           <button type="button" className="tb-bouton" onClick={cocherIci}>✓ Oui, c'est fait</button>

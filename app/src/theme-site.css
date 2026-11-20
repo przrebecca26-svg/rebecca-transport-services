@@ -170,3 +170,7 @@ html, body { background: #080709; }
 .avis-carte div { color: #e0a800; letter-spacing: 2px; }
 .avis-carte blockquote { margin: 6px 0; font-style: italic; }
 .avis-carte figcaption { font-weight: 700; font-size: 0.9rem; }
+
+/* 20 nov. 2026 (Rebecca) : les boutons ronds (Instagram, WhatsApp) et « ← Mon espace » cachaient les liens du pied de page.
+   On laisse de la place sous le pied pour pouvoir faire défiler les liens au-dessus des boutons. */
+.theme-site footer { padding-bottom: calc(170px + env(safe-area-inset-bottom, 0px)); }

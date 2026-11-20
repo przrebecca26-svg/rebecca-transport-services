@@ -29,7 +29,15 @@ export default function RetourAdmin() {
     }, 800);
     return () => { actif = false; clearTimeout(t); fin(); };
   }, []);
-  if (!rebecca || admin) return null;
+  // 20 nov. 2026 : place en bas de page pour que le bouton ne cache pas la fin du texte
+  const visible = rebecca && !admin;
+  useEffect(() => {
+    if (!visible) return undefined;
+    const avant = document.body.style.paddingBottom;
+    document.body.style.paddingBottom = "70px";
+    return () => { document.body.style.paddingBottom = avant; };
+  }, [visible]);
+  if (!visible) return null;
   return (
     <button
       type="button"

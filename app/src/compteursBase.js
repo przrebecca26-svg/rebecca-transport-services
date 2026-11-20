@@ -38,7 +38,8 @@ export function useCompteurs(role) {
   const aActiver = useCompte(admin, () => query(collection(db, "coursiers"), where("statut", "==", "a_activer"))); // 18 nov. 2026
   const restosSignes = useCompte(admin, () => query(collection(db, "contratsRestos"), where("statut", "==", "signe"))); // 19 nov. 2026 : restaurants à activer
   const assistance = useCompte(admin, () => collection(db, "assistance"), aTraiterAssistance); // 19 nov. 2026
-  const partenaires = (candidats || 0) + (aActiver || 0) + (restosSignes || 0);
+  const avenants = useCompte(admin, () => query(collection(db, "avenantsResto"), where("statut", "==", "demandee"))); // 20 nov. 2026 : changements de formule demandés par un restaurant
+  const partenaires = (candidats || 0) + (aActiver || 0) + (restosSignes || 0) + (avenants || 0);
   // 17 nov. 2026 : rappels, avis, relances et recus a faire (onglet Aujourd'hui du Tableau de bord)
   const [aFaire, setAFaire] = useState(0);
   useEffect(() => {

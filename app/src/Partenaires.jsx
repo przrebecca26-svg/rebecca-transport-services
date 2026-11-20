@@ -6,6 +6,7 @@ import { lienWhatsApp } from "./pricing/navigation.js";
 import { OSEK, STATUTS_CANDIDATURE, VEHICULE_UNIQUE, docsPour, libelleCandidature, lienSuiviPartenaire, messageDecision, resumeCandidature, statutDe } from "./pricing/partenaires.js";
 import { STATUTS_CANDIDATURE as REGLES_STATUTS, decision, reglagesCommission, soldeCumule, courseDeMission, estBloque, lienAccesCoursier } from "./pricing/coursiers.js";
 import CompteCoursier from "./components/CompteCoursier.jsx";
+import AvenantsRestoAdmin from "./components/AvenantsRestoAdmin.jsx";
 import RestosPartenaires from "./components/RestosPartenaires.jsx";
 
 // PARTENAIRES (17 nov. 2026 ; validation complète le 18 nov., étape 2 des coursiers partenaires) - Rebecca seule.
@@ -341,6 +342,8 @@ export default function Partenaires({ aller }) {
   const vues = liste.filter((c) => ftr[2](statutDe(c)));
   return (
     <section className="tb-pad">
+      {/* 20 nov. 2026 (Rebecca) : les demandes de changement de formule en premier, avec la pastille du menu */}
+      <AvenantsRestoAdmin />
       <div className="tb-bloc">
         <h3>Devenir coursier partenaire</h3>
         <p className="tb-note">Page d'inscription : <a href="#/partenaire" target="_blank" rel="noopener noreferrer">ouvrir la page</a> (lien direct : {SITE.replace("https://", "")}/#/partenaire). Seulement livraisons et courses.</p>

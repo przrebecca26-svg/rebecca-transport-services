@@ -208,7 +208,7 @@ export default function Repertoire({ aller = null }) {
         ))}
         <button type="button" className="dr-secondaire rp-large" onClick={() => setFicheOuverte({ nouvelle: { ...familleVide(), enfants: [], categorie: categorie === "moi" || categorie === "proches" || categorie === "commercants" ? categorie : "clientes" } })}>+ Nouvelle fiche</button>
       </section>
-      {(estAdmin || familles.length > 0) && (
+      {(estAdmin || familles.length > 0) && categorie !== "commercants" && (
         <details className="tdb-bloc">
           <summary>Toutes les familles et enfants (doublons, fusion)</summary>
           <Familles familles={familles} connues={lieuxConnus} voit={voit} changer={(suite) => { setFamilles(suite); setModifie(true); setMessage(""); }} />
@@ -220,7 +220,7 @@ export default function Repertoire({ aller = null }) {
         {lieux.length === 0 && <p className="tdb-note">Aucun lieu pour l'instant. Ajoute ta maison, l'école, le basket, tes magasins…</p>}
       </section>
       <div className="formulaire dr-formulaire">
-        {TYPES_LIEU.map((t) => {
+        {TYPES_LIEU.filter((t) => !GROUPE_FICHE[categorie] || GROUPE_FICHE[categorie] === t.v).map((t) => {
           const duType = lieux.filter((l) => l.type === t.v && voit(l.nom, l.note, l.adresse && l.adresse.label));
           // 19 nov. 2026 : l'adresse de chaque fiche se range toute seule dans la bonne rubrique (sans doublon)
           const desFiches = familles.filter((f) => GROUPE_FICHE[f.categorie || "clientes"] === t.v && cleAdresse(f.domicile) && !lieux.some((l) => cleAdresse(l.adresse) === cleAdresse(f.domicile)) && voit(f.nom, f.domicile.label));

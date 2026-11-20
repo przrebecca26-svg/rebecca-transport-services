@@ -7,7 +7,7 @@ import PartageRamassage from "./components/PartageRamassage.jsx";
 import { lireLienPartage, lireLienBienvenue } from "./pricing/partageRamassage.js";
 import BienvenueRamassage, { CLE_INVITATION } from "./components/BienvenueRamassage.jsx";
 import FavoriBouton from "./components/FavoriBouton.jsx";
-import { ACTIVITES, FORMULAIRES, SERVICES, activitesVisibles, servicesDe } from "./services.js";
+import { ACTIVITES, FORMULAIRES, SERVICES, servicesDe } from "./services.js";
 import { trajetsHabituels } from "./pricing/habituels.js";
 import { prochainesFermetures, utcVersLocal } from "./pricing/calendrier.js";
 import { etatDisponibilite } from "./pricing/disponibilite.js";
@@ -29,7 +29,6 @@ import PagePaiement from "./components/PagePaiement.jsx";
 import { lireLienPaye } from "./pricing/suiteClient.js";
 import { lireLienProjet } from "./pricing/digital.js";
 import { lireLienPartenaire } from "./pricing/partenaires.js";
-import LienPartenaire from "./components/LienPartenaire.jsx";
 import InstallerAppli from "./components/InstallerAppli.jsx";
 import { lireLienCarte } from "./pricing/cartesCadeaux.js";
 import { lireLienResto } from "./pricing/restos.js";
@@ -39,6 +38,7 @@ const ContratRestoVue = lazy(() => import("./components/ContratRestoVue.jsx")); 
 const lireContratResto = (h) => { const m = /^#\/contrat-resto\/([A-Za-z0-9]{10,40})$/.exec(h || ""); return m ? m[1] : ""; };
 const Assistance = lazy(() => import("./components/Assistance.jsx")); // 19 nov. 2026 : #/assistance
 import { lireLienAssistance } from "./pricing/assistance.js";
+import { enApercu, usePagesSite } from "./pagesSiteBase.js";
 const OffrirCarte = lazy(() => import("./components/CarteCadeau.jsx"));
 const VoirCarte = lazy(() => import("./components/CarteCadeau.jsx").then((m) => ({ default: m.VoirCarte })));
 import "./client-commun.css";
@@ -170,12 +170,42 @@ function SurDemande({ a, onChoix }) {
   );
 }
 
-function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX, onEpoxy, onSlim, onHair, onDigital }) {
+// 20 nov. 2026 : page en mode « Bientôt » (Réglages -> Pages du site) : on récolte les contacts sur WhatsApp
+const NOMS_PAGES = { coursier: "Services coursier", transport: "Transport privé", nails: "Nails Prestige", regenx: "RegenX", hair: "Prestige Hair", slim: "Prestige Slim & Lift", epoxy: "Boutique Epoxy", digital: "Digital & Applications", restoPartenaire: "le partenariat restaurants", coursierPartenaire: "le partenariat coursiers" };
+function Bientot({ id, seul = false }) {
+  const nom = NOMS_PAGES[id] || "ce service";
+  const bouton = <a className="bouton" href={lienWhatsApp(WHATSAPP, `Bonjour Rebecca, prévenez-moi dès que ${nom} est disponible, merci !`)} target="_blank" rel="noopener noreferrer">🔔 Me prévenir</a>;
+  if (seul) return <><p className="consigne"><strong>Bientôt disponible.</strong></p>{bouton}</>;
+  return (
+    <section className="espace" style={ESPACE}>
+      <div style={ENTETE}><h2 style={TITRE}>{nom}</h2></div>
+      <p className="consigne"><strong>Bientôt disponible.</strong> Laissez-moi un message, je vous préviens dès l'ouverture.</p>
+      {bouton}
+    </section>
+  );
+}
+
+// 20 nov. 2026 : page fermée (Réglages -> Pages du site, lien direct désactivé) ou personne bloquée : message neutre
+function PageIndisponible({ onAccueil }) {
+  return (
+    <section className="carte-service" style={{ margin: 16 }}>
+      <h2>Page indisponible</h2>
+      <p>Ce service n'est pas disponible pour le moment.</p>
+      <p><a className="bouton" href={lienWhatsApp(WHATSAPP, "Bonjour Rebecca, j'ai une question.")} target="_blank" rel="noopener noreferrer">💬 Écrire à Rebecca</a></p>
+      <p><button type="button" className="bouton-secondaire" onClick={onAccueil}>Accueil Rebecca Services</button></p>
+    </section>
+  );
+}
+
+function Accueil({ client, acces, pages, onChoix, onCompte, onFavori, onNails, onRegenX, onEpoxy, onSlim, onHair, onDigital }) {
   const aujourdhui = utcVersLocal(Date.now()).date;
   const fermetures = prochainesFermetures(aujourdhui, 3);
   const dispo = etatDisponibilite();
   const ouvert = compteOuvert(client);
-  const favoris = ouvert && Array.isArray(client.profil.favoris) ? client.profil.favoris.filter((f) => SERVICES.some((s) => s.id === f.service && activitesVisibles(acces).some((a) => a.id === s.activite))) : [];
+  // 20 nov. 2026 : Réglages -> Pages du site (affichée, « bientôt », pour qui, personnes bloquées)
+  const voit = (id) => pages.etat(id) === "ouverte";
+  const bientot = (id) => pages.etat(id) === "bientot";
+  const favoris = ouvert && Array.isArray(client.profil.favoris) ? client.profil.favoris.filter((f) => SERVICES.some((s) => s.id === f.service && voit(s.activite))) : [];
   // 18 nov. 2026 : trajets habituels tires de son historique (réserver en 2 touches)
   const uidClient = ouvert && client.user ? client.user.uid : "";
   const [suivis, setSuivis] = useState([]);
@@ -186,7 +216,7 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
       .then((s) => setSuivis(s.docs.map((x) => ({ id: x.id, ...x.data() }))))
       .catch(() => setSuivis([]));
   }, [uidClient]);
-  const habituels = trajetsHabituels(suivis, favoris, FORMULAIRES).filter((f) => SERVICES.some((s) => s.id === f.service && activitesVisibles(acces).some((a) => a.id === s.activite)));
+  const habituels = trajetsHabituels(suivis, favoris, FORMULAIRES).filter((f) => SERVICES.some((s) => s.id === f.service && voit(s.activite)));
 
   return (
     <>
@@ -237,7 +267,8 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
       )}
 
       {/* Services coursier */}
-      {activitesVisibles(acces).some((v) => v.id === "coursier") && (
+      {bientot("coursier") && <Bientot id="coursier" />}
+      {voit("coursier") && (
         <section className="espace" style={ESPACE}>
           <div style={ENTETE}>
             <Logo src={MEDAILLON} taille={52} />
@@ -253,7 +284,8 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
       )}
 
       {/* Transport privé */}
-      {activitesVisibles(acces).some((v) => v.id === "transport") ? (
+      {bientot("transport") && <Bientot id="transport" />}
+      {voit("transport") ? (
         <section className="espace" style={ESPACE}>
           <div style={ENTETE}>
             <span className="espace-icone" aria-hidden="true"><IconeService id="transport" /></span>
@@ -266,9 +298,9 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
             ))}
           </div>
         </section>
-      ) : (
+      ) : pages.etat("transport") === "cachee" && pages.reglage("transport").visible ? (
         <SurDemande onChoix={onChoix} a={{ id: "transport", titre: "Transport privé", texte: "Trajets, aéroport, Hatan & Kala, ramassage scolaire et mise à disposition." }} />
-      )}
+      ) : null}
 
       {/* Beauté & bien-être */}
       <section className="espace" style={ESPACE}>
@@ -278,28 +310,32 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
         </div>
         <p className="consigne">Ongles, coiffure, reconstruction du cheveu et du poil, soins et beauté de la silhouette.</p>
         <div className="services">
-          {activitesVisibles(acces).some((v) => v.id === "nails") && (
+          {bientot("nails") && <Bientot id="nails" />}
+      {voit("nails") && (
             <button className="carte-service" onClick={onNails}>
               <span className="icone"><Logo src="/brand/logo-nails-prestige.png" /></span>
               <span className="corps"><strong>Nails Prestige</strong><small>Onglerie : semi-permanent, extensions, nail art…</small></span>
               <span className="prix">Réserver</span>
             </button>
           )}
-          {activitesVisibles(acces).some((v) => v.id === "regenx") && (
+          {bientot("regenx") && <Bientot id="regenx" />}
+      {voit("regenx") && (
             <button className="carte-service" onClick={onRegenX}>
               <span className="icone"><Logo src="/brand/logo-regenx.png" /></span>
               <span className="corps"><strong>RegenX</strong><small>Reconstruction du cheveu et du poil</small></span>
               <span className="prix">Voir</span>
             </button>
           )}
-          {activitesVisibles(acces).some((v) => v.id === "hair") && (
+          {bientot("hair") && <Bientot id="hair" />}
+      {voit("hair") && (
             <button className="carte-service" onClick={onHair}>
               <span className="icone"><Logo src="/brand/logo-prestige-hair.png" /></span>
               <span className="corps"><strong>Prestige Hair</strong><small>Coupe, couleur, brushing, soirée…</small></span>
               <span className="prix">Voir</span>
             </button>
           )}
-          {activitesVisibles(acces).some((v) => v.id === "slim") && (
+          {bientot("slim") && <Bientot id="slim" />}
+      {voit("slim") && (
             <button className="carte-service" onClick={onSlim}>
               <span className="icone"><Logo src="/brand/logo-prestige-slim-lift.png" /></span>
               <span className="corps"><strong>Prestige Slim & Lift</strong><small>Soins minceur et raffermissement</small></span>
@@ -310,7 +346,8 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
       </section>
 
       {/* Boutique Epoxy */}
-      {activitesVisibles(acces).some((v) => v.id === "epoxy") && (
+      {bientot("epoxy") && <Bientot id="epoxy" />}
+      {voit("epoxy") && (
         <section className="espace" style={ESPACE}>
           <div style={ENTETE}>
             <Logo src="/brand/logo-epoxy.png" taille={52} />
@@ -322,7 +359,8 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
       )}
 
       {/* Digital & Applications */}
-      {activitesVisibles(acces).some((v) => v.id === "digital") && (
+      {bientot("digital") && <Bientot id="digital" />}
+      {voit("digital") && (
         <section className="espace" style={ESPACE}>
           <div style={ENTETE}>
             <Logo src="/brand/logo-digital-applications.png" taille={52} />
@@ -334,6 +372,17 @@ function Accueil({ client, acces, onChoix, onCompte, onFavori, onNails, onRegenX
       )}
 
 
+
+      {/* 20 nov. 2026 : pages partenaires affichées en carte sur l'accueil (Réglages -> Pages du site) */}
+      {[["restoPartenaire", "🍕", "Restaurants : devenez partenaire", "Je livre vos commandes à vos clients, à prix fixe, sans commission sur vos ventes.", "#/restaurant-partenaire"], ["coursierPartenaire", "🛵", "Devenez coursier partenaire", "Livraisons et courses à Netanya, avec votre véhicule.", "#/partenaire"]]
+        .filter(([id]) => pages.reglage(id).ou === "accueil" && (voit(id) || bientot(id)))
+        .map(([id, icone, titre, texte, lien]) => (
+          <section key={id} className="espace" style={ESPACE}>
+            <div style={ENTETE}><span className="espace-icone" aria-hidden="true" style={{ fontSize: 30 }}>{icone}</span><h2 style={TITRE}>{titre}</h2></div>
+            <p className="consigne">{texte}</p>
+            {voit(id) ? <a className="bouton" href={lien}>Découvrir</a> : <Bientot id={id} seul />}
+          </section>
+        ))}
 
       <section className="dispo">
         <h3>Jours sans service</h3>
@@ -400,6 +449,7 @@ export default function App() {
   const [popup, setPopup] = useState(false);
   const client = useClient();
   const acces = useAcces(client);
+  const pages = usePagesSite(client, acces);
   useFermetures();
 
   const [lienPartage, setLienPartage] = useState(() => lireLienPartage(window.location.hash));
@@ -470,7 +520,7 @@ export default function App() {
   const versCompte = (ongletInitial, vueInitiale) => aller({ nom: "compte", ongletInitial, vueInitiale });
   const versFormulaire = (service, depart) => {
     const s = SERVICES.find((x) => x.id === service);
-    if (!s || (!SERVICES_PUBLICS.includes(s.id) && !activitesVisibles(acces).some((a) => a.id === s.activite))) return aller({ nom: "accueil" });
+    if (!s || (!SERVICES_PUBLICS.includes(s.id) && pages.etat(s.activite) !== "ouverte")) return aller({ nom: "accueil" });
     aller({ nom: "form", service, depart, cle: Date.now() });
   };
 
@@ -519,7 +569,7 @@ export default function App() {
       <div className="appli theme-site">
         <main>
           <Suspense fallback={chargement}>
-            {lienContratResto ? <ContratRestoVue id={lienContratResto} onAccueil={quitterResto} /> : <DevenirRestoPartenaire onAccueil={quitterResto} />}
+            {lienContratResto ? <ContratRestoVue id={lienContratResto} onAccueil={quitterResto} /> : !pages.charge ? chargement : !pages.lienOk("restoPartenaire") ? <PageIndisponible onAccueil={quitterResto} /> : <DevenirRestoPartenaire onAccueil={quitterResto} />}
           </Suspense>
         </main>
       </div>
@@ -567,7 +617,7 @@ export default function App() {
       <div className="appli theme-site">
         <main>
           <Suspense fallback={chargement}>
-            <DevenirPartenaire onAccueil={quitterLien} onLegal={() => { quitterLien(); aller({ nom: "legal" }); }} />
+            {!pages.charge ? chargement : !pages.lienOk("coursierPartenaire") ? <PageIndisponible onAccueil={quitterLien} /> : <DevenirPartenaire onAccueil={quitterLien} onLegal={() => { quitterLien(); aller({ nom: "legal" }); }} />}
           </Suspense>
         </main>
       </div>
@@ -576,7 +626,10 @@ export default function App() {
     <div className="appli theme-site">
       <main>
         {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
-          <Accueil client={client} acces={acces} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />
+          <>
+          {enApercu() && <p className="consigne" role="status" style={{ background: "#3a2a2e", padding: 8, borderRadius: 8 }}>👁️ Aperçu : tu vois l'accueil comme une cliente sans compte.</p>}
+          <Accueil client={enApercu() ? { phase: "anonyme", user: null, profil: null } : client} acces={enApercu() ? {} : acces} pages={pages} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />
+          </>
         )}
         {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
           <section className="accueil-favoris">
@@ -687,7 +740,10 @@ export default function App() {
         <button type="button" className="lien" onClick={() => aller({ nom: "legal" })}>
           Confidentialité et conditions
         </button>
-        <LienPartenaire />
+        {/* 20 nov. 2026 : liens « Devenir partenaire » en bas de page (Réglages -> Pages du site) */}
+        {[["restoPartenaire", "Restaurants : devenez partenaire livraison", "#/restaurant-partenaire"], ["coursierPartenaire", "Devenir coursier partenaire de Rebecca Services", "#/partenaire"]]
+          .filter(([id]) => pages.reglage(id).ou === "pied" && pages.etat(id) === "ouverte")
+          .map(([id, texte, lien]) => <span key={id}><br /><a className="lien" href={lien}>{texte}</a></span>)}
       </footer>
       <BoutonsFlottants />
       {popup && ecran.nom === "accueil" && (

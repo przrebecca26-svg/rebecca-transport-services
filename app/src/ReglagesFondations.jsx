@@ -26,6 +26,7 @@ import {
 import { creneauxDuJour } from "./pricing/rendezvous.js";
 import { useFermetures } from "./fermetures.js";
 import { visuelDe } from "./visuels.js";
+import PagesSiteAdmin from "./PagesSiteAdmin.jsx";
 import "./reglages.css";
 
 // REGLAGES DES FONDATIONS (Lot C, C1 et C2, 9 nov. 2026) - espace de Rebecca seulement.
@@ -776,6 +777,7 @@ const ONGLETS = [
   { id: "tarifs", label: "Tarifs" },
   { id: "catalogue", label: "Catalogue" },
   { id: "activites", label: "Activités" },
+  { id: "pages", label: "Pages du site" }, // 20 nov. 2026
 ];
 
 // general : le contenu actuel des Reglages (marge, plafond, textes, modes, vehicules)
@@ -792,6 +794,7 @@ export default function ReglagesFondations({ general }) {
       {onglet === "tarifs" && <Tarifs />}
       {onglet === "catalogue" && <Catalogue />}
       {onglet === "activites" && <Activites />}
+      {onglet === "pages" && <PagesSiteAdmin />}
     </>
   );
 }

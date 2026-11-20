@@ -1194,7 +1194,10 @@ service cloud.firestore {
       allow delete: if estAdmin();
       allow create, update: if estAdmin()
         && cle.matches("^[A-Za-z0-9]{20,40}$")
-        && request.resource.data.keys().hasOnly(["nom", "telephone", "adresse", "tarifs", "moyen", "ficheId", "actif", "majLe"])
+        && request.resource.data.keys().hasOnly(["nom", "telephone", "adresse", "tarifs", "moyen", "ficheId", "actif", "majLe", "formule", "creneaux", "tarifsA"])
+        && (!("formule" in request.resource.data) || request.resource.data.formule in ["A", "B", "AB"])
+        && (!("creneaux" in request.resource.data) || (request.resource.data.creneaux is string && request.resource.data.creneaux.size() <= 200))
+        && (!("tarifsA" in request.resource.data) || request.resource.data.tarifsA is map)
         && request.resource.data.nom is string && request.resource.data.nom.size() > 0 && request.resource.data.nom.size() <= 60
         && request.resource.data.telephone is string && request.resource.data.telephone.size() <= 20
         && (request.resource.data.adresse == null || adresseResto(request.resource.data.adresse))
@@ -1255,13 +1258,23 @@ service cloud.firestore {
         && t.parHeure is int && t.parHeure >= 0 && t.parHeure <= 999
         && t.tresLourd is int && t.tresLourd >= 0 && t.tresLourd <= 999;
     }
+    // v32 (20 nov. 2026) : prix A d'un restaurant en B ou A + B (commandes hors créneaux)
+    function tarifsAValides(t) {
+      return t is map && t.keys().hasOnly(["jusqua3", "de3a6", "enPlus", "tresLourd"])
+        && t.keys().hasAll(["jusqua3", "de3a6", "enPlus", "tresLourd"])
+        && t.jusqua3 is int && t.jusqua3 >= 0 && t.jusqua3 <= 999
+        && t.de3a6 is int && t.de3a6 >= 0 && t.de3a6 <= 999
+        && t.enPlus is int && t.enPlus >= 0 && t.enPlus <= 999
+        && t.tresLourd is int && t.tresLourd >= 0 && t.tresLourd <= 999;
+    }
     function contratRestoValide() {
       let d = request.resource.data;
-      return d.keys().hasOnly(["version", "statut", "formule", "tarifs", "creneaux", "moyen", "nom", "nomLegal", "forme", "numero", "adresse", "recuperation", "horaires", "responsable", "fonction", "telephone", "portable", "email", "signataire", "signature", "signeLe"])
+      return d.keys().hasOnly(["version", "statut", "formule", "tarifs", "tarifsA", "creneaux", "moyen", "nom", "nomLegal", "forme", "numero", "adresse", "recuperation", "horaires", "responsable", "fonction", "telephone", "portable", "email", "signataire", "signature", "signeLe"])
         && d.keys().hasAll(["version", "statut", "formule", "tarifs", "creneaux", "moyen", "nom", "nomLegal", "forme", "numero", "adresse", "recuperation", "horaires", "responsable", "fonction", "telephone", "portable", "email", "signataire", "signature", "signeLe"])
         && d.statut == "signe"
-        && d.formule in ["A", "B"]
+        && d.formule in ["A", "B", "AB"]
         && tarifsContrat(d.tarifs)
+        && (!("tarifsA" in d) || tarifsAValides(d.tarifsA))
         && d.moyen in ["Bit", "Revolut", "Espèces", "Virement"]
         && d.forme in ["patur", "murshe", "societe"]
         && d.numero is string && d.numero.matches("^[0-9]{8,10}$")
@@ -1288,6 +1301,34 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["importe", "ficheId", "importeLe", "statut", "valideLe"])
         && request.resource.data.statut in ["signe", "valide"];
       // Le robot : « notification envoyee » (une seule fois)
+      allow update: if estRobot()
+        && !("notifieLe" in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["notifieLe"])
+        && request.resource.data.notifieLe is string && request.resource.data.notifieLe.size() <= 30;
+    }
+
+    // v32 (20 nov. 2026) : CHANGEMENT DE FORMULE demandé par le restaurant depuis son espace (avenant signé au doigt).
+    // Un document par restaurant : avenantsResto/{clé de son lien}. Rebecca accepte ou refuse.
+    match /avenantsResto/{cle} {
+      allow get: if true;
+      allow list: if estAdmin();
+      allow read: if estRobot();
+      allow delete: if estAdmin();
+      allow create, update: if cle.matches("^[A-Za-z0-9]{20,40}$")
+        && get(/databases/$(database)/documents/restos/$(cle)).data.actif == true
+        && request.resource.data.keys().hasOnly(["nom", "ancienne", "formule", "creneaux", "signataire", "signature", "statut", "creeLe"])
+        && request.resource.data.keys().hasAll(["nom", "ancienne", "formule", "creneaux", "signataire", "signature", "statut", "creeLe"])
+        && request.resource.data.statut == "demandee"
+        && request.resource.data.formule in ["A", "B", "AB"] && request.resource.data.ancienne in ["A", "B", "AB"]
+        && request.resource.data.nom is string && request.resource.data.nom.size() > 0 && request.resource.data.nom.size() <= 60
+        && request.resource.data.creneaux is string && request.resource.data.creneaux.size() <= 200
+        && request.resource.data.signataire is string && request.resource.data.signataire.size() >= 2 && request.resource.data.signataire.size() <= 60
+        && request.resource.data.signature is string && request.resource.data.signature.size() >= 20 && request.resource.data.signature.size() <= 12000 && request.resource.data.signature.matches("^[0-9,|]+$")
+        && request.resource.data.creeLe == request.time;
+      allow update: if estAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "reponduLe", "motif"])
+        && request.resource.data.statut in ["acceptee", "refusee"]
+        && (!("motif" in request.resource.data) || (request.resource.data.motif is string && request.resource.data.motif.size() <= 200));
       allow update: if estRobot()
         && !("notifieLe" in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["notifieLe"])

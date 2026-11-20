@@ -33,12 +33,16 @@ export default async function contratResto(req) {
     return reponse("demande illisible", 400);
   }
   const id = String(corps.id || "");
-  if (!ID_OK.test(id)) return reponse("demande illisible", 400);
+  // 20 nov. 2026 (v32) : changement de formule demandé depuis l'espace du restaurant -> { avenant: CLE }
+  const cleAvenant = String(corps.avenant || "");
+  if (cleAvenant && !/^[A-Za-z0-9]{20,40}$/.test(cleAvenant)) return reponse("demande illisible", 400);
+  if (!cleAvenant && !ID_OK.test(id)) return reponse("demande illisible", 400);
   const vapid = process.env.VAPID_PRIVEE || (globalThis.Netlify && Netlify.env && Netlify.env.get("VAPID_PRIVEE"));
   if (!process.env.ROBOT_EMAIL || !process.env.ROBOT_MDP || !vapid) return reponse("non configuré");
   const entetes = await connecterRobot();
   if (!entetes) return reponse("connexion du robot refusée");
 
+  if (cleAvenant) return notifierAvenant(entetes, cleAvenant, vapid);
   const c = await lire(entetes, `contratsRestos/${id}`);
   const signeLe = c ? Date.parse(c.signeLe || "") : NaN;
   if (!c || c.statut !== "signe" || c.notifieLe || !Number.isFinite(signeLe) || Date.now() - signeLe > 10 * 60000) return reponse("rien à signaler");
@@ -54,10 +58,36 @@ export default async function contratResto(req) {
 
   const message = {
     titre: `🤝 Nouveau restaurant partenaire`,
-    corps: `${String(c.nom || "Un restaurant").slice(0, 60)} a signé (formule ${c.formule === "B" ? "B" : "A"}). Il est dans ton Répertoire.`,
+    corps: `${String(c.nom || "Un restaurant").slice(0, 60)} a signé (formule ${c.formule === "AB" ? "A + B" : c.formule === "B" ? "B" : "A"}). Il est dans ton Répertoire.`,
     tag: `contrat-${id}`,
     lien: "/admin#/admin?onglet=partenaires",
   };
+  return reponse(`${await envoyerATous(entetes, message, vapid)} notification(s)`);
+}
+
+const LIBELLE = { A: "A", B: "B", AB: "A + B" };
+async function notifierAvenant(entetes, cle, vapid) {
+  const a = await lire(entetes, `avenantsResto/${cle}`);
+  const cree = a ? Date.parse(a.creeLe || "") : NaN;
+  if (!a || a.statut !== "demandee" || a.notifieLe || !Number.isFinite(cree) || Date.now() - cree > 10 * 60000) return reponse("rien à signaler");
+  const reglage = (await lire(entetes, "reglages/alerteDemandes")) || {};
+  if (reglage.notifications !== true) return reponse("notifications désactivées");
+  const note = await fetch(`${BASE}/avenantsResto/${cle}?updateMask.fieldPaths=notifieLe&currentDocument.exists=true`, {
+    method: "PATCH",
+    headers: entetes,
+    body: JSON.stringify({ fields: { notifieLe: { stringValue: new Date().toISOString() } } }),
+  });
+  if (!note.ok) return reponse(`note refusée (${note.status}) : règles v32 ?`);
+  const message = {
+    titre: "📝 Changement de formule",
+    corps: `${String(a.nom || "Un restaurant").slice(0, 60)} demande la formule ${LIBELLE[a.formule] || a.formule} (avant : ${LIBELLE[a.ancienne] || a.ancienne}). À accepter dans Partenaires.`,
+    tag: `avenant-${cle}`,
+    lien: "/admin#/admin?onglet=partenaires",
+  };
+  return reponse(`${await envoyerATous(entetes, message, vapid)} notification(s)`);
+}
+
+async function envoyerATous(entetes, message, vapid) {
   const r = await fetch(`${BASE}/notificationsPush?pageSize=20`, { headers: entetes });
   const abonnes = r.ok ? ((await r.json()).documents || []).map(documentRest).filter((a) => a && a.endpoint && a.p256dh && a.auth) : [];
   let envoyes = 0;
@@ -70,5 +100,5 @@ export default async function contratResto(req) {
       /* téléphone suivant */
     }
   }
-  return reponse(`${envoyes} notification(s)`);
+  return envoyes;
 }

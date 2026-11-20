@@ -11,7 +11,7 @@ import { useEquipeContexte } from "../equipeContexte.jsx";
 import { jouerSon, useStylesNotif } from "../sons.js";
 import {
   commandePropre, compteARebours, coursesProches, demandeDepuisCommande, enLigneActif, etatCommande, heurePlus, majSuivi,
-  prixCommande, secondesRestantes, validerCommande,
+  prixCommande, secondesRestantes, tarifsResto, validerCommande,
 } from "../pricing/restos.js";
 
 // BOUTON « EN LIGNE » + COMMANDES DES RESTAURANTS (V2, 19 nov. 2026) - en haut de l'espace privé, Rebecca seule.
@@ -147,7 +147,7 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
       calculerTrajet(resto.adresse, c.adresse).then((t) => {
         if (fini) return;
         setTrajet(t);
-        const p = prixCommande(resto.tarifs, t.km, c.tresLourds);
+        const p = prixCommande(tarifsResto(resto, c.jour, c.pretA), t.km, c.tresLourds);
         if (p != null) setPrix((x) => x || String(p));
       }).catch(() => {});
     }
@@ -249,12 +249,12 @@ function SaisieWhatsApp({ restos, jour, heure, fermer }) {
       calculerTrajet(resto.adresse, f.adresse).then((t) => {
         if (fini) return;
         setTrajet(t);
-        const p = prixCommande(resto.tarifs, t.km, f.tresLourds);
+        const p = prixCommande(tarifsResto(resto, jour, f.pretA || heurePlus(heure, 0)), t.km, f.tresLourds);
         if (p != null) setPrix(String(p));
       }).catch(() => {});
     }
     return () => { fini = true; };
-  }, [cle, f.adresse && f.adresse.label, f.tresLourds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cle, f.adresse && f.adresse.label, f.tresLourds, f.pretA]); // eslint-disable-line react-hooks/exhaustive-deps
   const enregistrer = async () => {
     const pret = { ...f, pretA: f.pretA || heurePlus(heure, 0) };
     const err = validerCommande(pret);

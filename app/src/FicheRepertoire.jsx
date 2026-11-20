@@ -19,7 +19,7 @@ import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { encaisseBrut } from "./pricing/comptes.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { addDoc, serverTimestamp } from "firebase/firestore";
-import { clientsDuResto, ficheMaCliente, restosDuClient, FORMULES, contratDe, messageReleve, paiementsSemaine, prixPro, releveSemaine, semaineDe, semaineDecalee } from "./pricing/commercants.js";
+import { avecCreneaux, grilleA, clientsDuResto, ficheMaCliente, restosDuClient, FORMULES, contratDe, messageReleve, paiementsSemaine, prixPro, releveSemaine, semaineDe, semaineDecalee } from "./pricing/commercants.js";
 import { validerMouvement } from "./pricing/comptes.js";
 import { champOperateur } from "./pricing/reverser.js";
 import { TARIFS } from "./pricing/config.js";
@@ -469,19 +469,45 @@ function ContratPro({ f, changer }) {
       <input inputMode="decimal" value={c[k]} onChange={(x) => maj(k, Number(x.target.value.replace(/[^0-9.]/g, "")) || 0)} />
     </label>
   );
+  // 20 nov. 2026 : passer de A à B / A + B garde ses prix actuels comme prix A (hors créneaux) et met les prix B standard ;
+  // revenir à A remet ses prix A comme prix uniques
+  const changerFormule = (v) => {
+    const avant = avecCreneaux(c.formule);
+    const apres = avecCreneaux(v);
+    if (!avant && apres) return changer({ ...f, contratPro: { ...c, formule: v, prixA: grilleA(c), jusqua3: 30, de3a6: 40, enPlus: 20, parHeure: c.parHeure || 75 } });
+    if (avant && !apres) {
+      const { prixA: _ancien, ...reste } = c; // eslint-disable-line no-unused-vars
+      return changer({ ...f, contratPro: { ...reste, formule: v, ...grilleA(c) } });
+    }
+    return maj("formule", v);
+  };
+  const pa = grilleA(c);
+  const prixANombre = (k, label) => (
+    <label className="champ">{label}
+      <input inputMode="decimal" value={pa[k]} onChange={(x) => changer({ ...f, contratPro: { ...c, prixA: { ...pa, [k]: Number(x.target.value.replace(/[^0-9.]/g, "")) || 0 } } })} />
+    </label>
+  );
   const conseil = prixPro(c, km);
   return (
     <div className="bloc">
       <p className="rp-type">🍕 Contrat de livraison (commerçant partenaire)</p>
       <label className="champ">Formule
-        <select value={c.formule} onChange={(x) => maj("formule", x.target.value)}>{FORMULES.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>
+        <select value={c.formule} onChange={(x) => changerFormule(x.target.value)}>{FORMULES.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>
       </label>
       {nombre("jusqua3", "Livraison jusqu'à 3 km (₪)")}
       {nombre("de3a6", "Livraison de 3 à 6 km (₪)")}
       {nombre("enPlus", "Commande en plus dans la même tournée (₪)")}
       {nombre("tresLourd", "Article très lourd : supplément par article (₪)")}
-      {c.formule === "B" && nombre("parHeure", "Minimum par heure de créneau (₪) · 2 h au moins")}
-      {c.formule === "B" && (
+      {avecCreneaux(c.formule) && nombre("parHeure", "Minimum par heure de créneau (₪) · 2 h au moins")}
+      {avecCreneaux(c.formule) && (
+        <>
+          <p className="tdb-note">Prix ci-dessus = pendant ses créneaux (formule B). En dehors de ses créneaux, prix A :</p>
+          {prixANombre("jusqua3", "Hors créneaux : jusqu'à 3 km (₪)")}
+          {prixANombre("de3a6", "Hors créneaux : de 3 à 6 km (₪)")}
+          {prixANombre("enPlus", "Hors créneaux : commande en plus (₪)")}
+        </>
+      )}
+      {avecCreneaux(c.formule) && (
         <label className="champ">Créneaux réservés
           <input value={c.creneaux} maxLength={120} placeholder="Ex. : jeudi 19h-21h, dim-jeu 19h-22h (2 h minimum)" onChange={(x) => maj("creneaux", x.target.value)} />
         </label>
@@ -492,7 +518,7 @@ function ContratPro({ f, changer }) {
       <label className="champ">Prix conseillé : km de la course
         <input inputMode="decimal" value={km} onChange={(x) => setKm(x.target.value.replace(/[^0-9.]/g, ""))} placeholder="ex. 2.5" />
       </label>
-      {km && <p className="tdb-note">{conseil != null ? `Prix pro : ${conseil} ₪ (commande en plus : ${c.enPlus} ₪).` : "Au-delà de 12 km : sur devis."}</p>}
+      {km && <p className="tdb-note">{conseil != null ? `Prix pro${avecCreneaux(c.formule) ? " pendant ses créneaux" : ""} : ${conseil} ₪ (commande en plus : ${c.enPlus} ₪).${avecCreneaux(c.formule) && prixPro(pa, km) != null ? ` Hors créneaux : ${prixPro(pa, km)} ₪.` : ""}` : "Au-delà de 12 km : sur devis."}</p>}
       <p className="tdb-note">Ses livraisons : envoyées par son lien privé (ci-dessous) ou saisies par toi (« 🍕 Commande WhatsApp » en haut de l'espace privé). Elles arrivent dans son relevé de la semaine (onglet Finances).</p>
     </div>
   );
@@ -523,7 +549,7 @@ function ReleveCommercant({ e, liste, mouvements }) {
     setEnCours(false);
     return undefined;
   };
-  const minis = c.formule === "B" ? minimumsSemaine(c.creneaux, liste, r, c.parHeure) : [];
+  const minis = avecCreneaux(c.formule) ? minimumsSemaine(c.creneaux, liste, r, c.parHeure) : [];
   const facturer = async (o) => {
     const d = demandeComplement(e.famille, o, c.moyen);
     if (!d) return setInfo("Rien à facturer pour ce créneau (ou pas de téléphone sur la fiche).");

@@ -48,6 +48,15 @@ export function lireCreneaux(texte) {
     });
 }
 
+// 20 nov. 2026 (Rebecca) : une commande prête à cette heure, ce jour-là, tombe-t-elle dans un créneau réservé ?
+// (formule B ou A + B : dans un créneau -> prix B ; en dehors -> prix A). Début inclus, fin exclue.
+export function dansCreneau(texte, jour, heure) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(jour || "") || !/^\d{2}:\d{2}$/.test(heure || "")) return false;
+  const j = new Date(jour + "T12:00:00Z").getUTCDay();
+  const m = enMinutes(heure);
+  return lireCreneaux(texte).some((x) => x.debut && x.fin && x.jours.includes(j) && m >= enMinutes(x.debut) && m < enMinutes(x.fin));
+}
+
 // Minimum facturé pour un créneau de cette durée (2 h au moins)
 export const minimumCreneau = (heures, parHeure = PAR_HEURE_DEFAUT) => cents(Math.max(MIN_HEURES, Number(heures) || 0) * (Number(parHeure) || 0));
 

@@ -8,9 +8,10 @@ import { utcVersLocal, ajouterJours } from "../pricing/calendrier.js";
 import { etatDisponibilite } from "../pricing/disponibilite.js";
 import { semaineDecalee } from "../pricing/commercants.js";
 import GrilleKmResto from "./GrilleKmResto.jsx";
+import FormuleResto from "./FormuleResto.jsx";
 import {
-  LIBELLES, commandePropre, compteARebours, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, releveResto,
-  secondesRestantes, semaineResto, validerCommande,
+  LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, releveResto,
+  secondesRestantes, semaineResto, tarifsResto, validerCommande,
 } from "../pricing/restos.js";
 
 // ESPACE RESTAURANT (V2, 19 nov. 2026) : page privée #/resto/CLE, sans compte (la clé du lien est l'accès).
@@ -95,7 +96,19 @@ export default function EspaceResto({ cle, onAccueil }) {
     <section className="carte-service" style={{ margin: 16 }}>
       <h2>🍕 {resto.nom}</h2>
       <p className="tb-note">Votre espace livraison Rebecca Services</p>
-      {resto.tarifs && <details style={{ marginTop: 6 }}><summary className="tb-note">💰 Mes tarifs de livraison</summary><GrilleKmResto tarifs={resto.tarifs} titre="Vos prix selon la distance" /></details>}
+      {resto.tarifs && (
+        <details style={{ marginTop: 6 }}>
+          <summary className="tb-note">💰 Mes tarifs de livraison · formule {resto.formule === "AB" ? "A + B" : resto.formule || "A"}</summary>
+          {resto.formule === "B" || resto.formule === "AB" ? (
+            <>
+              <p className="tb-note">Vos créneaux réservés : <strong>{resto.creneaux}</strong></p>
+              <GrilleKmResto tarifs={resto.tarifs} titre="Pendant vos créneaux (prix B)" />
+              <GrilleKmResto tarifs={resto.tarifsA || {}} titre="En dehors de vos créneaux (prix A)" />
+            </>
+          ) : <GrilleKmResto tarifs={resto.tarifs} titre="Vos prix selon la distance" />}
+        </details>
+      )}
+      <FormuleResto cle={cle} resto={resto} />
       <p><strong>{possible.ok ? "🟢 Rebecca est en ligne : vous pouvez envoyer une commande." : "🔴 " + possible.raison}</strong></p>
 
       <div className="carte-service" style={{ marginTop: 10 }}>
@@ -112,7 +125,8 @@ export default function EspaceResto({ cle, onAccueil }) {
             <button key={n} type="button" className="bouton-secondaire" style={{ marginRight: 6, marginBottom: 6 }} onClick={() => maj("pretA", heurePlus(heure, n))}>{n === 0 ? "Maintenant" : `+${n} min`}</button>
           ))}
         </p>
-        <label>Articles très lourds (packs d'eau, cartons lourds) : +{(resto.tarifs && resto.tarifs.tresLourd) ?? 5} ₪ chacun · sacs ordinaires gratuits<br />
+        {(resto.formule === "B" || resto.formule === "AB") && <p className="tb-note">{dansSonCreneau(resto, jour, f.pretA || heure) ? "🟢 Dans votre créneau réservé : prix B." : "Hors de vos créneaux réservés : prix A."}</p>}
+        <label>Articles très lourds (packs d'eau, cartons lourds) : +{tarifsResto(resto, jour, f.pretA || heure).tresLourd ?? 5} ₪ chacun · sacs ordinaires gratuits<br />
           <input type="number" inputMode="numeric" min={0} max={30} value={f.tresLourds || 0} onChange={(e) => maj("tresLourds", Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))))} style={{ width: 90 }} />
         </label>
         <br />

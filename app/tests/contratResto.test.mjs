@@ -38,7 +38,7 @@ test("numéro, articles, e-mail et PDF", () => {
   egal(numeroContrat("abcdEFGH12", c.signeLe), "RSR-20261120-ABCD");
   const a = articlesContrat(c);
   egal(a.length, 13);
-  egal(a[a.length - 1].lignes[0].includes("A. À la demande"), true);
+  egal(a[a.length - 1].lignes[0].includes("A (à la demande)"), true);
   egal(emailContrat(c, "abcdEFGH12", "https://x/#/contrat-resto/abcdEFGH12").includes("RSR-20261120-ABCD"), true);
   const pdf = contratPdf(c, "abcdEFGH12");
   const texte = new TextDecoder("latin1").decode(pdf);
@@ -95,4 +95,33 @@ test("article très lourd : +5 ₪ chacun, sacs ordinaires gratuits", () => {
   egal(prixCommande({ jusqua3: 35, de3a6: 45, enPlus: 20 }, 4), 45);
   egal(commandePropre({ client: "A", telClient: "0541234567", adresse: { label: "x" }, pretA: "12:00", tresLourds: 2 }, "2026-11-20").tresLourds, 2);
   egal("tresLourds" in commandePropre({ client: "A", telClient: "0541234567", adresse: { label: "x" }, pretA: "12:00" }, "2026-11-20"), false);
+});
+
+// 20 nov. 2026 (Rebecca) : formule A + B
+test("formule A + B : formulaire, contrat, annexe, e-mail, fiche", () => {
+  egal(erreursFormulaire({ ...rempli, formule: "AB" }, sig).length, 1); // créneaux obligatoires
+  egal(erreursFormulaire({ ...rempli, formule: "AB", creneaux: "jeudi 19h-20h" }, sig).length, 1); // 2 h minimum
+  egal(erreursFormulaire({ ...rempli, formule: "AB", creneaux: "jeudi 19h-21h" }, sig), []);
+  const ab = contratPropre({ ...rempli, formule: "AB", creneaux: "jeudi 19h-21h" }, tarifsStandard(null), sig);
+  egal(ab.formule, "AB");
+  egal(ab.tarifs, { jusqua3: 30, de3a6: 40, enPlus: 20, minimumCreneau: 5, parHeure: 75, tresLourd: 5 });
+  egal(ab.tarifsA, { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 });
+  egal(ab.creneaux, "jeudi 19h-21h");
+  egal(tarifsConformes(ab, tarifsStandard(null)), true);
+  const c = { ...ab, signeLe: "2026-11-20T09:00:00.000Z" };
+  const annexe = articlesContrat(c).at(-1).lignes.join("\n");
+  egal(annexe.includes("A + B"), true);
+  egal(annexe.includes("Prix pendant les créneaux réservés (formule B)"), true);
+  egal(annexe.includes("Prix en dehors des créneaux réservés (formule A) : livraison jusqu'à 3 km : 35 ₪"), true);
+  egal(annexe.includes("2 h, minimum 150 ₪"), true);
+  egal(emailContrat(c, "abcdEFGH12", "x").includes("En dehors des créneaux : prix de la formule A"), true);
+  const f = ficheDepuisContrat(c, "abcdEFGH12", { id: "f1" });
+  egal(f.contratPro.formule, "AB");
+  egal(f.contratPro.prixA, { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 });
+  // B seule : prix A aussi gardé pour les commandes hors créneaux
+  const b = contratPropre({ ...rempli, formule: "B", creneaux: "jeudi 19h-21h" }, tarifsStandard(null), sig);
+  egal(!!b.tarifsA, true);
+  egal("tarifsA" in contratPropre(rempli, tarifsStandard(null), sig), false);
+  const texte = new TextDecoder().decode(contratPdf(c, "abcdEFGH12"));
+  egal(texte.startsWith("%PDF"), true);
 });

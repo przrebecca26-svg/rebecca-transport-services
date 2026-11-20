@@ -42,3 +42,4 @@
 .pp-erreurs { background: rgba(216, 90, 104, 0.15); border: 1px solid #d85a68; border-radius: 12px; padding: 10px 10px 10px 28px; color: #ffd3d8; }
 .pp-statut { font-weight: 700; color: #f1aeb7; }
 .pp-pied { display: grid; justify-items: center; gap: 4px; color: #8f8385; font-size: 13px; padding-top: 10px; }
+.pp-oblig { color: #f1aeb7; font-weight: 700; }

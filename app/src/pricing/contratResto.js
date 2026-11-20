@@ -30,8 +30,8 @@ export function tarifsStandard(reglage) {
 }
 
 export const FORMULES_RESTO = [
-  { v: "A", titre: "Formule A · À la demande, sans engagement", resume: "Vous m'envoyez une livraison quand vous en avez besoin. Je l'accepte selon mes disponibilités. Aucun engagement, aucun minimum de livraisons." },
-  { v: "B", titre: "Formule B · Créneaux réservés, avec engagement", resume: "Je suis disponible pour vous, garanti, sur les créneaux que vous choisissez (ex. jeudi soir). En échange d'un prix réduit, vous vous engagez sur ces créneaux : un minimum de livraisons payées par créneau." },
+  { v: "A", titre: "Formule A · À la demande, sans engagement de volume", resume: "Vous m'envoyez une livraison quand vous en avez besoin. Je l'accepte selon mes disponibilités. Sans engagement de volume, aucun minimum de livraisons." },
+  { v: "B", titre: "Formule B · Créneaux réservés, avec engagement", resume: "Pendant les créneaux que vous réservez (jour et heures), j'organise la disponibilité d'un livreur pour vos commandes. En échange d'un prix réduit, vous vous engagez sur ces créneaux : un minimum de facturation par créneau." },
 ];
 export const FORMES = [
   { v: "patur", l: "Osek patur (עוסק פטור)" },
@@ -154,7 +154,8 @@ export function articlesContrat(c) {
       "Zone : Netanya et alentours, jusqu'à 6 km du point de récupération ; au-delà, sur devis.",
       "Aucune livraison pendant Chabbat et les fêtes juives (Yom Tov) : arrêt 2 h avant l'entrée, reprise 1 h après la sortie, selon les horaires officiels d'Israël.",
       "Formule A : livraisons selon les disponibilités de Rebecca Services, sans garantie de délai.",
-      "Formule B : un créneau réservé = un jour, une heure de début et une heure de fin indiqués à l'Annexe 1, dans la zone ci-dessus. Pendant ce créneau, un livreur est réservé pour le Partenaire : ses demandes passent en priorité et sont acceptées. Un seul livreur ne pouvant pas être partout à la fois, les commandes sont livrées dans l'ordre où elles sont prêtes, en tournées de 3 commandes au plus ; pour un volume plus important, les parties conviennent d'un deuxième livreur ou d'un créneau supplémentaire.",
+      "Formule B : les créneaux réservés sont acceptés et enregistrés avec leur jour, leur heure de début et leur heure de fin (Annexe 1). Pendant les créneaux réservés et confirmés, Rebecca Services organise la disponibilité d'un livreur pour les commandes du Partenaire, dans les limites de la zone desservie et des capacités convenues. La réservation d'un créneau garantit cette organisation, mais ni un nombre illimité de livraisons simultanées ni un délai absolu : les heures de prise en charge sont confirmées selon le volume de commandes et la circulation.",
+      "Tournées : plusieurs commandes peuvent être livrées dans la même tournée, en principe jusqu'à 4, et jusqu'à 7 quand elles sont sur le même trajet ; une commande qui arrive pendant une tournée peut y être ajoutée si elle se trouve sur le chemin. Pour un volume plus important, les parties conviennent d'un deuxième livreur ou d'un créneau supplémentaire.",
     ] },
     { titre: "Article 3 – Demande de livraison", lignes: ["Le Partenaire envoie chaque demande depuis son espace Rebecca Services (ou par WhatsApp) avec : nom et téléphone du client, adresse complète (étage, code, instructions), heure à laquelle la commande sera prête. La demande n'est engagée qu'une fois acceptée dans l'application ; sans acceptation dans les 5 minutes, elle est refusée automatiquement et le Partenaire en est prévenu."] },
     { titre: "Article 4 – Livreurs", lignes: ["La livraison est faite par Rebecca Perez ou, si elle n'est pas disponible, par un livreur de l'équipe Rebecca Services (Jérémy ou un coursier partenaire validé par Rebecca Services). Rebecca Services reste l'interlocuteur et la responsable vis-à-vis du Partenaire."] },
@@ -164,28 +165,35 @@ export function articlesContrat(c) {
     ] },
     { titre: "Article 6 – Obligations de Rebecca Services", lignes: [
       "Transporter les commandes dans un sac isotherme propre, sans les ouvrir ; livrer par le trajet le plus direct (plusieurs commandes peuvent être livrées dans la même tournée si cela ne retarde pas anormalement le client) ; prévenir le Partenaire et le client de tout retard important.",
-      "Utiliser les coordonnées des clients uniquement pour la livraison concernée. Rebecca Services ne démarche jamais les clients du Partenaire pour son propre compte, même avec leur accord ; seule exception : un client qui contacte lui-même Rebecca Services pour un autre service. Faire une photo de preuve de remise quand le client est absent ou le demande.",
+      "Utiliser les coordonnées des clients exclusivement pour l'exécution, le suivi et la résolution des incidents liés à leurs livraisons. Rebecca Services s'interdit de démarcher commercialement les clients du Partenaire pour ses propres activités, même avec leur accord ; seule exception : un client qui contacte lui-même Rebecca Services pour un autre service. Cette obligation s'applique aussi à tous les livreurs qui interviennent pour Rebecca Services.",
+      "Faire une photo de preuve de remise quand le client est absent ou le demande.",
     ] },
     { titre: "Article 7 – Prix", lignes: [
       "Les prix sont ceux de l'Annexe 1, en shekels. Rebecca Services étant osek patur, aucune TVA n'est facturée. Les prix peuvent être revus avec un préavis écrit de 15 jours.",
       "Attente au restaurant : 10 minutes de tolérance après l'heure annoncée, puis 5 ₪ par tranche de 5 minutes. Client absent ou injoignable : appel au client et au Partenaire, attente de 10 minutes, puis retour de la commande ; livraison facturée + 50 % pour le retour. Annulation par le Partenaire : gratuite avant le départ du livreur, 50 % après le départ, 100 % une fois la commande récupérée. Erreur d'adresse : trajet supplémentaire facturé selon la grille.",
+      "Formule B : chaque créneau comporte un minimum de facturation (Annexe 1) ; les livraisons réellement faites pendant le créneau comptent dans ce minimum et le minimum n'est jamais ajouté une seconde fois. Une annulation du créneau moins de 24 heures avant son début entraîne la facturation du minimum ; annulé au moins 24 heures avant, rien n'est dû.",
+      "Tous les frais supplémentaires (attente, retour, annulation, minimum de créneau) sont détaillés ligne par ligne dans le relevé de la semaine.",
     ] },
     { titre: "Article 8 – Relevé et paiement chaque semaine", lignes: [
       "Semaine du dimanche 00h00 au samedi 23h59 (heure d'Israël). Chaque samedi à minuit, le relevé de la semaine est arrêté ; il est visible à tout moment dans l'espace du Partenaire et dans celui de Rebecca Services, avec les mêmes chiffres.",
       `Paiement le lendemain de l'arrêt du compte, soit le dimanche, par ${c.moyen} (ou par un autre moyen accepté par Rebecca Services : Bit, Revolut, espèces ou virement). Toute erreur est signalée dans les 48 h ; passé ce délai, le relevé est accepté. Sans paiement sous 7 jours, Rebecca Services peut suspendre les livraisons jusqu'au règlement.`,
     ] },
     { titre: "Article 9 – Responsabilité", lignes: ["Le Partenaire est seul responsable de la qualité, de la composition, des allergènes et de la conformité de ses produits. Rebecca Services est responsable d'une commande perdue ou abîmée par sa faute pendant le transport, dans la limite de la valeur de la commande et au maximum 200 ₪ par commande, sur justificatif. Aucune responsabilité en cas de retard dû à un événement extérieur (circulation exceptionnelle, alerte de sécurité, météo, accident)."] },
-    { titre: "Article 10 – Durée et fin du contrat", lignes: ["Période d'essai d'un mois à partir de la validation, puis renouvellement automatique de mois en mois. Chacun peut arrêter le contrat par message écrit (WhatsApp ou e-mail) avec un préavis de 7 jours ; en cas de manquement grave ou de non-paiement, sans préavis. Le dernier relevé est arrêté et payé dans les conditions de l'article 8."] },
+    { titre: "Article 10 – Durée et fin du contrat", lignes: [
+      "Le partenariat débute, à la validation par Rebecca Services, par une période d'essai d'un mois, puis se renouvelle automatiquement de mois en mois. Pendant l'essai, les livraisons effectuées restent facturables selon la formule choisie ; pour la formule B, les créneaux réservés restent soumis aux conditions financières convenues (minimum garanti, annulation), y compris pendant le mois d'essai.",
+      "Chaque partie peut mettre fin au partenariat par message écrit (WhatsApp ou e-mail) avec un préavis de sept jours ; en cas de manquement grave ou de non-paiement, sans préavis. Le dernier relevé est arrêté et payé dans les conditions de l'article 8.",
+    ] },
     { titre: "Article 11 – Litiges et signature électronique", lignes: ["Les parties cherchent d'abord un accord amiable. À défaut, le droit israélien s'applique et le tribunal compétent est celui de Netanya. Les parties acceptent la signature électronique de ce contrat ; chacune en reçoit une copie par e-mail."] },
     { titre: "Annexe 1 – Formule et prix choisis", lignes: [
       `Formule choisie : ${c.formule === "B" ? "B. Créneaux réservés" : "A. À la demande"}.`,
       `Livraison jusqu'à 3 km : ${shek(t.jusqua3)} · de 3 à 6 km : ${shek(t.de3a6)} · commande en plus dans la même tournée : ${shek(t.enPlus)} · au-delà de 6 km : sur devis.`,
       ...(c.formule === "B" ? [
-        `Créneaux réservés : ${c.creneaux}.`,
+        `Créneaux réservés (jours, heures de début et de fin) : ${c.creneaux}.`,
         `Minimum garanti par créneau : ${t.minimumCreneau} livraisons au tarif jusqu'à 3 km, soit ${shek(t.minimumCreneau * t.jusqua3)}. Les livraisons réellement faites pendant le créneau comptent dans ce minimum, à leur tarif réel (par exemple 40 ₪ pour 3 à 6 km) ; si leur total est inférieur au minimum, seule la différence est facturée, jamais en plus des livraisons. Le minimum s'applique dès le premier créneau, y compris pendant le mois d'essai. Un créneau annulé moins de 24 h à l'avance reste dû au minimum.`,
       ] : []),
-      `Moyen de paiement : ${c.moyen}.`,
-      ...(c.recuperation ? [`Récupération des commandes : ${c.recuperation}.`] : []),
+      `Moyen de paiement choisi : ${c.moyen}.`,
+      `Adresse de récupération : ${(c.adresse && c.adresse.label) || ""}${c.recuperation ? " (" + c.recuperation + ")" : ""}.`,
+      `Début du partenariat : ${c.valideLe ? jourFr(c.valideLe) : "à la validation par Rebecca Services (contresignature)"}.`,
       ...(c.horaires ? [`Horaires du restaurant : ${c.horaires}.`] : []),
     ] },
   ];

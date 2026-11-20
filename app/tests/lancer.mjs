@@ -3,6 +3,7 @@
 import { bilan } from "./outils.mjs";
 await import("./metier.test.mjs");
 await import("./avenantResto.test.mjs");
+await import("./etapesEnfants.test.mjs");
 await import("./pagesSite.test.mjs");
 await import("./digital.test.mjs");
 await import("./coursiers.test.mjs");

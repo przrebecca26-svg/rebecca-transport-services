@@ -139,7 +139,7 @@ export function heurePlus(heureActuelle, n) {
 }
 
 /* ---------- Prix et livraison ---------- */
-// Prix du contrat selon les km (null = au-dela de 6 km ou km inconnus : Rebecca tape le prix)
+// Prix du contrat selon les km (null = au-dela de 12 km ou km inconnus : Rebecca tape le prix)
 export function prixCommande(tarifs, km, tresLourds = 0) {
   const c = contratDe({ contratPro: tarifs || {} });
   const p = prixPro(c, km);

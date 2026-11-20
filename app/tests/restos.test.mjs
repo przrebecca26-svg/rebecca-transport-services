@@ -70,7 +70,8 @@ test("heure « prête à » proposée", () => {
 
 test("prix du contrat selon les km", () => {
   const tarifs = { jusqua3: 30, de3a6: 40, enPlus: 15 };
-  egal([prixCommande(tarifs, 2.4), prixCommande(tarifs, 5), prixCommande(tarifs, 7), prixCommande(tarifs, null)], [30, 40, null, null]);
+  egal([prixCommande(tarifs, 2.4), prixCommande(tarifs, 5), prixCommande(tarifs, 7), prixCommande(tarifs, null)], [30, 40, 50, null]);
+  egal([prixCommande(tarifs, 10), prixCommande(tarifs, 13), prixCommande(tarifs, 8, 2)], [60, null, 60]);
 });
 
 test("commande acceptée = livraison dans le Calendrier, au téléphone du restaurant", () => {

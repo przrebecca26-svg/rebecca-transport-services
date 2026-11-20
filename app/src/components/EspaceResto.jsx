@@ -7,6 +7,7 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 import { utcVersLocal, ajouterJours } from "../pricing/calendrier.js";
 import { etatDisponibilite } from "../pricing/disponibilite.js";
 import { semaineDecalee } from "../pricing/commercants.js";
+import GrilleKmResto from "./GrilleKmResto.jsx";
 import {
   LIBELLES, commandePropre, compteARebours, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, releveResto,
   secondesRestantes, semaineResto, validerCommande,
@@ -94,6 +95,7 @@ export default function EspaceResto({ cle, onAccueil }) {
     <section className="carte-service" style={{ margin: 16 }}>
       <h2>🍕 {resto.nom}</h2>
       <p className="tb-note">Votre espace livraison Rebecca Services</p>
+      {resto.tarifs && <details style={{ marginTop: 6 }}><summary className="tb-note">💰 Mes tarifs de livraison</summary><GrilleKmResto tarifs={resto.tarifs} titre="Vos prix selon la distance" /></details>}
       <p><strong>{possible.ok ? "🟢 Rebecca est en ligne : vous pouvez envoyer une commande." : "🔴 " + possible.raison}</strong></p>
 
       <div className="carte-service" style={{ marginTop: 10 }}>

@@ -27,14 +27,29 @@ export function semaineDe(jour) {
 }
 export const semaineDecalee = (s, n) => semaineDe(plusJours(s.debut, 7 * n));
 
-// Prix pro conseille d'une livraison (km de la course) ; null au-dela de 6 km (sur devis)
+// 20 nov. 2026, 9h43 (Rebecca) : au-delà de 6 km, +le même écart par tranche de 3 km (35/45 -> 55 jusqu'à 9 km,
+// 65 jusqu'à 12 km) ; au-delà de 12 km : sur devis. L'écart suit tout seul les deux premiers prix.
+export const KM_MAX_GRILLE = 12;
+export const pasDe = (c) => {
+  const p = Math.round((Number(c.de3a6) || 0) - (Number(c.jusqua3) || 0));
+  return p > 0 ? p : 10;
+};
+export function grilleKm(c) {
+  const pas = pasDe(c);
+  return [
+    { de: 0, a: 3, prix: Number(c.jusqua3) || 0 },
+    { de: 3, a: 6, prix: Number(c.de3a6) || 0 },
+    { de: 6, a: 9, prix: (Number(c.de3a6) || 0) + pas },
+    { de: 9, a: 12, prix: (Number(c.de3a6) || 0) + 2 * pas },
+  ];
+}
+// Prix pro d'une livraison (km de la course) ; null au-delà de 12 km (sur devis)
 export function prixPro(contrat, km, enPlus = false) {
   if (enPlus) return contrat.enPlus;
   const k = Number(km);
   if (!(k > 0)) return null;
-  if (k <= 3) return contrat.jusqua3;
-  if (k <= 6) return contrat.de3a6;
-  return null;
+  const t = grilleKm(contrat).find((x) => k <= x.a);
+  return t ? t.prix : null;
 }
 
 // Releve d'une semaine : livraisons terminees du commercant (liste = ses demandes) et argent

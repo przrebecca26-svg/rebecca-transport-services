@@ -217,7 +217,7 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
       <p className="tdb-note">👤 {c.client} · <a href={lienAppel(c.telClient)}>{c.telClient}</a>{c.note ? ` · ${c.note}` : ""}{c.tresLourds > 0 ? ` · 📦 ${c.tresLourds} article${c.tresLourds > 1 ? "s" : ""} très lourd${c.tresLourds > 1 ? "s" : ""}` : ""}</p>
       {proches.length > 0 && <p className="tdb-note">⚠️ Tes courses passent avant : {proches.map((d) => `${h(d.heure)} ${d.serviceTitre || d.service} (${d.nom || ""})`).join(" · ")}</p>}
       <label className="champ">Prix de la livraison (₪)
-        <input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder={trajet ? "au-delà de 6 km : ton prix" : "km inconnus : ton prix"} />
+        <input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder={trajet ? "au-delà de 12 km : ton prix" : "km inconnus : ton prix"} />
       </label>
       {info && <p className="fm-erreur" role="alert">{info}</p>}
       <div className="tb-actions">

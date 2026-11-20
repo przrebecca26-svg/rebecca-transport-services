@@ -5,6 +5,7 @@ import { SITE } from "../site.js";
 import { useContratsRestos } from "../contratsRestosBase.js";
 import { LIEN_INSCRIPTION, TARIFS_STANDARD, numeroContrat, tarifsConformes, tarifsStandard } from "../pricing/contratResto.js";
 import { contratLisible } from "./ContratRestoVue.jsx";
+import GrilleKmResto from "./GrilleKmResto.jsx";
 
 // RESTAURANTS PARTENAIRES (19 nov. 2026) - dans Partenaires, Rebecca seule.
 // Le lien d'inscription (le même pour tous), les contrats signés, et les prix standard des formules.
@@ -33,6 +34,7 @@ function PrixStandard() {
             <div key={k} className="champ"><label>{l} (₪)<input type="number" inputMode="numeric" value={t[f][k]} onChange={(e) => maj(f, k, e.target.value)} /></label></div>
           ))}
           {f === "B" && <div className="champ"><label>Minimum par heure de créneau (₪) · créneau de 2 h au moins<input type="number" inputMode="numeric" value={t.B.parHeure} onChange={(e) => maj("B", "parHeure", e.target.value)} /></label></div>}
+          <GrilleKmResto tarifs={t[f]} titre={`Grille de la formule ${f} (6-12 km calculés tout seuls)`} />
         </div>
       ))}
       <div className="tb-actions">

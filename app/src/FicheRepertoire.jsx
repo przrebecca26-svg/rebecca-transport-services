@@ -492,7 +492,7 @@ function ContratPro({ f, changer }) {
       <label className="champ">Prix conseillé : km de la course
         <input inputMode="decimal" value={km} onChange={(x) => setKm(x.target.value.replace(/[^0-9.]/g, ""))} placeholder="ex. 2.5" />
       </label>
-      {km && <p className="tdb-note">{conseil != null ? `Prix pro : ${conseil} ₪ (commande en plus : ${c.enPlus} ₪).` : "Au-delà de 6 km : sur devis."}</p>}
+      {km && <p className="tdb-note">{conseil != null ? `Prix pro : ${conseil} ₪ (commande en plus : ${c.enPlus} ₪).` : "Au-delà de 12 km : sur devis."}</p>}
       <p className="tdb-note">Ses livraisons : envoyées par son lien privé (ci-dessous) ou saisies par toi (« 🍕 Commande WhatsApp » en haut de l'espace privé). Elles arrivent dans son relevé de la semaine (onglet Finances).</p>
     </div>
   );

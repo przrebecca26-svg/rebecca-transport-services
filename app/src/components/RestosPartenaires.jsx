@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { SITE } from "../site.js";
 import { useContratsRestos } from "../contratsRestosBase.js";
@@ -50,6 +50,7 @@ function PrixStandard() {
 
 export default function RestosPartenaires({ aller }) {
   const liste = useContratsRestos();
+  const [retires, setRetires] = useState([]);
   const [reglage, setReglage] = useState(null);
   const [copie, setCopie] = useState(false);
   useEffect(() => onSnapshot(doc(db, "reglages", "restos"), (s) => setReglage(s.exists() ? s.data() : {}), () => {}), []);
@@ -67,13 +68,13 @@ export default function RestosPartenaires({ aller }) {
       </div>
       <PrixStandard />
       <AvenantsRestoAdmin />
-      <p className="rp-type">Contrats ({liste ? liste.length : "…"})</p>
+      <p className="rp-type">Contrats ({liste ? liste.filter((x) => !retires.includes(x.id)).length : "…"})</p>
       {liste && !liste.length && <p className="tb-note">Aucun restaurant inscrit pour l'instant.</p>}
-      {(liste || []).map((x) => {
+      {(liste || []).filter((x) => !retires.includes(x.id)).map((x) => {
         const c = contratLisible(x);
         return (
           <div key={c.id} className="rp-correction">
-            <b>{c.nom}</b> <span className="tb-note">· {STATUTS[c.statut] || c.statut} · formule {c.formule === "AB" ? "A + B" : c.formule}</span>
+            <b>{c.nom}</b> <span className="tb-note">· {STATUTS[c.statut] || c.statut} · formule signée {c.formule === "AB" ? "A + B" : c.formule} (formule actuelle : fiche → « Formule et contrat »)</span>
             <p className="tdb-note">n° {numeroContrat(c.id, c.signeLe)} · {c.responsable} · {c.portable || c.telephone} · {c.email}</p>
             {reglage && !tarifsConformes(c, tarifsStandard(reglage)) && <p className="tdb-note">⚠️ Les prix signés ne sont plus les prix standard actuels (le contrat garde ceux du jour de la signature).</p>}
             {c.statut === "signe" && <p className="tdb-note">Pour l'activer : Répertoire → Commerçants → {c.nom} → « Créer le lien du restaurant » (ça contresigne le contrat).</p>}
@@ -87,6 +88,11 @@ export default function RestosPartenaires({ aller }) {
                 }}
               >📄 Voir le contrat</a>
               {aller && <button type="button" className="tb-bouton tb-clair" onClick={() => aller("repertoire")}>Ouvrir le Répertoire</button>}
+              {/* 20 nov. 2026 (Rebecca) : retirer un contrat de test ou d'un restaurant qui n'a pas continué */}
+              <button type="button" className="tb-bouton ag-danger" onClick={async () => {
+                if (!window.confirm(`Supprimer le contrat de « ${c.nom} » ?\nIl disparaît de la liste (pense aussi à supprimer sa fiche dans le Répertoire).`)) return;
+                try { await deleteDoc(doc(db, "contratsRestos", c.id)); setRetires((r) => [...r, c.id]); } catch { window.alert("Suppression impossible pour l'instant."); }
+              }}>🗑️ Supprimer</button>
             </div>
           </div>
         );

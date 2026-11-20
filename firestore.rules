@@ -1,5 +1,8 @@
 rules_version = '2';
-// Regles Rebecca Services v32 (20 novembre 2026, restaurants : formule A + B et changement de formule) = v31 +
+// Regles Rebecca Services v33 (20 novembre 2026, etapes des livraisons) = v32 +
+//   - commandesResto : Rebecca note ou en est la livraison (etape : en route, arrivee sur place, recuperee, livree),
+//     visible par le restaurant dans son espace.
+// v32 (20 novembre 2026, restaurants : formule A + B et changement de formule) = v31 +
 //   - contratsRestos : formule « AB » (A + B) et prix A (tarifsA) pour les commandes hors creneaux ;
 //   - restos/{cle} : formule, creneaux et prix A (tarifsA) : le bon prix selon l'heure de la commande ;
 //   - avenantsResto/{cle} : le restaurant demande un changement de formule (signe au doigt) ; Rebecca accepte ou refuse.
@@ -1239,11 +1242,12 @@ service cloud.firestore {
             || (request.resource.data.statut == "expiree" && request.time > resource.data.creeLe + duration.value(5, "m")));
         // Rebecca : accepter, refuser, prix, livree, payee
         allow update: if estAdmin()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "prix", "km", "demandeId", "reponduLe", "arriveeVers", "par", "motif", "payee"])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "prix", "km", "demandeId", "reponduLe", "arriveeVers", "par", "motif", "payee", "etape"])
           && request.resource.data.statut in ["nouvelle", "acceptee", "refusee", "expiree", "annulee", "livree"]
           && (!("prix" in request.resource.data) || (request.resource.data.prix is number && request.resource.data.prix >= 0 && request.resource.data.prix <= 2000))
           && (!("motif" in request.resource.data) || (request.resource.data.motif is string && request.resource.data.motif.size() <= 100))
-          && (!("par" in request.resource.data) || (request.resource.data.par is string && request.resource.data.par.size() <= 60));
+          && (!("par" in request.resource.data) || (request.resource.data.par is string && request.resource.data.par.size() <= 60))
+          && (!("etape" in request.resource.data) || (request.resource.data.etape is string && request.resource.data.etape.size() <= 120));
         // Le robot : « notification envoyee » (une seule fois)
         allow update: if estRobot()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["notifieLe"])

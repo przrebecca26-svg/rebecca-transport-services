@@ -91,7 +91,7 @@ export default function CommandesRestoAdmin({ aller }) {
       }
     };
     verifier();
-    const id = setInterval(verifier, 5 * 60000);
+    const id = setInterval(verifier, 60000); // 20 nov. 2026 : 1 min (le restaurant voit où en est la livraison)
     return () => { fini = true; clearInterval(id); };
   }, [cleSuivi]); // eslint-disable-line react-hooks/exhaustive-deps
 

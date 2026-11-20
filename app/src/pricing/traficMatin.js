@@ -86,7 +86,7 @@ export function etapesCourses(courses = []) {
     const c = ((d.chrono || {})[d.estRetour ? "retour" : estAR(d) ? "aller" : "simple"]) || {};
     const id = "c:" + d.id + (d.estRetour ? "-r" : "");
     // 19 nov. 2026, 15h42 : de quoi prévenir la cliente d'un retard et cocher « Tu es arrivée ? »
-    const plus = { demandeId: d.id, tel: d.telephone || "", nom: d.nom || "", partie: !!(c.depart || c.prise || c.depose) };
+    const plus = { demandeId: d.id, tel: d.telephone || "", nom: d.nom || "", partie: !!(c.depart || c.arrivee || c.prise || c.depose) };
     sortie.push({ min: debut, genre: "arret", adresse: de, lieu: nomCourt(de), texte: `Récupérer${qui}`, cle: id + ":prise", fait: !!(c.prise || c.depose), sorte: "prise", ...plus });
     sortie.push({ min: debut + duree, genre: "arret", adresse: vers, lieu: nomCourt(vers), texte: `Déposer${qui}`, cle: id + ":depose", fait: !!c.depose, sorte: "depose", ...plus });
   }

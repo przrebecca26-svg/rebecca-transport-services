@@ -9,7 +9,7 @@ import { kmEntre, MIN_PAR_KM } from "./coursesGroupees.js";
 export const MARGE_MIN = 5;
 
 const aPosition = (a) => !!a && Number.isFinite(a.lat) && Number.isFinite(a.lon);
-const memeLieu = (a, b) => aPosition(a) && aPosition(b) && Math.abs(a.lat - b.lat) < 0.0003 && Math.abs(a.lon - b.lon) < 0.0003;
+const memeLieu = (a, b) => aPosition(a) && aPosition(b) && Math.abs(a.lat - b.lat) < 0.0008 && Math.abs(a.lon - b.lon) < 0.0008; // 20 nov. 2026 : ~80 m (n° 4 et n° 5 Amnon Lipkin = même arrêt)
 export const enHeure = (min) => {
   const m = Math.max(0, Math.round(min));
   return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;

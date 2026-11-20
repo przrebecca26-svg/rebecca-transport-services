@@ -10,7 +10,9 @@ test("semaine du dimanche au samedi, paiement le dimanche", () => {
 });
 test("prix pro par distance", () => {
   const c = contratDe({});
-  egal([prixPro(c, 2), prixPro(c, 5), prixPro(c, 8), prixPro(c, 0), prixPro(c, 2, true)], [35, 45, null, null, 20]);
+  egal([prixPro(c, 2), prixPro(c, 5), prixPro(c, 8), prixPro(c, 0), prixPro(c, 2, true)], [35, 45, 55, null, 20]);
+  // 20 nov. 2026 : 9 à 12 km = 65 ₪, au-delà de 12 km sur devis
+  egal([prixPro(c, 9), prixPro(c, 11.5), prixPro(c, 12.1)], [55, 65, null]);
   egal(contratDe({ contratPro: { jusqua3: 30 } }).jusqua3, 30);
 });
 const liv = (id, date, prix, extra = {}) => ({ id, service: "livraison", statut: "terminee", date, heure: "19:30", prixFinal: prix, nom: "Client", details: { livraison: { label: "Rue Herzl 10, Netanya" } }, ...extra });

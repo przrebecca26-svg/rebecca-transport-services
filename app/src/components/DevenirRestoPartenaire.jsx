@@ -8,6 +8,7 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 import { envoyerEmailA } from "../mailClient.js";
 import { partagerPdf } from "../pricing/pdfSimple.js";
 import { MIN_HEURES, tableauMinimums } from "../pricing/creneauxResto.js";
+import { grilleKm } from "../pricing/commercants.js";
 import {
   EMAIL_REBECCA, FORMES, FORMULES_RESTO, MOYENS, articlesContrat, contratPdf, contratPropre, emailContrat, erreursFormulaire,
   formulaireVide, numeroContrat, tarifsStandard,
@@ -147,10 +148,11 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
                   <ul>
                     <li>Jusqu'à 3 km : <strong>{tarifs[x.v].jusqua3} ₪</strong></li>
                     <li>De 3 à 6 km : <strong>{tarifs[x.v].de3a6} ₪</strong></li>
+                    <li>De 6 à 9 km : <strong>{grilleKm(tarifs[x.v])[2].prix} ₪</strong> · de 9 à 12 km : <strong>{grilleKm(tarifs[x.v])[3].prix} ₪</strong></li>
                     <li>Commande en plus dans la même tournée : <strong>{tarifs[x.v].enPlus} ₪</strong> <small>(même restaurant, prête à 10 minutes près ; la livraison la plus chère compte comme principale)</small></li>
                     <li>Article très lourd (pack d'eau, carton lourd) : <strong>+{tarifs[x.v].tresLourd} ₪</strong> · sacs ordinaires sans supplément</li>
                     {x.v === "B" && <li>Minimum : <strong>{tarifs.B.parHeure} ₪ par heure de créneau</strong>, créneau de {MIN_HEURES} h au moins ({MIN_HEURES * tarifs.B.parHeure} ₪)</li>}
-                    <li>Au-delà de 6 km : sur devis, accepté avant le départ{x.v === "B" ? " (compte dans le minimum du créneau)" : ""}</li>
+                    <li>Au-delà de 12 km : sur devis, accepté avant le départ{x.v === "B" ? " (compte dans le minimum du créneau)" : ""}</li>
                   </ul>
                 </div>
               ))}

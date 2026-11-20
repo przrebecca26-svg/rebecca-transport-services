@@ -739,7 +739,10 @@ export default function Demandes({ aller, cible, membre = null }) {
   // 12 nov. 2026 (Rebecca) : « chacun son agenda » - un coequipier ne voit que SES courses, les nouvelles demandes
   // pas encore prises (pour pouvoir les accepter) et celles qu'on lui propose ; jamais les courses de Rebecca.
   const aLui = (d) => attribueA(d) === moi || d.proposeA === moi || (d.statut === "en attente" && !d.attribueA);
-  const dansActivite = (d) => (!sesServices || sesServices.includes(d.service)) && (activite === "toutes" || ACTIVITE_DE[d.service] === activite) && (membre ? aLui(d) : filtrerPersonne([d], personne, moi).length === 1);
+  // 20 nov. 2026 (Rebecca) : les livraisons des restaurants se gèrent dans « Commandes restaurants », pas ici
+  // (elles restent dans le Calendrier et les Finances ; « Ouvrir la livraison » les ouvre toujours ici)
+  const horsResto = (d) => !!membre || !(d.details && d.details.commandeResto);
+  const dansActivite = (d) => horsResto(d) && (!sesServices || sesServices.includes(d.service)) && (activite === "toutes" || ACTIVITE_DE[d.service] === activite) && (membre ? aLui(d) : filtrerPersonne([d], personne, moi).length === 1);
 
   const compte = useMemo(() => {
     const c = { tout: 0 };
@@ -790,6 +793,9 @@ export default function Demandes({ aller, cible, membre = null }) {
     <section className="tb-liste">
       {ouvert && <p className="tb-note">Cette demande est introuvable.</p>}
       <button className="tb-bouton am-ajouter" onClick={() => setAjout({ cle: null })}>+ Ajouter une course</button>
+      {!membre && (items || []).some((d) => d.details && d.details.commandeResto) && (
+        <p className="tb-note">🍕 Les livraisons des restaurants sont dans <button type="button" className="rp-waze" onClick={() => aller("commandes-resto")}>Commandes restaurants</button></p>
+      )}
       <div className="tb-filtres" role="tablist" aria-label="Filtrer par activité">
         {ACTIVITES.map((a) => (
           <button key={a.id} role="tab" aria-selected={activite === a.id} className={"tb-filtre dm-activite" + (activite === a.id ? " actif" : "")} onClick={() => setActivite(a.id)}>

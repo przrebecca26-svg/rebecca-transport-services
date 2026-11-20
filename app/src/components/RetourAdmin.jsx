@@ -35,9 +35,10 @@ export default function RetourAdmin() {
       type="button"
       onClick={() => { window.location.href = "/#/admin"; }}
       style={{
-        position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 8px)", left: 8, zIndex: 9999,
-        padding: "10px 14px", borderRadius: 999, border: "1px solid #c9967a", background: "#141214", color: "#f3d6dc",
-        font: "700 15px system-ui, sans-serif", boxShadow: "0 2px 10px rgba(0,0,0,.4)",
+        // 20 nov. 2026 : en bas à gauche, plus petit (en haut, il cachait le logo et la phrase du site)
+        position: "fixed", bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)", left: 10, zIndex: 9999,
+        padding: "8px 12px", borderRadius: 999, border: "1px solid #c9967a", background: "rgba(20,18,20,.92)", color: "#f3d6dc",
+        font: "700 13px system-ui, sans-serif", boxShadow: "0 2px 10px rgba(0,0,0,.4)",
       }}
     >
       ← Mon espace

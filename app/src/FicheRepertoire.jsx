@@ -43,6 +43,19 @@ const ONGLETS = [
   { id: "suivi", l: "Suivi beauté", admin: true }, // 13 nov. 2026 : seances, cures, produits, prochain RDV
 ];
 // 19 nov. 2026 (Rebecca) : la fiche d'un restaurant n'est pas celle d'une famille -> Infos, Livraisons, Finances
+// 20 nov. 2026 (Rebecca) : pastille sur l'onglet « Formule et contrat » quand le restaurant demande un changement
+function useAvenantEnAttente(cle) {
+  const [oui, setOui] = useState(false);
+  useEffect(() => {
+    if (!cle) {
+      setOui(false);
+      return undefined;
+    }
+    return onSnapshot(doc(db, "avenantsResto", cle), (s) => setOui(s.exists() && s.data().statut === "demandee"), () => setOui(false));
+  }, [cle]);
+  return oui;
+}
+
 const ONGLETS_RESTO = [
   { id: "membres", l: "Infos" },
   { id: "contrat", l: "Formule et contrat" }, // 20 nov. 2026 : contrat, avenants (PDF), formule modifiable
@@ -132,6 +145,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
   const estResto = !!f && f.categorie === "commercants";
   const onglets = estResto ? ONGLETS_RESTO : ONGLETS.filter((o) => !o.admin || estAdmin);
   const ongletVu = onglets.some((o) => o.id === onglet) ? onglet : "membres";
+  const avenantEnAttente = useAvenantEnAttente(estResto && f.contratPro ? f.contratPro.lienResto : "");
   const resume = resumeFiche(liste, mouvements || [], new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), cartes, telsEntree(e));
 
   return (
@@ -151,7 +165,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
 
       <div className="tb-filtres" role="tablist" aria-label="Fiche">
         {onglets.map((o) => (
-          <button key={o.id} role="tab" aria-selected={ongletVu === o.id} className={"tb-filtre" + (ongletVu === o.id ? " actif" : "")} onClick={() => setOnglet(o.id)}>{o.l}</button>
+          <button key={o.id} role="tab" aria-selected={ongletVu === o.id} className={"tb-filtre" + (ongletVu === o.id ? " actif" : "")} onClick={() => setOnglet(o.id)}>{o.l}{o.id === "contrat" && avenantEnAttente && <span className="tr-compteur" style={{ marginLeft: 6 }} aria-label="changement de formule à traiter">1</span>}</button>
         ))}
       </div>
 
@@ -631,9 +645,9 @@ function ReleveCommercant({ e, liste, mouvements }) {
           <p className="tdb-note"><b>Créneaux réservés (formule B) · minimum {c.parHeure || 75} ₪ par heure</b></p>
           <ul className="pm-resume">
             {minis.map((o) => (
-              <li key={o.cle}>
-                <span>{dfr(o.date)} {o.debut.replace(":", "h")}-{o.fin.replace(":", "h")} · {o.heures} h · {o.nb} livraison{o.nb > 1 ? "s" : ""} = {o.livre} ₪ / minimum {o.minimum} ₪</span>
-                <strong>{o.facture ? "complément facturé" : o.complement === 0 ? "✓ minimum atteint" : (
+              <li key={o.cle} style={{ flexWrap: "wrap", gap: 8 }}>
+                <span style={{ minWidth: 0 }}>{dfr(o.date)} {o.debut.replace(":", "h")}-{o.fin.replace(":", "h")} · {o.heures} h · {o.nb} livraison{o.nb > 1 ? "s" : ""} = {o.livre} ₪ / minimum {o.minimum} ₪</span>
+                <strong style={{ whiteSpace: "normal" }}>{o.facture ? "complément facturé" : o.complement === 0 ? "✓ minimum atteint" : (
                   <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => facturer(o)}>Facturer le complément ({o.complement} ₪)</button>
                 )}</strong>
               </li>

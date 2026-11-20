@@ -104,3 +104,6 @@
 
 /* Client du devis (16 nov. 2026) */
 .dr-client { display: grid; gap: 8px; margin-bottom: 10px; }
+
+/* 20 nov. 2026 : boutons Ouvrir / Supprimer du détail des chiffres lisibles (fond transparent comme les autres) */
+.theme-sombre .tdb-detail-boutons .rp-waze { background: transparent; cursor: pointer; }

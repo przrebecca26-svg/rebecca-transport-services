@@ -76,7 +76,14 @@ export default function RestosPartenaires({ aller }) {
             {reglage && !tarifsConformes(c, tarifsStandard(reglage)) && <p className="tdb-note">⚠️ Les prix signés ne sont plus les prix standard actuels (le contrat garde ceux du jour de la signature).</p>}
             {c.statut === "signe" && <p className="tdb-note">Pour l'activer : Répertoire → Commerçants → {c.nom} → « Créer le lien du restaurant » (ça contresigne le contrat).</p>}
             <div className="tb-actions">
-              <a className="tb-bouton tb-clair" href={`#/contrat-resto/${c.id}`} target="_blank" rel="noopener noreferrer">📄 Voir le contrat</a>
+              <a
+                className="tb-bouton tb-clair"
+                href={`#/contrat-resto/${c.id}`}
+                onClick={() => {
+                  // 20 nov. 2026 : depuis l'icône iPhone, le contrat s'ouvre dans l'appli -> bouton « ← Retour à Partenaires »
+                  try { sessionStorage.setItem("rs-retour-contrat", "#/admin?onglet=partenaires"); } catch { /* pas de stockage : pas de bouton retour */ }
+                }}
+              >📄 Voir le contrat</a>
               {aller && <button type="button" className="tb-bouton tb-clair" onClick={() => aller("repertoire")}>Ouvrir le Répertoire</button>}
             </div>
           </div>

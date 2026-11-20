@@ -6,6 +6,7 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 import { contratDe } from "../pricing/commercants.js";
 import { validerContratResto } from "../contratsRestosBase.js";
 import { lienResto, messageLienResto, nouvelleCleResto, restoDepuisFiche } from "../pricing/restos.js";
+import { envoyerEmailA } from "../mailClient.js";
 
 // LIEN PRIVÉ DU RESTAURANT (V2, 19 nov. 2026) - dans le contrat de la fiche « Commerçant partenaire ».
 // La clé du lien est l'accès du restaurant (pas de compte). Le document restos/CLE contient seulement
@@ -16,6 +17,13 @@ export default function LienResto({ f, changer }) {
   const [info, setInfo] = useState("");
   const [enCours, setEnCours] = useState(false);
   const lien = cle ? lienResto(cle, SITE) : "";
+  // 20 nov. 2026 : le lien part aussi par e-mail (sécurité : une copie écrite chez le restaurant)
+  const emailResto = String(f.email || (f.resto && f.resto.email) || "").trim();
+  const envoyerParMail = async (l) => {
+    if (!emailResto) return "Pas d'e-mail dans la fiche : envoie le lien par WhatsApp.";
+    const ok = await envoyerEmailA(emailResto, f.nom, "Votre espace livraison - Rebecca Services", `${messageLienResto(f.nom, l)}\n\n(Pas reçu ce message dans la boîte principale ? Regardez dans les spams.)`);
+    return ok ? `📧 Lien envoyé par e-mail à ${emailResto}.` : `📧 L'e-mail à ${emailResto} n'est pas parti : envoie le lien par WhatsApp.`;
+  };
 
   const publier = async (nouvelle) => {
     setInfo("");
@@ -29,7 +37,8 @@ export default function LienResto({ f, changer }) {
       if (nouvelle) changer({ ...f, contratPro: { ...c, lienResto: k } });
       // 19 nov. 2026 : restaurant inscrit par le lien -> créer son espace = contresigner son contrat
       if (nouvelle && f.resto && f.resto.contratId) await validerContratResto(f.resto.contratId).catch(() => {});
-      setInfo(nouvelle ? "✓ Lien créé. Touche « Enregistrer » en bas de la fiche pour le garder, puis envoie-le au restaurant." : "✓ Lien mis à jour (nom, adresse, tarifs).");
+      const mail = nouvelle ? await envoyerParMail(lienResto(k, SITE)) : "";
+      setInfo(nouvelle ? `✓ Lien créé. ${mail} Touche « Enregistrer » en bas de la fiche pour le garder, puis touche « 💬 Envoyer le lien » pour l'envoyer aussi sur son WhatsApp.` : "✓ Lien mis à jour (nom, adresse, tarifs).");
     } catch {
       setInfo("Impossible pour l'instant : vérifie la connexion et les règles Firebase v29.");
     }
@@ -60,6 +69,7 @@ export default function LienResto({ f, changer }) {
           <p className="tdb-note" style={{ wordBreak: "break-all" }}>{lien}</p>
           <div className="tb-actions">
             {f.telephone && <a className="tb-bouton" href={lienWhatsApp(f.telephone, messageLienResto(f.nom, lien))} target="_blank" rel="noopener noreferrer">💬 Envoyer le lien</a>}
+            {emailResto && <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={async () => { setEnCours(true); setInfo(await envoyerParMail(lien)); setEnCours(false); }}>📧 Renvoyer par e-mail</button>}
             <a className="tb-bouton tb-clair" href={lien} target="_blank" rel="noopener noreferrer">Voir sa page</a>
             <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => publier(false)}>🔄 Mettre à jour</button>
             <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => (window.confirm("Faire un nouveau lien ? L'ancien ne marchera plus.") ? publier(true) : null)}>Nouveau lien</button>

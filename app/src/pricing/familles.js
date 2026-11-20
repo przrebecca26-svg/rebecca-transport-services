@@ -86,6 +86,21 @@ function contratLu(c) {
     if (Object.keys(a).length) r.prixA = a;
   }
   if (typeof c.lienResto === "string" && /^[A-Za-z0-9]{20,40}$/.test(c.lienResto)) r.lienResto = c.lienResto;
+  // 20 nov. 2026 : historique des changements de formule (onglet « Formule et contrat »)
+  if (Array.isArray(c.avenants)) {
+    const t = (x, n) => String(x == null ? "" : x).slice(0, n);
+    const F = ["A", "B", "AB"];
+    r.avenants = c.avenants.filter((a) => a && typeof a === "object").slice(-50).map((a) => ({
+      le: /^\d{4}-\d{2}-\d{2}$/.test(a.le || "") ? a.le : "",
+      ancienne: F.includes(a.ancienne) ? a.ancienne : "A",
+      formule: F.includes(a.formule) ? a.formule : "A",
+      creneaux: t(a.creneaux, 200),
+      statut: ["acceptee", "refusee", "modifiee"].includes(a.statut) ? a.statut : "acceptee",
+      par: a.par === "rebecca" ? "rebecca" : "restaurant",
+      signataire: t(a.signataire, 60),
+      motif: t(a.motif, 200),
+    }));
+  }
   return r;
 }
 

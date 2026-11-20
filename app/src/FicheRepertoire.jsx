@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import ChoixAge from "./components/ChoixAge.jsx";
 import { Adresse, Famille } from "./Familles.jsx";
@@ -13,6 +13,12 @@ import { nomDe } from "./pricing/quiFait.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import SuiviBeaute from "./SuiviBeaute.jsx";
 import LienResto from "./components/LienResto.jsx";
+import { contratLisible } from "./components/ContratRestoVue.jsx";
+import { contratPdf, libelleFormuleResto, numeroContrat } from "./pricing/contratResto.js";
+import { ajouterHistorique, avenantPdf, historiqueAvenants, libelleStatutAvenant, ligneHistorique, texteAvenant } from "./pricing/avenantResto.js";
+import { partagerPdf } from "./pricing/pdfSimple.js";
+import { restoDepuisFiche } from "./pricing/restos.js";
+import { envoyerEmailA } from "./mailClient.js";
 import { nouvelIdCompte, soldeCompte } from "./pricing/comptesEntreNous.js";
 import { releveDuMois } from "./pricing/suiteClient.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
@@ -39,6 +45,7 @@ const ONGLETS = [
 // 19 nov. 2026 (Rebecca) : la fiche d'un restaurant n'est pas celle d'une famille -> Infos, Livraisons, Finances
 const ONGLETS_RESTO = [
   { id: "membres", l: "Infos" },
+  { id: "contrat", l: "Formule et contrat" }, // 20 nov. 2026 : contrat, avenants (PDF), formule modifiable
   { id: "historique", l: "Livraisons" },
   { id: "clientsResto", l: "Ses clients" },
   { id: "finances", l: "Finances" },
@@ -67,7 +74,29 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
   const enregistrer = async () => {
     try {
       const existe = rep.familles.some((x) => x.id === f.id);
-      await enregistrerRepertoire(rep.lieux, rep.corrections, existe ? rep.familles.map((x) => (x.id === f.id ? f : x)) : [...rep.familles, f]);
+      // 20 nov. 2026 (Rebecca) : formule changée par Rebecca -> une ligne dans l'historique + avenant envoyé au restaurant
+      let aGarder = f;
+      let avenantRebecca = null;
+      if (f.categorie === "commercants" && estAdmin) {
+        const avant = contratDe(rep.familles.find((x) => x.id === f.id) || {});
+        const apres = contratDe(f);
+        if (existe && (avant.formule !== apres.formule || (avecCreneaux(apres.formule) && String(avant.creneaux || "") !== String(apres.creneaux || "")))) {
+          avenantRebecca = { ancienne: avant.formule || "A", formule: apres.formule || "A", creneaux: apres.creneaux || "", signataire: "Rebecca Perez" };
+          aGarder = { ...f, contratPro: ajouterHistorique(f.contratPro, ligneHistorique({ jour: jourJ(), ...avenantRebecca, statut: "modifiee", par: "rebecca" })) };
+        }
+      }
+      await enregistrerRepertoire(rep.lieux, rep.corrections, existe ? rep.familles.map((x) => (x.id === f.id ? aGarder : x)) : [...rep.familles, aGarder]);
+      // Son espace se met à jour tout seul (nom, adresse, formule, créneaux, prix) : plus besoin de « 🔄 Mettre à jour »
+      const cleLien = aGarder.categorie === "commercants" && aGarder.contratPro && aGarder.contratPro.lienResto;
+      if (cleLien && estAdmin) {
+        const { actif: _a, ...champs } = restoDepuisFiche(aGarder); // eslint-disable-line no-unused-vars
+        await updateDoc(doc(db, "restos", cleLien), { ...champs, majLe: serverTimestamp() }).catch(() => {});
+      }
+      if (avenantRebecca) {
+        const email = String((aGarder.resto && aGarder.resto.email) || aGarder.email || "").trim();
+        const texte = texteAvenant({ nom: aGarder.nom, numero: "", av: avenantRebecca, contrat: contratDe(aGarder), jour: jourJ(), parRebecca: true });
+        if (email) await envoyerEmailA(email, aGarder.nom, `Avenant à votre contrat - ${aGarder.nom} - Rebecca Services`, `${texte}\n\n(Pas reçu dans la boîte principale ? Regardez dans les spams.)`).catch(() => false);
+      }
       setModifie(false);
       setMessage("C'est enregistré.");
       // 19 nov. 2026 (Rebecca) : une fois enregistrée, la fiche se referme et on revient au Répertoire
@@ -135,7 +164,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
           ) : (
             <>
               {estResto ? <InfosResto f={f} changer={changer} connues={connues} /> : <Membres f={f} changer={changer} connues={connues} />}
-              {f.categorie === "commercants" && <ContratPro f={f} changer={changer} />}
+              {f.categorie === "commercants" && !estResto && <ContratPro f={f} changer={changer} />}
               {f.categorie === "commercants" && estAdmin && <LienResto f={f} changer={changer} />}
               <div className="bloc">
                 <p className="rp-type">Contact et relances</p>
@@ -205,6 +234,7 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
         </section>
       )}
 
+      {ongletVu === "contrat" && estResto && f && <FormuleContrat f={f} changer={changer} />}
       {ongletVu === "suivi" && estAdmin && <SuiviBeaute cle={entree.cle} />}
       {ongletVu === "clientsResto" && estResto && <ClientsResto f={f} liste={liste} rep={rep} changer={changer} toutes={demandes || []} />}
       {ongletVu === "finances" && <FinancesFiche e={e} liste={liste} mouvements={mouvements || []} comptes={estAdmin ? comptes : []} familles={rep.familles} estAdmin={estAdmin} qui={qui} membres={membres} />}
@@ -617,5 +647,76 @@ function ReleveCommercant({ e, liste, mouvements }) {
       </div>
       {info && <p className="tdb-note" role="status">{info}</p>}
     </div>
+  );
+}
+
+// 20 nov. 2026 (Rebecca) : onglet « Formule et contrat » d'un restaurant partenaire.
+// Le contrat signé (date, validé, PDF), chaque changement de formule (avenant : accepté, refusé ou fait par
+// Rebecca, avec la date et le PDF), la demande en attente, puis la formule et les prix, modifiables.
+// Le restaurant change sa formule depuis son espace (« 📄 Ma formule ») ; Rebecca ici : les deux s'adaptent.
+const dt = (s) => (s ? String(s).slice(0, 10).split("-").reverse().join("/") : "");
+function FormuleContrat({ f, changer }) {
+  const r = f.resto || {};
+  const c = contratDe(f);
+  const [contrat, setContrat] = useState(undefined);
+  const [demande, setDemande] = useState(null);
+  const [info, setInfo] = useState("");
+  useEffect(() => {
+    if (!r.contratId) return setContrat(null);
+    getDoc(doc(db, "contratsRestos", r.contratId)).then((s) => setContrat(s.exists() ? contratLisible(s.data()) : null)).catch(() => setContrat(null));
+    return undefined;
+  }, [r.contratId]);
+  useEffect(() => {
+    if (!c.lienResto) return undefined;
+    return onSnapshot(doc(db, "avenantsResto", c.lienResto), (s) => setDemande(s.exists() && s.data().statut === "demandee" ? s.data() : null), () => setDemande(null));
+  }, [c.lienResto]);
+  const numero = contrat ? numeroContrat(r.contratId, contrat.signeLe) : "";
+  const pdfContrat = async () => {
+    setInfo("");
+    try { await partagerPdf(contratPdf(contrat, r.contratId), `Contrat-${numero}.pdf`, "Contrat de partenariat"); } catch { setInfo("PDF impossible pour l'instant."); }
+  };
+  const pdfAvenant = async (l) => {
+    setInfo("");
+    const av = { ancienne: l.ancienne, formule: l.formule, creneaux: l.creneaux, signataire: l.signataire || f.nom };
+    const texte = texteAvenant({ nom: f.nom, numero, av, contrat: c, jour: l.le, parRebecca: l.par === "rebecca" });
+    try { await partagerPdf(avenantPdf(texte, `Avenant ${f.nom} ${dt(l.le)}`), `Avenant-${String(f.nom || "restaurant").replace(/\s+/g, "-")}-${l.le}.pdf`, "Avenant au contrat"); } catch { setInfo("PDF impossible pour l'instant."); }
+  };
+  const historique = historiqueAvenants(f.contratPro);
+  return (
+    <section className="tdb-bloc">
+      <div className="bloc">
+        <p className="rp-type">📄 Contrat</p>
+        {contrat === undefined && <p className="tdb-note">Chargement…</p>}
+        {contrat === null && <p className="tdb-note">Pas de contrat signé en ligne (fiche créée à la main). Formule actuelle : {libelleFormuleResto(c.formule || "A")}.</p>}
+        {contrat && (
+          <>
+            <p>Contrat n° <b>{numero}</b> · formule de départ : {libelleFormuleResto(contrat.formule)}</p>
+            <p>✓ Signé le {dt(contrat.signeLe)} par {contrat.signataire}</p>
+            <p>{contrat.statut === "valide" ? `✓ Validé (contresigné) le ${dt(contrat.valideLe) || "—"}` : "⏳ Pas encore validé : il le sera quand tu crées son lien (onglet Infos)."}</p>
+            <div className="tb-actions">
+              <button type="button" className="tb-bouton tb-clair" onClick={pdfContrat}>📄 PDF du contrat</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="bloc">
+        <p className="rp-type">📝 Avenants (changements de formule)</p>
+        {demande && <p className="tdb-note">⏳ Demande en attente{demande.creeLe && demande.creeLe.toDate ? ` du ${demande.creeLe.toDate().toLocaleDateString("fr-FR")}` : ""} : {libelleFormuleResto(demande.ancienne)} → <b>{libelleFormuleResto(demande.formule)}</b>{demande.creneaux ? ` · ${demande.creneaux}` : ""}. Accepte ou refuse dans Partenaires.</p>}
+        {historique.length === 0 && !demande && <p className="tdb-note">Aucun changement de formule pour l'instant.</p>}
+        {historique.map((l, i) => (
+          <div key={i} className="rp-forfait" style={{ display: "block" }}>
+            <p><b>{dt(l.le)}</b> · {libelleFormuleResto(l.ancienne)} → <b>{libelleFormuleResto(l.formule)}</b> · {libelleStatutAvenant(l)}</p>
+            {l.creneaux && <p className="tdb-note">Créneaux : {l.creneaux}</p>}
+            {l.statut === "refusee" && l.motif && <p className="tdb-note">Motif : {l.motif}</p>}
+            {l.statut !== "refusee" && <button type="button" className="rp-waze" onClick={() => pdfAvenant(l)}>📄 PDF de l'avenant</button>}
+          </div>
+        ))}
+      </div>
+
+      <ContratPro f={f} changer={changer} />
+      <p className="tdb-note">Si tu changes la formule ou les créneaux ici, touche « Enregistrer la fiche » : son espace se met à jour tout seul, le changement s'ajoute aux avenants et le restaurant le reçoit par e-mail.</p>
+      {info && <p className="tdb-note" role="status">{info}</p>}
+    </section>
   );
 }

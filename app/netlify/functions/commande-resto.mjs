@@ -7,6 +7,7 @@
 // Mêmes variables Netlify que le robot : ROBOT_EMAIL, ROBOT_MDP, VAPID_PRIVEE. Règles Firebase v29.
 import { documentRest } from "../../src/pricing/rappelsAuto.js";
 import { messageNotifResto } from "../../src/pricing/restos.js";
+import { etatDisponibilite } from "../../src/pricing/disponibilite.js";
 import { envoyerNotification } from "../outils/webPush.mjs";
 
 const CLE_API = "AIzaSyDZOjiRg9tgHo620Dqw1PYJuBciJ80Enmg"; // cle publique du site (non secrete)
@@ -48,6 +49,8 @@ export default async function commandeResto(req) {
   const c = await lire(entetes, `restos/${cle}/commandesResto/${id}`);
   const creeLe = c ? Date.parse(c.creeLe || "") : NaN;
   if (!c || c.statut !== "nouvelle" || c.notifieLe || !Number.isFinite(creeLe) || Date.now() - creeLe > 3 * 60000) return reponse("rien à signaler");
+  // 20 nov. 2026 : pendant Chabbat et les fêtes, aucune notification (la commande programmée attend dans « À valider »)
+  if (etatDisponibilite(Date.now()).ouvert === false) return reponse("fermé : pas de notification");
   const reglage = (await lire(entetes, "reglages/alerteDemandes")) || {};
   if (reglage.notifications !== true) return reponse("notifications désactivées");
 

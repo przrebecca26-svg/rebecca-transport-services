@@ -29,6 +29,8 @@ export function prochaineEtape(fil = [], maintenantMin = 0) {
 export function etapeIci(fil = [], ici = null, maintenantMin = 0) {
   if (!aPos(ici)) return null;
   return [...fil]
+    // 20 nov. 2026 : une course cliente ne demande « Tu es arrivée ? » qu'après « 🚗 Partie » (ex. départ de chez moi)
+    .filter((e) => !(e.demandeId && e.sorte === "prise" && !e.partie))
     .filter((e) => e.genre === "arret" && aPos(e.adresse) && !e.fait && e.min >= maintenantMin - 45 && e.min <= maintenantMin + 60 && kmEntre(ici, e.adresse) <= RAYON_ARRIVEE_KM)
     .sort((a, b) => Math.abs(a.min - maintenantMin) - Math.abs(b.min - maintenantMin))[0] || null;
 }

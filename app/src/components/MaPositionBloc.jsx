@@ -5,7 +5,7 @@ import { calculerTrajetSur, dureeAvecTrafic, googleActif } from "../routing.js";
 import { arrondir, bilanArrivee, etapeIci, messageRetardCliente, ouSuisJe, PRECISION_MAX_M, prochaineEtape } from "../pricing/maPosition.js";
 import { champsEtape, parentsAPrevenir } from "../pricing/finCourse.js";
 import { messageRetard } from "../pricing/suiteClient.js";
-import { lienWhatsApp } from "../pricing/navigation.js";
+import { lienWazePoint, lienWhatsApp } from "../pricing/navigation.js";
 import { useRepertoire } from "../repertoireBase.js";
 import { sansAttendre } from "../ecritureRapide.js";
 
@@ -111,6 +111,9 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
   const dehors = ou === "dehors";
   const ici2 = dehors ? arrondir(ici) : null;
   const prochaine = dehors && ici2 ? prochaineEtape(fil, now) : null;
+  // 20 nov. 2026 : bouton Waze vers la prochaine étape, même sans position (pas besoin de descendre dans la liste)
+  const suivante = dehors ? prochaine || prochaineEtape(fil, now) : null;
+  const waze = suivante && suivante.adresse ? lienWazePoint(suivante.adresse) : "";
   const cleProchaine = prochaine ? `${prochaine.cle || prochaine.texte}@${prochaine.min}@${ici2.lat},${ici2.lon}` : "";
 
   // Temps de route depuis ici jusqu'à la prochaine étape (une fois par position / étape)
@@ -123,6 +126,7 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
 
   const bilan = prochaine && route && route.cle === cleProchaine ? bilanArrivee(prochaine, route.minutes, now) : null;
   const ouiFait = ici ? etapeIci(fil, ici, now) : null;
+  const surPlace = !!(ouiFait && prochaine && (ouiFait.cle || ouiFait.texte) === (prochaine.cle || prochaine.texte) && ouiFait.min === prochaine.min);
 
   // Liens « Prévenir du retard »
   const liensRetard = (() => {
@@ -174,13 +178,24 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
       )}
 
       {dehors && !ici2 && <p className="tb-note">Touche « 📍 Me localiser » : ton trajet jusqu'à la prochaine étape se calcule depuis là où tu es.</p>}
+      {suivante && !bilan && waze && (
+        <div className="tb-actions">
+          <span className="tb-note">🧭 {suivante.texte}{suivante.lieu ? ` · ${suivante.lieu}` : ""} à {enHeure(suivante.min)}</span>
+          <a className="tb-bouton" href={waze} target="_blank" rel="noopener noreferrer">Waze</a>
+        </div>
+      )}
       {dehors && ici2 && !prochaine && <p className="tb-note">Pas d'autre étape aujourd'hui.</p>}
       {prochaine && !bilan && <p className="tb-note">Calcul du trajet depuis ta position…</p>}
       {bilan && (
         <div className="ag-etape-actions">
           <p>🧭 Prochaine : <strong>{prochaine.texte}</strong>{prochaine.lieu ? ` · ${prochaine.lieu}` : ""} à {enHeure(prochaine.min)}</p>
-          <p className="tb-note">Depuis ta position : {route.minutes} min de route → arrivée vers {enHeure(bilan.arrivee)}.</p>
-          {bilan.aLHeure ? (
+          {!surPlace && <p className="tb-note">Depuis ta position : {route.minutes} min de route → arrivée vers {enHeure(bilan.arrivee)}.</p>}
+          {!surPlace && waze && <div className="tb-actions"><a className="tb-bouton" href={waze} target="_blank" rel="noopener noreferrer">Waze</a></div>}
+          {surPlace ? (
+            <p>📍 Tu es sur place.</p>
+          ) : bilan.aLHeure && bilan.partirAvant <= now ? (
+            <p>✅ À l'heure : pars maintenant.</p>
+          ) : bilan.aLHeure ? (
             <p>✅ À l'heure : pars au plus tard à <strong>{enHeure(bilan.partirAvant)}</strong> (5 min de marge).</p>
           ) : (
             <>

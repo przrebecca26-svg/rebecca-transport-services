@@ -117,6 +117,10 @@ test("où je suis : maison, arrivée, retard", () => {
   const fil = [{ min: 840, genre: "arret", adresse: gan, texte: "Prendre Joy", lieu: "Gan" }];
   egal(etapeIci(fil, { lat: 32.3201, lon: 34.8501 }, 835).texte, "Prendre Joy");
   egal(etapeIci(fil, { lat: 32.33, lon: 34.86 }, 835), null);
+  // 20 nov. 2026 : course cliente qui part de chez moi -> pas de « Tu es arrivée ? » avant « Partie »
+  const course = [{ min: 540, genre: "arret", adresse: maison, texte: "Récupérer (Deborah)", demandeId: "d1", sorte: "prise", partie: false }];
+  egal(etapeIci(course, maison, 508), null);
+  egal(etapeIci([{ ...course[0], partie: true }], maison, 508).texte, "Récupérer (Deborah)");
   const b = bilanArrivee(fil[0], 12, 835);
   egal(b.retard, 7);
   egal(bilanArrivee(fil[0], 3, 820).aLHeure, true);

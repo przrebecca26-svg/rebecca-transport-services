@@ -59,8 +59,12 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
   const [route, setRoute] = useState(null); // { cle, minutes }
   const deja = useRef(false);
   useEffect(() => onSnapshot(REF(), (s) => setReglage(s.exists() ? s.data() : {}), () => {}), []);
+  // 20 nov. 2026 (Rebecca : « À la maison depuis 12h44 » alors qu'elle venait de toucher « Je sors ») :
+  // la localisation automatique ne contredit pas un bouton touché il y a moins de 10 minutes
+  const reglageRef = useRef({});
+  reglageRef.current = reglage;
 
-  const noterOu = (ou) => sansAttendre(setDoc(REF(), { ou, ouLe: `${dateIsrael()}T${heureIsrael()}`, majLe: serverTimestamp() }, { merge: true })).catch(() => setInfo("Enregistrement impossible."));
+  const noterOu = (ou) => sansAttendre(setDoc(REF(), { ou, ouLe: `${dateIsrael()}T${heureIsrael()}`, ouMs: Date.now(), majLe: serverTimestamp() }, { merge: true })).catch(() => setInfo("Enregistrement impossible."));
 
   const localiser = (silencieux = false) => new Promise((fini) => {
     if (!navigator.geolocation) { if (!silencieux) setInfo("Ce téléphone ne donne pas sa position."); return fini(null); }
@@ -71,7 +75,9 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
         garderIci(x);
         window.dispatchEvent(new Event("rs-ici"));
         const ou = ouSuisJe(x, domicile);
-        if (ou) noterOu(ou);
+        const r = reglageRef.current || {};
+        const boutonRecent = silencieux && r.ouMs && Date.now() - r.ouMs < 10 * 60000 && r.ou && r.ou !== ou;
+        if (ou && !boutonRecent) noterOu(ou);
         // 19 nov. 2026, 19h : le bouton répond toujours quelque chose (avant : rien ne s'affichait à la maison)
         if (x.precision > PRECISION_MAX_M) setInfo(`Position approximative (à ${x.precision} m près) : touche « 📍 Préciser ma position ».`);
         else if (silencieux) setInfo("");
@@ -80,7 +86,7 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
         fini(x);
       },
       () => { if (!silencieux) setInfo("Position refusée : Réglages de l'iPhone → Rebecca admin → Position → « Lorsque l'app est active »."); setEnCours(false); fini(null); },
-      { enableHighAccuracy: true, maximumAge: silencieux ? 120000 : 0, timeout: 20000 }
+      { enableHighAccuracy: true, maximumAge: silencieux ? 30000 : 0, timeout: 20000 }
     );
   });
 

@@ -76,9 +76,15 @@ export function restoLu(r) {
 function contratLu(c) {
   const r = {};
   for (const k of ["jusqua3", "de3a6", "enPlus", "minimumCreneau", "parHeure", "tresLourd"]) if (prixLu(c[k]) !== undefined) r[k] = prixLu(c[k]);
-  if (c.formule === "A" || c.formule === "B") r.formule = c.formule;
+  if (["A", "B", "AB"].includes(c.formule)) r.formule = c.formule; // 20 nov. 2026 : A + B
   if (["Bit", "Revolut", "Espèces", "Virement"].includes(c.moyen)) r.moyen = c.moyen;
-  if (typeof c.creneaux === "string") r.creneaux = c.creneaux.slice(0, 120);
+  if (typeof c.creneaux === "string") r.creneaux = c.creneaux.slice(0, 200); // comme le contrat signé (200)
+  // 20 nov. 2026 : prix A d'un restaurant en B ou A + B (commandes hors créneaux)
+  if (c.prixA && typeof c.prixA === "object") {
+    const a = {};
+    for (const k of ["jusqua3", "de3a6", "enPlus", "tresLourd"]) if (prixLu(c.prixA[k]) !== undefined) a[k] = prixLu(c.prixA[k]);
+    if (Object.keys(a).length) r.prixA = a;
+  }
   if (typeof c.lienResto === "string" && /^[A-Za-z0-9]{20,40}$/.test(c.lienResto)) r.lienResto = c.lienResto;
   return r;
 }

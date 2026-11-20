@@ -6,6 +6,7 @@ import { useContratsRestos } from "../contratsRestosBase.js";
 import { LIEN_INSCRIPTION, TARIFS_STANDARD, numeroContrat, tarifsConformes, tarifsStandard } from "../pricing/contratResto.js";
 import { contratLisible } from "./ContratRestoVue.jsx";
 import GrilleKmResto from "./GrilleKmResto.jsx";
+import AvenantsRestoAdmin from "./AvenantsRestoAdmin.jsx";
 
 // RESTAURANTS PARTENAIRES (19 nov. 2026) - dans Partenaires, Rebecca seule.
 // Le lien d'inscription (le même pour tous), les contrats signés, et les prix standard des formules.
@@ -65,13 +66,14 @@ export default function RestosPartenaires({ aller }) {
         <a className="tb-bouton tb-clair" href={LIEN_INSCRIPTION} target="_blank" rel="noopener noreferrer">Voir la page</a>
       </div>
       <PrixStandard />
+      <AvenantsRestoAdmin />
       <p className="rp-type">Contrats ({liste ? liste.length : "…"})</p>
       {liste && !liste.length && <p className="tb-note">Aucun restaurant inscrit pour l'instant.</p>}
       {(liste || []).map((x) => {
         const c = contratLisible(x);
         return (
           <div key={c.id} className="rp-correction">
-            <b>{c.nom}</b> <span className="tb-note">· {STATUTS[c.statut] || c.statut} · formule {c.formule}</span>
+            <b>{c.nom}</b> <span className="tb-note">· {STATUTS[c.statut] || c.statut} · formule {c.formule === "AB" ? "A + B" : c.formule}</span>
             <p className="tdb-note">n° {numeroContrat(c.id, c.signeLe)} · {c.responsable} · {c.portable || c.telephone} · {c.email}</p>
             {reglage && !tarifsConformes(c, tarifsStandard(reglage)) && <p className="tdb-note">⚠️ Les prix signés ne sont plus les prix standard actuels (le contrat garde ceux du jour de la signature).</p>}
             {c.statut === "signe" && <p className="tdb-note">Pour l'activer : Répertoire → Commerçants → {c.nom} → « Créer le lien du restaurant » (ça contresigne le contrat).</p>}

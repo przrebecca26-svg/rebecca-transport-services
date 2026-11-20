@@ -141,7 +141,7 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
           <section className="pp-bloc">
             <h3>Les formules</h3>
             <div className="pp-formules">
-              {FORMULES_RESTO.map((x) => (
+              {FORMULES_RESTO.filter((x) => x.v !== "AB").map((x) => (
                 <div key={x.v} className="pp-formule">
                   <b>{x.titre}</b>
                   <p>{x.resume}</p>
@@ -153,6 +153,17 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
                     <li>Article très lourd (pack d'eau, carton lourd) : <strong>+{tarifs[x.v].tresLourd} ₪</strong> · sacs ordinaires sans supplément</li>
                     {x.v === "B" && <li>Minimum : <strong>{tarifs.B.parHeure} ₪ par heure de créneau</strong>, créneau de {MIN_HEURES} h au moins ({MIN_HEURES * tarifs.B.parHeure} ₪)</li>}
                     <li>Au-delà de 12 km : sur devis, accepté avant le départ{x.v === "B" ? " (compte dans le minimum du créneau)" : ""}</li>
+                  </ul>
+                </div>
+              ))}
+              {FORMULES_RESTO.filter((x) => x.v === "AB").map((x) => (
+                <div key={x.v} className="pp-formule">
+                  <b>{x.titre}</b>
+                  <p>{x.resume}</p>
+                  <ul>
+                    <li>Pendant vos créneaux réservés : <strong>prix B</strong> ({tarifs.B.jusqua3} ₪ jusqu'à 3 km…) et minimum de {tarifs.B.parHeure} ₪ par heure de créneau</li>
+                    <li>En dehors de vos créneaux : <strong>prix A</strong> ({tarifs.A.jusqua3} ₪ jusqu'à 3 km…), sans minimum, sous réserve de disponibilité</li>
+                    <li>Exemple : jeudi 19h-22h en B, le reste de la semaine à la demande en A</li>
                   </ul>
                 </div>
               ))}
@@ -217,11 +228,11 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
             {FORMULES_RESTO.map((x) => (
               <button key={x.v} type="button" className={"pp-formule pp-choix" + (f.formule === x.v ? " actif" : "")} aria-pressed={f.formule === x.v} onClick={() => maj("formule", x.v)}>
                 <b>{f.formule === x.v ? "✓ " : ""}{x.titre}</b>
-                <small>{tarifs[x.v].jusqua3} ₪ jusqu'à 3 km · {tarifs[x.v].de3a6} ₪ de 3 à 6 km{x.v === "B" ? ` · minimum ${tarifs.B.parHeure} ₪ par heure de créneau (${MIN_HEURES} h au moins)` : ""}</small>
+                <small>{x.v === "AB" ? `Créneaux au prix B (${tarifs.B.jusqua3} ₪ jusqu'à 3 km, minimum ${tarifs.B.parHeure} ₪ par heure) · hors créneaux au prix A (${tarifs.A.jusqua3} ₪ jusqu'à 3 km)` : `${tarifs[x.v].jusqua3} ₪ jusqu'à 3 km · ${tarifs[x.v].de3a6} ₪ de 3 à 6 km${x.v === "B" ? ` · minimum ${tarifs.B.parHeure} ₪ par heure de créneau (${MIN_HEURES} h au moins) · hors créneaux : prix A` : ""}`}</small>
               </button>
             ))}
           </div>
-          {f.formule === "B" && <label className="pp-champ">Vos créneaux réservés <span className="pp-oblig">*</span><input type="text" maxLength={200} value={f.creneaux} placeholder="Jour et heures (2 h minimum) : ex. jeudi 19h-21h, dim-jeu 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
+          {(f.formule === "B" || f.formule === "AB") && <label className="pp-champ">Vos créneaux réservés <span className="pp-oblig">*</span><input type="text" maxLength={200} value={f.creneaux} placeholder="Jour et heures (2 h minimum) : ex. jeudi 19h-21h, dim-jeu 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
           <label className="pp-champ">Paiement du relevé, chaque dimanche, par
             <select value={f.moyen} onChange={(e) => maj("moyen", e.target.value)}>{MOYENS.map((m) => <option key={m}>{m}</option>)}</select>
           </label>

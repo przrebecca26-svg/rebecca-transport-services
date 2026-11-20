@@ -6,9 +6,9 @@
 // PROVISOIRE : à faire relire par un juriste avant de l'utiliser largement.
 import { A4, couper, fabriquerPdfPages } from "./pdfSimple.js";
 import { MIN_HEURES, erreursCreneaux, lireCreneaux, minimumCreneau, tableauMinimums } from "./creneauxResto.js";
-import { KM_MAX_GRILLE, grilleKm } from "./commercants.js";
+import { KM_MAX_GRILLE, avecCreneaux, grilleKm } from "./commercants.js";
 
-export const VERSION_CONTRAT = "2026-11-20-2"; // 20 nov. 9h33 : décisions de Rebecca après la 3e relecture ChatGPT (demi-heures, créneaux joints, > 6 km, commande en plus, essai, créneau non assuré) ; 20 nov. : créneaux, minimum garanti, clients, moyens de paiement (relecture ChatGPT)
+export const VERSION_CONTRAT = "2026-11-20-3"; // 20 nov. 11h : formule A + B (Rebecca) ; // 20 nov. 9h33 : décisions de Rebecca après la 3e relecture ChatGPT (demi-heures, créneaux joints, > 6 km, commande en plus, essai, créneau non assuré) ; 20 nov. : créneaux, minimum garanti, clients, moyens de paiement (relecture ChatGPT)
 export const EMAIL_REBECCA = "rebecca.services.transport@gmail.com";
 export const LIEN_INSCRIPTION = "#/restaurant-partenaire";
 
@@ -34,8 +34,10 @@ export function tarifsStandard(reglage) {
 
 export const FORMULES_RESTO = [
   { v: "A", titre: "Formule A · À la demande, sans engagement de volume", resume: "Vous m'envoyez une livraison quand vous en avez besoin. Sans engagement de volume, aucun minimum de livraisons, sous réserve de disponibilité et d'acceptation de chaque demande." },
-  { v: "B", titre: "Formule B · Créneaux réservés, avec engagement", resume: "Pendant les créneaux que vous réservez (jour et heures), j'organise la disponibilité d'un livreur pour vos commandes. En échange d'un prix réduit, vous vous engagez sur ces créneaux : un minimum de facturation par créneau." },
+  { v: "B", titre: "Formule B · Créneaux réservés, avec engagement", resume: "Pendant les créneaux que vous réservez (jour et heures), j'organise la disponibilité d'un livreur pour vos commandes. En échange d'un prix réduit, vous vous engagez sur ces créneaux : un minimum de facturation par créneau. Une commande en dehors de vos créneaux est au prix de la formule A." },
+  { v: "AB", titre: "Formule A + B · Créneaux réservés et à la demande", resume: "Vos créneaux réservés au prix B (par exemple le jeudi soir), et le reste de la semaine à la demande au prix A. Le bon prix s'applique tout seul selon l'heure où la commande est prête." },
 ];
+export const libelleFormuleResto = (v) => (v === "AB" ? "A + B (créneaux réservés et à la demande)" : v === "B" ? "B (créneaux réservés)" : "A (à la demande)");
 export const FORMES = [
   { v: "patur", l: "Osek patur (עוסק פטור)" },
   { v: "murshe", l: "Osek murshe (עוסק מורשה)" },
@@ -57,8 +59,8 @@ export const formulaireVide = () => ({
 // Erreurs à corriger avant de signer ([] = tout est bon)
 export function erreursFormulaire(f, signature = "") {
   const e = [];
-  if (!["A", "B"].includes(f.formule)) e.push("Choisissez une formule.");
-  if (f.formule === "B") e.push(...erreursCreneaux(txt(f.creneaux, 200)));
+  if (!["A", "B", "AB"].includes(f.formule)) e.push("Choisissez une formule.");
+  if (avecCreneaux(f.formule)) e.push(...erreursCreneaux(txt(f.creneaux, 200)));
   if (!MOYENS.includes(f.moyen)) e.push("Choisissez un moyen de paiement.");
   if (txt(f.nom, 60).length < 2) e.push("Indiquez le nom du restaurant.");
   if (txt(f.nomLegal, 120).length < 2) e.push("Indiquez le nom légal (celui de l'osek ou de la société).");
@@ -106,7 +108,9 @@ export function signatureValide(s) {
 
 // Document envoyé à la base (contratsRestos/{id}) : uniquement ces champs (règles v30)
 export function contratPropre(f, tarifs, signature) {
-  const t = (tarifs && tarifs[f.formule]) || TARIFS_STANDARD[f.formule] || TARIFS_STANDARD.A;
+  const b = avecCreneaux(f.formule);
+  const t = (tarifs && tarifs[b ? "B" : "A"]) || TARIFS_STANDARD[b ? "B" : "A"];
+  const ta = (tarifs && tarifs.A) || TARIFS_STANDARD.A;
   const a = f.adresse || {};
   const adresse = { label: txt(a.label, 300) };
   if (typeof a.lat === "number" && typeof a.lon === "number") {
@@ -117,8 +121,10 @@ export function contratPropre(f, tarifs, signature) {
     version: VERSION_CONTRAT,
     statut: "signe",
     formule: f.formule,
-    tarifs: { jusqua3: t.jusqua3, de3a6: t.de3a6, enPlus: t.enPlus, minimumCreneau: f.formule === "B" ? t.minimumCreneau : 0, parHeure: f.formule === "B" ? t.parHeure ?? 75 : 0, tresLourd: t.tresLourd ?? 5 },
-    creneaux: f.formule === "B" ? txt(f.creneaux, 200) : "",
+    tarifs: { jusqua3: t.jusqua3, de3a6: t.de3a6, enPlus: t.enPlus, minimumCreneau: b ? t.minimumCreneau : 0, parHeure: b ? t.parHeure ?? 75 : 0, tresLourd: t.tresLourd ?? 5 },
+    // 20 nov. 2026 : B ou A + B -> prix A pour les commandes hors créneaux (règles v32)
+    ...(b ? { tarifsA: { jusqua3: ta.jusqua3, de3a6: ta.de3a6, enPlus: ta.enPlus, tresLourd: ta.tresLourd ?? 5 } } : {}),
+    creneaux: b ? txt(f.creneaux, 200) : "",
     moyen: f.moyen,
     nom: txt(f.nom, 60),
     nomLegal: txt(f.nomLegal, 120),
@@ -160,6 +166,7 @@ export function articlesContrat(c) {
       "Aucune livraison pendant Chabbat et les fêtes juives (Yom Tov) : arrêt 2 h avant l'entrée, reprise 1 h après la sortie, selon les horaires officiels d'Israël.",
       "Formule A : sans engagement de volume ; chaque demande est livrée sous réserve de disponibilité et de son acceptation par Rebecca Services, sans garantie de délai.",
       "Formule B : les créneaux réservés sont acceptés et enregistrés avec leur jour, leur heure de début et leur heure de fin (Annexe 1). Pendant les créneaux réservés et confirmés, Rebecca Services organise la disponibilité d'un livreur pour les commandes du Partenaire, dans les limites de la zone desservie et des capacités convenues. La réservation d'un créneau garantit cette organisation, mais ni un nombre illimité de livraisons simultanées ni un délai absolu : les heures de prise en charge sont confirmées selon le volume de commandes et la circulation.",
+      "Formule A + B : les créneaux réservés suivent les règles de la formule B ; en dehors de ces créneaux, les commandes suivent les règles et les prix de la formule A. En formule B seule, une commande prête en dehors des créneaux réservés est aussi livrée au prix de la formule A, sous réserve de disponibilité. Le prix applicable est déterminé par l'heure à laquelle la commande est prête.",
       "Tournées : plusieurs commandes peuvent être livrées dans la même tournée, en principe jusqu'à 4, et jusqu'à 7 quand elles sont sur le même trajet (une possibilité, selon la compatibilité des adresses, la capacité, les délais et la qualité, et non une garantie) ; une commande qui arrive pendant une tournée peut y être ajoutée si elle se trouve sur le chemin. Pour un volume plus important, les parties conviennent d'un deuxième livreur ou d'un créneau supplémentaire.",
     ] },
     { titre: "Article 3 – Demande de livraison", lignes: ["Le Partenaire envoie chaque demande depuis son espace Rebecca Services (ou par WhatsApp) avec : nom et téléphone du client, adresse complète (étage, code, instructions), heure à laquelle la commande sera prête. La demande n'est engagée qu'une fois acceptée dans l'application ; sans acceptation dans les 5 minutes, elle est refusée automatiquement et le Partenaire en est prévenu."] },
@@ -192,9 +199,10 @@ export function articlesContrat(c) {
     ] },
     { titre: "Article 11 – Litiges et signature électronique", lignes: ["Les parties cherchent d'abord un accord amiable. À défaut, le droit israélien s'applique et le tribunal compétent est celui de Netanya. Les parties acceptent la signature électronique de ce contrat ; chacune en reçoit une copie par e-mail."] },
     { titre: "Annexe 1 – Formule et prix choisis", lignes: [
-      `Formule choisie : ${c.formule === "B" ? "B. Créneaux réservés" : "A. À la demande"}.`,
-      `Livraison ${grilleKm(t).map((x) => `${x.de ? `de ${x.de} à ${x.a} km` : `jusqu'à ${x.a} km`} : ${shek(x.prix)}`).join(" · ")} · au-delà de ${KM_MAX_GRILLE} km : sur devis · commande en plus dans la même tournée : ${shek(t.enPlus)} · article très lourd : ${shek(t.tresLourd ?? 5)}.`,
-      ...(c.formule === "B" ? [
+      `Formule choisie : ${libelleFormuleResto(c.formule)}.`,
+      `${avecCreneaux(c.formule) ? "Prix pendant les créneaux réservés (formule B) : livraison" : "Livraison"} ${grilleKm(t).map((x) => `${x.de ? `de ${x.de} à ${x.a} km` : `jusqu'à ${x.a} km`} : ${shek(x.prix)}`).join(" · ")} · au-delà de ${KM_MAX_GRILLE} km : sur devis · commande en plus dans la même tournée : ${shek(t.enPlus)} · article très lourd : ${shek(t.tresLourd ?? 5)}.`,
+      ...(avecCreneaux(c.formule) ? [
+        `Prix en dehors des créneaux réservés (formule A) : livraison ${grilleKm(c.tarifsA || TARIFS_STANDARD.A).map((x) => `${x.de ? `de ${x.de} à ${x.a} km` : `jusqu'à ${x.a} km`} : ${shek(x.prix)}`).join(" · ")} · au-delà de ${KM_MAX_GRILLE} km : sur devis · commande en plus : ${shek((c.tarifsA || TARIFS_STANDARD.A).enPlus)} · article très lourd : ${shek((c.tarifsA || TARIFS_STANDARD.A).tresLourd ?? 5)}.`,
         `Créneaux réservés (jours, heures de début et de fin) : ${c.creneaux}.`,
         ...lireCreneaux(c.creneaux).filter((x) => x.heures).map((x) => `• ${x.texte} : ${String(x.heures).replace(".", ",")} h, minimum ${shek(minimumCreneau(x.heures, parHeureDe(t)))} par créneau.`),
         `Minimum garanti : ${shek(parHeureDe(t))} par heure de créneau, ${MIN_HEURES} heures au moins (${tableauMinimums(parHeureDe(t), t.jusqua3).map((l) => `${l.heures} h = ${shek(l.minimum)}`).join(" · ")}). Les livraisons réellement faites pendant le créneau comptent dans ce minimum, à leur tarif réel (par exemple ${shek(t.de3a6)} pour 3 à 6 km) ; si leur total est inférieur au minimum, seule la différence est facturée, jamais en plus des livraisons. Le minimum s'applique dès le premier créneau, y compris pendant le mois d'essai. Un créneau annulé moins de 24 h à l'avance reste dû au minimum ; annulé au moins 24 h avant, rien n'est dû.`,
@@ -224,7 +232,9 @@ export function emailContrat(c, id, lien) {
     `Bonjour ${c.responsable},`,
     "",
     `Merci ! Le contrat de partenariat livraison entre ${c.nom} et Rebecca Services est signé.`,
-    `Formule ${c.formule === "B" ? "B (créneaux réservés)" : "A (à la demande)"} · jusqu'à 3 km : ${c.tarifs.jusqua3} ₪ · de 3 à 6 km : ${c.tarifs.de3a6} ₪ · 6 à 9 km : ${grilleKm(c.tarifs)[2].prix} ₪ · 9 à 12 km : ${grilleKm(c.tarifs)[3].prix} ₪ · commande en plus : ${c.tarifs.enPlus} ₪ · paiement le dimanche par ${c.moyen}.`,
+    `Formule ${libelleFormuleResto(c.formule)}${avecCreneaux(c.formule) ? ` · créneaux réservés : ${c.creneaux} · prix pendant les créneaux` : ""} · jusqu'à 3 km : ${c.tarifs.jusqua3} ₪ · de 3 à 6 km : ${c.tarifs.de3a6} ₪ · 6 à 9 km : ${grilleKm(c.tarifs)[2].prix} ₪ · 9 à 12 km : ${grilleKm(c.tarifs)[3].prix} ₪ · commande en plus : ${c.tarifs.enPlus} ₪ · paiement le dimanche par ${c.moyen}.`,
+    "",
+    ...(avecCreneaux(c.formule) ? [`En dehors des créneaux : prix de la formule A · jusqu'à 3 km : ${(c.tarifsA || TARIFS_STANDARD.A).jusqua3} ₪ · de 3 à 6 km : ${(c.tarifsA || TARIFS_STANDARD.A).de3a6} ₪ · 6 à 9 km : ${grilleKm(c.tarifsA || TARIFS_STANDARD.A)[2].prix} ₪ · 9 à 12 km : ${grilleKm(c.tarifsA || TARIFS_STANDARD.A)[3].prix} ₪.`] : []),
     "",
     `Votre contrat complet (à garder, et en PDF) : ${lien}`,
     "",
@@ -319,12 +329,15 @@ export function ficheDepuisContrat(c, id, base) {
     categorie: "commercants",
     enfants: [],
     resto: { recuperation: c.recuperation || "", horaires: c.horaires || "", nomLegal: c.nomLegal || "", numero: c.numero || "", email: c.email || "", contratId: id },
-    contratPro: { formule: c.formule, jusqua3: c.tarifs.jusqua3, de3a6: c.tarifs.de3a6, enPlus: c.tarifs.enPlus, minimumCreneau: c.tarifs.minimumCreneau || 5, parHeure: c.tarifs.parHeure ?? (c.formule === "B" ? 75 : 0), tresLourd: c.tarifs.tresLourd ?? 5, moyen: c.moyen, creneaux: c.creneaux || "" },
+    contratPro: { formule: c.formule, jusqua3: c.tarifs.jusqua3, de3a6: c.tarifs.de3a6, enPlus: c.tarifs.enPlus, minimumCreneau: c.tarifs.minimumCreneau || 5, parHeure: c.tarifs.parHeure ?? (avecCreneaux(c.formule) ? 75 : 0), tresLourd: c.tarifs.tresLourd ?? 5, moyen: c.moyen, creneaux: c.creneaux || "", ...(avecCreneaux(c.formule) ? { prixA: { ...(c.tarifsA || TARIFS_STANDARD.A) } } : {}) },
   };
 }
 
 // Les tarifs signés sont-ils bien les tarifs standard ? (sinon, Rebecca est prévenue avant d'activer)
 export const tarifsConformes = (c, standard) => {
-  const s = standard && standard[c.formule];
-  return !!s && ["jusqua3", "de3a6", "enPlus"].every((k) => s[k] === c.tarifs[k]) && (c.tarifs.tresLourd === undefined || s.tresLourd === c.tarifs.tresLourd) && (c.formule !== "B" || (c.tarifs.parHeure === undefined ? s.minimumCreneau === c.tarifs.minimumCreneau : s.parHeure === c.tarifs.parHeure));
+  const b = avecCreneaux(c.formule);
+  const s = standard && standard[b ? "B" : "A"];
+  const sa = standard && standard.A;
+  const aOk = !b || !c.tarifsA || (!!sa && ["jusqua3", "de3a6", "enPlus"].every((k) => sa[k] === c.tarifsA[k]));
+  return !!s && aOk && ["jusqua3", "de3a6", "enPlus"].every((k) => s[k] === c.tarifs[k]) && (c.tarifs.tresLourd === undefined || s.tresLourd === c.tarifs.tresLourd) && (!b || (c.tarifs.parHeure === undefined ? s.minimumCreneau === c.tarifs.minimumCreneau : s.parHeure === c.tarifs.parHeure));
 };

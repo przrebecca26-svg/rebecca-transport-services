@@ -5,7 +5,8 @@
 //  - refus automatique si personne ne repond en 5 minutes ; personne en ligne = la commande ne part pas ;
 //  - « En ligne » : Accepter (la livraison va dans le Calendrier) / Refuser / Passer a Jeremy ou a un coursier.
 // Les courses du site restent prioritaires : la carte previent quand une course est deja prevue a cette heure-la.
-import { contratDe, prixPro, semaineDe } from "./commercants.js";
+import { avecCreneaux, contratDe, grilleA, prixPro, semaineDe } from "./commercants.js";
+import { dansCreneau } from "./creneauxResto.js";
 import { duDe, encaisseDe } from "./finCourse.js";
 import { telNormalise } from "./clients.js";
 
@@ -47,6 +48,9 @@ export function restoDepuisFiche(f) {
     telephone: String((f && f.telephone) || "").trim().slice(0, 20),
     adresse,
     tarifs: { jusqua3: c.jusqua3, de3a6: c.de3a6, enPlus: c.enPlus, tresLourd: c.tresLourd ?? 5 },
+    // 20 nov. 2026 : formule B / A + B -> ses créneaux et sa grille A (prix hors créneaux) ; règles v32
+    formule: ["A", "B", "AB"].includes(c.formule) ? c.formule : "A",
+    ...(avecCreneaux(c.formule) ? { creneaux: String(c.creneaux || "").slice(0, 200), tarifsA: grilleA(c) } : {}),
     moyen: c.moyen,
     ficheId: String((f && f.id) || "").slice(0, 40),
     actif: true,
@@ -139,6 +143,17 @@ export function heurePlus(heureActuelle, n) {
 }
 
 /* ---------- Prix et livraison ---------- */
+// 20 nov. 2026 (Rebecca) : la grille qui s'applique à une commande prête ce jour-là à cette heure-là.
+// Formule B ou A + B : dans un créneau réservé -> prix B ; en dehors -> prix A. Formule A : prix A.
+export function tarifsResto(resto, jour, heure) {
+  const r = resto || {};
+  const t = r.tarifs || {};
+  if (!avecCreneaux(r.formule)) return t;
+  if (dansCreneau(r.creneaux, jour, heure)) return t;
+  return r.tarifsA && typeof r.tarifsA === "object" ? r.tarifsA : grilleA({ formule: r.formule });
+}
+export const dansSonCreneau = (resto, jour, heure) => !!resto && avecCreneaux(resto.formule) && dansCreneau(resto.creneaux, jour, heure);
+
 // Prix du contrat selon les km (null = au-dela de 12 km ou km inconnus : Rebecca tape le prix)
 export function prixCommande(tarifs, km, tresLourds = 0) {
   const c = contratDe({ contratPro: tarifs || {} });

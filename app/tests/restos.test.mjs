@@ -3,7 +3,7 @@ import { test, egal, vrai, section } from "./outils.mjs";
 import {
   DELAI_REPONSE_MS, lireLienResto, lienResto, nouvelleCleResto, cleRestoValide, restoDepuisFiche, enLigneActif, peutCommander,
   validerCommande, commandePropre, etatCommande, secondesRestantes, compteARebours, heurePlus, prixCommande,
-  demandeDepuisCommande, coursesProches, majSuivi, releveResto, semaineResto, messageNotifResto, messageWhatsAppResto, messageLienResto,
+  demandeDepuisCommande, coursesProches, tarifsResto, dansSonCreneau, majSuivi, releveResto, semaineResto, messageNotifResto, messageWhatsAppResto, messageLienResto,
 } from "../src/pricing/restos.js";
 import { lireFamilles } from "../src/pricing/familles.js";
 import { lireCategories } from "../src/pricing/repertoire.js";
@@ -23,7 +23,7 @@ test("lien privé : lu seulement avec une clé valable", () => {
 const fiche = { id: "f1", nom: "Pizza Centrale", telephone: "0521234567", categorie: "commercants", domicile: { label: "Herzl 20, Netanya", lat: 32.33, lon: 34.85 }, contratPro: { jusqua3: 30, de3a6: 40, enPlus: 15, moyen: "Revolut" } };
 test("le restaurant depuis sa fiche du Répertoire", () => {
   const r = restoDepuisFiche(fiche);
-  egal(r, { nom: "Pizza Centrale", telephone: "0521234567", adresse: { label: "Herzl 20, Netanya", lat: 32.33, lon: 34.85 }, tarifs: { jusqua3: 30, de3a6: 40, enPlus: 15, tresLourd: 5 }, moyen: "Revolut", ficheId: "f1", actif: true });
+  egal(r, { nom: "Pizza Centrale", telephone: "0521234567", adresse: { label: "Herzl 20, Netanya", lat: 32.33, lon: 34.85 }, tarifs: { jusqua3: 30, de3a6: 40, enPlus: 15, tresLourd: 5 }, formule: "A", moyen: "Revolut", ficheId: "f1", actif: true });
   egal(restoDepuisFiche({ id: "f2", nom: "", telephone: "" }).tarifs, { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 });
 });
 
@@ -160,4 +160,37 @@ test("livraison restaurant : pas de fidélité, pas d'avis, message en route au 
   egal(rangFidelite(d, [d]), null);
   egal(avisADemander([d], "2026-11-19").length, 0);
   egal(messageEnRouteResto(d).includes("Bonjour Tesla") && messageEnRouteResto(d).includes("Ohi Sushi"), true);
+});
+
+// 20 nov. 2026 (Rebecca) : formule A + B / B -> prix B dans un créneau réservé, prix A en dehors
+test("formule A + B : le bon prix selon le jour et l'heure", () => {
+  const ficheAB = { id: "f9", nom: "Ohi", telephone: "0520000000", domicile: { label: "Herzl 1, Netanya", lat: 32.3, lon: 34.8 }, contratPro: { formule: "AB", jusqua3: 30, de3a6: 40, enPlus: 20, tresLourd: 5, parHeure: 75, creneaux: "jeudi 19h-21h", prixA: { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 }, moyen: "Bit" } };
+  const r = restoDepuisFiche(ficheAB);
+  egal(r.formule, "AB");
+  egal(r.creneaux, "jeudi 19h-21h");
+  egal(r.tarifsA, { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 });
+  // 2026-11-19 = jeudi
+  egal(tarifsResto(r, "2026-11-19", "19:00").jusqua3, 30, "début du créneau inclus");
+  egal(tarifsResto(r, "2026-11-19", "20:59").jusqua3, 30);
+  egal(tarifsResto(r, "2026-11-19", "21:00").jusqua3, 35, "fin du créneau exclue");
+  egal(tarifsResto(r, "2026-11-19", "18:30").jusqua3, 35);
+  egal(tarifsResto(r, "2026-11-18", "19:30").jusqua3, 35, "mercredi : prix A");
+  egal(prixCommande(tarifsResto(r, "2026-11-19", "19:30"), 8, 1), 55, "B 6-9 km = 50 + 5 lourd");
+  egal(prixCommande(tarifsResto(r, "2026-11-18", "19:30"), 8, 1), 60, "A 6-9 km = 55 + 5 lourd");
+  vrai(dansSonCreneau(r, "2026-11-19", "20:00"));
+  vrai(!dansSonCreneau(r, "2026-11-20", "20:00"));
+  // Formule B seule : hors créneau = prix A aussi
+  const rB = restoDepuisFiche({ ...ficheAB, contratPro: { ...ficheAB.contratPro, formule: "B" } });
+  egal(tarifsResto(rB, "2026-11-18", "12:00").jusqua3, 35);
+  // Ancien B sans prixA enregistré : prix A standard
+  const rB2 = restoDepuisFiche({ ...ficheAB, contratPro: { ...ficheAB.contratPro, formule: "B", prixA: undefined } });
+  egal(tarifsResto(rB2, "2026-11-18", "12:00"), { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 });
+  // Formule A : toujours sa grille, pas de créneaux
+  const rA = restoDepuisFiche(fiche);
+  egal(tarifsResto(rA, "2026-11-19", "19:30").jusqua3, 30);
+  vrai(!("creneaux" in rA));
+  // Fiche relue depuis la base : A + B et prix A gardés, créneaux jusqu'à 200 caractères
+  const [lue] = lireFamilles([{ ...ficheAB, categorie: "commercants" }]);
+  egal(lue.contratPro.formule, "AB");
+  egal(lue.contratPro.prixA, { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 });
 });

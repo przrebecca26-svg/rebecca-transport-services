@@ -11,7 +11,20 @@ export const CONTRAT_DEFAUT = { formule: "A", jusqua3: 35, de3a6: 45, enPlus: 20
 export const FORMULES = [
   { v: "A", l: "A. À la demande" },
   { v: "B", l: "B. Créneaux réservés" },
+  { v: "AB", l: "A + B. Créneaux réservés et à la demande" },
 ];
+// 20 nov. 2026 (Rebecca) : B ou A + B = il a des créneaux réservés. Dans un créneau : prix B (et minimum) ;
+// en dehors : prix A, tout seul. Le prix A d'un contrat B / A + B est dans « prixA ».
+export const avecCreneaux = (formule) => formule === "B" || formule === "AB";
+export const PRIX_A_DEFAUT = { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 };
+export const libelleFormule = (formule) => (FORMULES.find((x) => x.v === formule) || FORMULES[0]).l;
+// Grille A d'un contrat (lui-même s'il est en A)
+export function grilleA(c) {
+  if (!avecCreneaux(c.formule)) return { jusqua3: c.jusqua3, de3a6: c.de3a6, enPlus: c.enPlus, tresLourd: c.tresLourd ?? 5 };
+  const a = c.prixA && typeof c.prixA === "object" ? c.prixA : {};
+  const n = (k) => (Number.isFinite(Number(a[k])) && a[k] !== "" && a[k] != null ? Number(a[k]) : PRIX_A_DEFAUT[k]);
+  return { jusqua3: n("jusqua3"), de3a6: n("de3a6"), enPlus: n("enPlus"), tresLourd: n("tresLourd") };
+}
 export const contratDe = (f) => ({ ...CONTRAT_DEFAUT, ...((f && f.contratPro) || {}) });
 
 const plusJours = (jour, n) => {

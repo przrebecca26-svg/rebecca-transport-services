@@ -2,6 +2,7 @@
 // Depuis le dossier app : node tests/lancer.mjs
 import { bilan } from "./outils.mjs";
 await import("./metier.test.mjs");
+await import("./avenantResto.test.mjs");
 await import("./digital.test.mjs");
 await import("./coursiers.test.mjs");
 await import("./menuOrdre.test.mjs");

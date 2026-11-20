@@ -54,3 +54,10 @@ test("document : programmee seulement si demandé", () => {
   vrai(!("programmee" in commandePropre(f, "2026-11-20")));
   vrai(/22\/11\/2026/.test(messageNotifResto({ nom: "X" }, { ...f, jour: "2026-11-22", programmee: true }).corps));
 });
+
+import { messageWhatsAppResto } from "../src/pricing/restos.js";
+test("WhatsApp restaurant : jour programmé et prix", () => {
+  const m = messageWhatsAppResto("News test", { client: "T", telClient: "054", adresse: { label: "HaZohar 7" }, pretA: "19:30" }, { jour: "2026-11-26", prix: 30, km: 2.9, formule: "B" });
+  vrai(/programmée pour le 26\/11\/2026/.test(m) && /30 ₪ \(2.9 km, prix B\)/.test(m));
+  vrai(!/programmée/.test(messageWhatsAppResto("X", { client: "T" })));
+});

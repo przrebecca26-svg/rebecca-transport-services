@@ -279,15 +279,18 @@ export function messageNotifResto(resto, c) {
   };
 }
 // Message WhatsApp que le restaurant peut envoyer (et que Rebecca saisit ensuite)
-export function messageWhatsAppResto(nomResto, f) {
+// 20 nov. 2026 : + le jour (commande programmée) et le prix affiché au restaurant (extra = { jour, prix, km, formule })
+export function messageWhatsAppResto(nomResto, f, extra = {}) {
+  const jourFr = extra.jour ? String(extra.jour).split("-").reverse().join("/") : "";
   return [
     `Bonjour Rebecca, c'est ${nomResto} 🍕`,
-    "Une livraison :",
+    extra.jour ? `Une livraison programmée pour le ${jourFr} :` : "Une livraison :",
     String(f.client || "").trim() ? `Client : ${String(f.client).trim()}${f.telClient ? " · " + String(f.telClient).trim() : ""}` : "",
     f.adresse && f.adresse.label ? `Adresse : ${f.adresse.label}` : "",
     f.pretA ? `Prête à ${h(f.pretA)}` : "",
     lourdsDe(f) > 0 ? `Articles très lourds : ${lourdsDe(f)}` : "",
     String(f.note || "").trim() ? `Note : ${String(f.note).trim()}` : "",
+    typeof extra.prix === "number" ? `Prix de la livraison : ${extra.prix} ₪${typeof extra.km === "number" ? ` (${extra.km} km${extra.formule ? `, prix ${extra.formule}` : ""})` : ""}` : "",
   ].filter(Boolean).join("\n");
 }
 // Message du lien, envoye au restaurant par WhatsApp

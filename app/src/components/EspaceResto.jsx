@@ -71,7 +71,8 @@ export default function EspaceResto({ cle, onAccueil }) {
   }, [commandes, maintenant, cle]);
 
   if (resto === undefined) return <section className="carte-service" style={{ margin: 16 }}><p>Chargement…</p></section>;
-  if (resto === null) {
+  // 20 nov. 2026 (Rebecca) : lien désactivé = la page ne s'ouvre plus du tout (ni tarifs, ni commandes, ni relevé)
+  if (resto === null || resto.actif === false) {
     return (
       <section className="carte-service" style={{ margin: 16 }}>
         <h2>Espace restaurant</h2>

@@ -3,6 +3,7 @@ import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/f
 import { db } from "../firebase.js";
 import AddressField from "./AddressField.jsx";
 import SignatureDoigt from "./SignatureDoigt.jsx";
+import ChoixJoursHeures from "./ChoixJoursHeures.jsx";
 import { telBloque } from "../pagesSiteBase.js";
 import { SITE } from "../site.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
@@ -238,7 +239,11 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
               </button>
             ))}
           </div>
-          {(f.formule === "B" || f.formule === "AB") && <label className="pp-champ">Vos créneaux réservés <span className="pp-oblig">*</span><input type="text" maxLength={200} value={f.creneaux} placeholder="Jour et heures (2 h minimum) : ex. jeudi 19h-21h, dim-jeu 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
+          {(f.formule === "B" || f.formule === "AB") && (
+            <div className="pp-champ"><span>Vos créneaux réservés (2 h au moins) <span className="pp-oblig">*</span></span>
+              <ChoixJoursHeures valeur={f.creneaux} onChange={(v) => maj("creneaux", v)} minHeures={2} />
+            </div>
+          )}
           <label className="pp-champ">Paiement du relevé, chaque dimanche, par
             <select value={f.moyen} onChange={(e) => maj("moyen", e.target.value)}>{MOYENS.map((m) => <option key={m}>{m}</option>)}</select>
           </label>
@@ -254,7 +259,9 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
             <AddressField id="pp-adresse" valeur={f.adresse} position={false} onChange={(v) => maj("adresse", v)} />
           </div>
           <label className="pp-champ">Où récupérer les commandes (comptoir, porte de derrière, parking…)<input type="text" maxLength={200} value={f.recuperation} onChange={(e) => maj("recuperation", e.target.value)} /></label>
-          <label className="pp-champ">Horaires d'ouverture et jours de fermeture<input type="text" maxLength={200} value={f.horaires} placeholder="Ex. : dim-jeu 11h-23h, vendredi 11h-14h" onChange={(e) => maj("horaires", e.target.value)} /></label>
+          <div className="pp-champ"><span>Horaires d'ouverture (les jours non choisis = fermé)</span>
+            <ChoixJoursHeures valeur={f.horaires} onChange={(v) => maj("horaires", v)} minHeures={0} ajout="+ Ajouter des horaires" defaut={{ de: 0, a: 4, debut: "11:00", fin: "23:00" }} />
+          </div>
           <label className="pp-champ">Téléphone du restaurant <span className="pp-oblig">*</span><input type="tel" inputMode="tel" maxLength={20} value={f.telephone} onChange={(e) => maj("telephone", e.target.value)} /></label>
 
           <h3>3. Le responsable</h3>

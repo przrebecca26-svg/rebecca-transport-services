@@ -194,3 +194,18 @@ test("formule A + B : le bon prix selon le jour et l'heure", () => {
   egal(lue.contratPro.formule, "AB");
   egal(lue.contratPro.prixA, { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 });
 });
+
+import { HEURES_LISTE, erreurLigne, lignesDepuisTexte, texteDepuisLignes, lireCreneaux as lireC } from "../src/pricing/creneauxResto.js";
+test("créneaux et horaires en listes déroulantes : aller-retour avec le texte", () => {
+  egal(HEURES_LISTE[0], "06:00");
+  egal(HEURES_LISTE.at(-1), "24:00");
+  const t = texteDepuisLignes([{ de: 4, a: 4, debut: "19:00", fin: "21:00" }, { de: 0, a: 4, debut: "19:30", fin: "22:00" }, { de: 5, a: 0, debut: "11:00", fin: "14:00" }]);
+  egal(t, "jeudi 19h-21h, dim-jeu 19h30-22h, ven-dim 11h-14h");
+  const l = lireC(t);
+  egal(l.map((x) => [x.jours, x.debut, x.fin, x.heures]), [[[4], "19:00", "21:00", 2], [[0, 1, 2, 3, 4], "19:30", "22:00", 2.5], [[0, 5, 6], "11:00", "14:00", 3]]);
+  egal(lignesDepuisTexte(t), [{ de: 4, a: 4, debut: "19:00", fin: "21:00" }, { de: 0, a: 4, debut: "19:30", fin: "22:00" }, { de: 5, a: 0, debut: "11:00", fin: "14:00" }]);
+  egal(erreurLigne({ de: 4, a: 4, debut: "19:00", fin: "20:00" }), "Un créneau dure 2 heures au moins.");
+  egal(erreurLigne({ de: 4, a: 4, debut: "19:00", fin: "20:00" }, 0), "");
+  egal(erreurLigne({ de: 4, a: 4, debut: "21:00", fin: "19:00" }, 0), "L'heure de fin doit être après l'heure de début.");
+  egal(texteDepuisLignes([{ de: 4, a: 4, debut: "23:00", fin: "24:00" }]), "jeudi 23h-24h");
+});

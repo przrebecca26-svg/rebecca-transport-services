@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import SignatureDoigt from "./SignatureDoigt.jsx";
+import ChoixJoursHeures from "./ChoixJoursHeures.jsx";
 import { EMAIL_REBECCA, FORMULES_RESTO, libelleFormuleResto, tarifsStandard } from "../pricing/contratResto.js";
 import { avecCreneaux } from "../pricing/commercants.js";
 import { MIN_HEURES } from "../pricing/creneauxResto.js";
@@ -75,9 +76,9 @@ export default function FormuleResto({ cle, resto }) {
             </label>
           ))}
           {avecCreneaux(f.formule) && (
-            <label style={{ display: "block", marginTop: 8 }}>Vos créneaux réservés (2 h minimum)<br />
-              <input value={f.creneaux} maxLength={200} placeholder="Ex. : jeudi 19h-21h, dim-jeu 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} />
-            </label>
+            <div style={{ marginTop: 8 }}>Vos créneaux réservés (2 h au moins)
+              <ChoixJoursHeures valeur={f.creneaux} onChange={(v) => maj("creneaux", v)} minHeures={2} classe="" />
+            </div>
           )}
           <p className="tb-note">Vos prix actuels restent ceux de votre contrat ; les nouveaux prix s'appliquent dès que Rebecca accepte. Un créneau réservé annulé moins de 24 h avant reste dû au minimum.</p>
           <label style={{ display: "block" }}>Nom de la personne qui signe<br /><input value={f.signataire} maxLength={60} onChange={(e) => maj("signataire", e.target.value)} /></label>

@@ -31,7 +31,7 @@ const AVANTAGES = [
   ["📍", "Suivi et preuve", "Heure d'arrivée, suivi de la voiture, photo de remise si le client est absent."],
   ["🧾", "Un relevé clair chaque semaine", "Toutes les livraisons, le total et ce qui est payé : les mêmes chiffres des deux côtés."],
   ["🤝", "Vos clients restent les vôtres", "Je livre en votre nom et je ne démarche jamais vos clients."],
-  ["🔓", "Avec ou sans engagement, au choix", "Formule A sans engagement, formule B avec engagement sur vos créneaux. Dans les deux cas : un mois d'essai, puis arrêt possible à tout moment avec 7 jours de préavis."],
+  ["🔓", "Un mois d'essai", "Un mois d'essai, puis résiliation possible avec 7 jours de préavis."],
 ];
 const lienContrat = (id) => `${SITE}/#/contrat-resto/${id}`;
 const maintenantIsrael = () => {
@@ -147,11 +147,22 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
                     <li>Jusqu'à 3 km : <strong>{tarifs[x.v].jusqua3} ₪</strong></li>
                     <li>De 3 à 6 km : <strong>{tarifs[x.v].de3a6} ₪</strong></li>
                     <li>Commande en plus dans la même tournée : <strong>{tarifs[x.v].enPlus} ₪</strong></li>
-                    {x.v === "B" && <li>Minimum garanti : <strong>{tarifs.B.minimumCreneau} livraisons = {tarifs.B.minimumCreneau * tarifs.B.jusqua3} ₪</strong> par créneau (les livraisons faites comptent dedans)</li>}
+                    {x.v === "B" && <li>Minimum : <strong>{tarifs.B.minimumCreneau} livraisons payées par créneau</strong></li>}
                     <li>Au-delà de 6 km : sur devis</li>
                   </ul>
                 </div>
               ))}
+            </div>
+            <div className="pp-formule" style={{ marginTop: 12 }}>
+              <b>Formule B : le minimum par créneau</b>
+              <p>Chaque créneau réservé comporte un minimum de facturation équivalent à {tarifs.B.minimumCreneau} livraisons de base, soit {tarifs.B.minimumCreneau * tarifs.B.jusqua3} ₪ minimum. Si le montant des livraisons réellement effectuées dépasse ce minimum, seul leur montant réel est facturé.</p>
+              <ul>
+                {[0, 2, tarifs.B.minimumCreneau].map((n) => <li key={n}>{n} livraison{n > 1 ? "s" : ""}{n ? ` à ${tarifs.B.jusqua3} ₪` : ""} : <strong>{Math.max(n * tarifs.B.jusqua3, tarifs.B.minimumCreneau * tarifs.B.jusqua3)} ₪</strong></li>)}
+                <li>{tarifs.B.minimumCreneau} livraisons à {tarifs.B.de3a6} ₪ : <strong>{Math.max(tarifs.B.minimumCreneau * tarifs.B.de3a6, tarifs.B.minimumCreneau * tarifs.B.jusqua3)} ₪</strong></li>
+                <li>{tarifs.B.minimumCreneau + 1} livraisons à {tarifs.B.jusqua3} ₪ : <strong>{Math.max((tarifs.B.minimumCreneau + 1) * tarifs.B.jusqua3, tarifs.B.minimumCreneau * tarifs.B.jusqua3)} ₪</strong></li>
+              </ul>
+              <p>Le minimum n'est jamais ajouté une seconde fois au montant des livraisons. Toute annulation d'un créneau réservé moins de 24 heures avant son début entraîne la facturation du minimum garanti du créneau ; annulé au moins 24 heures avant, rien n'est facturé.</p>
+              <p>Pendant les créneaux réservés et confirmés, Rebecca Services organise la disponibilité d'un livreur pour vos commandes, dans les limites de la zone desservie et des capacités opérationnelles convenues. Les horaires de prise en charge sont confirmés selon le volume de commandes et les conditions de circulation.</p>
             </div>
             <p className="pp-note">Prix fixes, sans TVA (osek patur). Aucune livraison pendant Chabbat et les fêtes.</p>
           </section>
@@ -186,6 +197,7 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
           <button type="button" className="pp-retour" onClick={() => aller("conditions")}>← Retour aux conditions</button>
           <h2>Votre inscription</h2>
 
+          <p className="pp-note"><span className="pp-oblig">*</span> champ obligatoire</p>
           <h3>1. Votre formule</h3>
           <div className="pp-formules">
             {FORMULES_RESTO.map((x) => (
@@ -195,33 +207,33 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
               </button>
             ))}
           </div>
-          {f.formule === "B" && <label className="pp-champ">Vos créneaux réservés<input type="text" maxLength={200} value={f.creneaux} placeholder="Jour et heures : ex. jeudi 18h-21h, dimanche 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
+          {f.formule === "B" && <label className="pp-champ">Vos créneaux réservés <span className="pp-oblig">*</span><input type="text" maxLength={200} value={f.creneaux} placeholder="Jour et heures : ex. jeudi 18h-21h, dimanche 19h-22h" onChange={(e) => maj("creneaux", e.target.value)} /></label>}
           <label className="pp-champ">Paiement du relevé, chaque dimanche, par
             <select value={f.moyen} onChange={(e) => maj("moyen", e.target.value)}>{MOYENS.map((m) => <option key={m}>{m}</option>)}</select>
           </label>
 
           <h3>2. Votre restaurant</h3>
-          <label className="pp-champ">Nom du restaurant<input type="text" maxLength={60} value={f.nom} onChange={(e) => maj("nom", e.target.value)} /></label>
-          <label className="pp-champ">Nom légal (celui de l'osek ou de la société)<input type="text" maxLength={120} value={f.nomLegal} onChange={(e) => maj("nomLegal", e.target.value)} /></label>
-          <label className="pp-champ">Forme de l'entreprise
+          <label className="pp-champ">Nom du restaurant <span className="pp-oblig">*</span><input type="text" maxLength={60} value={f.nom} onChange={(e) => maj("nom", e.target.value)} /></label>
+          <label className="pp-champ">Nom légal (celui de l'osek ou de la société) <span className="pp-oblig">*</span><input type="text" maxLength={120} value={f.nomLegal} onChange={(e) => maj("nomLegal", e.target.value)} /></label>
+          <label className="pp-champ">Forme de l'entreprise <span className="pp-oblig">*</span>
             <select value={f.forme} onChange={(e) => maj("forme", e.target.value)}>{FORMES.map((x) => <option key={x.v} value={x.v}>{x.l}</option>)}</select>
           </label>
-          <label className="pp-champ">Numéro de l'entreprise (ח.פ / עוסק)<input type="text" inputMode="numeric" maxLength={12} value={f.numero} onChange={(e) => maj("numero", e.target.value)} /></label>
-          <div className="pp-champ"><span>Adresse du restaurant (où je récupère les commandes)</span>
+          <label className="pp-champ">Numéro de l'entreprise (ח.פ / עוסק) <span className="pp-oblig">*</span><input type="text" inputMode="numeric" maxLength={12} value={f.numero} onChange={(e) => maj("numero", e.target.value)} /></label>
+          <div className="pp-champ"><span>Adresse du restaurant (où je récupère les commandes) <span className="pp-oblig">*</span></span>
             <AddressField id="pp-adresse" valeur={f.adresse} position={false} onChange={(v) => maj("adresse", v)} />
           </div>
           <label className="pp-champ">Où récupérer les commandes (comptoir, porte de derrière, parking…)<input type="text" maxLength={200} value={f.recuperation} onChange={(e) => maj("recuperation", e.target.value)} /></label>
           <label className="pp-champ">Horaires d'ouverture et jours de fermeture<input type="text" maxLength={200} value={f.horaires} placeholder="Ex. : dim-jeu 11h-23h, vendredi 11h-14h" onChange={(e) => maj("horaires", e.target.value)} /></label>
-          <label className="pp-champ">Téléphone du restaurant<input type="tel" inputMode="tel" maxLength={20} value={f.telephone} onChange={(e) => maj("telephone", e.target.value)} /></label>
+          <label className="pp-champ">Téléphone du restaurant <span className="pp-oblig">*</span><input type="tel" inputMode="tel" maxLength={20} value={f.telephone} onChange={(e) => maj("telephone", e.target.value)} /></label>
 
           <h3>3. Le responsable</h3>
-          <label className="pp-champ">Nom et prénom<input type="text" maxLength={60} value={f.responsable} onChange={(e) => maj("responsable", e.target.value)} /></label>
+          <label className="pp-champ">Nom et prénom <span className="pp-oblig">*</span><input type="text" maxLength={60} value={f.responsable} onChange={(e) => maj("responsable", e.target.value)} /></label>
           <label className="pp-champ">Fonction (gérant, propriétaire…)<input type="text" maxLength={60} value={f.fonction} onChange={(e) => maj("fonction", e.target.value)} /></label>
-          <label className="pp-champ">Portable<input type="tel" inputMode="tel" maxLength={20} value={f.portable} onChange={(e) => maj("portable", e.target.value)} /></label>
-          <label className="pp-champ">E-mail (le contrat y sera envoyé)<input type="email" inputMode="email" maxLength={120} value={f.email} onChange={(e) => maj("email", e.target.value)} /></label>
+          <label className="pp-champ">Portable <span className="pp-oblig">*</span><input type="tel" inputMode="tel" maxLength={20} value={f.portable} onChange={(e) => maj("portable", e.target.value)} /></label>
+          <label className="pp-champ">E-mail (le contrat y sera envoyé) <span className="pp-oblig">*</span><input type="email" inputMode="email" maxLength={120} value={f.email} onChange={(e) => maj("email", e.target.value)} /></label>
 
           <h3>4. Signature</h3>
-          <label className="pp-champ">Nom de la personne qui signe<input type="text" maxLength={60} value={f.signataire} onChange={(e) => maj("signataire", e.target.value)} /></label>
+          <label className="pp-champ">Nom de la personne qui signe <span className="pp-oblig">*</span><input type="text" maxLength={60} value={f.signataire} onChange={(e) => maj("signataire", e.target.value)} /></label>
           <p className="pp-note">Signez avec le doigt dans le cadre :</p>
           <SignatureDoigt valeur={signature} onChange={setSignature} />
           <p className="pp-note">En signant, vous acceptez le contrat de partenariat livraison et ses conditions. Vous et Rebecca Services en recevez une copie par e-mail.</p>

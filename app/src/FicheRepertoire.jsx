@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 import ChoixAge from "./components/ChoixAge.jsx";
 import { Adresse, Famille } from "./Familles.jsx";
@@ -109,9 +109,11 @@ export default function FicheRepertoire({ entree, demandes, mouvements, estAdmin
   const supprimerFiche = async () => {
     const nom = String(f.nom || "").trim() || "sans nom";
     const lienActif = f.contratPro && f.contratPro.lienResto;
-    if (!window.confirm(`Supprimer la fiche « ${nom} » ?${lienActif ? "\nSon lien restaurant sera désactivé." : ""}\nLes courses déjà faites restent dans l'historique et les finances.`)) return;
+    if (!window.confirm(`Supprimer la fiche « ${nom} » ?${lienActif ? "\nSon lien restaurant sera désactivé." : ""}${f.resto && f.resto.contratId ? "\nSon contrat disparaît aussi de Partenaires." : ""}\nLes courses déjà faites restent dans l'historique et les finances.`)) return;
     try {
       if (lienActif) await updateDoc(doc(db, "restos", f.contratPro.lienResto), { actif: false, majLe: serverTimestamp() }).catch(() => {});
+      // 20 nov. 2026 : son contrat signé en ligne disparaît aussi de Partenaires
+      if (f.resto && f.resto.contratId) await deleteDoc(doc(db, "contratsRestos", f.resto.contratId)).catch(() => {});
       await enregistrerRepertoire(rep.lieux, rep.corrections, rep.familles.filter((x) => x.id !== f.id));
       retour(`🗑️ Fiche « ${nom} » supprimée.`);
     } catch {

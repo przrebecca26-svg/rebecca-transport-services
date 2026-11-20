@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { calculerTrajetSur, dureeAvecTrafic, googleActif } from "../routing.js";
-import { arrondir, bilanArrivee, etapeIci, messageRetardCliente, ouSuisJe, PRECISION_MAX_M, prochaineEtape } from "../pricing/maPosition.js";
+import { arrondir, bilanArrivee, dejaSurPlace, etapeIci, messageRetardCliente, ouSuisJe, PRECISION_MAX_M, prochaineEtape } from "../pricing/maPosition.js";
 import { champsEtape, parentsAPrevenir } from "../pricing/finCourse.js";
 import { messageRetard } from "../pricing/suiteClient.js";
 import { lienWazePoint, lienWhatsApp } from "../pricing/navigation.js";
@@ -114,19 +114,20 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
   // 20 nov. 2026 : bouton Waze vers la prochaine étape, même sans position (pas besoin de descendre dans la liste)
   const suivante = dehors ? prochaine || prochaineEtape(fil, now) : null;
   const waze = suivante && suivante.adresse ? lienWazePoint(suivante.adresse) : "";
-  const cleProchaine = prochaine ? `${prochaine.cle || prochaine.texte}@${prochaine.min}@${ici2.lat},${ici2.lon}` : "";
+  const surAdresse = !!(prochaine && dejaSurPlace(ici, prochaine));
+  const cleProchaine = prochaine && !surAdresse ? `${prochaine.cle || prochaine.texte}@${prochaine.min}@${ici2.lat},${ici2.lon}` : "";
 
   // Temps de route depuis ici jusqu'à la prochaine étape (une fois par position / étape)
   useEffect(() => {
-    if (!prochaine || !ici2) return undefined;
+    if (!prochaine || !ici2 || surAdresse) return undefined;
     let fini = false;
     minutesRoute(ici2, prochaine.adresse).then((m) => { if (!fini) setRoute({ cle: cleProchaine, minutes: m }); }).catch(() => {});
     return () => { fini = true; };
   }, [cleProchaine]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const bilan = prochaine && route && route.cle === cleProchaine ? bilanArrivee(prochaine, route.minutes, now) : null;
+  const bilan = surAdresse ? { retard: 0, aLHeure: true, arrivee: now, partirAvant: now } : prochaine && route && route.cle === cleProchaine ? bilanArrivee(prochaine, route.minutes, now) : null;
   const ouiFait = ici ? etapeIci(fil, ici, now) : null;
-  const surPlace = !!(ouiFait && prochaine && (ouiFait.cle || ouiFait.texte) === (prochaine.cle || prochaine.texte) && ouiFait.min === prochaine.min);
+  const surPlace = surAdresse || !!(ouiFait && prochaine && (ouiFait.cle || ouiFait.texte) === (prochaine.cle || prochaine.texte) && ouiFait.min === prochaine.min);
 
   // Liens « Prévenir du retard »
   const liensRetard = (() => {

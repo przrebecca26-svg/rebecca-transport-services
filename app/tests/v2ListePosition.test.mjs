@@ -95,7 +95,7 @@ test("tâche sans adresse = à la maison", () => {
 
 // 19 nov. 2026, 15h42 : emojis des notifications et « où je suis »
 import { lireStyles, styliser, typeDeTag, avecLocalisation, estDehors } from "../src/pricing/sonsNotif.js";
-import { ouSuisJe, etapeIci, bilanArrivee, prochaineEtape } from "../src/pricing/maPosition.js";
+import { ouSuisJe, etapeIci, bilanArrivee, prochaineEtape, dejaSurPlace } from "../src/pricing/maPosition.js";
 test("notifications : emoji par type", () => {
   egal(typeDeTag("avant-2026-11-19-x"), "partir");
   egal(typeDeTag("demandes-abc"), "nouvelle");
@@ -121,6 +121,8 @@ test("où je suis : maison, arrivée, retard", () => {
   const course = [{ min: 540, genre: "arret", adresse: maison, texte: "Récupérer (Deborah)", demandeId: "d1", sorte: "prise", partie: false }];
   egal(etapeIci(course, maison, 508), null);
   egal(etapeIci([{ ...course[0], partie: true }], maison, 508).texte, "Récupérer (Deborah)");
+  egal(dejaSurPlace(maison, course[0]), true);
+  egal(dejaSurPlace({ lat: 32.31, lon: 34.86 }, course[0]), false);
   const b = bilanArrivee(fil[0], 12, 835);
   egal(b.retard, 7);
   egal(bilanArrivee(fil[0], 3, 820).aLHeure, true);

@@ -35,6 +35,9 @@ export function etapeIci(fil = [], ici = null, maintenantMin = 0) {
     .sort((a, b) => Math.abs(a.min - maintenantMin) - Math.abs(b.min - maintenantMin))[0] || null;
 }
 
+// 20 nov. 2026 : déjà à l'adresse de l'étape (moins de 150 m) -> pas de trajet, pas de retard, pas de Waze
+export const dejaSurPlace = (ici, etape) => aPos(ici) && !!etape && aPos(etape.adresse) && kmEntre(ici, etape.adresse) <= RAYON_ARRIVEE_KM;
+
 // Arrivée prévue depuis ici et retard éventuel (minutes de route connues)
 export function bilanArrivee(etape, minutesRoute, maintenantMin, marge = 5) {
   if (!etape || !(minutesRoute >= 0)) return null;

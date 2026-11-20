@@ -4,13 +4,13 @@ import { db } from "../firebase.js";
 import AddressField from "./AddressField.jsx";
 import { WHATSAPP } from "../contact.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
-import { utcVersLocal, ajouterJours } from "../pricing/calendrier.js";
+import { utcVersLocal, ajouterJours, localVersUtc, periodesFermees } from "../pricing/calendrier.js";
 import { etatDisponibilite } from "../pricing/disponibilite.js";
 import { semaineDecalee } from "../pricing/commercants.js";
 import GrilleKmResto from "./GrilleKmResto.jsx";
 import FormuleResto from "./FormuleResto.jsx";
 import {
-  LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, releveResto,
+  JOURS_PROGRAMMATION, LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, peutProgrammer, releveResto,
   secondesRestantes, semaineResto, tarifsResto, validerCommande,
 } from "../pricing/restos.js";
 
@@ -30,6 +30,9 @@ export default function EspaceResto({ cle, onAccueil }) {
   const [erreur, setErreur] = useState("");
   const [envoi, setEnvoi] = useState(false);
   const [cleAdresse, setCleAdresse] = useState(0);
+  // 20 nov. 2026 : « Pour quand ? » aujourd'hui ou un autre jour (commande programmée)
+  const [quand, setQuand] = useState("auj");
+  const [jourChoisi, setJourChoisi] = useState("");
   const { date: jour, heure } = utcVersLocal(maintenant);
   const [semaine, setSemaine] = useState(() => semaineResto(utcVersLocal(Date.now()).date));
 
@@ -66,9 +69,20 @@ export default function EspaceResto({ cle, onAccueil }) {
     );
   }
 
-  const possible = peutCommander({ resto, etat, jour, dispo: etatDisponibilite(maintenant) });
+  const programmee = quand === "autre";
+  const jourCmd = programmee ? jourChoisi : jour;
+  const fermetureLe = (() => {
+    if (!programmee || !/^\d{4}-\d{2}-\d{2}$/.test(jourChoisi)) return "";
+    const t = localVersUtc(jourChoisi, f.pretA || "12:00");
+    const p = periodesFermees(jourChoisi, 1).find((x) => x.type !== "personnel" && x.debutUtc <= t && x.finUtc > t);
+    return p ? p.label : "";
+  })();
+  const possible = programmee
+    ? peutProgrammer({ resto, aujourdhui: jour, jourChoisi, pretA: f.pretA, dispo: etatDisponibilite(maintenant), fermeture: fermetureLe })
+    : peutCommander({ resto, etat, jour, dispo: etatDisponibilite(maintenant) });
   const maj = (k, v) => setF({ ...f, [k]: v });
   const envoyer = async () => {
+    if (programmee && !f.pretA) return setErreur("Indiquez l'heure à laquelle la commande sera prête.");
     const pret = { ...f, pretA: f.pretA || heurePlus(heure, 0) };
     const err = validerCommande(pret);
     if (err) return setErreur(err);
@@ -76,7 +90,7 @@ export default function EspaceResto({ cle, onAccueil }) {
     setErreur("");
     setEnvoi(true);
     try {
-      const ref = await addDoc(collection(db, "restos", cle, "commandesResto"), { ...commandePropre(pret, jour), creeLe: serverTimestamp() });
+      const ref = await addDoc(collection(db, "restos", cle, "commandesResto"), { ...commandePropre(pret, jourCmd, "lien", programmee), creeLe: serverTimestamp() });
       // Notification immédiate sur le téléphone de Rebecca (sans attendre le robot)
       fetch("/.netlify/functions/commande-resto", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cle, id: ref.id }) }).catch(() => {});
       setF(vide());
@@ -90,6 +104,7 @@ export default function EspaceResto({ cle, onAccueil }) {
   const annuler = (c) => updateDoc(doc(db, "restos", cle, "commandesResto", c.id), { statut: "annulee" }).catch(() => setErreur("Annulation impossible pour l'instant."));
 
   const duJour = commandes.filter((c) => c.jour === jour).sort((a, b) => (b.pretA || "").localeCompare(a.pretA || ""));
+  const aVenir = commandes.filter((c) => c.jour > jour && !["annulee", "refusee", "expiree"].includes(c.statut)).sort((a, b) => (a.jour + a.pretA).localeCompare(b.jour + b.pretA));
   const r = releveResto(commandes, semaine);
 
   return (
@@ -109,7 +124,7 @@ export default function EspaceResto({ cle, onAccueil }) {
         </details>
       )}
       <FormuleResto cle={cle} resto={resto} />
-      <p><strong>{possible.ok ? "🟢 Rebecca est en ligne : vous pouvez envoyer une commande." : "🔴 " + possible.raison}</strong></p>
+      <p><strong>{possible.ok ? (programmee ? "🟢 Vous pouvez programmer cette commande." : "🟢 Rebecca est en ligne : vous pouvez envoyer une commande.") : "🔴 " + possible.raison}</strong></p>
 
       <div className="carte-service" style={{ marginTop: 10 }}>
         <strong>Nouvelle livraison</strong>
@@ -117,16 +132,26 @@ export default function EspaceResto({ cle, onAccueil }) {
         <label>Téléphone du client<br /><input inputMode="tel" value={f.telClient} maxLength={20} onChange={(e) => maj("telClient", e.target.value)} /></label>
         <label htmlFor="resto-adresse">Adresse de livraison</label>
         <AddressField key={cleAdresse} id="resto-adresse" valeur={f.adresse} position={false} onChange={(v) => maj("adresse", v)} />
+        <p style={{ margin: "8px 0 4px" }}>Pour quand ?</p>
+        <p>
+          <button type="button" className={quand === "auj" ? "" : "bouton-secondaire"} style={{ marginRight: 6 }} onClick={() => setQuand("auj")}>Aujourd'hui</button>
+          <button type="button" className={quand === "autre" ? "" : "bouton-secondaire"} onClick={() => { setQuand("autre"); if (!jourChoisi) setJourChoisi(ajouterJours(jour, 1)); }}>📅 Un autre jour</button>
+        </p>
+        {programmee && (
+          <label>Jour de la livraison<br />
+            <input type="date" value={jourChoisi} min={ajouterJours(jour, 1)} max={ajouterJours(jour, JOURS_PROGRAMMATION)} onChange={(e) => setJourChoisi(e.target.value)} />
+          </label>
+        )}
         <label>Commande prête à<br />
           <input type="time" value={f.pretA} onChange={(e) => maj("pretA", e.target.value)} />
         </label>
-        <p>
-          {[0, 10, 15, 20, 30].map((n) => (
-            <button key={n} type="button" className="bouton-secondaire" style={{ marginRight: 6, marginBottom: 6 }} onClick={() => maj("pretA", heurePlus(heure, n))}>{n === 0 ? "Maintenant" : `+${n} min`}</button>
+        {!programmee && <p>
+          {[0, 10, 15, 20, 30, 45, 60, 90, 120].map((n) => (
+            <button key={n} type="button" className="bouton-secondaire" style={{ marginRight: 6, marginBottom: 6 }} onClick={() => maj("pretA", heurePlus(heure, n))}>{n === 0 ? "Maintenant" : n >= 60 ? `+${n / 60} h`.replace(".5 h", " h 30") : `+${n} min`}</button>
           ))}
-        </p>
-        {(resto.formule === "B" || resto.formule === "AB") && <p className="tb-note">{dansSonCreneau(resto, jour, f.pretA || heure) ? "🟢 Dans votre créneau réservé : prix B." : "Hors de vos créneaux réservés : prix A."}</p>}
-        <label>Articles très lourds (packs d'eau, cartons lourds) : +{tarifsResto(resto, jour, f.pretA || heure).tresLourd ?? 5} ₪ chacun · sacs ordinaires gratuits<br />
+        </p>}
+        {(resto.formule === "B" || resto.formule === "AB") && <p className="tb-note">{dansSonCreneau(resto, jourCmd, f.pretA || heure) ? "🟢 Dans votre créneau réservé : prix B." : "Hors de vos créneaux réservés : prix A."}</p>}
+        <label>Articles très lourds (packs d'eau, cartons lourds) : +{tarifsResto(resto, jourCmd, f.pretA || heure).tresLourd ?? 5} ₪ chacun · sacs ordinaires gratuits<br />
           <input type="number" inputMode="numeric" min={0} max={30} value={f.tresLourds || 0} onChange={(e) => maj("tresLourds", Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))))} style={{ width: 90 }} />
         </label>
         <br />
@@ -136,7 +161,7 @@ export default function EspaceResto({ cle, onAccueil }) {
           <button type="button" disabled={envoi || !possible.ok} onClick={envoyer}>{envoi ? "Envoi…" : "Envoyer la commande"}</button>{" "}
           <a className="bouton-secondaire" href={lienWhatsApp(WHATSAPP, messageWhatsAppResto(resto.nom, f))} target="_blank" rel="noopener noreferrer">💬 Par WhatsApp</a>
         </p>
-        <p className="tb-note">Sans réponse en 5 minutes, la commande est refusée automatiquement : vous pouvez alors la confier à quelqu'un d'autre.</p>
+        <p className="tb-note">{programmee ? "Commande programmée : Rebecca vous répond dès qu'elle la voit (pas de refus automatique). Vous pouvez l'annuler tant qu'elle n'a pas répondu." : "Sans réponse en 5 minutes, la commande est refusée automatiquement : vous pouvez alors la confier à quelqu'un d'autre."}</p>
       </div>
 
       <div className="carte-service" style={{ marginTop: 10 }}>
@@ -161,6 +186,19 @@ export default function EspaceResto({ cle, onAccueil }) {
           );
         })}
       </div>
+
+      {aVenir.length > 0 && (
+        <div className="carte-service" style={{ marginTop: 10 }}>
+          <strong>📅 Commandes programmées</strong>
+          {aVenir.map((c) => (
+            <div key={c.id} style={{ borderTop: "1px solid rgba(0,0,0,.1)", paddingTop: 8, marginTop: 8 }}>
+              <p><strong>{dfr(c.jour)} à {h(c.pretA)} · {c.client}</strong> · {c.adresse && c.adresse.label}</p>
+              <p>{c.statut === "nouvelle" ? "⏳ En attente de la réponse de Rebecca" : LIBELLES[c.statut] || c.statut}{c.statut === "acceptee" && typeof c.prix === "number" ? ` · ${c.prix} ₪` : ""}{c.statut === "refusee" && c.motif ? ` · ${c.motif}` : ""}</p>
+              {c.statut === "nouvelle" && <button type="button" className="bouton-secondaire" onClick={() => annuler(c)}>Annuler cette commande</button>}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="carte-service" style={{ marginTop: 10 }}>
         <strong>Relevé de la semaine</strong>

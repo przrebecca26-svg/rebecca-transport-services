@@ -5,6 +5,7 @@
 // Texte repris du modèle « Contrat de partenariat livraison – Restaurants et commerçants » (doc du projet).
 // PROVISOIRE : à faire relire par un juriste avant de l'utiliser largement.
 import { A4, couper, fabriquerPdfPages } from "./pdfSimple.js";
+import { MIN_HEURES, erreursCreneaux, lireCreneaux, minimumCreneau, tableauMinimums } from "./creneauxResto.js";
 
 export const VERSION_CONTRAT = "2026-11-20"; // 20 nov. : créneaux, minimum garanti, clients, moyens de paiement (relecture ChatGPT)
 export const EMAIL_REBECCA = "rebecca.services.transport@gmail.com";
@@ -12,8 +13,9 @@ export const LIEN_INSCRIPTION = "#/restaurant-partenaire";
 
 // Tarifs standard (Réglages → « Restaurants partenaires » ; ceux-ci si rien n'est réglé)
 export const TARIFS_STANDARD = {
-  A: { jusqua3: 35, de3a6: 45, enPlus: 20, minimumCreneau: 0 },
-  B: { jusqua3: 30, de3a6: 40, enPlus: 20, minimumCreneau: 5 },
+  // 20 nov. 2026 (Rebecca) : B = minimum 75 ₪ par heure de créneau, 2 h au moins ; +5 ₪ par article très lourd
+  A: { jusqua3: 35, de3a6: 45, enPlus: 20, minimumCreneau: 0, parHeure: 0, tresLourd: 5 },
+  B: { jusqua3: 30, de3a6: 40, enPlus: 20, minimumCreneau: 5, parHeure: 75, tresLourd: 5 },
 };
 const entier = (x, d, max = 1000) => {
   const n = Math.round(Number(x));
@@ -24,7 +26,7 @@ export function tarifsStandard(reglage) {
   const lire = (k) => {
     const s = r[k] && typeof r[k] === "object" ? r[k] : {};
     const d = TARIFS_STANDARD[k];
-    return { jusqua3: entier(s.jusqua3, d.jusqua3), de3a6: entier(s.de3a6, d.de3a6), enPlus: entier(s.enPlus, d.enPlus), minimumCreneau: entier(s.minimumCreneau, d.minimumCreneau, 50) };
+    return { jusqua3: entier(s.jusqua3, d.jusqua3), de3a6: entier(s.de3a6, d.de3a6), enPlus: entier(s.enPlus, d.enPlus), minimumCreneau: entier(s.minimumCreneau, d.minimumCreneau, 50), parHeure: k === "B" ? entier(s.parHeure, d.parHeure) : 0, tresLourd: entier(s.tresLourd, d.tresLourd) };
   };
   return { A: lire("A"), B: lire("B") };
 }
@@ -55,7 +57,7 @@ export const formulaireVide = () => ({
 export function erreursFormulaire(f, signature = "") {
   const e = [];
   if (!["A", "B"].includes(f.formule)) e.push("Choisissez une formule.");
-  if (f.formule === "B" && !/\d/.test(txt(f.creneaux, 200))) e.push("Indiquez vos créneaux réservés avec le jour et les heures de début et de fin (ex. jeudi 18h-21h).");
+  if (f.formule === "B") e.push(...erreursCreneaux(txt(f.creneaux, 200)));
   if (!MOYENS.includes(f.moyen)) e.push("Choisissez un moyen de paiement.");
   if (txt(f.nom, 60).length < 2) e.push("Indiquez le nom du restaurant.");
   if (txt(f.nomLegal, 120).length < 2) e.push("Indiquez le nom légal (celui de l'osek ou de la société).");
@@ -114,7 +116,7 @@ export function contratPropre(f, tarifs, signature) {
     version: VERSION_CONTRAT,
     statut: "signe",
     formule: f.formule,
-    tarifs: { jusqua3: t.jusqua3, de3a6: t.de3a6, enPlus: t.enPlus, minimumCreneau: f.formule === "B" ? t.minimumCreneau : 0 },
+    tarifs: { jusqua3: t.jusqua3, de3a6: t.de3a6, enPlus: t.enPlus, minimumCreneau: f.formule === "B" ? t.minimumCreneau : 0, parHeure: f.formule === "B" ? t.parHeure ?? 75 : 0, tresLourd: t.tresLourd ?? 5 },
     creneaux: f.formule === "B" ? txt(f.creneaux, 200) : "",
     moyen: f.moyen,
     nom: txt(f.nom, 60),
@@ -138,6 +140,8 @@ export function contratPropre(f, tarifs, signature) {
 export const numeroContrat = (id, jour) => `RSR-${String(jour || "").replace(/-/g, "").slice(0, 8)}-${String(id || "").slice(0, 4).toUpperCase()}`;
 
 const shek = (n) => `${n} ₪`;
+// Ancien contrat (19 nov., « 5 livraisons par créneau ») : 75 ₪ par heure par défaut
+const parHeureDe = (t) => (t && t.parHeure > 0 ? t.parHeure : 75);
 const formeTexte = (v) => (FORMES.find((x) => x.v === v) || {}).l || "";
 const jourFr = (d) => (/^\d{4}-\d{2}-\d{2}/.test(d || "") ? d.slice(0, 10).split("-").reverse().join("/") : "");
 
@@ -171,6 +175,7 @@ export function articlesContrat(c) {
     { titre: "Article 7 – Prix", lignes: [
       "Les prix sont ceux de l'Annexe 1, en shekels. Rebecca Services étant osek patur, aucune TVA n'est facturée. Les prix peuvent être revus avec un préavis écrit de 15 jours.",
       "Attente au restaurant : 10 minutes de tolérance après l'heure annoncée, puis 5 ₪ par tranche de 5 minutes. Client absent ou injoignable : appel au client et au Partenaire, attente de 10 minutes, puis retour de la commande ; livraison facturée + 50 % pour le retour. Annulation par le Partenaire : gratuite avant le départ du livreur, 50 % après le départ, 100 % une fois la commande récupérée. Erreur d'adresse : trajet supplémentaire facturé selon la grille.",
+      `Article très lourd (pack d'eau, carton lourd, caisse de boissons) : ${shek(t.tresLourd ?? 5)} par article, indiqué par le Partenaire dans sa demande. Les sacs ordinaires ne donnent lieu à aucun supplément, quel que soit leur nombre. Aucun pourcentage n'est jamais pris sur le montant des commandes : le prix de la livraison est le même quelle que soit la valeur de la commande.`,
       "Formule B : chaque créneau comporte un minimum de facturation (Annexe 1) ; les livraisons réellement faites pendant le créneau comptent dans ce minimum et le minimum n'est jamais ajouté une seconde fois. Une annulation du créneau moins de 24 heures avant son début entraîne la facturation du minimum ; annulé au moins 24 heures avant, rien n'est dû.",
       "Tous les frais supplémentaires (attente, retour, annulation, minimum de créneau) sont détaillés ligne par ligne dans le relevé de la semaine.",
     ] },
@@ -186,10 +191,11 @@ export function articlesContrat(c) {
     { titre: "Article 11 – Litiges et signature électronique", lignes: ["Les parties cherchent d'abord un accord amiable. À défaut, le droit israélien s'applique et le tribunal compétent est celui de Netanya. Les parties acceptent la signature électronique de ce contrat ; chacune en reçoit une copie par e-mail."] },
     { titre: "Annexe 1 – Formule et prix choisis", lignes: [
       `Formule choisie : ${c.formule === "B" ? "B. Créneaux réservés" : "A. À la demande"}.`,
-      `Livraison jusqu'à 3 km : ${shek(t.jusqua3)} · de 3 à 6 km : ${shek(t.de3a6)} · commande en plus dans la même tournée : ${shek(t.enPlus)} · au-delà de 6 km : sur devis.`,
+      `Livraison jusqu'à 3 km : ${shek(t.jusqua3)} · de 3 à 6 km : ${shek(t.de3a6)} · commande en plus dans la même tournée : ${shek(t.enPlus)} · article très lourd : ${shek(t.tresLourd ?? 5)} · au-delà de 6 km : sur devis.`,
       ...(c.formule === "B" ? [
         `Créneaux réservés (jours, heures de début et de fin) : ${c.creneaux}.`,
-        `Minimum garanti par créneau : ${t.minimumCreneau} livraisons au tarif jusqu'à 3 km, soit ${shek(t.minimumCreneau * t.jusqua3)}. Les livraisons réellement faites pendant le créneau comptent dans ce minimum, à leur tarif réel (par exemple 40 ₪ pour 3 à 6 km) ; si leur total est inférieur au minimum, seule la différence est facturée, jamais en plus des livraisons. Le minimum s'applique dès le premier créneau, y compris pendant le mois d'essai. Un créneau annulé moins de 24 h à l'avance reste dû au minimum.`,
+        ...lireCreneaux(c.creneaux).filter((x) => x.heures).map((x) => `• ${x.texte} : ${String(x.heures).replace(".", ",")} h, minimum ${shek(minimumCreneau(x.heures, parHeureDe(t)))} par créneau.`),
+        `Minimum garanti : ${shek(parHeureDe(t))} par heure de créneau, ${MIN_HEURES} heures au moins (${tableauMinimums(parHeureDe(t), t.jusqua3).map((l) => `${l.heures} h = ${shek(l.minimum)}`).join(" · ")}). Les livraisons réellement faites pendant le créneau comptent dans ce minimum, à leur tarif réel (par exemple ${shek(t.de3a6)} pour 3 à 6 km) ; si leur total est inférieur au minimum, seule la différence est facturée, jamais en plus des livraisons. Le minimum s'applique dès le premier créneau, y compris pendant le mois d'essai. Un créneau annulé moins de 24 h à l'avance reste dû au minimum ; annulé au moins 24 h avant, rien n'est dû.`,
       ] : []),
       `Moyen de paiement choisi : ${c.moyen}.`,
       `Adresse de récupération : ${(c.adresse && c.adresse.label) || ""}${c.recuperation ? " (" + c.recuperation + ")" : ""}.`,
@@ -311,12 +317,12 @@ export function ficheDepuisContrat(c, id, base) {
     categorie: "commercants",
     enfants: [],
     resto: { recuperation: c.recuperation || "", horaires: c.horaires || "", nomLegal: c.nomLegal || "", numero: c.numero || "", email: c.email || "", contratId: id },
-    contratPro: { formule: c.formule, jusqua3: c.tarifs.jusqua3, de3a6: c.tarifs.de3a6, enPlus: c.tarifs.enPlus, minimumCreneau: c.tarifs.minimumCreneau || 5, moyen: c.moyen, creneaux: c.creneaux || "" },
+    contratPro: { formule: c.formule, jusqua3: c.tarifs.jusqua3, de3a6: c.tarifs.de3a6, enPlus: c.tarifs.enPlus, minimumCreneau: c.tarifs.minimumCreneau || 5, parHeure: c.tarifs.parHeure ?? (c.formule === "B" ? 75 : 0), tresLourd: c.tarifs.tresLourd ?? 5, moyen: c.moyen, creneaux: c.creneaux || "" },
   };
 }
 
 // Les tarifs signés sont-ils bien les tarifs standard ? (sinon, Rebecca est prévenue avant d'activer)
 export const tarifsConformes = (c, standard) => {
   const s = standard && standard[c.formule];
-  return !!s && ["jusqua3", "de3a6", "enPlus"].every((k) => s[k] === c.tarifs[k]) && (c.formule !== "B" || s.minimumCreneau === c.tarifs.minimumCreneau);
+  return !!s && ["jusqua3", "de3a6", "enPlus"].every((k) => s[k] === c.tarifs[k]) && (c.tarifs.tresLourd === undefined || s.tresLourd === c.tarifs.tresLourd) && (c.formule !== "B" || (c.tarifs.parHeure === undefined ? s.minimumCreneau === c.tarifs.minimumCreneau : s.parHeure === c.tarifs.parHeure));
 };

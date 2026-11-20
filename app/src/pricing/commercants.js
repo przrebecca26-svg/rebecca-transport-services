@@ -7,7 +7,7 @@ import { duDe, encaisseDe } from "./finCourse.js";
 
 const cents = (x) => Math.round(x * 100) / 100;
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
-export const CONTRAT_DEFAUT = { formule: "A", jusqua3: 35, de3a6: 45, enPlus: 20, minimumCreneau: 5, moyen: "Bit", creneaux: "" };
+export const CONTRAT_DEFAUT = { formule: "A", jusqua3: 35, de3a6: 45, enPlus: 20, minimumCreneau: 5, parHeure: 75, tresLourd: 5, moyen: "Bit", creneaux: "" };
 export const FORMULES = [
   { v: "A", l: "A. À la demande" },
   { v: "B", l: "B. Créneaux réservés" },

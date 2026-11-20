@@ -15,7 +15,7 @@ import {
 // ESPACE RESTAURANT (V2, 19 nov. 2026) : page privée #/resto/CLE, sans compte (la clé du lien est l'accès).
 // Le restaurant envoie une livraison, voit la réponse en direct (refus automatique après 5 minutes sans réponse),
 // ses commandes des derniers jours et le relevé de la semaine (livraisons, dû, payé).
-const vide = () => ({ client: "", telClient: "", adresse: null, pretA: "", note: "" });
+const vide = () => ({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0 });
 const dfr = (d) => (d ? d.split("-").reverse().join("/") : "");
 const h = (x) => String(x || "").replace(":", "h");
 
@@ -110,6 +110,10 @@ export default function EspaceResto({ cle, onAccueil }) {
             <button key={n} type="button" className="bouton-secondaire" style={{ marginRight: 6, marginBottom: 6 }} onClick={() => maj("pretA", heurePlus(heure, n))}>{n === 0 ? "Maintenant" : `+${n} min`}</button>
           ))}
         </p>
+        <label>Articles très lourds (packs d'eau, cartons lourds) : +{(resto.tarifs && resto.tarifs.tresLourd) ?? 5} ₪ chacun · sacs ordinaires gratuits<br />
+          <input type="number" inputMode="numeric" min={0} max={30} value={f.tresLourds || 0} onChange={(e) => maj("tresLourds", Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))))} style={{ width: 90 }} />
+        </label>
+        <br />
         <label>Note pour le livreur (facultatif)<br /><input value={f.note} maxLength={300} onChange={(e) => maj("note", e.target.value)} placeholder="Ex. : 3e étage, code 1234, payé" /></label>
         {erreur && <p className="erreur" role="alert">{erreur}</p>}
         <p>

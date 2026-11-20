@@ -75,7 +75,7 @@ export function restoLu(r) {
 
 function contratLu(c) {
   const r = {};
-  for (const k of ["jusqua3", "de3a6", "enPlus", "minimumCreneau"]) if (prixLu(c[k]) !== undefined) r[k] = prixLu(c[k]);
+  for (const k of ["jusqua3", "de3a6", "enPlus", "minimumCreneau", "parHeure", "tresLourd"]) if (prixLu(c[k]) !== undefined) r[k] = prixLu(c[k]);
   if (c.formule === "A" || c.formule === "B") r.formule = c.formule;
   if (["Bit", "Revolut", "Espèces", "Virement"].includes(c.moyen)) r.moyen = c.moyen;
   if (typeof c.creneaux === "string") r.creneaux = c.creneaux.slice(0, 120);

@@ -23,8 +23,8 @@ test("lien privé : lu seulement avec une clé valable", () => {
 const fiche = { id: "f1", nom: "Pizza Centrale", telephone: "0521234567", categorie: "commercants", domicile: { label: "Herzl 20, Netanya", lat: 32.33, lon: 34.85 }, contratPro: { jusqua3: 30, de3a6: 40, enPlus: 15, moyen: "Revolut" } };
 test("le restaurant depuis sa fiche du Répertoire", () => {
   const r = restoDepuisFiche(fiche);
-  egal(r, { nom: "Pizza Centrale", telephone: "0521234567", adresse: { label: "Herzl 20, Netanya", lat: 32.33, lon: 34.85 }, tarifs: { jusqua3: 30, de3a6: 40, enPlus: 15 }, moyen: "Revolut", ficheId: "f1", actif: true });
-  egal(restoDepuisFiche({ id: "f2", nom: "", telephone: "" }).tarifs, { jusqua3: 35, de3a6: 45, enPlus: 20 });
+  egal(r, { nom: "Pizza Centrale", telephone: "0521234567", adresse: { label: "Herzl 20, Netanya", lat: 32.33, lon: 34.85 }, tarifs: { jusqua3: 30, de3a6: 40, enPlus: 15, tresLourd: 5 }, moyen: "Revolut", ficheId: "f1", actif: true });
+  egal(restoDepuisFiche({ id: "f2", nom: "", telephone: "" }).tarifs, { jusqua3: 35, de3a6: 45, enPlus: 20, tresLourd: 5 });
 });
 
 test("en ligne : seulement le jour même ; Chabbat et lien inactif bloquent", () => {

@@ -73,6 +73,7 @@ export default function CommandesResto({ aller }) {
               <p>👤 {c.client || "Client"}{c.telClient ? <> · <a className="rp-waze" href={lienWhatsApp(c.telClient)} target="_blank" rel="noopener noreferrer">{c.telClient}</a></> : null}</p>
               {c.adresse && c.adresse.label && <p>🏠 {c.adresse.label}</p>}
               {c.note && <p className="tdb-note">📝 {c.note}</p>}
+              {c.tresLourds > 0 && <p className="tdb-note">📦 {c.tresLourds} article{c.tresLourds > 1 ? "s" : ""} très lourd{c.tresLourds > 1 ? "s" : ""}</p>}
               {c.motif && <p className="tdb-note">Motif : {c.motif}</p>}
               {c.demandeId && (
                 <div className="rp-boutons">

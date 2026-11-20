@@ -23,6 +23,7 @@ import { clientsDuResto, ficheMaCliente, restosDuClient, FORMULES, contratDe, me
 import { validerMouvement } from "./pricing/comptes.js";
 import { champOperateur } from "./pricing/reverser.js";
 import { TARIFS } from "./pricing/config.js";
+import { demandeComplement, minimumsSemaine } from "./pricing/creneauxResto.js";
 
 // FICHE DU REPERTOIRE (13 nov. 2026, 09h13) : une fiche par famille ou par cliente, 4 onglets.
 // Membres (qui je veux : mari, mere, niece...), Enfants (ecoles, activites, horaires -> tournee), Historique (tout ce
@@ -478,10 +479,11 @@ function ContratPro({ f, changer }) {
       {nombre("jusqua3", "Livraison jusqu'à 3 km (₪)")}
       {nombre("de3a6", "Livraison de 3 à 6 km (₪)")}
       {nombre("enPlus", "Commande en plus dans la même tournée (₪)")}
-      {c.formule === "B" && nombre("minimumCreneau", "Minimum de livraisons payées par créneau")}
+      {nombre("tresLourd", "Article très lourd : supplément par article (₪)")}
+      {c.formule === "B" && nombre("parHeure", "Minimum par heure de créneau (₪) · 2 h au moins")}
       {c.formule === "B" && (
         <label className="champ">Créneaux réservés
-          <input value={c.creneaux} maxLength={120} placeholder="Ex. : jeudi 18h-21h, samedi soir" onChange={(x) => maj("creneaux", x.target.value)} />
+          <input value={c.creneaux} maxLength={120} placeholder="Ex. : jeudi 19h-21h, dim-jeu 19h-22h (2 h minimum)" onChange={(x) => maj("creneaux", x.target.value)} />
         </label>
       )}
       <label className="champ">Il paie chaque dimanche par
@@ -521,6 +523,21 @@ function ReleveCommercant({ e, liste, mouvements }) {
     setEnCours(false);
     return undefined;
   };
+  const minis = c.formule === "B" ? minimumsSemaine(c.creneaux, liste, r, c.parHeure) : [];
+  const facturer = async (o) => {
+    const d = demandeComplement(e.famille, o, c.moyen);
+    if (!d) return setInfo("Rien à facturer pour ce créneau (ou pas de téléphone sur la fiche).");
+    if (!window.confirm(`Facturer ${o.complement} ₪ à ${nom} pour compléter le minimum du créneau du ${dfr(o.date)} ${o.debut.replace(":", "h")}-${o.fin.replace(":", "h")} ?\n\nÀ ne faire que si le créneau a bien été réservé et n'a pas été annulé au moins 24 h avant.`)) return undefined;
+    setEnCours(true);
+    try {
+      await addDoc(collection(db, "demandes"), { ...d, creeLe: serverTimestamp() });
+      setInfo("✓ Complément ajouté au relevé de la semaine.");
+    } catch {
+      setInfo("Enregistrement impossible. Vérifie la connexion.");
+    }
+    setEnCours(false);
+    return undefined;
+  };
   return (
     <div className="bloc">
       <p className="rp-type">🍕 Relevé de la semaine</p>
@@ -535,6 +552,22 @@ function ReleveCommercant({ e, liste, mouvements }) {
             <li key={l.d.id}><span>{dfr(l.d.date)}{l.d.heure ? ` ${l.d.heure.replace(":", "h")}` : ""} · {l.d.nom || "livraison"}</span><strong>{l.du} ₪ <small>{l.reste === 0 ? "· payé" : `· reste ${l.reste} ₪`}</small></strong></li>
           ))}
         </ul>
+      )}
+      {minis.length > 0 && (
+        <>
+          <p className="tdb-note"><b>Créneaux réservés (formule B) · minimum {c.parHeure || 75} ₪ par heure</b></p>
+          <ul className="pm-resume">
+            {minis.map((o) => (
+              <li key={o.cle}>
+                <span>{dfr(o.date)} {o.debut.replace(":", "h")}-{o.fin.replace(":", "h")} · {o.heures} h · {o.nb} livraison{o.nb > 1 ? "s" : ""} = {o.livre} ₪ / minimum {o.minimum} ₪</span>
+                <strong>{o.facture ? "complément facturé" : o.complement === 0 ? "✓ minimum atteint" : (
+                  <button type="button" className="tb-bouton tb-clair" disabled={enCours} onClick={() => facturer(o)}>Facturer le complément ({o.complement} ₪)</button>
+                )}</strong>
+              </li>
+            ))}
+          </ul>
+          <p className="tdb-note">Le complément ne se facture que si le créneau était réservé et n'a pas été annulé au moins 24 h avant. Les livraisons comptent à leur vrai prix : on ne facture que la différence.</p>
+        </>
       )}
       <p className="tdb-note"><b>{r.nb} livraison{r.nb > 1 ? "s" : ""} · dû {r.du} ₪ · payé {r.paye} ₪ · reste {r.reste} ₪</b></p>
       <div className="tb-actions">

@@ -147,7 +147,7 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
       calculerTrajet(resto.adresse, c.adresse).then((t) => {
         if (fini) return;
         setTrajet(t);
-        const p = prixCommande(resto.tarifs, t.km);
+        const p = prixCommande(resto.tarifs, t.km, c.tresLourds);
         if (p != null) setPrix((x) => x || String(p));
       }).catch(() => {});
     }
@@ -214,7 +214,7 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
       <p><strong>Prête à {h(c.pretA)}</strong>{trajet ? ` · ${trajet.km} km · ${trajet.minutes} min` : ""}</p>
       <p className="tdb-note">📍 Récupérer : {resto.adresse ? resto.adresse.label : "—"}{resto.telephone ? <> · <a href={lienAppel(resto.telephone)}>{resto.telephone}</a></> : null}</p>
       <p className="tdb-note">🏠 Livrer : {c.adresse ? c.adresse.label : "—"}</p>
-      <p className="tdb-note">👤 {c.client} · <a href={lienAppel(c.telClient)}>{c.telClient}</a>{c.note ? ` · ${c.note}` : ""}</p>
+      <p className="tdb-note">👤 {c.client} · <a href={lienAppel(c.telClient)}>{c.telClient}</a>{c.note ? ` · ${c.note}` : ""}{c.tresLourds > 0 ? ` · 📦 ${c.tresLourds} article${c.tresLourds > 1 ? "s" : ""} très lourd${c.tresLourds > 1 ? "s" : ""}` : ""}</p>
       {proches.length > 0 && <p className="tdb-note">⚠️ Tes courses passent avant : {proches.map((d) => `${h(d.heure)} ${d.serviceTitre || d.service} (${d.nom || ""})`).join(" · ")}</p>}
       <label className="champ">Prix de la livraison (₪)
         <input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value.replace(/[^0-9.,]/g, ""))} placeholder={trajet ? "au-delà de 6 km : ton prix" : "km inconnus : ton prix"} />
@@ -235,7 +235,7 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
 // Commande reçue par WhatsApp : Rebecca la saisit, elle est acceptée tout de suite (livraison dans le Calendrier)
 function SaisieWhatsApp({ restos, jour, heure, fermer }) {
   const [cle, setCle] = useState(restos[0] ? restos[0].cle : "");
-  const [f, setF] = useState({ client: "", telClient: "", adresse: null, pretA: "", note: "" });
+  const [f, setF] = useState({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0 });
   const [prix, setPrix] = useState("");
   const [trajet, setTrajet] = useState(null);
   const [info, setInfo] = useState("");
@@ -249,12 +249,12 @@ function SaisieWhatsApp({ restos, jour, heure, fermer }) {
       calculerTrajet(resto.adresse, f.adresse).then((t) => {
         if (fini) return;
         setTrajet(t);
-        const p = prixCommande(resto.tarifs, t.km);
+        const p = prixCommande(resto.tarifs, t.km, f.tresLourds);
         if (p != null) setPrix(String(p));
       }).catch(() => {});
     }
     return () => { fini = true; };
-  }, [cle, f.adresse && f.adresse.label]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cle, f.adresse && f.adresse.label, f.tresLourds]); // eslint-disable-line react-hooks/exhaustive-deps
   const enregistrer = async () => {
     const pret = { ...f, pretA: f.pretA || heurePlus(heure, 0) };
     const err = validerCommande(pret);
@@ -273,7 +273,7 @@ function SaisieWhatsApp({ restos, jour, heure, fermer }) {
       b.set(refC, { ...sansId, prix: demande.prixFinal, km: trajet ? trajet.km : null, demandeId: refD.id, arriveeVers: pret.pretA, par: "Rebecca", creeLe: serverTimestamp() });
       await b.commit();
       setInfo(`✓ Livraison de ${h(pret.pretA)} ajoutée au Calendrier (${demande.prixFinal} ₪, relevé de ${resto.nom}).`);
-      setF({ client: "", telClient: "", adresse: null, pretA: "", note: "" });
+      setF({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0 });
       setPrix("");
     } catch {
       setInfo("Impossible pour l'instant : vérifie la connexion et les règles Firebase v29.");
@@ -295,6 +295,7 @@ function SaisieWhatsApp({ restos, jour, heure, fermer }) {
       <div className="tb-actions">
         {[0, 10, 20, 30].map((n) => <button key={n} type="button" className="tb-bouton tb-clair" onClick={() => maj("pretA", heurePlus(heure, n))}>{n === 0 ? "Maintenant" : `+${n} min`}</button>)}
       </div>
+      <label className="champ">Articles très lourds (packs d'eau…) · +{(resto && resto.tarifs && resto.tarifs.tresLourd) ?? 5} ₪ chacun<input type="number" inputMode="numeric" value={f.tresLourds || 0} onChange={(e) => maj("tresLourds", Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))))} /></label>
       <label className="champ">Note (facultatif)<input value={f.note} maxLength={300} onChange={(e) => maj("note", e.target.value)} /></label>
       <label className="champ">Prix (₪){trajet ? ` · ${trajet.km} km` : ""}<input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value.replace(/[^0-9.,]/g, ""))} /></label>
       {info && <p className="tdb-note" role="status">{info}</p>}

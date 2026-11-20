@@ -3,6 +3,8 @@ rules_version = '2';
 //   - assistance/{ID} : conversation ouverte par un client (avec ou sans compte) depuis le bouton « 💬 Assistance ».
 //     Lecture par le lien (identifiant impossible a deviner) ; la liste : Rebecca seule. Le client signale seulement
 //     « nouveau message » ; Rebecca change le statut. Le robot note seulement « notification envoyee » (notifieLe).
+//   - 20 nov. : contrat resto avec parHeure (minimum par heure de creneau B) et tresLourd (article tres lourd) ;
+//     restos/{CLE}.tarifs accepte tresLourd ; une commande resto peut porter tresLourds (0 a 30).
 //   - assistance/{ID}/messages : messages du client (tant que la conversation n'est pas resolue) et de Rebecca.
 // Regles Rebecca Services v30 (19 novembre 2026, restaurants partenaires inscrits en ligne) = v29 +
 //   - contratsRestos/{ID} : un restaurant (sans compte) signe le contrat de partenariat sur #/restaurant-partenaire.
@@ -1196,7 +1198,7 @@ service cloud.firestore {
         && request.resource.data.nom is string && request.resource.data.nom.size() > 0 && request.resource.data.nom.size() <= 60
         && request.resource.data.telephone is string && request.resource.data.telephone.size() <= 20
         && (request.resource.data.adresse == null || adresseResto(request.resource.data.adresse))
-        && request.resource.data.tarifs is map && request.resource.data.tarifs.keys().hasOnly(["jusqua3", "de3a6", "enPlus"])
+        && request.resource.data.tarifs is map && request.resource.data.tarifs.keys().hasOnly(["jusqua3", "de3a6", "enPlus", "tresLourd"])
         && request.resource.data.moyen is string && request.resource.data.moyen.size() <= 20
         && request.resource.data.ficheId is string && request.resource.data.ficheId.size() <= 40
         && request.resource.data.actif is bool
@@ -1207,19 +1209,21 @@ service cloud.firestore {
         allow read: if true;
         allow delete: if estAdmin();
         // Le restaurant : lien actif et Rebecca « En ligne » ce jour-la
-        allow create: if request.resource.data.keys().hasOnly(["client", "telClient", "adresse", "pretA", "note", "jour", "statut", "source", "creeLe"])
+        allow create: if request.resource.data.keys().hasOnly(["client", "telClient", "adresse", "pretA", "note", "jour", "statut", "source", "creeLe", "tresLourds"])
           && request.resource.data.statut == "nouvelle" && request.resource.data.source == "lien"
           && request.resource.data.creeLe == request.time
+          && (!("tresLourds" in request.resource.data) || (request.resource.data.tresLourds is int && request.resource.data.tresLourds >= 0 && request.resource.data.tresLourds <= 30))
           && commandeRestoValide(request.resource.data)
           && get(/databases/$(database)/documents/restos/$(cle)).data.actif == true
           && get(/databases/$(database)/documents/restosEtat/enLigne).data.enLigne == true
           && get(/databases/$(database)/documents/restosEtat/enLigne).data.jour == request.resource.data.jour;
         // Rebecca : commande recue par WhatsApp, acceptee tout de suite
         allow create: if estAdmin()
-          && request.resource.data.keys().hasOnly(["client", "telClient", "adresse", "pretA", "note", "jour", "statut", "source", "creeLe", "prix", "km", "demandeId", "arriveeVers", "par"])
+          && request.resource.data.keys().hasOnly(["client", "telClient", "adresse", "pretA", "note", "jour", "statut", "source", "creeLe", "prix", "km", "demandeId", "arriveeVers", "par", "tresLourds"])
           && request.resource.data.statut == "acceptee" && request.resource.data.source == "whatsapp"
           && request.resource.data.creeLe == request.time
           && request.resource.data.prix is number && request.resource.data.prix > 0 && request.resource.data.prix <= 2000
+          && (!("tresLourds" in request.resource.data) || (request.resource.data.tresLourds is int && request.resource.data.tresLourds >= 0 && request.resource.data.tresLourds <= 30))
           && commandeRestoValide(request.resource.data);
         // Le restaurant annule sa commande tant qu'elle attend ; apres 5 minutes sans reponse elle est refusee
         allow update: if resource.data.statut == "nouvelle"
@@ -1242,12 +1246,14 @@ service cloud.firestore {
 
     // v30 : contrat de partenariat signe en ligne par un restaurant (page publique #/restaurant-partenaire)
     function tarifsContrat(t) {
-      return t is map && t.keys().hasOnly(["jusqua3", "de3a6", "enPlus", "minimumCreneau"])
-        && t.keys().hasAll(["jusqua3", "de3a6", "enPlus", "minimumCreneau"])
+      return t is map && t.keys().hasOnly(["jusqua3", "de3a6", "enPlus", "minimumCreneau", "parHeure", "tresLourd"])
+        && t.keys().hasAll(["jusqua3", "de3a6", "enPlus", "minimumCreneau", "parHeure", "tresLourd"])
         && t.jusqua3 is int && t.jusqua3 >= 0 && t.jusqua3 <= 999
         && t.de3a6 is int && t.de3a6 >= 0 && t.de3a6 <= 999
         && t.enPlus is int && t.enPlus >= 0 && t.enPlus <= 999
-        && t.minimumCreneau is int && t.minimumCreneau >= 0 && t.minimumCreneau <= 50;
+        && t.minimumCreneau is int && t.minimumCreneau >= 0 && t.minimumCreneau <= 50
+        && t.parHeure is int && t.parHeure >= 0 && t.parHeure <= 999
+        && t.tresLourd is int && t.tresLourd >= 0 && t.tresLourd <= 999;
     }
     function contratRestoValide() {
       let d = request.resource.data;

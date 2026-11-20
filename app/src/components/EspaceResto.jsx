@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase.js";
 import AddressField from "./AddressField.jsx";
+import { calculerTrajet } from "../routing.js";
 import { WHATSAPP } from "../contact.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { utcVersLocal, ajouterJours, localVersUtc, periodesFermees } from "../pricing/calendrier.js";
@@ -10,7 +11,7 @@ import { semaineDecalee } from "../pricing/commercants.js";
 import GrilleKmResto from "./GrilleKmResto.jsx";
 import FormuleResto from "./FormuleResto.jsx";
 import {
-  JOURS_PROGRAMMATION, LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, peutProgrammer, releveResto,
+  JOURS_PROGRAMMATION, LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, peutProgrammer, prixCommande, releveResto,
   secondesRestantes, semaineResto, tarifsResto, validerCommande,
 } from "../pricing/restos.js";
 
@@ -33,6 +34,18 @@ export default function EspaceResto({ cle, onAccueil }) {
   // 20 nov. 2026 : « Pour quand ? » aujourd'hui ou un autre jour (commande programmée)
   const [quand, setQuand] = useState("auj");
   const [jourChoisi, setJourChoisi] = useState("");
+  // 20 nov. 2026 (Rebecca) : le restaurant voit le prix de la livraison AVANT d'envoyer
+  const [trajet, setTrajet] = useState(null);
+  const latResto = resto && resto.adresse ? resto.adresse.lat : null;
+  const latClient = f.adresse ? f.adresse.lat : null;
+  const lonClient = f.adresse ? f.adresse.lon : null;
+  useEffect(() => {
+    setTrajet(null);
+    if (!resto || !resto.adresse || typeof latResto !== "number" || typeof latClient !== "number") return undefined;
+    let fini = false;
+    calculerTrajet(resto.adresse, f.adresse).then((t) => !fini && setTrajet(t)).catch(() => !fini && setTrajet({ erreur: true }));
+    return () => { fini = true; };
+  }, [latResto, latClient, lonClient]); // eslint-disable-line react-hooks/exhaustive-deps
   const { date: jour, heure } = utcVersLocal(maintenant);
   const [semaine, setSemaine] = useState(() => semaineResto(utcVersLocal(Date.now()).date));
 
@@ -151,6 +164,15 @@ export default function EspaceResto({ cle, onAccueil }) {
           ))}
         </p>}
         {(resto.formule === "B" || resto.formule === "AB") && <p className="tb-note">{dansSonCreneau(resto, jourCmd, f.pretA || heure) ? "🟢 Dans votre créneau réservé : prix B." : "Hors de vos créneaux réservés : prix A."}</p>}
+        {f.adresse && (() => {
+          if (!trajet) return <p className="tb-note">Calcul du prix…</p>;
+          if (trajet.erreur || typeof trajet.km !== "number") return <p className="tb-note">Prix : Rebecca vous le confirme (distance impossible à calculer).</p>;
+          const p = prixCommande(tarifsResto(resto, jourCmd, f.pretA || heure), trajet.km, f.tresLourds);
+          return (
+            <p><strong>💰 Prix de la livraison : {p != null ? `${p} ₪` : "sur devis (longue distance)"}</strong>
+              <span className="tb-note"> · {trajet.km} km{(resto.formule === "B" || resto.formule === "AB") ? (dansSonCreneau(resto, jourCmd, f.pretA || heure) ? " · prix B (créneau)" : " · prix A (hors créneau)") : ""}</span></p>
+          );
+        })()}
         <label>Articles très lourds (packs d'eau, cartons lourds) : +{tarifsResto(resto, jourCmd, f.pretA || heure).tresLourd ?? 5} ₪ chacun · sacs ordinaires gratuits<br />
           <input type="number" inputMode="numeric" min={0} max={30} value={f.tresLourds || 0} onChange={(e) => maj("tresLourds", Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))))} style={{ width: 90 }} />
         </label>

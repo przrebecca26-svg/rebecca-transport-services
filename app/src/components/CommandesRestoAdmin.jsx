@@ -104,7 +104,8 @@ export default function CommandesRestoAdmin({ aller }) {
     }
   };
   const duJour = commandes.filter((c) => c.jour === jour && ["acceptee", "livree"].includes(c.statut)).length;
-  const actuelle = enLigne ? enAttente[0] : null;
+  // 20 nov. 2026 : une commande programmée (autre jour) s'affiche même « Hors ligne », sans délai
+  const actuelle = enAttente.find((c) => enLigne || c.programmee) || null;
 
   return (
     <>
@@ -115,7 +116,7 @@ export default function CommandesRestoAdmin({ aller }) {
         <button type="button" className="tb-bouton tb-clair" onClick={() => setSaisie(!saisie)}>🍕 Commande WhatsApp</button>
         {duJour > 0 && <span className="tdb-note">{duJour} livraison{duJour > 1 ? "s" : ""} restaurant aujourd'hui</span>}
       </div>
-      {!enLigne && enAttente.length > 0 && <p className="tdb-note">🍕 {enAttente.length} commande(s) en attente : passe « En ligne » pour répondre.</p>}
+      {!enLigne && enAttente.filter((c) => !c.programmee).length > 0 && <p className="tdb-note">🍕 {enAttente.filter((c) => !c.programmee).length} commande(s) en attente : passe « En ligne » pour répondre.</p>}
       {info && <p className="tdb-note" role="status">{info}</p>}
       {saisie && <SaisieWhatsApp restos={restos} jour={jour} heure={utcVersLocal(maintenant).heure} fermer={() => setSaisie(false)} />}
       {actuelle && <CarteCommande key={actuelle.id} c={actuelle} resto={restos.find((r) => r.cle === actuelle.cle)} maintenant={maintenant} reste={enAttente.length - 1} membres={membres} aller={aller} />}
@@ -210,7 +211,7 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
   }
   return (
     <div className="tdb-bloc" role="alertdialog" aria-label="Nouvelle commande restaurant" style={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 1000, maxHeight: "85vh", overflow: "auto", boxShadow: "0 8px 30px rgba(0,0,0,.6)" }}>
-      <p className="rp-type">🍕 {resto.nom} · réponds dans {compteARebours(s)}{reste > 0 ? ` · +${reste} autre(s)` : ""}</p>
+      <p className="rp-type">🍕 {resto.nom} · {c.programmee ? `📅 programmée le ${String(c.jour).split("-").reverse().join("/")}` : `réponds dans ${compteARebours(s)}`}{reste > 0 ? ` · +${reste} autre(s)` : ""}</p>
       <p><strong>Prête à {h(c.pretA)}</strong>{trajet ? ` · ${trajet.km} km · ${trajet.minutes} min` : ""}</p>
       <p className="tdb-note">📍 Récupérer : {resto.adresse ? resto.adresse.label : "—"}{resto.telephone ? <> · <a href={lienAppel(resto.telephone)}>{resto.telephone}</a></> : null}</p>
       <p className="tdb-note">🏠 Livrer : {c.adresse ? c.adresse.label : "—"}</p>

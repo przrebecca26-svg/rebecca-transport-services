@@ -33,3 +33,24 @@ test("restaurant : l'étape suit la livraison", () => {
   vrai(m && /arrivée sur place/.test(m.etape));
   egal(majSuivi({ statut: "acceptee", prix: 30, etape: m.etape }, { statut: "acceptee", prixFinal: 30, chrono: { simple: { arrivee: "19:10" } } }), null);
 });
+
+import { peutProgrammer, etatCommande, commandePropre, messageNotifResto } from "../src/pricing/restos.js";
+section("Commandes restaurant programmées (autre jour)");
+test("programmer : demain ok, aujourd'hui non, fermeture non", () => {
+  const r = { actif: true };
+  vrai(peutProgrammer({ resto: r, aujourdhui: "2026-11-20", jourChoisi: "2026-11-22", pretA: "19:30" }).ok);
+  vrai(!peutProgrammer({ resto: r, aujourdhui: "2026-11-20", jourChoisi: "2026-11-20", pretA: "19:30" }).ok);
+  vrai(!peutProgrammer({ resto: r, aujourdhui: "2026-11-20", jourChoisi: "2027-01-10", pretA: "19:30" }).ok);
+  vrai(!peutProgrammer({ resto: r, aujourdhui: "2026-11-20", jourChoisi: "2026-11-21", pretA: "12:00", fermeture: "Chabbat" }).ok);
+  vrai(!peutProgrammer({ resto: { actif: false }, aujourdhui: "2026-11-20", jourChoisi: "2026-11-22" }).ok);
+});
+test("programmée : jamais refusée automatiquement", () => {
+  egal(etatCommande({ statut: "nouvelle", programmee: true, creeLe: 1000 }, 10 * 3600e3), "nouvelle");
+  egal(etatCommande({ statut: "nouvelle", creeLe: 1000 }, 10 * 3600e3), "expiree");
+});
+test("document : programmee seulement si demandé", () => {
+  const f = { client: "A", telClient: "0541234567", adresse: { label: "x" }, pretA: "19:30", note: "" };
+  vrai(commandePropre(f, "2026-11-22", "lien", true).programmee === true);
+  vrai(!("programmee" in commandePropre(f, "2026-11-20")));
+  vrai(/22\/11\/2026/.test(messageNotifResto({ nom: "X" }, { ...f, jour: "2026-11-22", programmee: true }).corps));
+});

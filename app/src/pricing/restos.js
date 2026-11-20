@@ -70,6 +70,25 @@ export function peutCommander({ resto, etat, jour, dispo }) {
   return { ok: true, raison: "" };
 }
 
+// 20 nov. 2026 (Rebecca) : commande PROGRAMMÉE pour un autre jour (ex. envoyée vendredi pour dimanche soir).
+// Pas besoin que Rebecca soit « En ligne » ; jamais pendant une fermeture (Chabbat, fêtes) ni pour un jour fermé.
+export const JOURS_PROGRAMMATION = 30;
+export function peutProgrammer({ resto, aujourdhui, jourChoisi, pretA, dispo, fermeture }) {
+  if (!resto || resto.actif === false) return { ok: false, raison: "Ce lien n'est plus actif. Contactez Rebecca sur WhatsApp." };
+  if (dispo && dispo.ouvert === false) return { ok: false, raison: `${dispo.titre}. ${dispo.detail || ""}`.trim() };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(jourChoisi || "")) return { ok: false, raison: "Choisissez le jour de la livraison." };
+  if (aujourdhui && jourChoisi <= aujourdhui) return { ok: false, raison: "Pour aujourd'hui, choisissez « Aujourd'hui »." };
+  if (aujourdhui && jourChoisi > ajouterJoursR(aujourdhui, JOURS_PROGRAMMATION)) return { ok: false, raison: `Au plus ${JOURS_PROGRAMMATION} jours à l'avance.` };
+  if (fermeture) return { ok: false, raison: `Rebecca ne travaille pas à ce moment-là (${fermeture}). Choisissez un autre jour ou une autre heure.` };
+  if (pretA && !HEURE_OK.test(pretA)) return { ok: false, raison: "Indiquez l'heure à laquelle la commande est prête." };
+  return { ok: true, raison: "" };
+}
+const ajouterJoursR = (d, n) => {
+  const t = new Date(`${d}T12:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.toISOString().slice(0, 10);
+};
+
 /* ---------- Commande ---------- */
 // f : { client, telClient, adresse {label, lat?, lon?}, pretA "HH:MM", note }
 export function validerCommande(f) {
@@ -87,10 +106,11 @@ export const lourdsDe = (f) => {
   return Number.isFinite(n) ? n : -1;
 };
 // Document a ecrire (creeLe ajoute au moment de l'ecriture). source : "lien" (le restaurant) ou "whatsapp" (Rebecca)
-export function commandePropre(f, jour, source = "lien") {
+export function commandePropre(f, jour, source = "lien", programmee = false) {
   const lourds = Math.max(0, Math.min(30, lourdsDe(f)));
   return {
     ...(lourds > 0 ? { tresLourds: lourds } : {}),
+    ...(programmee && source !== "whatsapp" ? { programmee: true } : {}),
     client: String(f.client).trim().slice(0, 60),
     telClient: String(f.telClient).trim().slice(0, 20),
     adresse: adresseNette(f.adresse),
@@ -116,6 +136,7 @@ export const creeMs = (c) => enMs(c && c.creeLe);
 export function etatCommande(c, maintenantMs) {
   if (!c) return "";
   if (c.statut !== "nouvelle") return c.statut || "";
+  if (c.programmee) return "nouvelle"; // programmée : pas de refus automatique, Rebecca répond quand elle peut
   const t = creeMs(c);
   return t != null && maintenantMs - t >= DELAI_REPONSE_MS ? "expiree" : "nouvelle";
 }
@@ -252,7 +273,7 @@ const h = (x) => String(x || "").replace(":", "h");
 export function messageNotifResto(resto, c) {
   return {
     titre: `🍕 Commande ${String((resto && resto.nom) || "restaurant").slice(0, 40)}`,
-    corps: [`Prête à ${h(c.pretA)}`, c.adresse && c.adresse.label, "Réponds en 5 min"].filter(Boolean).join(" · ").slice(0, 180),
+    corps: [c.programmee ? `📅 Programmée le ${String(c.jour || "").split("-").reverse().join("/")} à ${h(c.pretA)}` : `Prête à ${h(c.pretA)}`, c.adresse && c.adresse.label, c.programmee ? "" : "Réponds en 5 min"].filter(Boolean).join(" · ").slice(0, 180),
     tag: `resto-${c.id || ""}`,
     lien: "/admin#/admin?onglet=commandes-resto", // 19 nov. 2026 : ouvre l'onglet « Commandes restaurants »
   };

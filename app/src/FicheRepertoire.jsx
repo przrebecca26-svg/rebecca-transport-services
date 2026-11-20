@@ -19,6 +19,7 @@ import { SUJETS, envoyerMailClient } from "./mailClient.js";
 import { encaisseBrut } from "./pricing/comptes.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { addDoc, serverTimestamp } from "firebase/firestore";
+import ChoixJoursHeures from "./components/ChoixJoursHeures.jsx";
 import { avecCreneaux, grilleA, clientsDuResto, ficheMaCliente, restosDuClient, FORMULES, contratDe, messageReleve, paiementsSemaine, prixPro, releveSemaine, semaineDe, semaineDecalee } from "./pricing/commercants.js";
 import { validerMouvement } from "./pricing/comptes.js";
 import { champOperateur } from "./pricing/reverser.js";
@@ -508,9 +509,9 @@ function ContratPro({ f, changer }) {
         </>
       )}
       {avecCreneaux(c.formule) && (
-        <label className="champ">Créneaux réservés
-          <input value={c.creneaux} maxLength={120} placeholder="Ex. : jeudi 19h-21h, dim-jeu 19h-22h (2 h minimum)" onChange={(x) => maj("creneaux", x.target.value)} />
-        </label>
+        <div className="champ">Créneaux réservés (2 h au moins)
+          <ChoixJoursHeures valeur={c.creneaux} onChange={(v) => maj("creneaux", v)} minHeures={2} classe="" />
+        </div>
       )}
       <label className="champ">Il paie chaque dimanche par
         <select value={c.moyen} onChange={(x) => maj("moyen", x.target.value)}>{["Bit", "Revolut", "Espèces", "Virement"].map((m) => <option key={m}>{m}</option>)}</select>

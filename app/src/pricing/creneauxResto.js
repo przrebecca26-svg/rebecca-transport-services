@@ -57,6 +57,41 @@ export function dansCreneau(texte, jour, heure) {
   return lireCreneaux(texte).some((x) => x.debut && x.fin && x.jours.includes(j) && m >= enMinutes(x.debut) && m < enMinutes(x.fin));
 }
 
+// 20 nov. 2026 (Rebecca) : choisir les créneaux et les horaires avec des listes déroulantes (jour de… à…, de telle
+// heure à telle heure). Les lignes deviennent le même texte qu'avant (« jeudi 19h-21h, dim-jeu 19h30-22h »).
+export const HEURES_LISTE = Array.from({ length: 37 }, (_, i) => {
+  const m = 6 * 60 + i * 30; // 06:00 -> 24:00
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+});
+const heureTexte = (hm) => `${Number(hm.slice(0, 2))}h${hm.slice(3, 5) === "00" ? "" : hm.slice(3, 5)}`;
+export function texteLigne(l) {
+  if (!l || !(l.de >= 0 && l.de <= 6) || !(l.a >= 0 && l.a <= 6) || !l.debut || !l.fin) return "";
+  const jours = l.de === l.a ? NOMS_JOURS[l.de] : `${JOURS[l.de][1]}-${JOURS[l.a][1]}`;
+  return `${jours} ${heureTexte(l.debut)}-${heureTexte(l.fin)}`;
+}
+export const texteDepuisLignes = (lignes = []) => lignes.map(texteLigne).filter(Boolean).join(", ");
+// Le texte déjà enregistré -> des lignes (jours consécutifs : de… à…)
+export function lignesDepuisTexte(texte) {
+  return lireCreneaux(texte)
+    .filter((x) => x.jours.length && x.debut && x.fin)
+    .map((x) => {
+      const j = x.jours;
+      // suite de jours qui peut passer par samedi -> dimanche (ex. ven-dim)
+      let de = j[0];
+      for (let i = 1; i < j.length; i++) if (j[i] !== j[i - 1] + 1) { de = j[i]; break; }
+      const a = (de + j.length - 1) % 7;
+      return { de, a, debut: x.debut, fin: x.fin };
+    });
+}
+// Erreur d'une ligne ("" = bonne) ; minHeures : 2 pour un créneau B, 0 pour des horaires d'ouverture
+export function erreurLigne(l, minHeures = MIN_HEURES) {
+  if (!l.debut || !l.fin) return "Choisissez l'heure de début et de fin.";
+  const d = enMinutes(l.fin) - enMinutes(l.debut);
+  if (d <= 0) return "L'heure de fin doit être après l'heure de début.";
+  if (minHeures && d < minHeures * 60) return `Un créneau dure ${MIN_HEURES} heures au moins.`;
+  return "";
+}
+
 // Minimum facturé pour un créneau de cette durée (2 h au moins)
 export const minimumCreneau = (heures, parHeure = PAR_HEURE_DEFAUT) => cents(Math.max(MIN_HEURES, Number(heures) || 0) * (Number(parHeure) || 0));
 

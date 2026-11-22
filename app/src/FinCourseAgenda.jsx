@@ -13,7 +13,7 @@ import { getDocs } from "firebase/firestore";
 import { normaliserCode, utiliserCarte } from "./pricing/cartesCadeaux.js";
 import { comprendreEncaissement } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
-import { estLivraisonResto, messageAvisResto, messageEnRouteResto, messageMerciResto } from "./pricing/restos.js";
+import { estLivraisonResto, messageAvisResto, messageEnRouteResto, messageMerciResto, numeroLivraison } from "./pricing/restos.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { SUJETS, envoyerMailClient } from "./mailClient.js";
@@ -262,7 +262,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           )}
         </div>
       )}
-      {resto && <p className="tb-note">📋 Livraison de {d.nom} : payée avec son relevé de la semaine (le dimanche).</p>}
+      {resto && <p className="tb-note">📦 Commande <strong>{numeroLivraison(d)}</strong>{d.details && d.details.prioritaire ? " · ⚡ prioritaire" : ""} · 📋 payée avec le relevé de la semaine de {d.nom} (le dimanche).</p>}
       {(resto ? fait : merci || (fait && reste === 0 && !caisse)) && lienMerci && (
         <div className="tb-actions">
           <a className="tb-bouton" href={lienMerci} target="_blank" rel="noopener noreferrer" onClick={() => setMerci(false)}>💬 Envoyer le merci{resto ? " au restaurant" : ""} (WhatsApp)</a>

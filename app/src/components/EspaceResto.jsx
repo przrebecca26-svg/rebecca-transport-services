@@ -13,13 +13,13 @@ import FormuleResto from "./FormuleResto.jsx";
 import "../espace-resto.css"; // 22 nov. 2026 : boutons et champs au style du site (ils étaient gris, par défaut)
 import {
   JOURS_PROGRAMMATION, LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, peutProgrammer, prixCommande, releveResto,
-  secondesRestantes, semaineResto, tarifsResto, validerCommande,
+  secondesRestantes, semaineResto, tarifsResto, validerCommande, numeroCommande,
 } from "../pricing/restos.js";
 
 // ESPACE RESTAURANT (V2, 19 nov. 2026) : page privée #/resto/CLE, sans compte (la clé du lien est l'accès).
 // Le restaurant envoie une livraison, voit la réponse en direct (refus automatique après 5 minutes sans réponse),
 // ses commandes des derniers jours et le relevé de la semaine (livraisons, dû, payé).
-const vide = () => ({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0 });
+const vide = () => ({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0, numero: "", prioritaire: false });
 const dfr = (d) => (d ? d.split("-").reverse().join("/") : "");
 const h = (x) => String(x || "").replace(":", "h");
 
@@ -105,7 +105,17 @@ export default function EspaceResto({ cle, onAccueil }) {
     setErreur("");
     setEnvoi(true);
     try {
-      const ref = await addDoc(collection(db, "restos", cle, "commandesResto"), { ...commandePropre(pret, jourCmd, "lien", programmee), creeLe: serverTimestamp() });
+      const doc0 = { ...commandePropre(pret, jourCmd, "lien", programmee), creeLe: serverTimestamp() };
+      let ref;
+      try {
+        ref = await addDoc(collection(db, "restos", cle, "commandesResto"), doc0);
+      } catch (e) {
+        // Règles pas encore à jour (v36) : le numéro et « prioritaire » passent dans la note
+        if (!(doc0.numero || doc0.prioritaire)) throw e;
+        const { numero, prioritaire, ...reste } = doc0;
+        const note = [numero ? `N° ${numero}` : "", prioritaire ? "⚡ PRIORITAIRE" : "", reste.note].filter(Boolean).join(" · ").slice(0, 300);
+        ref = await addDoc(collection(db, "restos", cle, "commandesResto"), { ...reste, note });
+      }
       // Notification immédiate sur le téléphone de Rebecca (sans attendre le robot)
       fetch("/.netlify/functions/commande-resto", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cle, id: ref.id }) }).catch(() => {});
       setF(vide());
@@ -151,6 +161,9 @@ export default function EspaceResto({ cle, onAccueil }) {
 
       <div className="carte-service" style={{ marginTop: 10 }}>
         <strong>Nouvelle livraison</strong>
+        {/* 22 nov. 2026 (Rebecca) : le numéro de la commande, pour que Rebecca sache laquelle récupérer */}
+        <label>N° de commande (votre ticket, facultatif)<br /><input value={f.numero} maxLength={20} inputMode="text" placeholder="Ex. : 457 (sinon un code est donné automatiquement)" onChange={(e) => maj("numero", e.target.value)} /></label>
+        <label style={{ display: "flex", gap: 10, alignItems: "center", fontWeight: 600 }}><input type="checkbox" checked={!!f.prioritaire} onChange={(e) => maj("prioritaire", e.target.checked)} style={{ width: 22, height: 22, minHeight: 0 }} /> ⚡ Prioritaire (à livrer en premier)</label>
         <label>Prénom du client<br /><input value={f.client} maxLength={60} onChange={(e) => maj("client", e.target.value)} /></label>
         <label>Téléphone du client<br /><input inputMode="tel" value={f.telClient} maxLength={20} onChange={(e) => maj("telClient", e.target.value)} /></label>
         <label htmlFor="resto-adresse">Adresse de livraison</label>
@@ -203,7 +216,7 @@ export default function EspaceResto({ cle, onAccueil }) {
           const e = etatCommande(c, maintenant);
           return (
             <div key={c.id} style={{ borderTop: "1px solid rgba(0,0,0,.1)", paddingTop: 8, marginTop: 8 }}>
-              <p><strong>{h(c.pretA)} · {c.client}</strong> · {c.adresse && c.adresse.label}</p>
+              <p><strong>{numeroCommande(c)}{c.prioritaire ? " ⚡" : ""} · {h(c.pretA)} · {c.client}</strong> · {c.adresse && c.adresse.label}</p>
               <p>
                 {LIBELLES[e] || e}
                 {e === "nouvelle" && ` · ${compteARebours(secondesRestantes(c, maintenant))}`}
@@ -224,7 +237,7 @@ export default function EspaceResto({ cle, onAccueil }) {
           <strong>📅 Commandes programmées</strong>
           {aVenir.map((c) => (
             <div key={c.id} style={{ borderTop: "1px solid rgba(0,0,0,.1)", paddingTop: 8, marginTop: 8 }}>
-              <p><strong>{dfr(c.jour)} à {h(c.pretA)} · {c.client}</strong> · {c.adresse && c.adresse.label}</p>
+              <p><strong>{numeroCommande(c)} · {dfr(c.jour)} à {h(c.pretA)} · {c.client}</strong> · {c.adresse && c.adresse.label}</p>
               <p>{c.statut === "nouvelle" ? "⏳ En attente de la réponse de Rebecca" : LIBELLES[c.statut] || c.statut}{c.statut === "acceptee" && typeof c.prix === "number" ? ` · ${c.prix} ₪` : ""}{c.statut === "refusee" && c.motif ? ` · ${c.motif}` : ""}</p>
               {c.statut === "nouvelle" && <button type="button" className="bouton-secondaire" onClick={() => annuler(c)}>Annuler cette commande</button>}
             </div>
@@ -241,7 +254,7 @@ export default function EspaceResto({ cle, onAccueil }) {
         </p>
         {r.lignes.length === 0 ? <p className="tb-note">Aucune livraison faite cette semaine.</p> : (
           <ul>
-            {r.lignes.map((l) => <li key={l.c.id}>{dfr(l.c.jour)} {h(l.c.pretA)} · {l.c.client} · {l.du} ₪{l.paye ? " · payé" : ""}</li>)}
+            {r.lignes.map((l) => <li key={l.c.id}>{dfr(l.c.jour)} {h(l.c.pretA)} · {numeroCommande(l.c)} · {l.c.client} · {l.du} ₪{l.paye ? " · payé" : ""}</li>)}
           </ul>
         )}
         <p><strong>{r.nb} livraison{r.nb > 1 ? "s" : ""} · dû {r.du} ₪ · payé {r.paye} ₪ · reste {r.reste} ₪</strong></p>

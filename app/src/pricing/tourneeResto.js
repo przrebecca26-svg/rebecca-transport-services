@@ -44,7 +44,10 @@ export function tourneesResto(demandes = [], ecart = ECART_TOURNEE_MIN, max = MA
     let courant = [];
     for (const d of liste) {
       const dernier = courant[courant.length - 1];
-      if (dernier && enMin(d.heure) - enMin(dernier.heure) <= ecart && courant.length < max) courant.push(d);
+      // 22 nov. 2026 (Rebecca) : arrivée au restaurant, une nouvelle commande arrive -> elle entre dans la tournée
+      // tant que je ne suis pas partie du restaurant (même si elle est prête plus tard)
+      const surPlace = courant.some((x) => { const c = chronoDe(x); return c.depart || c.arrivee || c.prise; }) && !courant.some((x) => chronoDe(x).departResto || chronoDe(x).depose);
+      if (dernier && (enMin(d.heure) - enMin(dernier.heure) <= ecart || surPlace) && courant.length < max) courant.push(d);
       else {
         if (courant.length) tournees.push(courant);
         courant = [d];
@@ -61,14 +64,18 @@ export function tourneesResto(demandes = [], ecart = ECART_TOURNEE_MIN, max = MA
 const lieuLivraison = (d) => (d.details || {}).livraison;
 const lieuResto = (t) => (t[0].details || {}).recuperation;
 
-// Ordre des livraisons : le moins de km restaurant -> livraisons -> maison (si la maison est connue)
+// Ordre des livraisons : le moins de km restaurant -> livraisons -> maison (si la maison est connue).
+// 22 nov. 2026 : une commande PRIORITAIRE (cochée par le restaurant) passe avant les autres.
+const prioritaire = (d) => !!(d.details && d.details.prioritaire);
 export function ordreLivraisons(tournee = [], domicile = null) {
   const depart = tournee.length ? lieuResto(tournee) : null;
+  const parHeure = (l) => [...l].sort((a, b) => enMin(a.heure) - enMin(b.heure));
   if (tournee.length < 2 || !ok(depart) || tournee.some((d) => !ok(lieuLivraison(d)))) {
-    return [...tournee].sort((a, b) => enMin(a.heure) - enMin(b.heure));
+    return [...parHeure(tournee.filter(prioritaire)), ...parHeure(tournee.filter((d) => !prioritaire(d)))];
   }
   let meilleur = null;
   let best = Infinity;
+  const nbPrio = tournee.filter(prioritaire).length;
   const essayer = (faits, reste, km, p) => {
     if (km >= best) return;
     if (!reste.length) {
@@ -79,7 +86,9 @@ export function ordreLivraisons(tournee = [], domicile = null) {
       }
       return;
     }
-    for (const d of reste) essayer([...faits, d], reste.filter((x) => x !== d), km + kmEntre(p, lieuLivraison(d)), lieuLivraison(d));
+    // tant qu'il reste une prioritaire, on ne peut choisir qu'une prioritaire
+    const possibles = faits.filter(prioritaire).length < nbPrio ? reste.filter(prioritaire) : reste;
+    for (const d of possibles) essayer([...faits, d], reste.filter((x) => x !== d), km + kmEntre(p, lieuLivraison(d)), lieuLivraison(d));
   };
   essayer([], tournee, 0, depart);
   return meilleur || [...tournee];
@@ -94,23 +103,32 @@ export function etatTournee(tournee = []) {
   return {
     partie: chacune((c) => c.depart || c.arrivee || c.prise || c.depose),
     arrivee: chacune((c) => c.arrivee || c.prise || c.depose),
+    recuperees: tournee.filter((d, i) => ch[i].prise || ch[i].depose || fait(i)).map((d) => d.id),
     prise: chacune((c) => c.prise || c.depose),
+    // 22 nov. 2026 : « Partir du restaurant » une fois toutes les commandes récupérées (là, la tournée se calcule)
+    departResto: chacune((c) => c.departResto || c.arriveeClient || c.depose) || deposees.length > 0,
+    arriveesClient: tournee.filter((d, i) => ch[i].arriveeClient && !(ch[i].depose || fait(i))).map((d) => d.id),
     deposees: deposees.map((d) => d.id),
     toutesDeposees: deposees.length === tournee.length,
     rentree: ch.length > 0 && ch.every((c) => c.maison),
   };
 }
 
-// Quelle etape annuler (« Annuler la derniere etape ») : { ids, etape } ou null
+// Quelle etape annuler (« Annuler la derniere etape ») : { ids, etape } ou null.
+// etape « departResto » ou « arriveeClient » = champ propre a la tournee (a vider) ; les autres = finCourse.
+const derniere = (liste, k) => [...liste].sort((a, b) => String(chronoDe(b)[k]).localeCompare(String(chronoDe(a)[k])))[0];
 export function derniereEtapeTournee(tournee = []) {
   const e = etatTournee(tournee);
   if (e.rentree) return { ids: tournee.map((d) => d.id), etape: "maison" };
   const deposees = tournee.filter((d) => chronoDe(d).depose);
-  if (deposees.length) {
-    const derniere = [...deposees].sort((a, b) => String(chronoDe(b).depose).localeCompare(String(chronoDe(a).depose)))[0];
-    return { ids: [derniere.id], etape: "depose" };
-  }
-  for (const k of ["prise", "arrivee", "depart"]) {
+  if (deposees.length) return { ids: [derniere(deposees, "depose").id], etape: "depose" };
+  const arrivees = tournee.filter((d) => chronoDe(d).arriveeClient);
+  if (arrivees.length) return { ids: [derniere(arrivees, "arriveeClient").id], etape: "arriveeClient" };
+  const parties = tournee.filter((d) => chronoDe(d).departResto);
+  if (parties.length) return { ids: parties.map((d) => d.id), etape: "departResto" };
+  const prises = tournee.filter((d) => chronoDe(d).prise);
+  if (prises.length) return { ids: [derniere(prises, "prise").id], etape: "prise" };
+  for (const k of ["arrivee", "depart"]) {
     const ids = tournee.filter((d) => chronoDe(d)[k]).map((d) => d.id);
     if (ids.length) return { ids, etape: k };
   }

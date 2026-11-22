@@ -98,8 +98,15 @@ export function validerCommande(f) {
   if (!HEURE_OK.test(f.pretA || "")) return "Indiquez l'heure à laquelle la commande est prête.";
   if (String(f.note || "").length > 300) return "La note est trop longue (300 caractères au plus).";
   if (!(lourdsDe(f) >= 0 && lourdsDe(f) <= 30)) return "Articles très lourds : entre 0 et 30.";
+  if (String(f.numero || "").trim().length > 20) return "Le numéro de commande est trop long (20 caractères au plus).";
   return "";
 }
+
+// 22 nov. 2026 (Rebecca) : un numéro par commande, pour savoir laquelle récupérer au restaurant.
+// Le restaurant peut écrire SON numéro (ticket de caisse) ; sinon un code automatique, jamais le même (tiré de
+// l'identifiant de la commande). Prioritaire = à livrer en premier.
+export const codeCommande = (id) => String(id || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 5).toUpperCase();
+export const numeroCommande = (c) => (c && String(c.numero || "").trim() ? `n° ${String(c.numero).trim()}` : `#${codeCommande(c && c.id)}`);
 // 20 nov. 2026 : articles très lourds (pack d'eau, carton lourd) = supplément par article ; sacs ordinaires gratuits
 export const lourdsDe = (f) => {
   const n = Math.round(Number((f && f.tresLourds) || 0));
@@ -111,6 +118,8 @@ export function commandePropre(f, jour, source = "lien", programmee = false) {
   return {
     ...(lourds > 0 ? { tresLourds: lourds } : {}),
     ...(programmee && source !== "whatsapp" ? { programmee: true } : {}),
+    ...(String(f.numero || "").trim() ? { numero: String(f.numero).trim().slice(0, 20) } : {}),
+    ...(f.prioritaire === true ? { prioritaire: true } : {}),
     client: String(f.client).trim().slice(0, 60),
     telClient: String(f.telClient).trim().slice(0, 20),
     adresse: adresseNette(f.adresse),
@@ -195,8 +204,10 @@ export function demandeDepuisCommande(resto, c, { cle, id, prix, km = null, minu
     commandeResto: { cle, id },
   };
   if (c.note) details.instructions = c.note;
+  if (c.numero) details.numeroResto = String(c.numero).slice(0, 20);
+  if (c.prioritaire === true) details.prioritaire = true;
   const lignes = [
-    `Commande du restaurant ${resto.nom} (${c.source === "whatsapp" ? "WhatsApp" : "lien privé"}).`,
+    `Commande ${numeroCommande(c)} du restaurant ${resto.nom} (${c.source === "whatsapp" ? "WhatsApp" : "lien privé"})${c.prioritaire === true ? " · ⚡ PRIORITAIRE" : ""}.`,
     `Prête à ${String(c.pretA).replace(":", "h")}.`,
     `Récupération : ${details.recuperation.label}`,
     `Livraison : ${details.livraison ? details.livraison.label : ""}`,
@@ -273,7 +284,7 @@ const h = (x) => String(x || "").replace(":", "h");
 export function messageNotifResto(resto, c) {
   return {
     titre: `🍕 Commande ${String((resto && resto.nom) || "restaurant").slice(0, 40)}`,
-    corps: [c.programmee ? `📅 Programmée le ${String(c.jour || "").split("-").reverse().join("/")} à ${h(c.pretA)}` : `Prête à ${h(c.pretA)}`, c.adresse && c.adresse.label, c.programmee ? "" : "Réponds en 5 min"].filter(Boolean).join(" · ").slice(0, 180),
+    corps: [numeroCommande(c) + (c.prioritaire === true ? " ⚡ prioritaire" : ""), c.programmee ? `📅 Programmée le ${String(c.jour || "").split("-").reverse().join("/")} à ${h(c.pretA)}` : `Prête à ${h(c.pretA)}`, c.adresse && c.adresse.label, c.programmee ? "" : "Réponds en 5 min"].filter(Boolean).join(" · ").slice(0, 180),
     tag: `resto-${c.id || ""}`,
     lien: "/admin#/admin?onglet=commandes-resto", // 19 nov. 2026 : ouvre l'onglet « Commandes restaurants »
   };
@@ -285,6 +296,8 @@ export function messageWhatsAppResto(nomResto, f, extra = {}) {
   return [
     `Bonjour Rebecca, c'est ${nomResto} 🍕`,
     extra.jour ? `Une livraison programmée pour le ${jourFr} :` : "Une livraison :",
+    String(f.numero || "").trim() ? `Commande n° ${String(f.numero).trim()}` : "",
+    f.prioritaire === true ? "⚡ Prioritaire (à livrer en premier)" : "",
     String(f.client || "").trim() ? `Client : ${String(f.client).trim()}${f.telClient ? " · " + String(f.telClient).trim() : ""}` : "",
     f.adresse && f.adresse.label ? `Adresse : ${f.adresse.label}` : "",
     f.pretA ? `Prête à ${h(f.pretA)}` : "",
@@ -316,7 +329,7 @@ export function messageEnRouteResto(d) {
 // Merci et avis : au RESTAURANT (jamais à son client : article 6 du contrat)
 export function messageMerciResto(d, heure = "") {
   const v = (d && d.details) || {};
-  return [`Bonjour ${d.nom}, c'est Rebecca Services 🛵`, `La commande${v.destinataire ? " de " + v.destinataire : ""} est bien livrée ✓${heure ? " à " + heure.replace(":", "h") : ""}.`, "Elle est ajoutée à votre relevé de la semaine. Merci pour votre confiance !", "Rebecca"].join("\n");
+  return [`Bonjour ${d.nom}, c'est Rebecca Services 🛵`, `La commande ${v.numeroResto ? "n° " + v.numeroResto : "#" + codeCommande(v.commandeResto && v.commandeResto.id)}${v.destinataire ? " de " + v.destinataire : ""} est bien livrée ✓${heure ? " à " + heure.replace(":", "h") : ""}.`, "Elle est ajoutée à votre relevé de la semaine. Merci pour votre confiance !", "Rebecca"].join("\n");
 }
 export function messageAvisResto(d) {
   return [`Bonjour ${d.nom}, c'est Rebecca 🙏`, "Merci de me confier vos livraisons ! Un petit retour sur la façon dont ça se passe (délais, soin, échanges) m'aiderait beaucoup : répondez simplement à ce message.", "Rebecca Services · rebeccaservices.com"].join("\n");
@@ -335,7 +348,7 @@ export function champsCorrectionCommande(c, f, prix) {
   if (p != null && !(p > 0 && p <= 2000)) return { erreur: "Prix invalide (entre 1 et 2000 ₪)." };
   const propre = commandePropre(pret, f.jour || c.jour, c.source === "whatsapp" ? "whatsapp" : "lien");
   const lourds = propre.tresLourds || 0;
-  const commande = { client: propre.client, telClient: propre.telClient, adresse: propre.adresse, pretA: propre.pretA, note: propre.note, jour: propre.jour, tresLourds: lourds };
+  const commande = { client: propre.client, telClient: propre.telClient, adresse: propre.adresse, pretA: propre.pretA, note: propre.note, jour: propre.jour, tresLourds: lourds, numero: propre.numero || "", prioritaire: propre.prioritaire === true };
   if (p != null) commande.prix = cents(p);
   if (c.statut === "acceptee") commande.arriveeVers = propre.pretA;
   const demande = {
@@ -345,6 +358,8 @@ export function champsCorrectionCommande(c, f, prix) {
     "details.destinataire": propre.client,
     "details.telDestinataire": propre.telClient,
     "details.instructions": propre.note,
+    "details.numeroResto": propre.numero || "",
+    "details.prioritaire": propre.prioritaire === true,
   };
   if (p != null) demande.prixFinal = cents(p);
   return { commande, demande };
@@ -360,7 +375,7 @@ export const SUJETS_AIDE_RESTO = [
   { id: "client", libelle: "💬 Écrire au client", vers: "client" },
 ];
 export function messageAideResto(sujet, nomResto, c) {
-  const qui = c && c.client ? ` de ${prenomDe(c.client)}` : "";
+  const qui = `${c && (c.numero || c.id) ? " " + numeroCommande(c) : ""}${c && c.client ? ` de ${prenomDe(c.client)}` : ""}`;
   const heure = c && c.pretA ? ` (prête à ${h(c.pretA)})` : "";
   const adresse = c && c.adresse && c.adresse.label ? c.adresse.label : "";
   const debut = `Bonjour ${nomResto || ""}, c'est Rebecca Services 🛵`.replace("  ", " ");
@@ -370,3 +385,9 @@ export function messageAideResto(sujet, nomResto, c) {
   if (sujet === "client") return [`Bonjour ${prenomDe(c && c.client)}, c'est Rebecca Services 🛵, je vous livre la commande de ${nomResto || "votre restaurant"}.`, "Pouvez-vous me confirmer l'adresse exacte (bâtiment, étage, code) ?", "Merci !"].join("\n");
   return [debut, `Pour la commande${qui}${heure} :`, "pouvez-vous me donner une précision pour la livrer (adresse exacte, étage, code, téléphone) ?", "Merci, Rebecca"].join("\n");
 }
+
+// Numéro d'une livraison du Calendrier (demande créée depuis une commande de restaurant)
+export const numeroLivraison = (d) => {
+  const v = (d && d.details) || {};
+  return v.numeroResto ? `n° ${v.numeroResto}` : `#${codeCommande(v.commandeResto && v.commandeResto.id)}`;
+};

@@ -4,7 +4,7 @@ import { db } from "./firebase.js";
 import CommandesRestoAdmin, { useCommandes, useRestos } from "./components/CommandesRestoAdmin.jsx";
 import AddressField from "./components/AddressField.jsx";
 import MenageRestos from "./components/MenageRestos.jsx";
-import { LIBELLES, SUJETS_AIDE_RESTO, champsCorrectionCommande, etatCommande, messageAideResto } from "./pricing/restos.js";
+import { LIBELLES, SUJETS_AIDE_RESTO, champsCorrectionCommande, etatCommande, messageAideResto, numeroCommande } from "./pricing/restos.js";
 import { supprimerCommandeResto } from "./suppression.js";
 import { lienAppel } from "./pricing/navigation.js";
 import { utcVersLocal } from "./pricing/calendrier.js";
@@ -96,7 +96,7 @@ export function LigneCommande({ c, resto, nomResto, aller }) {
   const ouvrir = (m) => {
     setInfo("");
     if (m === "modifier") {
-      setF({ client: c.client || "", telClient: c.telClient || "", adresse: c.adresse || null, pretA: c.pretA || "", jour: c.jour || "", note: c.note || "", tresLourds: c.tresLourds || 0 });
+      setF({ client: c.client || "", telClient: c.telClient || "", adresse: c.adresse || null, pretA: c.pretA || "", jour: c.jour || "", note: c.note || "", tresLourds: c.tresLourds || 0, numero: c.numero || "", prioritaire: c.prioritaire === true });
       setPrix(typeof c.prix === "number" ? String(c.prix) : "");
     }
     setMode(mode === m ? "" : m);
@@ -144,7 +144,7 @@ export function LigneCommande({ c, resto, nomResto, aller }) {
   const maj = (k, v) => setF({ ...f, [k]: v });
   return (
     <div className="bloc">
-      <p className="rp-type">🍕 {nomResto} · prête à {h(c.pretA)}{c.programmee ? " · 📅 programmée" : ""}</p>
+      <p className="rp-type">🍕 {nomResto} · {numeroCommande(c)}{c.prioritaire ? " · ⚡ prioritaire" : ""} · prête à {h(c.pretA)}{c.programmee ? " · 📅 programmée" : ""}</p>
       <p><strong>{LIBELLES[c.etat] || c.etat}</strong>{typeof c.prix === "number" ? ` · ${c.prix} ₪` : ""}{typeof c.km === "number" ? ` · ${String(c.km).replace(".", ",")} km` : ""}{c.par ? ` · par ${c.par}` : ""}{c.source === "whatsapp" ? " · saisie WhatsApp" : ""}{c.payee ? " · payée ✓" : ""}</p>
       <p>👤 {c.client || "Client"}{c.telClient ? <> · <a className="rp-waze" href={lienAppel(c.telClient)}>{c.telClient}</a></> : null}</p>
       {c.adresse && c.adresse.label && <p>🏠 {c.adresse.label}</p>}
@@ -187,6 +187,8 @@ export function LigneCommande({ c, resto, nomResto, aller }) {
       )}
       {mode === "modifier" && f && (
         <div className="tdb-bloc">
+          <label className="champ">N° de commande du restaurant<input value={f.numero} maxLength={20} onChange={(e) => maj("numero", e.target.value)} /></label>
+          <label className="champ" style={{ display: "flex", gap: 10, alignItems: "center" }}><input type="checkbox" checked={!!f.prioritaire} onChange={(e) => maj("prioritaire", e.target.checked)} style={{ width: 22, height: 22 }} /> ⚡ Prioritaire</label>
           <label className="champ">Prénom du client<input value={f.client} maxLength={60} onChange={(e) => maj("client", e.target.value)} /></label>
           <label className="champ">Téléphone du client<input inputMode="tel" value={f.telClient} maxLength={20} onChange={(e) => maj("telClient", e.target.value)} /></label>
           <label className="champ" htmlFor={"cr-ad-" + c.id}>Adresse de livraison</label>

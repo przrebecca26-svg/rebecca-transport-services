@@ -45,6 +45,33 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
   const [res, setRes] = useState(() => lire(jour));
   const [etat, setEtat] = useState("");
   const [, setTic] = useState(0);
+  // 22 nov. 2026, 15h51 (Rebecca au restaurant : « Me localiser » -> le Trafic disait encore « Maison → Basket,
+  // partir 17h46 » alors que le bloc du haut disait 17h21 depuis le restaurant) : le trajet depuis ma position est
+  // recalculé à part, seul (1 appel Google par vrai déplacement d'environ 500 m), sans relancer toute la journée.
+  const depuisIci = trajets.find((x) => String(x.cle || "").endsWith("@ici")) || null;
+  const [iciLigne, setIciLigne] = useState(null);
+  const cleIci = depuisIci && ici ? `${depuisIci.cle}|${depuisIci.arriveeMin}|${Math.round(ici.lat * 200)}|${Math.round(ici.lon * 200)}` : "";
+  useEffect(() => {
+    if (!cleIci) { setIciLigne(null); return undefined; }
+    let fini = false;
+    const t = depuisIci;
+    const base0 = { cle: t.cle, nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, apresMin: t.apresMin, apresQuoi: t.apresQuoi };
+    (async () => {
+      try {
+        if (!googleActif()) throw new Error("sans Google");
+        const d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, Math.max(maintenant() + 1, t.arriveeMin - 30)));
+        if (!fini) setIciLigne({ ...base0, avec: Math.round(d.avecTrafic / 60), normal: Math.round(d.normal / 60), partir: departConseille(t.arriveeMin, d.avecTrafic) });
+      } catch {
+        try {
+          const r = await calculerTrajetSur(t.de, t.vers);
+          if (!fini) setIciLigne({ ...base0, avec: r.minutes, normal: r.minutes, sansTrafic: true, partir: departConseille(t.arriveeMin, r.minutes * 60) });
+        } catch { /* on garde le calcul de la journée */ }
+      }
+    })();
+    return () => { fini = true; };
+  }, [cleIci]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sansIci = (c) => String(c || "").replace(/@ici$/, "");
+  const lignesVues = (res && res.lignes ? res.lignes : []).map((l) => (iciLigne && sansIci(l.cle) === sansIci(iciLigne.cle) ? iciLigne : l));
   useEffect(() => {
     const maj = () => setTic((x) => x + 1);
     window.addEventListener("rs-etapes", maj);
@@ -135,7 +162,7 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
       <h3>🚦 Trafic de ma journée</h3>
       {res && res.lignes && res.lignes.length > 0 && (
         <>
-          {enchainerDeparts(res.lignes).filter((l) => l.arriveeMin > now && !faits.has(l.cle)).map((l, i) => {
+          {enchainerDeparts(lignesVues).filter((l) => l.arriveeMin > now && !faits.has(l.cle)).map((l, i) => {
             const tard = l.partir < now && l.arriveeMin > now;
             return (
               <div key={i} className="tb-adresse">

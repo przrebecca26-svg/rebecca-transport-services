@@ -30,11 +30,11 @@ export default function MenageRestos() {
   const [confirmer, setConfirmer] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [info, setInfo] = useState("");
-  const charger = () => toutLire().then((x) => { setD(x); setCoches(new Set(x.restos.map((r) => r.cle))); }).catch(() => setInfo("Lecture impossible : vérifie la connexion."));
+  const charger = () => avecDelai(toutLire()).then((x) => { setD(x); setCoches(new Set(x.restos.map((r) => r.cle))); }).catch((e) => setInfo(e && e.code === "delai" ? "Firebase ne répond pas : ferme l'appli complètement (et les autres onglets du site dans Safari), rouvre-la, puis réessaie." : "Lecture impossible" + (e && e.code ? ` (${e.code})` : "") + " : envoie-moi une capture."));
   useEffect(() => { if (ouvert && !d) charger(); }, [ouvert]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ouvert) return <div className="tb-actions" style={{ marginTop: 24 }}><button type="button" className="tb-bouton tb-clair" onClick={() => setOuvert(true)}>🧹 Ménage des restaurants (tests)</button></div>;
-  if (!d) return <section className="tdb-bloc"><p className="tdb-note">{info || "Chargement…"}</p></section>;
+  if (!d) return <section className="tdb-bloc"><p className="tdb-note">{info || "Chargement…"}</p>{info && <div className="tb-actions"><button type="button" className="tb-bouton tb-clair" onClick={() => { setInfo(""); charger(); }}>Réessayer</button><button type="button" className="tb-bouton tb-clair" onClick={() => { setInfo(""); setOuvert(false); }}>Fermer</button></div>}</section>;
 
   const choisis = d.restos.filter((r) => coches.has(r.cle));
   const cles = new Set(choisis.map((r) => r.cle));

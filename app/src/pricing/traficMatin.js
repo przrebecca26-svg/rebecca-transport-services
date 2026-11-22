@@ -98,6 +98,22 @@ export function departConseille(arriveeMin, secondesTrafic, marge = MARGE_MIN) {
   return arriveeMin - Math.ceil((secondesTrafic || 0) / 60) - marge;
 }
 
+// 22 nov. 2026, 13h24 (Rebecca, test depuis les courses) : chaque trajet était calculé à rebours depuis son heure
+// d'arrivée, marge comprise, sans regarder le trajet d'avant. Résultat : « École → Alexia : partir 13h59 » alors
+// qu'elle arrive à l'école à 14h00, et « Alexia → Maison : partir 14h08 » alors qu'elle arrive chez Alexia à 14h10.
+// On ne peut pas partir d'un endroit avant d'y être arrivée : le départ devient au plus tôt l'arrivée précédente
+// (la marge est simplement plus petite). Si même comme ça on arrive en retard, on le dit.
+export function enchainerDeparts(lignes) {
+  const l = [...(lignes || [])].sort((a, b) => a.arriveeMin - b.arriveeMin);
+  return l.map((x, i) => {
+    const prec = l[i - 1];
+    if (!prec || !(prec.arriveeMin > x.partir) || !(prec.arriveeMin < x.arriveeMin)) return x;
+    const partir = prec.arriveeMin;
+    const arriveeVers = partir + (x.avec || 0);
+    return { ...x, partir, enchaine: true, arriveeVers, retardMin: Math.max(0, arriveeVers - x.arriveeMin) };
+  });
+}
+
 // Date et heure (Israel) -> ISO pour Google, en tenant compte de l'heure d'ete
 export function departIso(date, minute) {
   const [a, m, j] = date.split("-").map(Number);

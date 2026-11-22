@@ -142,11 +142,14 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
                 <div>
                   <p dir="ltr">{/* 20 nov. 2026 : noms en hébreu isolés, sinon la ligne s'affiche à l'envers (Alexia → Gan au lieu de Gan → Alexia) */}<bdi>{l.nomDe}</bdi> → <bdi>{l.nomVers}</bdi></p>
                   <small>{l.avec} min {l.sansTrafic ? "(sans le trafic)" : "avec le trafic"}{!l.sansTrafic && l.normal && l.avec > l.normal ? ` (normal ${l.normal} min, +${l.avec - l.normal})` : ""} · arrivée {l.enchaine ? `vers ${enHeure(l.arriveeVers)} (prévue ${enHeure(l.arriveeMin)})` : enHeure(l.arriveeMin)}</small>
-                  {l.enchaine && (l.retardMin > 0 ? <small className="fm-erreur"> ⚠️ Pars dès ton arrivée : environ {l.retardMin} min de retard.</small> : <small> · tu pars dès ton arrivée (enchaîné)</small>)}
+                  {tard && (now + (l.avec || 0) > l.arriveeMin ? <small className="fm-erreur"> ⚠️ En partant maintenant : arrivée vers {enHeure(now + (l.avec || 0))}, environ {now + (l.avec || 0) - l.arriveeMin} min de retard.</small> : <small> · en partant maintenant : arrivée vers {enHeure(now + (l.avec || 0))}, à l'heure.</small>)}
+                  {!tard && l.enchaine && (l.retardMin > 0 ? <small className="fm-erreur"> ⚠️ Pars dès ton arrivée : environ {l.retardMin} min de retard.</small> : <small> · tu pars dès ton arrivée (enchaîné)</small>)}
                   {l.apresMin != null && l.partir < l.apresMin && <small className="fm-erreur"> ⚠️ Tu dois partir avant la fin de « {l.apresQuoi || "ta tâche"} » ({enHeure(l.apresMin)}) : avance-la ou raccourcis-la.</small>}
                   {l.apresMin != null && l.partir >= l.apresMin && <small> · après « {l.apresQuoi || "ta tâche"} » (fini {enHeure(l.apresMin)})</small>}
                 </div>
-                <strong style={tard ? { color: "#e57373" } : undefined}>Partir {enHeure(l.partir)}</strong>
+                {/* 22 nov. 2026, 14h11 (Rebecca, en route vers Alexia) : une heure de départ déjà passée (« Partir 13h56 » en
+                    rouge à 14h03) ne sert à rien -> « Maintenant », avec l'heure d'arrivée réelle et le retard éventuel */}
+                <strong style={tard && now + (l.avec || 0) > l.arriveeMin ? { color: "#e57373" } : undefined}>{tard ? "Maintenant" : `Partir ${enHeure(l.partir)}`}</strong>
               </div>
             );
           })}

@@ -122,6 +122,10 @@ test("où je suis : maison, arrivée, retard", () => {
   egal(etapeIci(course, maison, 508), null);
   egal(etapeIci([{ ...course[0], partie: true }], maison, 508).texte, "Récupérer (Deborah)");
   egal(dejaSurPlace(maison, course[0]), true);
+  // 22 nov. 2026 : deux étapes au même endroit -> la plus ancienne pas faite d'abord (dépose avant prise)
+  const chezAlexia = [{ min: 855, genre: "arret", adresse: gan, texte: "Prendre Shyrel" }, { min: 850, genre: "arret", adresse: gan, texte: "Déposer Joy et Liel" }];
+  egal(etapeIci(chezAlexia, gan, 856).texte, "Déposer Joy et Liel");
+  egal(etapeIci([chezAlexia[0], { ...chezAlexia[1], fait: true }], gan, 856).texte, "Prendre Shyrel");
   egal(dejaSurPlace({ lat: 32.31, lon: 34.86 }, course[0]), false);
   const b = bilanArrivee(fil[0], 12, 835);
   egal(b.retard, 7);

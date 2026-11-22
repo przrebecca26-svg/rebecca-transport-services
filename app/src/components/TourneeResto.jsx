@@ -9,6 +9,12 @@ import { lienWazePoint, lienWhatsApp } from "../pricing/navigation.js";
 import { synchroniserSuivi } from "../suiviClient.js";
 import { SaisieWhatsApp, useRestos } from "./CommandesRestoAdmin.jsx";
 import { utcVersLocal } from "../pricing/calendrier.js";
+import PhotoPreuve from "./PhotoPreuve.jsx";
+import PartagerPosition from "./PartagerPosition.jsx";
+import { lienPosition } from "../pricing/positionDirect.js";
+import { kmEntre } from "../pricing/coursesGroupees.js";
+import { coutKm } from "../pricing/finCourse.js";
+import { useEssence } from "../EssenceVue.jsx";
 import { apresChamps } from "../pricing/finCourse.js";
 
 // TOURNEE RESTAURANT GROUPEE dans le Calendrier (22 nov. 2026, Rebecca) : plusieurs commandes du meme restaurant
@@ -16,6 +22,34 @@ import { apresChamps } from "../pricing/finCourse.js";
 // Puis les livraisons dans le meilleur ordre (on finit par la plus proche de la maison), chacune « ✓ Déposée ».
 const heureIsrael = () => new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hour12: false });
 const h = (x) => String(x || "").replace(":", "h");
+const enMin = (x) => (/^\d{2}:\d{2}$/.test(x || "") ? Number(x.slice(0, 2)) * 60 + Number(x.slice(3)) : null);
+const okP = (p) => !!p && Number.isFinite(p.lat) && Number.isFinite(p.lon);
+// Heure d'arrivée au restaurant (la première notée) et minutes écoulées depuis
+const attenteDepuis = (t) => t.map((d) => chronoDe(d).arrivee).filter(Boolean).sort()[0] || "";
+const minutesDepuis = (x) => {
+  const m = enMin(x);
+  const n = enMin(heureIsrael());
+  return m == null || n == null ? 0 : Math.max(0, n - m);
+};
+// 22 nov. 2026 : bilan de TOUTE la tournée (au lieu d'un bilan par commande)
+export function bilanTournee(tournee, ordre, domicile, parKm) {
+  const ch = tournee.map(chronoDe);
+  const debut = ch.map((c) => c.depart || c.arrivee || c.prise).filter(Boolean).sort()[0];
+  const fin = ch.map((c) => c.maison).filter(Boolean).sort().pop() || ch.map((c) => c.depose).filter(Boolean).sort().pop();
+  const minutes = debut && fin && enMin(fin) >= enMin(debut) ? enMin(fin) - enMin(debut) : null;
+  const prix = Math.round(tournee.reduce((s, d) => s + prixDe(d), 0) * 100) / 100;
+  const resto = (tournee[0].details || {}).recuperation;
+  const points = [okP(domicile) ? domicile : null, resto, ...ordre.map((d) => (d.details || {}).livraison), okP(domicile) ? domicile : null].filter(okP);
+  let km = 0;
+  for (let i = 1; i < points.length; i++) km += kmEntre(points[i - 1], points[i]);
+  km = Math.round(km * 10) / 10;
+  const essence = parKm && km ? Math.round(km * parKm * 100) / 100 : 0;
+  const gain = Math.round((prix - essence) * 100) / 100;
+  const arr = ch.map((c) => c.arrivee).filter(Boolean).sort()[0];
+  const prise = ch.map((c) => c.prise).filter(Boolean).sort().pop();
+  const attente = arr && prise && enMin(prise) >= enMin(arr) ? enMin(prise) - enMin(arr) : null;
+  return { nb: tournee.length, prix, minutes, km, essence, gain, attente, parHeure: minutes ? Math.round((prix * 60) / minutes) : null, gainParHeure: minutes && essence ? Math.round((gain * 60) / minutes) : null };
+}
 
 export default function TourneeResto({ tournee, domicile = null, seule = null, aujourdhui = "" }) {
   const { moi } = useEquipeContexte();
@@ -24,6 +58,7 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
   const [erreur, setErreur] = useState("");
   const [ajout, setAjout] = useState(false); // 22 nov. 2026 : nouvelle commande prise sur place, ajoutée à la tournée
   const restos = useRestos();
+  const essence = useEssence();
   const ordre = ordreLivraisons(tournee, domicile);
   const e = etatTournee(tournee);
   const premier = tournee[0];
@@ -59,7 +94,8 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
   const champPropre = (d, k, v) => ({ [`chrono.${trajetDe(d)}.${k}`]: v });
   const partirResto = () => {
     const heure = heureIsrael();
-    return ecrire(tournee.filter((d) => !faitDe(d)).map((d) => ({ d, champs: { ...(chronoDe(d).prise ? {} : champsEtape(d, "prise", heure, moi)), ...champPropre(d, "departResto", heure) } })));
+    const marque = { tourneeResto: { id: premier.id, n: tournee.length } }; // le temps est partagé entre les commandes
+    return ecrire(tournee.map((d) => ({ d, champs: faitDe(d) ? marque : { ...(chronoDe(d).prise ? {} : champsEtape(d, "prise", heure, moi)), ...champPropre(d, "departResto", heure), ...marque } })));
   };
   const arriverClient = (d) => ecrire([{ d, champs: champPropre(d, "arriveeClient", heureIsrael()) }]);
   const rentrer = () => {
@@ -109,6 +145,7 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
             {e.arrivee && !e.prise && telResto && <a className="tb-bouton tb-clair" href={lienWhatsApp(telResto, messageAideResto("attente", nomResto, { client: "", pretA: heures[heures.length - 1] }))} target="_blank" rel="noopener noreferrer">⏳ Pas prête ?</a>}
             {resto && resto.lat != null && !e.departResto && <a className="tb-bouton tb-clair" href={lienWazePoint(resto)} target="_blank" rel="noopener noreferrer">Waze resto</a>}
           </div>
+          {e.arrivee && !e.departResto && attenteDepuis(tournee) && <p className="tb-note">⏱ Au restaurant depuis {h(attenteDepuis(tournee))} · {minutesDepuis(attenteDepuis(tournee))} min d'attente</p>}
           {!e.departResto && (
             <div className="ag-tournee-liste" style={{ margin: "8px 0" }}>
               <p className="tb-note">À récupérer au restaurant :</p>
@@ -129,6 +166,7 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
               <p className="tb-note">Au départ, la tournée se calcule : la commande prioritaire d'abord, puis le meilleur trajet, la plus proche de la maison en dernier.</p>
             </div>
           )}
+          {e.departResto && !e.toutesDeposees && <PartagerPosition d={premier} ids={tournee.filter((d) => !e.deposees.includes(d.id)).map((d) => d.id)} sansLien />}
           {e.departResto && (
           <div className="ag-tournee-liste" style={{ margin: "8px 0" }}>
             {ordre.map((d, i) => {
@@ -144,7 +182,7 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
                   {!faite && (estProchaine || arrivee) && (
                     <div className="tb-actions">
                       {v.livraison && v.livraison.lat != null && <a className="tb-bouton tb-clair" href={lienWazePoint(v.livraison)} target="_blank" rel="noopener noreferrer">Waze</a>}
-                      {!arrivee && v.telDestinataire && <a className="tb-bouton tb-clair" href={lienWhatsApp(v.telDestinataire, messageEnRouteResto(d))} target="_blank" rel="noopener noreferrer">💬 En route (au client)</a>}
+                      {!arrivee && v.telDestinataire && <a className="tb-bouton tb-clair" href={lienWhatsApp(v.telDestinataire, messageEnRouteResto(d, lienPosition(d.id, window.location.origin)))} target="_blank" rel="noopener noreferrer">💬 En route (au client)</a>}
                       {!arrivee && <button type="button" className="tb-bouton" disabled={enCours} onClick={() => arriverClient(d)}>📍 Je suis arrivée</button>}
                       {arrivee && <button type="button" className="tb-bouton" disabled={enCours} onClick={() => deposer(d)}>✓ Livrée</button>}
                       {arrivee && v.telDestinataire && <a className="tb-bouton tb-clair" href={"tel:" + v.telDestinataire}>📞 Client</a>}
@@ -152,6 +190,7 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
                   )}
                   {!faite && !estProchaine && !arrivee && <div className="tb-actions"><button type="button" className="ag-modifier" disabled={enCours} onClick={() => arriverClient(d)}>Livrer celle-ci maintenant</button></div>}
                   {faite && telResto && <div className="tb-actions"><a className="tb-bouton tb-clair" href={lienWhatsApp(telResto, messageMerciResto(d, depose || ""))} target="_blank" rel="noopener noreferrer">💬 Merci au restaurant</a></div>}
+                  {faite && <PhotoPreuve d={d} telResto={telResto} />}
                 </div>
               );
             })}
@@ -163,6 +202,10 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
             {derniereEtapeTournee(tournee) && <button type="button" className="ag-modifier" disabled={enCours} onClick={annuler}>Annuler la dernière étape</button>}
             {seule && <button type="button" className="ag-modifier" onClick={() => setAPart(true)}>Voir chaque commande à part</button>}
           </div>
+          {e.toutesDeposees && moi === "rebecca" && (() => {
+            const b = bilanTournee(tournee, ordre, domicile, coutKm(essence ? essence.pleins : []).parKm);
+            return <p className="ag-fin-bilan">🧾 Bilan de la tournée : {b.prix} ₪ · {b.nb} commandes{b.minutes != null ? ` · ${b.minutes} min` : ""}{b.km ? ` · ≈ ${b.km} km` : ""}{b.parHeure ? ` · ≈ ${b.parHeure} ₪/h` : ""}{b.essence ? <><br />⛽ essence ≈ {b.essence} ₪ → gain réel {b.gain} ₪{b.gainParHeure ? ` · ≈ ${b.gainParHeure} ₪/h` : ""}</> : null}{b.attente != null ? <><br />⏱ attente au restaurant : {b.attente} min</> : null}</p>;
+          })()}
           <p className="tb-note">📋 Livraisons de {nomResto} : payées avec son relevé de la semaine (le dimanche).</p>
           {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
         </div>

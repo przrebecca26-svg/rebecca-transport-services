@@ -145,7 +145,19 @@ export function messagePaiement(d, montant, liens) {
 
 /* ---------- 7. Suivi de la course pour la cliente ---------- */
 const TEXTES_AVANCEMENT = { depart: "Rebecca est en route", arrivee: "Rebecca est arrivée sur place (en attente)", prise: "Prise en charge", depose: "Déposée ✅", maison: "Course terminée ✅" };
+// 22 nov. 2026 (Rebecca) : le restaurant voit chaque numéro avancer (récupérée, en route, chez le client, livrée)
+const TEXTES_RESTO = { maison: "livrée ✅", depose: "livrée ✅", arriveeClient: "Rebecca est chez le client", departResto: "en route vers le client", prise: "récupérée au restaurant", arrivee: "Rebecca est au restaurant", depart: "Rebecca est en route vers le restaurant" };
+function avancementResto(d) {
+  const x = (d.chrono || {}).simple || {};
+  const v = d.details || {};
+  const num = v.numeroResto ? `n° ${v.numeroResto}` : `#${String((v.commandeResto || {}).id || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 5).toUpperCase()}`;
+  for (const id of ["maison", "depose", "arriveeClient", "departResto", "prise", "arrivee", "depart"]) {
+    if (/^\d{2}:\d{2}$/.test(x[id] || "")) return `${num} : ${TEXTES_RESTO[id]} à ${heureFr(x[id])}`;
+  }
+  return "";
+}
 export function avancementDe(d) {
+  if (d && d.details && d.details.commandeResto) return avancementResto(d);
   const c = d && d.chrono ? d.chrono : {};
   const t = d && d.details && d.details.typeTrajet === "ar" ? (c.retour && Object.values(c.retour).some(Boolean) ? "retour" : "aller") : "simple";
   const x = c[t] || {};

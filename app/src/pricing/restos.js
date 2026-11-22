@@ -322,9 +322,9 @@ export const messageLienResto = (nom, lien) =>
 // pas d'acompte, pas de fidélité, pas de merci / avis / relance, pas de reçu (payée avec le relevé du dimanche).
 export const estLivraisonResto = (d) => !!(d && d.details && d.details.commandeResto);
 // « Je suis en route » : au CLIENT du restaurant (pas au restaurant)
-export function messageEnRouteResto(d) {
+export function messageEnRouteResto(d, lienSuivi = "") {
   const v = (d && d.details) || {};
-  return [`Bonjour${v.destinataire ? " " + String(v.destinataire).split(" ")[0] : ""}, c'est Rebecca Services 🛵`, `Je vous apporte votre commande de ${d.nom}, j'arrive dans quelques minutes.`, "Merci !"].join("\n");
+  return [`Bonjour${v.destinataire ? " " + String(v.destinataire).split(" ")[0] : ""}, c'est Rebecca Services 🛵`, `Je vous apporte votre commande de ${d.nom}, j'arrive dans quelques minutes.`, lienSuivi ? `Suivez ma voiture en direct : ${lienSuivi}` : "", "Merci !"].filter(Boolean).join("\n");
 }
 // Merci et avis : au RESTAURANT (jamais à son client : article 6 du contrat)
 export function messageMerciResto(d, heure = "") {
@@ -391,3 +391,44 @@ export const numeroLivraison = (d) => {
   const v = (d && d.details) || {};
   return v.numeroResto ? `n° ${v.numeroResto}` : `#${codeCommande(v.commandeResto && v.commandeResto.id)}`;
 };
+
+// 22 nov. 2026 (Rebecca) : relevé du dimanche, envoyé au restaurant (WhatsApp et e-mail), avec chaque numéro
+const frD = (j) => (DATE_OK.test(j || "") ? j.split("-").reverse().join("/") : "");
+export function messageReleveResto(nom, r, moyen = "") {
+  if (!r) return "";
+  const lignes = r.lignes.map((l) => `• ${frD(l.c.jour)} ${h(l.c.pretA)} · ${numeroCommande(l.c)} · ${l.c.client || ""} · ${l.du} ₪${l.paye ? " (payé)" : ""}`);
+  return [
+    `Bonjour ${nom},`,
+    `Voici le relevé de vos livraisons Rebecca Services du ${frD(r.debut)} au ${frD(r.fin)} :`,
+    ...(lignes.length ? lignes : ["Aucune livraison cette semaine."]),
+    `Total : ${r.nb} livraison${r.nb > 1 ? "s" : ""}, ${r.du} ₪.`,
+    r.paye > 0 ? `Déjà payé : ${r.paye} ₪.` : "",
+    r.reste > 0 ? `Reste à payer : ${r.reste} ₪, le ${frD(r.paiementLe)}${moyen ? ` par ${moyen}` : ""}.` : r.nb ? "Tout est réglé, merci !" : "",
+    "Merci pour votre confiance, Rebecca · rebeccaservices.com",
+  ].filter(Boolean).join("\n");
+}
+// Semaine qui vient de finir (le dimanche : la semaine d'avant)
+export const semaineFinie = (jour) => semaineDe(new Date(Date.parse(jour + "T12:00:00Z") - 7 * 864e5).toISOString().slice(0, 10));
+
+// 22 nov. 2026 (Rebecca) : temps d'attente au restaurant (arrivée -> récupérée), par restaurant
+const minDe = (x) => (/^\d{2}:\d{2}$/.test(x || "") ? Number(x.slice(0, 2)) * 60 + Number(x.slice(3)) : null);
+export function attenteRestos(demandes = []) {
+  const parResto = new Map();
+  for (const d of demandes) {
+    const v = d && d.details;
+    if (!v || !v.commandeResto) continue;
+    const c = (d.chrono || {}).simple || {};
+    const a = minDe(c.arrivee);
+    const p = minDe(c.prise);
+    if (a == null || p == null || p < a) continue;
+    const cle = v.commandeResto.cle;
+    if (!parResto.has(cle)) parResto.set(cle, { cle, nom: d.nom || "Restaurant", fois: 0, total: 0, max: 0, longues: 0 });
+    const x = parResto.get(cle);
+    const m = p - a;
+    x.fois += 1;
+    x.total += m;
+    x.max = Math.max(x.max, m);
+    if (m >= 10) x.longues += 1;
+  }
+  return [...parResto.values()].map((x) => ({ ...x, moyenne: Math.round(x.total / x.fois) })).sort((a, b) => b.moyenne - a.moyenne);
+}

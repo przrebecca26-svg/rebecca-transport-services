@@ -224,3 +224,31 @@ test("le numéro et « prioritaire » partent avec la commande", () => {
   egal(numeroLivraison({ details: { numeroResto: "88" } }), "n° 88");
   egal(numeroLivraison({ details: { commandeResto: { id: "zz9kk1" } } }), "#ZZ9KK");
 });
+
+// 22 nov. 2026 : suggestions (avancement, relevé, attente)
+import { messageReleveResto, semaineFinie, attenteRestos, releveResto as rr2, messageEnRouteResto as mer2 } from "../src/pricing/restos.js";
+import { avancementDe as av2 } from "../src/pricing/suiteClient.js";
+import { bilanTrajet as bt2 } from "../src/pricing/finCourse.js";
+section("Restaurants : suivi, relevé, attente");
+test("le restaurant voit son numéro avancer", () => {
+  const d = { details: { numeroResto: "457", commandeResto: { cle: "K", id: "x" } }, chrono: { simple: { prise: "10:06", departResto: "10:10" } } };
+  egal(av2(d), "n° 457 : en route vers le client à 10h10");
+  egal(av2({ ...d, chrono: { simple: { prise: "10:06" } } }), "n° 457 : récupérée au restaurant à 10h06");
+});
+test("relevé du dimanche avec les numéros, semaine finie", () => {
+  const s = semaineFinie("2026-11-29");
+  egal([s.debut, s.fin], ["2026-11-22", "2026-11-28"]);
+  const r = rr2([{ id: "abcde1", statut: "livree", jour: "2026-11-22", pretA: "10:05", client: "Gtest", prix: 55, numero: "457" }], s);
+  const m = messageReleveResto("Test2", r, "Bit");
+  vrai(m.includes("n° 457") && m.includes("55 ₪") && m.includes("par Bit"));
+});
+test("attente au restaurant : arrivée -> récupérée", () => {
+  const a = attenteRestos([{ nom: "R", details: { commandeResto: { cle: "K" } }, chrono: { simple: { arrivee: "10:00", prise: "10:12" } } }, { nom: "R", details: { commandeResto: { cle: "K" } }, chrono: { simple: { arrivee: "11:00", prise: "11:04" } } }]);
+  egal([a[0].moyenne, a[0].max, a[0].longues], [8, 12, 1]);
+});
+test("message « en route » avec le lien de suivi", () => vrai(mer2({ nom: "R", details: { destinataire: "Dan" } }, "https://x/#/position/1").includes("https://x/#/position/1")));
+test("tournée : le temps est partagé entre les commandes (pas compté deux fois)", () => {
+  const d = { prixFinal: 50, chrono: { simple: { depart: "10:00", maison: "11:00" } } };
+  egal(bt2(d).total, 60);
+  egal(bt2({ ...d, tourneeResto: { id: "a", n: 2 } }).total, 30);
+});

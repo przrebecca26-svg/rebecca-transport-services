@@ -24,6 +24,8 @@ import {
   messageArrivee, messageAvis, messageEnRoute, messageRappelRetour, peutCocher, preparerEncaissement, prixDe, prochaineEtape, texteMinutes, trajetDe,
 } from "./pricing/finCourse.js";
 import { sansAttendre } from "./ecritureRapide.js";
+import PhotoPreuve from "./components/PhotoPreuve.jsx";
+import { lienPosition } from "./pricing/positionDirect.js";
 const addDocVite = (...a) => sansAttendre(addDoc(...a));
 const updateDocVite = (...a) => sansAttendre(updateDoc(...a));
 
@@ -133,7 +135,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
         .catch(() => {});
     }
   };
-  const lienEnRoute = c.depart && !c.arrivee && !c.prise ? (resto ? lienWhatsApp(v.telDestinataire || "", messageEnRouteResto(d)) : lienWhatsApp(d.telephone, messageEnRoute(d))) : null;
+  const lienEnRoute = c.depart && !c.arrivee && !c.prise ? (resto ? lienWhatsApp(v.telDestinataire || "", messageEnRouteResto(d, lienPosition(d.id, window.location.origin))) : lienWhatsApp(d.telephone, messageEnRoute(d))) : null;
   const finTrajet = fait && trajet !== "aller";
   const texteSms = messagePaiement(d, reste, liensPaiement);
   const lienPaiement = texteSms ? lienWhatsApp(d.telephone, texteSms) : null;
@@ -268,6 +270,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
           <a className="tb-bouton" href={lienMerci} target="_blank" rel="noopener noreferrer" onClick={() => setMerci(false)}>💬 Envoyer le merci{resto ? " au restaurant" : ""} (WhatsApp)</a>
         </div>
       )}
+      {resto && fait && <PhotoPreuve d={d} telResto={d.telephone && d.telephone !== "000" ? d.telephone : ""} />}
       {boutonRappel}
       {!resto && reste > 0 && lienPaiement && (
         <div className="tb-actions">

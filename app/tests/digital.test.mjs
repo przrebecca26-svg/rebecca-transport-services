@@ -138,7 +138,7 @@ test("lecture REST et mot de passe", () => {
   egal(motDePasseRobot().length, 24);
 });
 
-import { trajetsDuJour, departConseille, departIso, secondes, etapesCourses } from "../src/pricing/traficMatin.js";
+import { trajetsDuJour, departConseille, departIso, secondes, etapesCourses, enchainerDeparts } from "../src/pricing/traficMatin.js";
 section("Trafic du matin");
 test("trajets de la journée depuis la maison", () => {
   const maison = { label: "Maison", lat: 32.3, lon: 34.85 };
@@ -259,4 +259,18 @@ test("la sauvegarde contient aussi Wolt, Répertoire, cartes cadeaux, réglages�
   egal([j.nombre.autresRevenus, j.nombre.cartesCadeaux, j.autres.cartesCadeaux[0].code], [1, 1, "RS-577U-9J4P"]);
   vrai(COLLECTIONS_SAUVEGARDE.includes("cartesCadeaux") && COLLECTIONS_SAUVEGARDE.includes("autresRevenus"));
   egal("autres" in JSON.parse(sauvegardeJson({ demandes: [], mouvements: [], depenses: [] })), false);
+});
+
+test("Trafic : on ne part pas d'un endroit avant d'y être arrivée (22 nov.)", () => {
+  // école 14h00 (840), Alexia 14h10 (850) en 6 min, maison 14h21 (861) en 8 min
+  const l = enchainerDeparts([
+    { nomVers: "École", arriveeMin: 840, avec: 9, partir: 826 },
+    { nomVers: "Alexia", arriveeMin: 850, avec: 6, partir: 839 },
+    { nomVers: "Maison", arriveeMin: 861, avec: 8, partir: 848 },
+  ]);
+  egal(l.map((x) => x.partir), [826, 840, 850]);
+  egal([l[1].arriveeVers, l[1].retardMin, l[2].arriveeVers, l[2].retardMin], [846, 0, 858, 0]);
+  egal(l[0].enchaine, undefined);
+  const r = enchainerDeparts([{ arriveeMin: 840, avec: 9, partir: 826 }, { arriveeMin: 845, avec: 10, partir: 830 }]);
+  egal(r[1].retardMin, 5);
 });

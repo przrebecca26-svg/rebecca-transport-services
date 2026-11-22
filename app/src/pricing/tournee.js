@@ -619,7 +619,9 @@ export function texteArret(x, nomLieu = null) {
   if (x.sorte === "prise" && !x.souple && x.tot != null && x.debut >= x.arrivee && !x.retard) avance = x.debut - x.arrivee;
   if (x.sorte === "depose" && x.limite != null && x.arrivee <= x.limite) avance = x.limite - x.arrivee;
   const marge = avance == null ? "" : avance < 1 ? "juste à l'heure" : `${Math.round(avance)} min d'avance`;
-  return { heure: enHeure(x.sorte === "prise" ? x.debut : x.arrivee), texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${nom}`, lieu: (nomLieu && nomLieu(x.lieu)) || lieuCourt(x.lieu), retard, marge };
+  // 22 nov. 2026 : le nom donne a l'activite (Basket) passe avant le nom trouve par l'adresse (Ecole de Shyrel)
+  const nomPropre = x.sorte === "prise" ? x.trajet.nomDe : x.trajet.nomA;
+  return { heure: enHeure(x.sorte === "prise" ? x.debut : x.arrivee), texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${nom}`, lieu: nomPropre || (nomLieu && nomLieu(x.lieu)) || lieuCourt(x.lieu), retard, marge };
 }
 
 // Reponse pour un devis : chaque jour de semaine concerne, tournee fixe + trajets de la cliente
@@ -831,7 +833,8 @@ export function filTournee(jour, nomLieu = null, domicile = null) {
     if (!x.trajet) continue;
     const a = texteArret(x, nomLieu);
     const min = x.sorte === "prise" ? x.debut : x.arrivee;
-    if (x.partir != null) sortie.push({ min: x.partir, genre: "partir", heure: enHeure(x.partir), texte: `Partir pour ${a.lieu}` });
+    // 22 nov. 2026 : « Partir pour … » a la meme heure que l'arret (deja sur place, temps libre aux alentours) : inutile
+    if (x.partir != null && x.partir < min - 1) sortie.push({ min: x.partir, genre: "partir", heure: enHeure(x.partir), texte: `Partir pour ${a.lieu}` });
     const qui = nomsCourts(x.trajet.nom) || x.trajet.nom || "trajet";
     sortie.push({ min, genre: "arret", heure: a.heure, texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${qui}${a.retard}`, lieu: a.lieu, marge: a.marge, adresse: x.lieu, coince: x.depassement > 0, ids: x.trajet.ids || [x.trajet.id], type: x.trajet.type, sorte: x.sorte });
     dernier = x.depart != null ? x.depart : min;

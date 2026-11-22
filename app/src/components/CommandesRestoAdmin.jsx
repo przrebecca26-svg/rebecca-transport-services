@@ -42,7 +42,10 @@ export function useCommandes(restos) {
   return useMemo(() => Object.values(parResto).flat(), [parResto]);
 }
 
-export default function CommandesRestoAdmin({ aller }) {
+// 22 nov. 2026 (Rebecca : « ça se mélange ») : la barre « En ligne / Commande WhatsApp » n'est plus en haut de
+// toutes les pages, seulement dans « Commandes restaurants » (barre) ; la carte d'une nouvelle commande, elle,
+// s'affiche partout (carte), car il faut répondre en 5 minutes.
+export default function CommandesRestoAdmin({ aller, barre = true, carte = true }) {
   const { membres } = useEquipeContexte();
   const restos = useRestos();
   const commandes = useCommandes(restos);
@@ -62,7 +65,7 @@ export default function CommandesRestoAdmin({ aller }) {
   // Un son à chaque nouvelle commande
   const avant = useRef(null);
   useEffect(() => {
-    if (avant.current != null && enAttente.length > avant.current) jouerSon(styles.nouvelle.son);
+    if (carte && avant.current != null && enAttente.length > avant.current) jouerSon(styles.nouvelle.son);
     avant.current = enAttente.length;
   }, [enAttente.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -70,7 +73,7 @@ export default function CommandesRestoAdmin({ aller }) {
   const aSuivre = commandes.filter((c) => c.demandeId && (c.statut === "acceptee" || (c.statut === "livree" && !c.payee)));
   const cleSuivi = aSuivre.map((c) => c.id + c.statut).join(",");
   useEffect(() => {
-    if (!aSuivre.length) return undefined;
+    if (!aSuivre.length || !carte) return undefined; // une seule écoute (celle de toutes les pages)
     let fini = false;
     const verifier = async () => {
       try {
@@ -107,6 +110,7 @@ export default function CommandesRestoAdmin({ aller }) {
   // 20 nov. 2026 : une commande programmée (autre jour) s'affiche même « Hors ligne », sans délai
   const actuelle = enAttente.find((c) => enLigne || c.programmee) || null;
 
+  if (!barre) return carte && actuelle ? <CarteCommande key={actuelle.id} c={actuelle} resto={restos.find((r) => r.cle === actuelle.cle)} maintenant={maintenant} reste={enAttente.length - 1} membres={membres} aller={aller} /> : null;
   return (
     <>
       <div className="tb-actions" style={{ margin: "8px 0" }}>
@@ -119,7 +123,7 @@ export default function CommandesRestoAdmin({ aller }) {
       {!enLigne && enAttente.filter((c) => !c.programmee).length > 0 && <p className="tdb-note">🍕 {enAttente.filter((c) => !c.programmee).length} commande(s) en attente : passe « En ligne » pour répondre.</p>}
       {info && <p className="tdb-note" role="status">{info}</p>}
       {saisie && <SaisieWhatsApp restos={restos} jour={jour} heure={utcVersLocal(maintenant).heure} fermer={() => setSaisie(false)} />}
-      {actuelle && <CarteCommande key={actuelle.id} c={actuelle} resto={restos.find((r) => r.cle === actuelle.cle)} maintenant={maintenant} reste={enAttente.length - 1} membres={membres} aller={aller} />}
+      {carte && actuelle && <CarteCommande key={actuelle.id} c={actuelle} resto={restos.find((r) => r.cle === actuelle.cle)} maintenant={maintenant} reste={enAttente.length - 1} membres={membres} aller={aller} />}
     </>
   );
 }
@@ -201,7 +205,7 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
   if (prevenir) {
     return (
       <div className="tdb-bloc" style={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 1000, boxShadow: "0 8px 30px rgba(0,0,0,.6)" }}>
-        <p>✓ Acceptée et proposée à {prevenir.nom} : elle est dans « À accepter » chez lui.</p>
+        <p>✓ Acceptée et proposée à {prevenir.nom} : elle est dans « Courses à accepter (équipe) » chez lui.</p>
         <div className="tb-actions">
           <a className="tb-bouton" href={prevenir.lien} target="_blank" rel="noopener noreferrer">💬 Prévenir {prevenir.nom}</a>
           <button type="button" className="tb-bouton tb-clair" onClick={() => setPrevenir(null)}>Fermer</button>

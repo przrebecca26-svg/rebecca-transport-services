@@ -1,6 +1,8 @@
 import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
 import InfoVol from "./components/InfoVol.jsx";
 import FinCourseAgenda from "./FinCourseAgenda.jsx";
+import TourneeResto from "./components/TourneeResto.jsx";
+import { etapesTournee, tourneesResto } from "./pricing/tourneeResto.js";
 import { messageEnfant, parentsAPrevenir } from "./pricing/finCourse.js";
 import { heureDans, minutesJusqua } from "./arrivee.js";
 import { arreterSuivi, demarrerSuivi, idSuivi } from "./suiviRamassage.js";
@@ -1072,6 +1074,12 @@ function ChangementsDuJour({ date, journee }) {
   );
 }
 
+// 22 nov. 2026 : trafic et « Prochaine » : une tournee restaurant = une recuperation puis les livraisons dans l'ordre
+const etapesAvecTournees = (courses, domicile) => {
+  const { tournees, seules } = tourneesResto(courses);
+  return [...etapesCourses(seules), ...tournees.flatMap((t) => etapesTournee(t, domicile))].sort((a, b) => a.min - b.min);
+};
+
 const enMinutes = (h) => {
   const m = /^(\d{1,2})[:h](\d{2})/.exec(String(h || ""));
   return m ? Number(m[1]) * 60 + Number(m[2]) : 24 * 60;
@@ -1080,13 +1088,16 @@ const enMinutes = (h) => {
 // Une journee : fermetures (Chabbat, fetes...), puis UN SEUL FIL dans l'ordre des heures :
 // ma tournee (etapes reelles), mes courses et rendez-vous, les missions confiees.
 // fil = etapes de ma tournee (vide si pas de tournee) ; tourneeOk = la tournee remplace les « Creneau deja reserve »
-function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false, journee = null, valide = null, equipier = false }) {
+function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [], pourTous = false, fil = [], tourneeOk = false, calcul = false, journee = null, valide = null, equipier = false, domicile = null }) {
   const rep = useRepertoire();
+  // 22 nov. 2026 : commandes du meme restaurant pretes a 10 min pres = une seule tournee (une arrivee, une recuperation)
+  const { tournees, seules } = tourneesResto(evenements);
   // Les creneaux personnels sont ceux de Rebecca (sa tournee) : jamais dans l'agenda d'un coequipier (12 nov. 2026)
   const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
     ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} familles={rep.familles || []} suivante={e.sorte === "prise" ? fil.slice(i + 1).find((x) => x.genre === "arret" && x.sorte === "depose" && x.adresse) || null : null} />, etape: true })),
-    ...evenements.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} /> })),
+    ...seules.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} /> })),
+    ...tournees.map((t) => ({ min: enMinutes(t[0].heure), cle: "tr" + t[0].id, rendu: <TourneeResto tournee={t} domicile={domicile} aujourdhui={aujourdhui} seule={(d) => <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} />} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
   ].sort((a, b) => a.min - b.min);
   // 19 nov. 2026 : ce qui occupe deja la journee (en minutes), pour « trouve-moi un créneau » dans la dictée
@@ -1304,7 +1315,7 @@ export default function Agenda() {
   for (const f of fermetures) if (f.holHamoed) holFermes[f.holHamoed] = f;
 
   // 19 nov. 2026, 15h42 : étapes du trafic (tournée + courses, avec « fait ») ; dehors -> le trafic part de ma position
-  const filTrafic = ref === aujourdhui && tourneeOk ? [...maJournee.fil(ref).map((e) => ({ ...e, cle: cleEtape(e) || undefined, fait: !!maJournee.faitA(ref, e) })), ...etapesCourses(parDate[ref] || [])] : [];
+  const filTrafic = ref === aujourdhui && tourneeOk ? [...maJournee.fil(ref).map((e) => ({ ...e, cle: cleEtape(e) || undefined, fait: !!maJournee.faitA(ref, e) })), ...etapesAvecTournees(parDate[ref] || [], maJournee.domicile)] : [];
   const ici = useIci();
   const ouAujourdhui = useOu();
   const dehorsIci = ouAujourdhui === "dehors" ? arrondir(ici) : null;
@@ -1347,9 +1358,9 @@ export default function Agenda() {
       {moi === ADMIN_ID && <ListeAttenteAdmin />}
       {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <MaPositionBloc jour={ref} fil={filTrafic} domicile={maJournee.domicile} journee={maJournee} courses={parDate[ref] || []} />}
       {vue === "jour" && tourneeOk && ref === aujourdhui && moi === ADMIN_ID && <TraficDuMatin jour={ref} fil={filTrafic} domicile={maJournee.domicile} ici={dehorsIci} aLaMaison={ouAujourdhui === "maison"} />}
-      {vue === "jour" && <JourListe equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} valide={tourneeOk && ref <= aujourdhui && ref >= ajouterJours(aujourdhui, -1) ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
+      {vue === "jour" && <JourListe domicile={maJournee.domicile} equipier={moi !== ADMIN_ID} fil={maJournee.fil(ref)} journee={tourneeOk && ref >= aujourdhui ? maJournee : null} valide={tourneeOk && ref <= aujourdhui && ref >= ajouterJours(aujourdhui, -1) ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
-      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre equipier={moi !== ADMIN_ID} fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
+      {vue === "semaine" && jours.map((j) => <JourListe key={j} titre domicile={maJournee.domicile} equipier={moi !== ADMIN_ID} fil={maJournee.fil(j)} journee={tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}
 
       {vue === "mois" && (
         <>

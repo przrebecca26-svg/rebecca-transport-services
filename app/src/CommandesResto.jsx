@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import { useCommandes, useRestos } from "./components/CommandesRestoAdmin.jsx";
-import { LIBELLES, etatCommande } from "./pricing/restos.js";
+import { deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { db } from "./firebase.js";
+import CommandesRestoAdmin, { useCommandes, useRestos } from "./components/CommandesRestoAdmin.jsx";
+import AddressField from "./components/AddressField.jsx";
+import MenageRestos from "./components/MenageRestos.jsx";
+import { LIBELLES, SUJETS_AIDE_RESTO, champsCorrectionCommande, etatCommande, messageAideResto } from "./pricing/restos.js";
+import { supprimerCommandeResto } from "./suppression.js";
+import { lienAppel } from "./pricing/navigation.js";
 import { utcVersLocal } from "./pricing/calendrier.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 
@@ -56,8 +62,9 @@ export default function CommandesResto({ aller }) {
     <div className="tdb devis-rapide">
       <div className="tdb-tete">
         <h1>Commandes restaurants</h1>
-        <p className="tdb-sous">Les commandes de tes restaurants partenaires sur 14 jours, avec tous les détails. À valider, en cours, terminées : chaque commande se range toute seule.</p>
+        <p className="tdb-sous">Tout ce qui concerne les restaurants est ici, à part de Rebecca Services : « En ligne », commandes WhatsApp, et chaque commande sur 14 jours (modifier, annuler, supprimer, demander une info).</p>
       </div>
+      <CommandesRestoAdmin aller={aller} carte={false} />
       <div className="tb-filtres" role="tablist" aria-label="Commandes">
         {FILTRES.map((f) => (
           <button key={f.v} role="tab" aria-selected={vu === f.v} className={"tb-filtre" + (vu === f.v ? " actif" : "")} onClick={() => setFiltre(f.v)}>
@@ -70,27 +77,132 @@ export default function CommandesResto({ aller }) {
       {jours.map((j) => (
         <section key={j} className="tdb-bloc">
           <h2>{j === aujourdhui ? "Aujourd'hui" : jourFr(j)}</h2>
-          {liste.filter((c) => c.jour === j).map((c) => (
-            <div key={c.cle + c.id} className="bloc">
-              <p className="rp-type">🍕 {nom(c.cle)} · prête à {h(c.pretA)}{c.programmee ? " · 📅 programmée" : ""}</p>
-              <p><strong>{LIBELLES[c.etat] || c.etat}</strong>{typeof c.prix === "number" ? ` · ${c.prix} ₪` : ""}{typeof c.km === "number" ? ` · ${String(c.km).replace(".", ",")} km` : ""}{c.par ? ` · par ${c.par}` : ""}{c.source === "whatsapp" ? " · saisie WhatsApp" : ""}</p>
-              <p>👤 {c.client || "Client"}{c.telClient ? <> · <a className="rp-waze" href={lienWhatsApp(c.telClient)} target="_blank" rel="noopener noreferrer">{c.telClient}</a></> : null}</p>
-              {c.adresse && c.adresse.label && <p>🏠 {c.adresse.label}</p>}
-              {c.note && <p className="tdb-note">📝 {c.note}</p>}
-              {c.tresLourds > 0 && <p className="tdb-note">📦 {c.tresLourds} article{c.tresLourds > 1 ? "s" : ""} très lourd{c.tresLourds > 1 ? "s" : ""}</p>}
-              {c.motif && <p className="tdb-note">Motif : {c.motif}</p>}
-              {c.etat === "acceptee" && c.etape && <p className="tdb-note">🚗 {c.etape}</p>}
-              {c.etat === "nouvelle" && <p className="tdb-note">{c.programmee ? "Réponds avec la carte en bas de l'écran (pas de délai)." : "Passe « 🟢 En ligne » : la carte pour répondre apparaît en bas de l'écran."}</p>}
-              {c.demandeId && (
-                <div className="rp-boutons">
-                  <button type="button" className="rp-waze" onClick={() => aller("demandes", c.demandeId)}>Ouvrir la livraison</button>
-                  <button type="button" className="rp-waze" onClick={() => aller("agenda")}>Calendrier</button>
-                </div>
-              )}
-            </div>
-          ))}
+          {liste.filter((c) => c.jour === j).map((c) => <LigneCommande key={c.cle + c.id} c={c} resto={restos.find((r) => r.cle === c.cle)} nomResto={nom(c.cle)} aller={aller} />)}
         </section>
       ))}
+      <MenageRestos />
+    </div>
+  );
+}
+
+// Une commande avec ses boutons (22 nov. 2026, Rebecca) : modifier, annuler, supprimer, demander une info / assistance
+export function LigneCommande({ c, resto, nomResto, aller }) {
+  const [mode, setMode] = useState("");
+  const [f, setF] = useState(null);
+  const [prix, setPrix] = useState("");
+  const [info, setInfo] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const telResto = (resto && resto.telephone) || "";
+  const ouvrir = (m) => {
+    setInfo("");
+    if (m === "modifier") {
+      setF({ client: c.client || "", telClient: c.telClient || "", adresse: c.adresse || null, pretA: c.pretA || "", jour: c.jour || "", note: c.note || "", tresLourds: c.tresLourds || 0 });
+      setPrix(typeof c.prix === "number" ? String(c.prix) : "");
+    }
+    setMode(mode === m ? "" : m);
+  };
+  const enregistrer = async () => {
+    const r = champsCorrectionCommande(c, f, prix);
+    if (r.erreur) return setInfo(r.erreur);
+    setEnCours(true);
+    try {
+      await updateDoc(doc(db, "restos", c.cle, "commandesResto", c.id), r.commande);
+      if (c.demandeId) await updateDoc(doc(db, "demandes", c.demandeId), { ...r.demande, majLe: serverTimestamp() }).catch(() => {});
+      setMode("");
+      setInfo("✓ Commande corrigée (et sa livraison dans le Calendrier).");
+    } catch {
+      setInfo("Correction impossible : vérifie la connexion et que les règles Firebase v35 sont publiées.");
+    }
+    setEnCours(false);
+    return undefined;
+  };
+  const annuler = async () => {
+    setEnCours(true);
+    try {
+      await updateDoc(doc(db, "restos", c.cle, "commandesResto", c.id), { statut: "annulee", motif: "Annulée par Rebecca", reponduLe: serverTimestamp() });
+      if (c.demandeId) await deleteDoc(doc(db, "demandes", c.demandeId)).catch(() => {});
+      setMode("");
+    } catch {
+      setInfo("Annulation impossible pour l'instant.");
+    }
+    setEnCours(false);
+  };
+  const supprimer = async () => {
+    setEnCours(true);
+    try {
+      await supprimerCommandeResto(c);
+    } catch {
+      setInfo("Suppression impossible : vérifie la connexion.");
+      setEnCours(false);
+    }
+  };
+  const lien = (sujet) => {
+    const s = SUJETS_AIDE_RESTO.find((x) => x.id === sujet);
+    const tel = s && s.vers === "client" ? c.telClient : telResto;
+    return tel ? lienWhatsApp(tel, messageAideResto(sujet, nomResto, c)) : null;
+  };
+  const maj = (k, v) => setF({ ...f, [k]: v });
+  return (
+    <div className="bloc">
+      <p className="rp-type">🍕 {nomResto} · prête à {h(c.pretA)}{c.programmee ? " · 📅 programmée" : ""}</p>
+      <p><strong>{LIBELLES[c.etat] || c.etat}</strong>{typeof c.prix === "number" ? ` · ${c.prix} ₪` : ""}{typeof c.km === "number" ? ` · ${String(c.km).replace(".", ",")} km` : ""}{c.par ? ` · par ${c.par}` : ""}{c.source === "whatsapp" ? " · saisie WhatsApp" : ""}{c.payee ? " · payée ✓" : ""}</p>
+      <p>👤 {c.client || "Client"}{c.telClient ? <> · <a className="rp-waze" href={lienAppel(c.telClient)}>{c.telClient}</a></> : null}</p>
+      {c.adresse && c.adresse.label && <p>🏠 {c.adresse.label}</p>}
+      {c.note && <p className="tdb-note">📝 {c.note}</p>}
+      {c.tresLourds > 0 && <p className="tdb-note">📦 {c.tresLourds} article{c.tresLourds > 1 ? "s" : ""} très lourd{c.tresLourds > 1 ? "s" : ""}</p>}
+      {c.motif && <p className="tdb-note">Motif : {c.motif}</p>}
+      {c.etat === "acceptee" && c.etape && <p className="tdb-note">🚗 {c.etape}</p>}
+      {c.etat === "nouvelle" && <p className="tdb-note">{c.programmee ? "Réponds avec la carte en bas de l'écran (pas de délai)." : "Passe « 🟢 En ligne » : la carte pour répondre apparaît en bas de l'écran."}</p>}
+      <div className="rp-boutons">
+        {c.etat === "acceptee" && <button type="button" className="rp-waze" onClick={() => aller("agenda")}>📅 Calendrier</button>}
+        {["nouvelle", "acceptee"].includes(c.etat) && <button type="button" className="rp-waze" onClick={() => ouvrir("modifier")}>✏️ Modifier</button>}
+        <button type="button" className="rp-waze" onClick={() => ouvrir("aide")}>🛟 Info / assistance</button>
+        {c.etat === "acceptee" && <button type="button" className="rp-waze" onClick={() => ouvrir("annuler")}>✗ Annuler</button>}
+        <button type="button" className="rp-waze" onClick={() => ouvrir("supprimer")}>🗑 Supprimer</button>
+      </div>
+      {mode === "aide" && (
+        <div className="rp-boutons">
+          {SUJETS_AIDE_RESTO.map((x) => {
+            const l = lien(x.id);
+            return l ? <a key={x.id} className="rp-waze" href={l} target="_blank" rel="noopener noreferrer">{x.libelle}</a> : null;
+          })}
+          {telResto && <a className="rp-waze" href={lienAppel(telResto)}>📞 Appeler le restaurant</a>}
+          {c.telClient && <a className="rp-waze" href={lienAppel(c.telClient)}>📞 Appeler le client</a>}
+          {!telResto && <p className="tdb-note">Le restaurant n'a pas de téléphone dans sa fiche (Répertoire).</p>}
+        </div>
+      )}
+      {mode === "annuler" && (
+        <div className="rp-boutons">
+          <span className="tdb-note">Annuler cette livraison ? Elle sort du Calendrier ; le restaurant voit « annulée ».</span>
+          <button type="button" className="rp-waze" disabled={enCours} onClick={annuler}>Oui, annuler</button>
+          <button type="button" className="rp-waze" onClick={() => setMode("")}>Non</button>
+        </div>
+      )}
+      {mode === "supprimer" && (
+        <div className="rp-boutons">
+          <span className="tdb-note">Supprimer pour de bon (test, erreur) ? La commande, sa livraison du Calendrier et ses paiements partent, sans trace.</span>
+          <button type="button" className="rp-waze" disabled={enCours} onClick={supprimer}>Oui, supprimer</button>
+          <button type="button" className="rp-waze" onClick={() => setMode("")}>Non</button>
+        </div>
+      )}
+      {mode === "modifier" && f && (
+        <div className="tdb-bloc">
+          <label className="champ">Prénom du client<input value={f.client} maxLength={60} onChange={(e) => maj("client", e.target.value)} /></label>
+          <label className="champ">Téléphone du client<input inputMode="tel" value={f.telClient} maxLength={20} onChange={(e) => maj("telClient", e.target.value)} /></label>
+          <label className="champ" htmlFor={"cr-ad-" + c.id}>Adresse de livraison</label>
+          <AddressField id={"cr-ad-" + c.id} valeur={f.adresse} position={false} onChange={(v) => maj("adresse", v)} />
+          <label className="champ">Jour<input type="date" value={f.jour} onChange={(e) => maj("jour", e.target.value)} /></label>
+          <label className="champ">Prête à<input type="time" value={f.pretA} onChange={(e) => maj("pretA", e.target.value)} /></label>
+          <label className="champ">Articles très lourds<input type="text" inputMode="numeric" value={String(f.tresLourds || 0)} onChange={(e) => maj("tresLourds", Math.min(30, Number(e.target.value.replace(/\D/g, "")) || 0))} /></label>
+          <label className="champ">Note<input value={f.note} maxLength={300} onChange={(e) => maj("note", e.target.value)} /></label>
+          <label className="champ">Prix de la livraison (₪)<input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value.replace(/[^0-9.,]/g, ""))} /></label>
+          <div className="tb-actions">
+            <button type="button" className="tb-bouton" disabled={enCours} onClick={enregistrer}>{enCours ? "Enregistrement…" : "Enregistrer"}</button>
+            <button type="button" className="tb-bouton tb-clair" onClick={() => setMode("")}>Fermer</button>
+          </div>
+        </div>
+      )}
+      {info && <p className="tdb-note" role="status">{info}</p>}
     </div>
   );
 }

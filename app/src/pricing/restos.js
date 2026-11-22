@@ -321,3 +321,52 @@ export function messageMerciResto(d, heure = "") {
 export function messageAvisResto(d) {
   return [`Bonjour ${d.nom}, c'est Rebecca 🙏`, "Merci de me confier vos livraisons ! Un petit retour sur la façon dont ça se passe (délais, soin, échanges) m'aiderait beaucoup : répondez simplement à ce message.", "Rebecca Services · rebeccaservices.com"].join("\n");
 }
+
+/* ---------- Commandes restaurants : corriger, annuler, demander une info (22 nov. 2026, Rebecca) ----------
+   « Pareil, les boutons pour modifier, supprimer, demander plus d'informations si on a besoin sur la cliente
+   pour pouvoir livrer, quelle assistance. » */
+// Correction d'une commande par Rebecca : { erreur } ou { commande, demande } (champs a ecrire de chaque cote)
+export function champsCorrectionCommande(c, f, prix) {
+  const pret = { ...f, pretA: f.pretA || c.pretA };
+  const err = validerCommande(pret);
+  if (err) return { erreur: err };
+  if (!DATE_OK.test(f.jour || c.jour || "")) return { erreur: "Indiquez le jour de la livraison." };
+  const p = prix == null || prix === "" ? null : Number(String(prix).replace(",", "."));
+  if (p != null && !(p > 0 && p <= 2000)) return { erreur: "Prix invalide (entre 1 et 2000 ₪)." };
+  const propre = commandePropre(pret, f.jour || c.jour, c.source === "whatsapp" ? "whatsapp" : "lien");
+  const lourds = propre.tresLourds || 0;
+  const commande = { client: propre.client, telClient: propre.telClient, adresse: propre.adresse, pretA: propre.pretA, note: propre.note, jour: propre.jour, tresLourds: lourds };
+  if (p != null) commande.prix = cents(p);
+  if (c.statut === "acceptee") commande.arriveeVers = propre.pretA;
+  const demande = {
+    date: propre.jour,
+    heure: propre.pretA,
+    "details.livraison": propre.adresse,
+    "details.destinataire": propre.client,
+    "details.telDestinataire": propre.telClient,
+    "details.instructions": propre.note,
+  };
+  if (p != null) demande.prixFinal = cents(p);
+  return { commande, demande };
+}
+
+const prenomDe = (n) => String(n || "").trim().split(" ")[0];
+// Messages au restaurant (ou au client) pour livrer sans souci
+export const SUJETS_AIDE_RESTO = [
+  { id: "info", libelle: "❓ Demander une info au restaurant", vers: "resto" },
+  { id: "injoignable", libelle: "📵 Client injoignable", vers: "resto" },
+  { id: "adresse", libelle: "📍 Adresse introuvable / incomplète", vers: "resto" },
+  { id: "attente", libelle: "⏳ Commande pas prête", vers: "resto" },
+  { id: "client", libelle: "💬 Écrire au client", vers: "client" },
+];
+export function messageAideResto(sujet, nomResto, c) {
+  const qui = c && c.client ? ` de ${prenomDe(c.client)}` : "";
+  const heure = c && c.pretA ? ` (prête à ${h(c.pretA)})` : "";
+  const adresse = c && c.adresse && c.adresse.label ? c.adresse.label : "";
+  const debut = `Bonjour ${nomResto || ""}, c'est Rebecca Services 🛵`.replace("  ", " ");
+  if (sujet === "injoignable") return [debut, `Pour la commande${qui}${heure} : je suis devant l'adresse et le client ne répond pas (${c.telClient || "téléphone"}).`, "Avez-vous un autre numéro ou une consigne (laisser à la porte, au gardien) ?", "Merci, Rebecca"].join("\n");
+  if (sujet === "adresse") return [debut, `Pour la commande${qui}${heure} : je ne trouve pas l'adresse${adresse ? ` « ${adresse} »` : ""}.`, "Pouvez-vous me préciser (bâtiment, étage, code, repère) ?", "Merci, Rebecca"].join("\n");
+  if (sujet === "attente") return [debut, `Je suis au restaurant pour la commande${qui}${heure}.`, "Elle sera prête dans combien de minutes ?", "Merci, Rebecca"].join("\n");
+  if (sujet === "client") return [`Bonjour ${prenomDe(c && c.client)}, c'est Rebecca Services 🛵, je vous livre la commande de ${nomResto || "votre restaurant"}.`, "Pouvez-vous me confirmer l'adresse exacte (bâtiment, étage, code) ?", "Merci !"].join("\n");
+  return [debut, `Pour la commande${qui}${heure} :`, "pouvez-vous me donner une précision pour la livrer (adresse exacte, étage, code, téléphone) ?", "Merci, Rebecca"].join("\n");
+}

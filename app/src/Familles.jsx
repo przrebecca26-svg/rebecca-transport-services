@@ -10,10 +10,10 @@ import { phraseSolde, soldeCompte } from "./pricing/comptesEntreNous.js";
 // FAMILLES ET ENFANTS (12 nov. 2026) : dans le Repertoire, la fiche de chaque enfant (ecole, activites, jours,
 // heures). La tournee scolaire se construit toute seule a partir de ces fiches.
 
-export function Adresse({ id, label, valeur, changer, connues }) {
+export function Adresse({ id, label, valeur, changer, connues, prefere = "", choisirLieu = null }) {
   return (
     <>
-      <ChoixLieu id={"c" + id} connues={connues} valeur={valeur} choisir={changer} />
+      <ChoixLieu id={"c" + id} connues={connues} valeur={valeur} prefere={prefere} choisir={(a, lieu) => (choisirLieu && lieu ? choisirLieu(a, lieu) : changer(a))} />
       <Champ champ={{ name: id, label, type: "adresse" }} valeurs={{ [id]: valeur }} onChange={(_, v) => changer(v)} />
     </>
   );
@@ -33,7 +33,9 @@ function Rdv({ famille, r, changer, supprimer, connues }) {
           <input id={"rn" + r.id} type="text" maxLength={40} value={r.nom} onChange={(e) => set("nom", e.target.value)} />
         </div>
       )}
-      <Adresse id={"rl" + r.id} label={r.type === "ecole" ? "Adresse de l'école ou du Gan" : "Adresse de l'activité"} valeur={r.lieu} changer={(v) => set("lieu", v)} connues={connues} />
+      <Adresse id={"rl" + r.id} label={r.type === "ecole" ? "Adresse de l'école ou du Gan" : "Adresse de l'activité"} valeur={r.lieu} changer={(v) => set("lieu", v)} connues={connues} prefere={r.nom}
+        choisirLieu={(a, lieu) => changer({ ...r, lieu: a, ...(r.type === "activite" && !String(r.nom || "").trim() && lieu.nom ? { nom: String(lieu.nom).slice(0, 40) } : {}) })} />
+      {r.type === "activite" && r.nom && <span className="aide">Dans ta journée, ce lieu s'appelle « {r.nom} », même si une école a la même adresse.</span>}
       <div className="rp-vacances">
         <label>Commence à <input type="time" value={r.heureArrivee} onChange={(e) => set("heureArrivee", e.target.value)} /></label>
         <label>Finit à <input type="time" value={r.heureSortie} onChange={(e) => set("heureSortie", e.target.value)} /></label>

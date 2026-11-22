@@ -43,7 +43,8 @@ function Lieu({ l, changer, supprimer, connues, ouvert, ouvrir }) {
           {TYPES_LIEU.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
         </select>
       </div>
-      <ChoixLieu id={"rc-" + l.id} connues={connues.filter((c) => c.id !== l.id)} valeur={l.adresse} choisir={(x) => set("adresse", x)} sansAjout />
+      <ChoixLieu id={"rc-" + l.id} connues={connues.filter((c) => c.id !== l.id)} valeur={l.adresse} prefere={l.nom} choisir={(x) => set("adresse", x)} sansAjout />
+      {connues.some((c) => c.id !== l.id && c.adresse && l.adresse && c.adresse.label === l.adresse.label) && <p className="tdb-note">Même adresse qu'un autre lieu : c'est normal (ex. le basket à l'école). Dans ta journée, l'activité garde son nom.</p>}
       <Champ champ={{ name: "ra" + l.id, label: "Adresse", type: "adresse" }} valeurs={{ ["ra" + l.id]: l.adresse }} onChange={(_, v) => set("adresse", v)} />
       <div className="champ">
         <label htmlFor={"ro-" + l.id}>Note (code du portail, étage…), facultatif</label>

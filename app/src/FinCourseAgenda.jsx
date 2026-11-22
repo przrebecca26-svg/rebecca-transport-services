@@ -311,7 +311,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       {moi === ADMIN_ID && avance > 0 && <p className="tb-note">💼 Déjà payé pour le retour : {avance} ₪ (avance, compté au retour).</p>}
       {moi === ADMIN_ID && (bilan.total != null || bilan.kmReel) && (
         <p className="ag-fin-bilan">
-          {bilan.total != null ? "⏱ " : ""}{[bilan.approche != null && `aller chez elle ${texteMinutes(bilan.approche)}`, bilan.course != null && `course ${texteMinutes(bilan.course)}`, bilan.retourMaison != null && `retour maison ${texteMinutes(bilan.retourMaison)}`].filter(Boolean).join(" · ")} {bilan.total != null ? `· total ${texteMinutes(bilan.total)}` : ""}
+          {bilan.total != null ? "⏱ " : ""}{[bilan.approche != null && `${resto ? "aller au restaurant" : "aller chez elle"} ${texteMinutes(bilan.approche)}`, bilan.course != null && `course ${texteMinutes(bilan.course)}`, bilan.retourMaison != null && `retour maison ${texteMinutes(bilan.retourMaison)}`].filter(Boolean).join(" · ")} {bilan.total != null ? `· total ${texteMinutes(bilan.total)}` : ""}
           {bilan.parHeure ? <><br />💶 {bilan.prix} ₪ → ≈ {bilan.parHeure} ₪/h</> : null}
           {bilan.km > 0 && bilan.gainReel != null ? <><br />⛽ essence ≈ {bilan.essence} ₪ ({bilan.km} km {bilan.kmReel ? "au compteur" : "estimés"}, {cout.parKm} ₪/km d'après {cout.source}) → gain réel {bilan.gainReel} ₪ sur ce trajet{bilan.gainReelParHeure ? ` · ≈ ${bilan.gainReelParHeure} ₪/h` : ""}</> : null}
         </p>

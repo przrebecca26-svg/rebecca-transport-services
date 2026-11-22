@@ -117,7 +117,12 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
   const now = minutesMaintenant();
   const dehors = ou === "dehors";
   const ici2 = dehors ? arrondir(ici) : null;
-  const prochaine = dehors && ici2 ? prochaineEtape(fil, now) : null;
+  // 22 nov. 2026, 13h55 (Rebecca, à l'école) : « Je suis arrivée » touché -> on n'affiche plus « 8 min de route,
+  // retard de 2 min » vers l'endroit où elle est déjà (le bloc de l'étape montre la suite : Enfants récupérés…)
+  const CLE_ET0 = `rs-etapes-${jour || dateIsrael()}`;
+  const arriveeNotee = (e) => { try { const t = JSON.parse(localStorage.getItem(CLE_ET0) || "{}"); return !!(e && t[`${e.texte}@${e.min}`] && t[`${e.texte}@${e.min}`].arrivee); } catch { return false; } };
+  const prochaine0 = dehors && ici2 ? prochaineEtape(fil, now) : null;
+  const prochaine = prochaine0 && !arriveeNotee(prochaine0) ? prochaine0 : null;
   // 20 nov. 2026 : bouton Waze vers la prochaine étape, même sans position (pas besoin de descendre dans la liste)
   const suivante = dehors ? prochaine || prochaineEtape(fil, now) : null;
   const waze = suivante && suivante.adresse ? lienWazePoint(suivante.adresse) : "";
@@ -162,6 +167,7 @@ export default function MaPositionBloc({ fil = [], domicile = null, journee = nu
     const suite = { ...etapes, [cleArret]: { ...faitsArret, [b.id]: heureIsrael().replace(":", "h") } };
     setEtapes(suite);
     try { localStorage.setItem(CLE_ET, JSON.stringify(suite)); } catch { /* */ }
+    try { window.dispatchEvent(new Event("rs-etapes")); } catch { /* */ } // le Trafic de ma journée se met à jour
     if (b.valide) await cocher(arret);
   };
   const dernierFait = arret ? [...boutonsEtape(arret.sorte)].reverse().find((b) => faitsArret[b.id]) : null;

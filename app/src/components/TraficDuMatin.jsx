@@ -44,6 +44,12 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
   const sig = signature(base);
   const [res, setRes] = useState(() => lire(jour));
   const [etat, setEtat] = useState("");
+  const [, setTic] = useState(0);
+  useEffect(() => {
+    const maj = () => setTic((x) => x + 1);
+    window.addEventListener("rs-etapes", maj);
+    return () => window.removeEventListener("rs-etapes", maj);
+  }, []);
 
   const calculer = async () => {
     if (!googleActif()) return setEtat("Ajoute ta clé Google (Répertoire) pour avoir le trafic réel.");
@@ -116,6 +122,11 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
   const now = maintenant();
   // Trajet fait (etape cochee) ou arrivee passee : il disparait tout de suite, sans attendre le recalcul
   const faits = new Set(trajets.filter((t) => t.fait).map((t) => t.cle));
+  // 22 nov. 2026 : « 📍 Je suis arrivée » touché sur une étape -> le trajet pour y aller disparaît
+  try {
+    const et = JSON.parse(localStorage.getItem(`rs-etapes-${jour}`) || "{}");
+    for (const t of trajets) if (et[`${t.quoi}@${t.arriveeMin}`] && et[`${t.quoi}@${t.arriveeMin}`].arrivee) faits.add(t.cle);
+  } catch { /* */ }
   // 20 nov. 2026 : déjà rentrée (« 🏠 À la maison ») -> le prochain « → Maison » ne s'affiche plus
   const prochainRetour = aLaMaison ? res && res.lignes && res.lignes.find((l) => l.arriveeMin > now && !faits.has(l.cle)) : null;
   if (prochainRetour && prochainRetour.nomVers === "Maison") faits.add(prochainRetour.cle);

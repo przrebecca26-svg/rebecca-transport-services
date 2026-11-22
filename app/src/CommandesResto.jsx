@@ -6,7 +6,7 @@ import AddressField from "./components/AddressField.jsx";
 import MenageRestos from "./components/MenageRestos.jsx";
 import RelevesRestos from "./components/RelevesRestos.jsx";
 import { LIBELLES, SUJETS_AIDE_RESTO, champsCorrectionCommande, etatCommande, messageAideResto, numeroCommande } from "./pricing/restos.js";
-import { supprimerCommandeResto } from "./suppression.js";
+import { avecDelai, messageErreurSuppression, supprimerCommandeResto } from "./suppression.js";
 import { lienAppel } from "./pricing/navigation.js";
 import { utcVersLocal } from "./pricing/calendrier.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
@@ -131,12 +131,15 @@ export function LigneCommande({ c, resto, nomResto, aller }) {
   };
   const supprimer = async () => {
     setEnCours(true);
+    setInfo("Suppression en cours…");
     try {
-      await supprimerCommandeResto(c);
-    } catch {
-      setInfo("Suppression impossible : vérifie la connexion.");
-      setEnCours(false);
+      await avecDelai(supprimerCommandeResto(c));
+      setMode("");
+      setInfo("✓ Supprimée.");
+    } catch (e) {
+      setInfo(messageErreurSuppression(e));
     }
+    setEnCours(false);
   };
   const lien = (sujet) => {
     const s = SUJETS_AIDE_RESTO.find((x) => x.id === sujet);
@@ -183,7 +186,7 @@ export function LigneCommande({ c, resto, nomResto, aller }) {
       {mode === "supprimer" && (
         <div className="rp-boutons">
           <span className="tdb-note">Supprimer pour de bon (test, erreur) ? La commande, sa livraison du Calendrier et ses paiements partent, sans trace.</span>
-          <button type="button" className="rp-waze" disabled={enCours} onClick={supprimer}>Oui, supprimer</button>
+          <button type="button" className="rp-waze" disabled={enCours} onClick={supprimer}>{enCours ? "Suppression…" : "Oui, supprimer"}</button>
           <button type="button" className="rp-waze" onClick={() => setMode("")}>Non</button>
         </div>
       )}

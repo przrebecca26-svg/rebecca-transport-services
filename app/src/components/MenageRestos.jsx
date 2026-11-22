@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { db } from "../firebase.js";
-import { supprimerCommandeResto } from "../suppression.js";
+import { avecDelai, messageErreurSuppression, supprimerCommandeResto } from "../suppression.js";
 import { useRepertoire } from "../repertoireBase.js";
 import { enregistrerRepertoire } from "../repertoireBase.js";
 
@@ -61,11 +61,18 @@ export default function MenageRestos() {
     setEnCours(true);
     setInfo("");
     let n = 0;
+    let erreur = null;
     try {
       for (const c of commandes) {
-        await supprimerCommandeResto(c).catch(() => {});
-        n++;
+        try {
+          await avecDelai(supprimerCommandeResto(c));
+          n++;
+        } catch (e) {
+          erreur = erreur || e;
+        }
       }
+      // 22 nov. 2026 : plus de « ✓ » si Firebase a refusé (avant, l'erreur était cachée)
+      if (erreur) throw erreur;
       if (tout) {
         for (const c of contrats) await deleteDoc(doc(db, "contratsRestos", c.id)).catch(() => {});
         for (const a of avenants) await deleteDoc(doc(db, "avenantsResto", a.cle)).catch(() => {});
@@ -74,8 +81,8 @@ export default function MenageRestos() {
         if (ids.size) await enregistrerRepertoire(rep.lieux, rep.corrections, rep.familles.filter((f) => !ids.has(f.id)));
         setInfo(`✓ Remis à zéro : ${n} commande(s), ${contrats.length} contrat(s), ${choisis.length} lien(s) de restaurant, ${ids.size} fiche(s) du Répertoire.`);
       } else setInfo(`✓ ${n} commande(s) effacée(s), avec leurs livraisons du Calendrier et leurs paiements.`);
-    } catch {
-      setInfo("Le ménage s'est arrêté en route : vérifie la connexion puis recommence (ce qui est fait reste fait).");
+    } catch (e) {
+      setInfo(`${n} commande(s) effacée(s), mais ${commandes.length - n} n'ont pas pu l'être. ${messageErreurSuppression(e)}`);
     }
     setEnCours(false);
     setD(null);

@@ -38,6 +38,13 @@ export const supprimerMouvement = (id) => deleteDoc(doc(db, "mouvements", id));
 // part avec sa livraison du Calendrier (et ses paiements) si elle en a une.
 export async function supprimerCommandeResto(c) {
   if (!c || !c.cle || !c.id) return;
+  // 22 nov. 2026, 11h42 (Rebecca : « quand j'appuie sur supprimer ça supprime pas ») : la commande part EN PREMIER
+  // (elle disparaît tout de suite de la liste), puis sa livraison du Calendrier et ses paiements.
+  try {
+    await deleteDoc(doc(db, "restos", c.cle, "commandesResto", c.id));
+  } catch (e) {
+    if (!(e && e.code === "not-found")) throw e;
+  }
   if (c.demandeId) {
     try {
       await supprimerCourseComplete(c.demandeId);
@@ -45,9 +52,18 @@ export async function supprimerCommandeResto(c) {
       /* livraison deja supprimee */
     }
   }
-  try {
-    await deleteDoc(doc(db, "restos", c.cle, "commandesResto", c.id));
-  } catch (e) {
-    if (!(e && e.code === "not-found")) throw e;
-  }
+}
+
+// Une attente qui ne finit jamais devient une erreur claire (réseau coupé, appli restée ouverte trop longtemps)
+export function avecDelai(promesse, ms = 20000) {
+  let t;
+  return Promise.race([promesse, new Promise((_, rej) => { t = setTimeout(() => rej(Object.assign(new Error("delai"), { code: "delai" })), ms); })]).finally(() => clearTimeout(t));
+}
+
+export function messageErreurSuppression(e) {
+  const code = (e && e.code) || "";
+  if (code === "permission-denied") return "Firebase refuse la suppression : les règles publiées ne sont pas les bonnes. Publie la v36 (je te redonne le bloc), puis réessaie.";
+  if (code === "delai") return "Firebase ne répond pas : ferme complètement l'appli, rouvre-la, puis réessaie.";
+  if (code === "unavailable") return "Pas de connexion pour l'instant : réessaie dans un moment.";
+  return "Suppression impossible" + (code ? ` (${code})` : "") + " : envoie-moi une capture de ce message.";
 }

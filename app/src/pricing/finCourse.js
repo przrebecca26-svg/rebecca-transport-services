@@ -220,7 +220,10 @@ export function bilanTrajet(d, parKm = null) {
   const approche = ecart(c.depart, c.prise);
   const course = ecart(c.prise, c.depose);
   const retourMaison = ecart(c.depose, c.maison);
-  const total = ecart(c.depart || c.prise, c.maison);
+  let total = ecart(c.depart || c.prise, c.maison);
+  // 22 nov. 2026 : livraison d'une tournée restaurant -> le temps est partagé entre ses n commandes (pas compté n fois)
+  const n = d && d.tourneeResto && Number(d.tourneeResto.n) > 1 ? Number(d.tourneeResto.n) : 1;
+  if (total != null && n > 1) total = Math.round(total / n);
   const prix = prixTrajet(d);
   const parHeure = total && total > 0 && prix > 0 ? Math.round((prix * 60) / total) : null;
   const ess = essenceTrajet(d, CARBURANT, parKm);

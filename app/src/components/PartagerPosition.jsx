@@ -7,7 +7,9 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 // 📍 PARTAGER MA POSITION (19 nov. 2026, V2) - Rebecca, sur une course du Calendrier.
 // Tant que l'écran de l'appli reste ouvert, la position est envoyée (toutes les 20 s ou tous les 30 m).
 // Sur iPhone, une page web ne peut pas envoyer sa position écran éteint : garder l'appli ouverte (support voiture).
-export default function PartagerPosition({ d }) {
+// 22 nov. 2026 : ids = plusieurs livraisons à la fois (tournée restaurant : chaque client suit avec son lien)
+export default function PartagerPosition({ d, ids = null, sansLien = false }) {
+  const cibles = ids && ids.length ? ids : [d.id];
   const [actif, setActif] = useState(false);
   const [info, setInfo] = useState("");
   const veille = useRef(null);
@@ -18,7 +20,7 @@ export default function PartagerPosition({ d }) {
     veille.current = null;
     setActif(false);
     setInfo("Partage arrêté.");
-    await deleteDoc(doc(db, "positions", d.id)).catch(() => {});
+    await Promise.all(cibles.map((id) => deleteDoc(doc(db, "positions", id)).catch(() => {})));
   };
   useEffect(() => () => { if (veille.current != null) navigator.geolocation.clearWatch(veille.current); }, []);
   const demarrer = () => {
@@ -30,7 +32,7 @@ export default function PartagerPosition({ d }) {
         const maintenant = Date.now();
         if (!aEnvoyer(dernier.current.p, p, maintenant - dernier.current.t)) return;
         dernier.current = { p, t: maintenant };
-        setDoc(doc(db, "positions", d.id), { ...p, prenom: "Rebecca", actif: true, majLe: serverTimestamp() })
+        Promise.all(cibles.map((id) => setDoc(doc(db, "positions", id), { ...p, prenom: "Rebecca", actif: true, majLe: serverTimestamp() })))
           .then(() => { setActif(true); setInfo(`Position envoyée à ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}. Garde l'appli ouverte.`); })
           .catch(() => setInfo("Envoi impossible (règles Firebase v28 collées ?)."));
       },
@@ -43,10 +45,10 @@ export default function PartagerPosition({ d }) {
   return (
     <div className="ag-etape-actions">
       {!actif ? (
-        <button type="button" className="tb-bouton tb-clair" onClick={demarrer}>📍 Partager ma position avec {prenom || "la cliente"}</button>
+        <button type="button" className="tb-bouton tb-clair" onClick={demarrer}>📍 Partager ma position {sansLien ? "(suivi des clients)" : `avec ${prenom || "la cliente"}`}</button>
       ) : (
         <>
-          {wa && <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer">💬 Envoyer le lien de suivi</a>}
+          {wa && !sansLien && <a className="tb-bouton" href={wa} target="_blank" rel="noopener noreferrer">💬 Envoyer le lien de suivi</a>}
           <button type="button" className="tb-bouton tb-clair" onClick={arreter}>⏹ Arrêter le partage</button>
         </>
       )}

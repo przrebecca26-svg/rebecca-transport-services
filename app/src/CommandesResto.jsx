@@ -4,6 +4,7 @@ import { db } from "./firebase.js";
 import CommandesRestoAdmin, { useCommandes, useRestos } from "./components/CommandesRestoAdmin.jsx";
 import AddressField from "./components/AddressField.jsx";
 import MenageRestos from "./components/MenageRestos.jsx";
+import RelevesRestos from "./components/RelevesRestos.jsx";
 import { LIBELLES, SUJETS_AIDE_RESTO, champsCorrectionCommande, etatCommande, messageAideResto, numeroCommande } from "./pricing/restos.js";
 import { supprimerCommandeResto } from "./suppression.js";
 import { lienAppel } from "./pricing/navigation.js";
@@ -80,6 +81,7 @@ export default function CommandesResto({ aller }) {
           {liste.filter((c) => c.jour === j).map((c) => <LigneCommande key={c.cle + c.id} c={c} resto={restos.find((r) => r.cle === c.cle)} nomResto={nom(c.cle)} aller={aller} />)}
         </section>
       ))}
+      {restos.length > 0 && <RelevesRestos restos={restos} commandes={commandes} />}
       <MenageRestos />
     </div>
   );

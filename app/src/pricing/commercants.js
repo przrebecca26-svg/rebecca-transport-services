@@ -89,7 +89,8 @@ const adresseDe = (d) => {
 };
 // Message WhatsApp du releve, pour le commercant
 export function messageReleve(nom, r, contrat) {
-  const lignes = r.lignes.map((l) => `• ${fr(l.d.date)}${l.d.heure ? " " + l.d.heure.replace(":", "h") : ""} · ${adresseDe(l.d) || l.d.nom || "livraison"} · ${l.du} ₪${l.reste === 0 ? " (payé)" : ""}`);
+  const num = (d) => { const v = d.details || {}; if (!v.commandeResto) return ""; return v.numeroResto ? ` · n° ${v.numeroResto}` : ` · #${String(v.commandeResto.id || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 5).toUpperCase()}`; };
+  const lignes = r.lignes.map((l) => `• ${fr(l.d.date)}${l.d.heure ? " " + l.d.heure.replace(":", "h") : ""}${num(l.d)} · ${adresseDe(l.d) || l.d.nom || "livraison"} · ${l.du} ₪${l.reste === 0 ? " (payé)" : ""}`);
   return [
     `Bonjour ${nom},`,
     `Voici le relevé de vos livraisons Rebecca Services du ${fr(r.debut)} au ${fr(r.fin)} :`,

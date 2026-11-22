@@ -14,3 +14,15 @@ test("monter les commandes juste sous le tableau de bord", () => {
   egal(o, ["tableau", "commandes-resto", "devis", "demandes", "finances"]);
   egal(deplacer(R, o, "tableau", -1), o);
 });
+
+// 22 nov. 2026 : menu par sections
+import { parSections, deplacerDans } from "../src/pricing/menuOrdre.js";
+section("Menu par sections");
+const SEC = [{ id: "jour" }, { id: "rs" }, { id: "restos" }];
+const RB = [{ id: "d", section: "rs" }, { id: "c", section: "restos" }, { id: "a", section: "jour" }, { id: "t", section: "rs" }];
+test("les rubriques se rangent par section, l'ordre choisi gardé dedans", () => egal(parSections(RB, SEC).map((r) => r.id), ["a", "d", "t", "c"]));
+test("monter / descendre reste dans sa section", () => {
+  const l = parSections(RB, SEC);
+  egal(deplacerDans(l, "t", -1), ["a", "t", "d", "c"]);
+  egal(deplacerDans(l, "d", -1), ["a", "d", "t", "c"]);
+});

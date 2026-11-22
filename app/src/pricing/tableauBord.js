@@ -12,6 +12,8 @@ import { chiffresSepares, faitDansPeriode, montantFait } from "./parts.js";
 
 export const ACTIVITES_TB = [
   { id: "coursier", titre: "Services coursier", etat: "active", icone: "coursier" },
+  // 22 nov. 2026 (Rebecca : « les restaurants ne doivent pas se mélanger avec Rebecca Services ») : tuile a part
+  { id: "restos", titre: "Restaurants partenaires", etat: "active", icone: "coursier" },
   { id: "transport", titre: "Transport privé", etat: "active", icone: "transport" },
   { id: "nails", titre: "Nails Prestige", etat: "active", logo: "/brand/logo-nails-prestige.png" },
   { id: "regenx", titre: "RegenX", etat: "active", logo: "/brand/logo-regenx.png" },
@@ -23,10 +25,14 @@ export const ACTIVITES_TB = [
 
 const ACTIVITE_DE = Object.fromEntries(SERVICES.map((s) => [s.id, s.activite]));
 export const activiteDe = (service) => ACTIVITE_DE[service] || "autre";
+// 22 nov. 2026 : une livraison d'un restaurant partenaire a sa propre activite (et son propre domaine)
+export const estDemandeResto = (d) => !!(d && d.details && d.details.commandeResto);
+export const activiteDeD = (d) => (estDemandeResto(d) ? "restos" : activiteDe(d && d.service));
 
 // 17 nov. 2026, 14h30 : les cases du tableau de bord, par domaine
 export const DOMAINES_TB = [
   { id: "courses", titre: "Chiffre d'affaires courses & livraisons" },
+  { id: "restos", titre: "Chiffre d'affaires restaurants partenaires" },
   { id: "transport", titre: "Chiffre d'affaires transport" },
   { id: "beaute", titre: "Chiffre d'affaires beauté" },
   { id: "digital", titre: "Chiffre d'affaires digital" },
@@ -43,6 +49,8 @@ export function domaineDe(service) {
   if (a === "epoxy" || s.startsWith("epoxy")) return "epoxy";
   return "autre";
 }
+
+export const domaineDeD = (d) => (estDemandeResto(d) ? "restos" : domaineDe(d && d.service));
 
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 const nb = (x) => {
@@ -65,7 +73,7 @@ const dans = (date, periode) => !!date && (!periode || (date >= periode.debut &&
 
 // Les 4 indicateurs G3 pour une activite ("coursier", "transport") ou pour tout (activite = null)
 export function indicateurs({ activite = null, demandes = [], mouvements = [], periode = null }) {
-  const garder = (d) => !activite || activiteDe(d.service) === activite;
+  const garder = (d) => !activite || activiteDeD(d) === activite;
   const siennes = demandes.filter(garder);
   const ids = new Set(siennes.map((d) => d.id));
 
@@ -92,7 +100,7 @@ export function indicateurs({ activite = null, demandes = [], mouvements = [], p
     prestationsTerminees: nbParts,
     caRealise,
     caCourses: sep.base,
-    parDomaine: Object.fromEntries(DOMAINES_TB.map((x) => [x.id, chiffresSepares(siennes.filter((d) => domaineDe(d.service) === x.id), periode).base])),
+    parDomaine: Object.fromEntries(DOMAINES_TB.map((x) => [x.id, chiffresSepares(siennes.filter((d) => domaineDeD(d) === x.id), periode).base])),
     supplements: cents(sep.supplements + sep.ajustements),
     encaisse,
     pourboires,
@@ -105,7 +113,7 @@ export function indicateurs({ activite = null, demandes = [], mouvements = [], p
 export function repartitionServices({ activite = null, demandes = [], periode = null }) {
   const c = {};
   for (const d of demandes) {
-    if (activite && activiteDe(d.service) !== activite) continue;
+    if (activite && activiteDeD(d) !== activite) continue;
     if (!faitDansPeriode(d, periode)) continue;
     c[d.service] = (c[d.service] || 0) + 1;
   }

@@ -10,6 +10,7 @@ import { etatDisponibilite } from "../pricing/disponibilite.js";
 import { semaineDecalee } from "../pricing/commercants.js";
 import GrilleKmResto from "./GrilleKmResto.jsx";
 import FormuleResto from "./FormuleResto.jsx";
+import "../espace-resto.css"; // 22 nov. 2026 : boutons et champs au style du site (ils étaient gris, par défaut)
 import {
   JOURS_PROGRAMMATION, LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, peutProgrammer, prixCommande, releveResto,
   secondesRestantes, semaineResto, tarifsResto, validerCommande,
@@ -70,11 +71,11 @@ export default function EspaceResto({ cle, onAccueil }) {
     }
   }, [commandes, maintenant, cle]);
 
-  if (resto === undefined) return <section className="carte-service" style={{ margin: 16 }}><p>Chargement…</p></section>;
+  if (resto === undefined) return <section className="carte-service espace-resto" style={{ margin: 16 }}><p>Chargement…</p></section>;
   // 20 nov. 2026 (Rebecca) : lien désactivé = la page ne s'ouvre plus du tout (ni tarifs, ni commandes, ni relevé)
   if (resto === null || resto.actif === false) {
     return (
-      <section className="carte-service" style={{ margin: 16 }}>
+      <section className="carte-service espace-resto" style={{ margin: 16 }}>
         <h2>Espace restaurant</h2>
         <p>Ce lien n'est pas valable (ou il a été remplacé). Demandez votre lien à Rebecca.</p>
         <p><a className="bouton" href={lienWhatsApp(WHATSAPP, "Bonjour Rebecca, mon lien restaurant ne marche plus.")} target="_blank" rel="noopener noreferrer">💬 Écrire à Rebecca</a></p>
@@ -130,7 +131,7 @@ export default function EspaceResto({ cle, onAccueil }) {
   const r = releveResto(commandes, semaine);
 
   return (
-    <section className="carte-service" style={{ margin: 16 }}>
+    <section className="carte-service espace-resto" style={{ margin: 16 }}>
       <h2>🍕 {resto.nom}</h2>
       <p className="tb-note">Votre espace livraison Rebecca Services</p>
       {resto.tarifs && (
@@ -183,7 +184,7 @@ export default function EspaceResto({ cle, onAccueil }) {
           );
         })()}
         <label>Articles très lourds (packs d'eau, cartons lourds) : +{tarifsResto(resto, jourCmd, f.pretA || heure).tresLourd ?? 5} ₪ chacun · sacs ordinaires gratuits<br />
-          <input type="number" inputMode="numeric" min={0} max={30} value={f.tresLourds || 0} onChange={(e) => maj("tresLourds", Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))))} style={{ width: 90 }} />
+          <input type="text" inputMode="numeric" pattern="[0-9]*" value={String(f.tresLourds || 0)} onFocus={(e) => e.target.select()} onChange={(e) => maj("tresLourds", Math.max(0, Math.min(30, Number(e.target.value.replace(/\D/g, "")) || 0)))} style={{ width: 90 }} />
         </label>
         <br />
         <label>Note pour le livreur (facultatif)<br /><input value={f.note} maxLength={300} onChange={(e) => maj("note", e.target.value)} placeholder="Ex. : 3e étage, code 1234, payé" /></label>

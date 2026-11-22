@@ -22,7 +22,13 @@ const MOUV = [
 ];
 
 section("Tableau de bord");
-test("8 activites, toutes actives (10 nov.)", () => egal([T.ACTIVITES_TB.length, T.ACTIVITES_TB.filter((a) => a.etat === "active").length], [8, 8]));
+test("9 activites (+ Restaurants partenaires, 22 nov.), toutes actives", () => egal([T.ACTIVITES_TB.length, T.ACTIVITES_TB.filter((a) => a.etat === "active").length], [9, 9]));
+test("22 nov. : une livraison de restaurant va dans Restaurants partenaires, pas dans Services coursier", () => {
+  const d = { id: "r1", service: "livraison", statut: "terminee", date: "2026-11-22", prixFinal: 50, details: { commandeResto: { cle: "K", id: "c" } } };
+  egal([T.activiteDeD(d), T.domaineDeD(d), T.activiteDeD({ service: "livraison" })], ["restos", "restos", "coursier"]);
+  const p = { debut: "2026-11-22", fin: "2026-11-22" };
+  egal([T.indicateurs({ activite: "restos", demandes: [d], periode: p }).caRealise, T.indicateurs({ activite: "coursier", demandes: [d], periode: p }).caRealise], [50, 0]);
+});
 test("date de creation texte", () => egal(T.dateCreation({ creeLe: "2026-11-07" }), "2026-11-07"));
 test("date de creation Timestamp : heure d'Israel (31 oct. 23h30 UTC = 1er nov.)", () => egal(T.dateCreation(DEM[2]), "2026-11-01"));
 test("sans date de creation", () => egal(T.dateCreation({}), null));

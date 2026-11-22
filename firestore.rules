@@ -1,5 +1,8 @@
 rules_version = '2';
-// Regles Rebecca Services v34 (20 novembre 2026, commandes restaurant programmees) = v33 +
+// Regles Rebecca Services v35 (22 novembre 2026, commandes restaurant modifiables) = v34 +
+//   - commandesResto : Rebecca corrige une commande (client, telephone, adresse, heure « prete », jour, note,
+//     articles tres lourds) ; le restaurant voit la commande corrigee dans son espace.
+// v34 (20 novembre 2026, commandes restaurant programmees) = v33 +
 //   - commandesResto : le restaurant peut programmer une commande pour un autre jour (demain a 30 jours),
 //     sans que Rebecca soit « En ligne » ; pas de refus automatique (programmee == true).
 // v33 (20 novembre 2026, etapes des livraisons) = v32 +
@@ -1259,6 +1262,12 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut"])
           && (request.resource.data.statut == "annulee"
             || (request.resource.data.statut == "expiree" && request.time > resource.data.creeLe + duration.value(5, "m")));
+        // v35 (22 nov. 2026) : Rebecca corrige les details d'une commande (meme controles qu'a la creation)
+        allow update: if estAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["client", "telClient", "adresse", "pretA", "note", "jour", "tresLourds", "prix", "km", "arriveeVers"])
+          && commandeRestoValide(request.resource.data)
+          && (!("tresLourds" in request.resource.data) || (request.resource.data.tresLourds is int && request.resource.data.tresLourds >= 0 && request.resource.data.tresLourds <= 30))
+          && (!("prix" in request.resource.data) || (request.resource.data.prix is number && request.resource.data.prix >= 0 && request.resource.data.prix <= 2000));
         // Rebecca : accepter, refuser, prix, livree, payee
         allow update: if estAdmin()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "prix", "km", "demandeId", "reponduLe", "arriveeVers", "par", "motif", "payee", "etape"])

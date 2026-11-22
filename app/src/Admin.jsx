@@ -26,7 +26,7 @@ import ReglagesFondations from "./ReglagesFondations.jsx";
 import SyncCreneaux from "./SyncCreneaux.jsx";
 import SyncTournee from "./SyncTournee.jsx";
 import { useCompteurs } from "./compteursBase.js";
-import { deplacer, ordonner } from "./pricing/menuOrdre.js";
+import { deplacerDans, ordonner, parSections } from "./pricing/menuOrdre.js";
 import CommandesResto, { useCompteurCommandesResto } from "./CommandesResto.jsx"; // 19 nov. 2026
 import AssistanceAdmin from "./AssistanceAdmin.jsx"; // 19 nov. 2026 : assistance clients
 import SyncComptes from "./comptesBase.js";
@@ -110,28 +110,38 @@ function ConnexionEmail({ setErreur }) {
 }
 
 // Menu lateral de l'espace prive (D2a, 9 nov. 2026 : 10 rubriques validees en G2 + « Devis rapide » demande par Rebecca)
-const RUBRIQUES = [
-  { id: "tableau", label: "Tableau de bord" },
-  { id: "devis", label: "Devis rapide" },
-  { id: "ramassage", label: "Ramassage scolaire", adminOnly: true }, // 12 nov. 2026 : devis (rapides et du site) et tournee, a part
-  { id: "activites", label: "Activités" },
-  { id: "demandes", label: "Demandes et missions" },
-  { id: "transferts", label: "À accepter" }, // 12 nov. 2026 : courses proposees entre Rebecca et Jeremy
-  { id: "commandes-resto", label: "Commandes restaurants", adminOnly: true }, // 19 nov. 2026 : toutes les commandes des restaurants partenaires
-  { id: "assistance", label: "Assistance", adminOnly: true }, // 19 nov. 2026 : messages des clients (bouton « 💬 Assistance »)
-  { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true },
-  { id: "projets-digital", label: "Projets Digital", adminOnly: true }, // 17 nov. 2026 : devis, paiements 40/30/30, cahier des charges
-  { id: "partenaires", label: "Partenaires", adminOnly: true }, // 17 nov. 2026 : inscriptions des futurs coursiers
-  { id: "agenda", label: "Calendrier" },
-  { id: "repertoire", label: "Répertoire" }, // 12 nov. 2026 : mes lieux et les adresses des clientes (Rebecca et son equipe)
-  { id: "equipe", label: "Équipe" },
-  { id: "clients", label: "Clients et codes promo" },
-  { id: "finances", label: "Finances" },
-  { id: "comptes", label: "Comptes entre nous", adminOnly: true }, // 13 nov. 2026 : Alexia, gg... soldes dans les deux sens
-  { id: "mesfinances", label: "Mes finances" }, // seulement pour un coequipier (J2) : jamais les finances de Rebecca
-  { id: "statistiques", label: "Statistiques" },
-  { id: "rapports", label: "Rapports et exports" },
+// 22 nov. 2026 : rangees par sections pour que ce soit clair (Rebecca Services d'un cote, les restaurants de l'autre)
+const SECTIONS = [
+  { id: "jour", label: "Ma journée" },
+  { id: "rs", label: "Rebecca Services" },
+  { id: "restos", label: "Restaurants partenaires" },
+  { id: "boutique", label: "Boutique et Digital" },
+  { id: "carnet", label: "Carnet" },
+  { id: "argent", label: "Chiffres et argent" },
   { id: "reglages", label: "Réglages" },
+];
+const RUBRIQUES = [
+  { id: "agenda", label: "Calendrier", section: "jour" },
+  { id: "tableau", label: "Tableau de bord", section: "jour" },
+  { id: "demandes", label: "Demandes et missions", section: "rs" },
+  { id: "transferts", label: "Courses à accepter (équipe)", section: "rs" }, // 12 nov. 2026 : courses proposees entre Rebecca et Jeremy
+  { id: "devis", label: "Devis rapide", section: "rs" },
+  { id: "ramassage", label: "Ramassage scolaire", adminOnly: true, section: "rs" }, // 12 nov. 2026 : devis (rapides et du site) et tournee, a part
+  { id: "assistance", label: "Assistance clients", adminOnly: true, section: "rs" }, // 19 nov. 2026 : messages des clients (bouton « 💬 Assistance »)
+  { id: "clients", label: "Clients et codes promo", section: "rs" },
+  { id: "commandes-resto", label: "Commandes restaurants", adminOnly: true, section: "restos" }, // 19 nov. 2026 : toutes les commandes des restaurants partenaires
+  { id: "partenaires", label: "Partenaires (restos, coursiers)", adminOnly: true, section: "restos" }, // 17 nov. 2026 : inscriptions des futurs coursiers
+  { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true, section: "boutique" },
+  { id: "projets-digital", label: "Projets Digital", adminOnly: true, section: "boutique" }, // 17 nov. 2026 : devis, paiements 40/30/30, cahier des charges
+  { id: "repertoire", label: "Répertoire", section: "carnet" }, // 12 nov. 2026 : mes lieux et les adresses des clientes (Rebecca et son equipe)
+  { id: "comptes", label: "Comptes entre nous", adminOnly: true, section: "carnet" }, // 13 nov. 2026 : Alexia, gg... soldes dans les deux sens
+  { id: "activites", label: "Activités", section: "argent" },
+  { id: "finances", label: "Finances", section: "argent" },
+  { id: "mesfinances", label: "Mes finances", section: "argent" }, // seulement pour un coequipier (J2) : jamais les finances de Rebecca
+  { id: "statistiques", label: "Statistiques", section: "argent" },
+  { id: "rapports", label: "Rapports et exports", section: "argent" },
+  { id: "equipe", label: "Équipe", section: "reglages" },
+  { id: "reglages", label: "Réglages", section: "reglages" },
 ];
 // Anciens noms d'onglets (liens internes et memoire de la session)
 const ALIAS = { aujourdhui: "tableau", promos: "clients" };
@@ -322,7 +332,7 @@ export default function Admin() {
   useChargerRepertoire(role === "admin" || role === "equipe"); // repertoire d'adresses : charge une fois pour tous les champs d'adresse
   useImportContratsRestos(role === "admin"); // 19 nov. 2026 : un restaurant qui signe arrive tout seul dans le Répertoire
   const permises = rubriquesPour(role); // null = toutes (Rebecca)
-  const rubriques = ordonner(permises ? RUBRIQUES.filter((r) => permises.includes(r.id)) : RUBRIQUES.filter((r) => r.id !== "mesfinances"), ordreMenu);
+  const rubriques = parSections(ordonner(permises ? RUBRIQUES.filter((r) => permises.includes(r.id)) : RUBRIQUES.filter((r) => r.id !== "mesfinances"), ordreMenu), SECTIONS);
   if ((role === "admin" || role === "equipe") && rubriques.length && !rubriques.some((r) => r.id === onglet)) {
     setTimeout(() => setOnglet(rubriques[0].id), 0);
   }
@@ -407,12 +417,13 @@ export default function Admin() {
             <img src="/brand/logo-medaillon%20.png" alt="" />
             <div><b>{NOM}</b><span>{role === "admin" ? "Administration" : "Espace équipe · " + (equipe.fiche.nom || user.email)}</span></div>
           </div>
-          {rubriques.map((r) => (
+          {rubriques.map((r, i) => [
+            r.section && (i === 0 || rubriques[i - 1].section !== r.section) && <p key={"s-" + r.section} className="ts-section">{(SECTIONS.find((x) => x.id === r.section) || {}).label}</p>,
             ranger ? (
               <div key={r.id} className="ts-lien" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ flex: 1 }}>{r.label}</span>
-                <button type="button" className="rp-waze" aria-label={`Monter ${r.label}`} onClick={() => changerOrdre(deplacer(rubriques, ordreMenu, r.id, -1))}>↑</button>
-                <button type="button" className="rp-waze" aria-label={`Descendre ${r.label}`} onClick={() => changerOrdre(deplacer(rubriques, ordreMenu, r.id, 1))}>↓</button>
+                <button type="button" className="rp-waze" aria-label={`Monter ${r.label}`} onClick={() => changerOrdre(deplacerDans(rubriques, r.id, -1))}>↑</button>
+                <button type="button" className="rp-waze" aria-label={`Descendre ${r.label}`} onClick={() => changerOrdre(deplacerDans(rubriques, r.id, 1))}>↓</button>
               </div>
             ) : (
               <button key={r.id} className={"ts-lien" + (onglet === r.id ? " actif" : "")} aria-current={onglet === r.id ? "page" : undefined} onClick={() => aller(r.id)}>
@@ -420,8 +431,8 @@ export default function Admin() {
                 {r.label}
                 {compteurs[r.id] > 0 && <span className="tr-compteur" aria-label={`${compteurs[r.id]} à traiter`}>{compteurs[r.id]}</span>}
               </button>
-            )
-          ))}
+            ),
+          ])}
           <div className="ts-pied">
             <button className="ts-lien" onClick={() => setRanger(!ranger)}>{ranger ? "✓ Terminer le rangement" : "✏️ Ranger le menu"}</button>
             {ranger && <button className="ts-lien" onClick={() => changerOrdre([])}>↺ Ordre d'origine</button>}
@@ -431,10 +442,10 @@ export default function Admin() {
         </nav>
         <main className="ts-contenu">
           <BandeauEnAttente />
-          {role === "admin" && <CommandesRestoAdmin aller={aller} />}
+          {role === "admin" && <CommandesRestoAdmin aller={aller} barre={false} />}
           {aTraiter > 0 && onglet !== "transferts" && (
             <button type="button" className="tr-bandeau" onClick={() => aller("transferts")}>
-              🔔 {aTraiter === 1 ? "1 course à accepter ou une réponse à voir" : `${aTraiter} courses à accepter ou réponses à voir`} · Voir
+              🔔 {aTraiter === 1 ? "1 course proposée dans l'équipe (à accepter) ou une réponse à voir" : `${aTraiter} courses proposées dans l'équipe ou réponses à voir`} · Voir
             </button>
           )}
           {contenu}

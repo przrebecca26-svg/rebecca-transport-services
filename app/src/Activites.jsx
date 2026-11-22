@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
-import { ACTIVITES_TB, activiteDe, indicateurs, repartitionServices, serieCA, tuiles } from "./pricing/tableauBord.js";
+import { ACTIVITES_TB, activiteDeD, indicateurs, repartitionServices, serieCA, tuiles } from "./pricing/tableauBord.js";
 import ChiffresDetail from "./components/ChiffresDetail.jsx";
 import PeriodeTB, { periodeTB } from "./PeriodeTB.jsx";
 import TuileActivite from "./components/TuileActivite.jsx";
@@ -62,7 +62,7 @@ function TableauActivite({ activite, demandes, mouvements, retour, aller = null,
         <p className="tdb-sous">Tableau de bord de l'activité</p>
       </div>
       <PeriodeTB type={type} changer={setType} />
-      <ChiffresDetail chiffres={c} demandes={demandes.filter((d) => activiteDe(d.service) === activite.id)} mouvements={mouvements} periode={periode} aller={aller} peutSupprimer={peutSupprimer} />
+      <ChiffresDetail chiffres={c} demandes={demandes.filter((d) => activiteDeD(d) === activite.id)} mouvements={mouvements} periode={periode} aller={aller} peutSupprimer={peutSupprimer} />
       <p className="tdb-note">Pourboires (à part) : {shekels(c.pourboires)} · Prix moyen : {c.prestationsTerminees ? shekels(c.prixMoyen) : "—"} · Km estimés : {c.kmEstimes} km</p>
 
       <section className="tdb-bloc">

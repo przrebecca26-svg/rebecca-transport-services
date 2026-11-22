@@ -55,7 +55,7 @@ export default function DetailCourses({ demandes = [], mouvements = [], aller = 
           <div key={d.id} className="rp-forfait tdb-detail-ligne">
             {peutSupprimer && <input type="checkbox" aria-label="Cocher pour supprimer" checked={coches.includes(d.id)} onChange={() => basculer(d.id)} style={{ width: 22, height: 22, flex: "none" }} />}
             <span style={{ flex: 1 }}>
-              <strong>{jj(d.date)}</strong> · {d.nom || "?"} · {d.serviceTitre || d.service}
+              <strong>{jj(d.date)}</strong> · {d.details && d.details.commandeResto ? "🍕 " : ""}{d.nom || "?"} · {d.details && d.details.commandeResto ? "Livraison restaurant" : d.serviceTitre || d.service}
               <small>
                 {typeof prix === "number" ? ` · ${shekels(prix)}` : ""} · encaissé {shekels(recu)}
                 {d.pourboire ? ` · pourboire ${shekels(d.pourboire)} (à part)` : ""} · {STATUT_LISIBLE[d.statut] || d.statut}

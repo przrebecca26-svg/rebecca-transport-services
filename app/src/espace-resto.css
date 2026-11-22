@@ -1,0 +1,21 @@
+/* ESPACE RESTAURANT (lien #/resto/CLE) - 22 nov. 2026 : boutons, champs et cartes au style du site.
+   Avant : boutons gris du navigateur, champ « Note » minuscule. Tout reste limité à .espace-resto. */
+.espace-resto { background: var(--g-carte, #191518); border: 1px solid var(--g-bord, rgba(185,120,112,.45)); border-radius: 18px; padding: 16px; color: var(--g-texte, #f8f3f1); }
+.espace-resto .carte-service { background: var(--g-carte-2, #221c20); border: 1px solid var(--g-bord, rgba(185,120,112,.45)); border-radius: 14px; padding: 14px; }
+.espace-resto h2, .espace-resto h3 { font-family: var(--g-titre, inherit); margin: 0 0 8px; }
+.espace-resto label { display: block; margin: 10px 0 4px; font-weight: 600; }
+.espace-resto input:not([type="checkbox"]):not([type="radio"]), .espace-resto select, .espace-resto textarea {
+  width: 100%; box-sizing: border-box; min-height: 46px; margin-top: 4px; padding: 10px 12px; font-size: 16px;
+  background: var(--g-champ, #100d0f); color: var(--g-texte, #f8f3f1); border: 1px solid var(--g-bord, rgba(185,120,112,.45)); border-radius: 12px;
+}
+.espace-resto input::placeholder { color: var(--g-texte-2, #b9aeb0); opacity: .8; }
+.espace-resto button, .espace-resto a.bouton, .espace-resto a.bouton-secondaire {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 10px 16px; margin: 4px 6px 4px 0;
+  font: 700 15px var(--g-titre, inherit); text-decoration: none; cursor: pointer; border-radius: 20px;
+  background: var(--g-rose, #f1aeb7); color: #140f12; border: 1px solid var(--g-rose, #f1aeb7);
+}
+.espace-resto button.bouton-secondaire, .espace-resto a.bouton-secondaire { background: transparent; color: var(--g-texte, #f8f3f1); border-color: var(--g-bord, rgba(185,120,112,.45)); }
+.espace-resto button:disabled { opacity: .5; cursor: default; }
+.espace-resto .tb-note, .espace-resto .tdb-note { color: var(--g-texte-2, #b9aeb0); }
+.espace-resto .erreur { color: var(--g-alerte, #d85a68); font-weight: 600; }
+.espace-resto details summary { cursor: pointer; padding: 6px 0; }

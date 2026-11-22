@@ -262,8 +262,9 @@ export function trajetsDesFamilles(familles) {
       for (const r of e.rdv) {
         const base = { places: 1, du: f.du, au: f.au, client: true, fiche: { famille: f.id, enfant: e.id, rdv: r.id } };
         const qui = `${prenom} · ${nomRdv(r)}`;
+        const nomIci = String(r.nom || "").trim().slice(0, 40); // 22 nov. 2026 : Basket a l'adresse de l'ecole
         if (r.depose) {
-          liste.push(trajetVide({ ...base, id: `fiche-${r.id}-aller`, nom: `${qui} (aller)`, type: "matin", de: f.domicile, a: r.lieu, heurePrise: r.heurePrise, heure: r.heureArrivee, jours: r.jours.map((j) => ({ actif: j.actif, heure: j.arrivee })) }));
+          liste.push(trajetVide({ ...base, id: `fiche-${r.id}-aller`, nom: `${qui} (aller)`, type: "matin", de: f.domicile, a: r.lieu, ...(nomIci ? { nomA: nomIci } : {}), heurePrise: r.heurePrise, heure: r.heureArrivee, jours: r.jours.map((j) => ({ actif: j.actif, heure: j.arrivee })) }));
         }
         if (r.recupere) {
           // Certains jours il m'attend ailleurs (chez une amie) : ces jours-la je le prends la-bas, les autres sur place
@@ -271,7 +272,7 @@ export function trajetsDesFamilles(familles) {
           const retour = { ...base, type: "sortie", a: r.retour || f.domicile, heure: r.heureSortie };
           const surPlace = r.jours.map((j, w) => ({ actif: j.actif && !ailleurs(w), heure: j.sortie }));
           const laBas = r.jours.map((j, w) => ({ actif: j.actif && ailleurs(w), heure: j.sortie }));
-          if (surPlace.some((j) => j.actif) || !laBas.some((j) => j.actif)) liste.push(trajetVide({ ...retour, id: `fiche-${r.id}-retour`, nom: `${qui} (retour)`, de: r.lieu, peutAttendre: r.attend && !r.priseAilleurs, jours: surPlace }));
+          if (surPlace.some((j) => j.actif) || !laBas.some((j) => j.actif)) liste.push(trajetVide({ ...retour, id: `fiche-${r.id}-retour`, nom: `${qui} (retour)`, de: r.lieu, ...(nomIci ? { nomDe: nomIci } : {}), peutAttendre: r.attend && !r.priseAilleurs, jours: surPlace }));
           if (laBas.some((j) => j.actif)) liste.push(trajetVide({ ...retour, id: `fiche-${r.id}-retour-ailleurs`, nom: `${qui} (retour, m'attend ailleurs)`, de: r.priseAilleurs, ecole: r.lieu, peutAttendre: r.attend, jours: laBas }));
         }
       }
@@ -471,8 +472,11 @@ export function trajetsDesChoix(familles, choix) {
     const { f, e, r } = x;
     const qui = `${String(e.prenom || "").trim() || "Enfant"} · ${nomRdv(r)}`;
     const base = { places: 1, du: f.du, au: f.au, client: true, choix: c.id, famille: f.id };
+    // 22 nov. 2026 (Rebecca : « le basket est à l'école de Shyrel, ça affiche l'école ») : le nom de l'activité
+    // suit le trajet ; deux lieux à la même adresse ne se mélangent plus dans « ma journée »
+    const nomIci = String(r.nom || "").trim().slice(0, 40);
     if (c.sens === "aller") {
-      liste.push(trajetVide({ ...base, id: `choix-${c.id}`, nom: `${qui} (aller)`, type: "matin", de: f.domicile, a: r.lieu, heurePrise: r.heurePrise, heure: "", jours: c.jours.map((j, w) => ({ actif: j.actif, heure: j.actif ? heureChoix(r, c, w) : "" })) }));
+      liste.push(trajetVide({ ...base, id: `choix-${c.id}`, nom: `${qui} (aller)`, type: "matin", de: f.domicile, a: r.lieu, ...(nomIci ? { nomA: nomIci } : {}), heurePrise: r.heurePrise, heure: "", jours: c.jours.map((j, w) => ({ actif: j.actif, heure: j.actif ? heureChoix(r, c, w) : "" })) }));
       continue;
     }
     // Retour : un trajet par endroit de prise (sur place, ou la ou l'enfant m'attend certains jours)
@@ -485,7 +489,7 @@ export function trajetsDesChoix(familles, choix) {
     });
     let n = 0;
     for (const [k, v] of endroits) {
-      liste.push(trajetVide({ ...base, id: `choix-${c.id}-${n++}`, nom: `${qui} (retour${k ? ", m'attend ailleurs" : ""})`, type: "sortie", de: k ? v.lieu : r.lieu, ...(k ? { ecole: r.lieu } : {}), a: r.retour || f.domicile, heure: "", peutAttendre: !!k, jours: c.jours.map((j, w) => ({ actif: v.jours.includes(w), heure: v.jours.includes(w) ? heureChoix(r, c, w) : "" })) }));
+      liste.push(trajetVide({ ...base, id: `choix-${c.id}-${n++}`, nom: `${qui} (retour${k ? ", m'attend ailleurs" : ""})`, type: "sortie", de: k ? v.lieu : r.lieu, ...(k ? { ecole: r.lieu } : nomIci ? { nomDe: nomIci } : {}), a: r.retour || f.domicile, heure: "", peutAttendre: !!k, jours: c.jours.map((j, w) => ({ actif: v.jours.includes(w), heure: v.jours.includes(w) ? heureChoix(r, c, w) : "" })) }));
     }
   }
   return liste;

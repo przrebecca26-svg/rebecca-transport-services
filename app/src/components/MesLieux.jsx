@@ -11,8 +11,10 @@ const IDEES = ["École ", "Gan ", "Basket", "Activité ", "Chez "];
 const LOIN_KM = 25;
 
 // Liste deroulante des lieux connus. connues = [{ nom, adresse, sansNom }]
-export default function ChoixLieu({ id, connues, valeur, choisir, sansAjout = false }) {
-  const actuel = connues.find((c) => cleLieu(c.adresse) === cleLieu(valeur));
+export default function ChoixLieu({ id, connues, valeur, choisir, sansAjout = false, prefere = "" }) {
+  // 22 nov. 2026 (Basket a l'adresse de l'ecole) : deux lieux a la meme adresse -> on garde celui qui porte le nom voulu
+  const memes = connues.filter((c) => cleLieu(c.adresse) && cleLieu(c.adresse) === cleLieu(valeur));
+  const actuel = memes.find((c) => prefere && String(c.nom).trim().toLowerCase() === String(prefere).trim().toLowerCase()) || memes[0];
   return (
     <>
       {connues.length > 0 && <Liste id={id} connues={connues} actuel={actuel} choisir={choisir} />}
@@ -57,20 +59,22 @@ function AjouterAMesLieux({ id, valeur, dejaNomme }) {
 }
 
 function Liste({ id, connues, actuel, choisir }) {
+  // Valeur = position dans la liste (deux lieux peuvent avoir la meme adresse : Ecole et Basket)
+  const pos = actuel ? connues.indexOf(actuel) : -1;
   return (
     <div className="champ rp-choix-lieu">
       <label htmlFor={id}>Choisir un lieu déjà enregistré</label>
       <select
         id={id}
-        value={actuel ? cleLieu(actuel.adresse) : ""}
+        value={pos >= 0 ? String(pos) : ""}
         onChange={(e) => {
-          const c = connues.find((x) => cleLieu(x.adresse) === e.target.value);
-          if (c) choisir(c.adresse);
+          const c = connues[Number(e.target.value)];
+          if (e.target.value !== "" && c) choisir(c.adresse, c);
         }}
       >
         <option value="">— Choisir dans mes lieux —</option>
-        {connues.map((c) => (
-          <option key={cleLieu(c.adresse)} value={cleLieu(c.adresse)}>{c.sansNom ? `${c.nom} (sans nom)` : c.nom}</option>
+        {connues.map((c, i) => (
+          <option key={i} value={String(i)}>{c.sansNom ? `${c.nom} (sans nom)` : c.nom}</option>
         ))}
       </select>
       <span className="aide">Ou tape une nouvelle adresse juste en dessous.</span>

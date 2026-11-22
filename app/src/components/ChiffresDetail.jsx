@@ -3,7 +3,7 @@ import DetailCourses from "./DetailCourses.jsx";
 import { dateCreation } from "../pricing/tableauBord.js";
 import { encaisseBrut } from "../pricing/comptes.js";
 import { faitDansPeriode, montantFait } from "../pricing/parts.js";
-import { DOMAINES_TB, domaineDe } from "../pricing/tableauBord.js";
+import { DOMAINES_TB, domaineDeD } from "../pricing/tableauBord.js";
 
 // LES 4 CHIFFRES, CLIQUABLES (13 nov. 2026) - tableau de bord et page de chaque activite.
 // Un chiffre touche = la liste des courses qui le font, avec Ouvrir et Supprimer (courses de test).
@@ -34,7 +34,7 @@ export default function ChiffresDetail({ chiffres, demandes = [], recues = null,
     if (detail === "recues") return (recues || demandes).filter((d) => dansP(dateCreation(d)));
     if (detail === "attente") return demandes.filter((d) => (d.statut === "en attente" || d.statut === "acceptee") && dansP(d.date));
     if (detail === "reste") return demandes.filter((d) => faitDansPeriode(d, periode) && montantFait(d) - encaisseBrut(mouvements, d.id) > 0.009);
-    if (detail.startsWith("dom-")) return liste2("ca").filter((d) => domaineDe(d.service) === detail.slice(4));
+    if (detail.startsWith("dom-")) return liste2("ca").filter((d) => domaineDeD(d) === detail.slice(4));
     if (detail === "total" || detail === "rs" || detail === "supp" || detail === "tips") return liste2("ca");
     return [];
   }, [detail, demandes, recues, mouvements, periode.debut, periode.fin]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -46,7 +46,7 @@ export default function ChiffresDetail({ chiffres, demandes = [], recues = null,
     ? [
         // 17 nov. 2026, 14h30 : une case par domaine (prix de base), Wolt, pourboires, supplements / ajouts / deductions,
         // total, argent recu, reste a encaisser. Epoxy et « autres » seulement s'il y a un montant.
-        ...DOMAINES_TB.filter((x) => !["epoxy", "autre"].includes(x.id) || (chiffres && chiffres.parDomaine && chiffres.parDomaine[x.id])).map((x) => ["dom-" + x.id, x.titre, v(chiffres && chiffres.parDomaine ? chiffres.parDomaine[x.id] || 0 : 0, true)]),
+        ...DOMAINES_TB.filter((x) => !["epoxy", "autre", "restos"].includes(x.id) || (chiffres && chiffres.parDomaine && chiffres.parDomaine[x.id])).map((x) => ["dom-" + x.id, x.titre, v(chiffres && chiffres.parDomaine ? chiffres.parDomaine[x.id] || 0 : 0, true)]),
         ["wolt", "Chiffre d'affaires Wolt", v(woltTotal, true)],
         ["tips", "Pourboires", v(chiffres && (chiffres.pourboires || 0), true)],
         ["supp", "Suppléments, ajouts / déductions", v(chiffres && (chiffres.supplements || 0), true)],

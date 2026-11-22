@@ -32,7 +32,10 @@ export function etapeIci(fil = [], ici = null, maintenantMin = 0) {
     // 20 nov. 2026 : une course cliente ne demande « Tu es arrivée ? » qu'après « 🚗 Partie » (ex. départ de chez moi)
     .filter((e) => !(e.demandeId && e.sorte === "prise" && !e.partie))
     .filter((e) => e.genre === "arret" && aPos(e.adresse) && !e.fait && e.min >= maintenantMin - 45 && e.min <= maintenantMin + 60 && kmEntre(ici, e.adresse) <= RAYON_ARRIVEE_KM)
-    .sort((a, b) => Math.abs(a.min - maintenantMin) - Math.abs(b.min - maintenantMin))[0] || null;
+    // 22 nov. 2026, 14h21 (Rebecca chez Alexia) : deux étapes au même endroit (déposer Joy et Liel à 14h10, prendre
+    // Shyrel à 14h15) -> la carte sautait sur « Prendre Shyrel » (la plus proche de l'heure) et « Enfants déposés »
+    // était oublié. Maintenant on finit d'abord l'étape la plus ancienne pas encore faite.
+    .sort((a, b) => a.min - b.min)[0] || null;
 }
 
 // 20 nov. 2026 : déjà à l'adresse de l'étape (moins de 150 m) -> pas de trajet, pas de retard, pas de Waze

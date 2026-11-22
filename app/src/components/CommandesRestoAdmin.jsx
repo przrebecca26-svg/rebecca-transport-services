@@ -11,8 +11,23 @@ import { useEquipeContexte } from "../equipeContexte.jsx";
 import { jouerSon, useStylesNotif } from "../sons.js";
 import {
   commandePropre, compteARebours, coursesProches, demandeDepuisCommande, enLigneActif, etatCommande, heurePlus, majSuivi,
-  prixCommande, secondesRestantes, tarifsResto, validerCommande,
+  prixCommande, secondesRestantes, tarifsResto, validerCommande, numeroCommande,
 } from "../pricing/restos.js";
+import { kmEntre } from "../pricing/coursesGroupees.js";
+import { chronoDe } from "../pricing/finCourse.js";
+
+// 22 nov. 2026 (Rebecca) : « si entre-temps il y a des nouvelles commandes sur mon chemin, qu'elles se présentent ».
+// Une course en route (partie, pas encore livrée) passe-t-elle près de ce restaurant ou de cette adresse ? (2 km)
+const okPos = (p) => !!p && Number.isFinite(p.lat) && Number.isFinite(p.lon);
+export function surMonChemin(demandes = [], resto, adresse) {
+  const enRoute = demandes.filter((d) => d.statut === "acceptee" && (chronoDe(d).depart || chronoDe(d).prise) && !chronoDe(d).depose);
+  const reperes = enRoute.flatMap((d) => [d.details && d.details.recuperation, d.details && d.details.livraison, d.details && d.details.arrivee]).filter(okPos);
+  if (!reperes.length) return null;
+  const pres = (p) => okPos(p) && reperes.some((r) => kmEntre(r, p) <= 2);
+  if (pres(resto && resto.adresse)) return "le restaurant est sur ton chemin";
+  if (pres(adresse)) return "la livraison est sur ton chemin";
+  return null;
+}
 
 // BOUTON « EN LIGNE » + COMMANDES DES RESTAURANTS (V2, 19 nov. 2026) - en haut de l'espace privé, Rebecca seule.
 // En ligne : chaque commande envoyée par le lien d'un restaurant apparaît en grand (avec un son) :
@@ -215,7 +230,9 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
   }
   return (
     <div className="tdb-bloc" role="alertdialog" aria-label="Nouvelle commande restaurant" style={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 1000, maxHeight: "85vh", overflow: "auto", boxShadow: "0 8px 30px rgba(0,0,0,.6)" }}>
-      <p className="rp-type">🍕 {resto.nom} · {c.programmee ? `📅 programmée le ${String(c.jour).split("-").reverse().join("/")}` : `réponds dans ${compteARebours(s)}`}{reste > 0 ? ` · +${reste} autre(s)` : ""}</p>
+      {c.prioritaire && <p className="rp-alerte">⚡ Commande prioritaire</p>}
+      {surMonChemin(demandes, resto, c.adresse) && <p className="tdb-note" style={{ color: "#239b68", fontWeight: 700 }}>🛵 Sur ton chemin : {surMonChemin(demandes, resto, c.adresse)}</p>}
+      <p className="rp-type">🍕 {resto.nom} · {numeroCommande(c)} · {c.programmee ? `📅 programmée le ${String(c.jour).split("-").reverse().join("/")}` : `réponds dans ${compteARebours(s)}`}{reste > 0 ? ` · +${reste} autre(s)` : ""}</p>
       <p><strong>Prête à {h(c.pretA)}</strong>{trajet ? ` · ${trajet.km} km · ${trajet.minutes} min` : ""}</p>
       <p className="tdb-note">📍 Récupérer : {resto.adresse ? resto.adresse.label : "—"}{resto.telephone ? <> · <a href={lienAppel(resto.telephone)}>{resto.telephone}</a></> : null}</p>
       <p className="tdb-note">🏠 Livrer : {c.adresse ? c.adresse.label : "—"}</p>
@@ -238,9 +255,9 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
 }
 
 // Commande reçue par WhatsApp : Rebecca la saisit, elle est acceptée tout de suite (livraison dans le Calendrier)
-function SaisieWhatsApp({ restos, jour, heure, fermer }) {
-  const [cle, setCle] = useState(restos[0] ? restos[0].cle : "");
-  const [f, setF] = useState({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0 });
+export function SaisieWhatsApp({ restos, jour, heure, fermer, cleDepart = "" }) {
+  const [cle, setCle] = useState(cleDepart || (restos[0] ? restos[0].cle : ""));
+  const [f, setF] = useState({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0, numero: "", prioritaire: false });
   const [prix, setPrix] = useState("");
   const [trajet, setTrajet] = useState(null);
   const [info, setInfo] = useState("");
@@ -278,7 +295,7 @@ function SaisieWhatsApp({ restos, jour, heure, fermer }) {
       b.set(refC, { ...sansId, prix: demande.prixFinal, km: trajet ? trajet.km : null, demandeId: refD.id, arriveeVers: pret.pretA, par: "Rebecca", creeLe: serverTimestamp() });
       await b.commit();
       setInfo(`✓ Livraison de ${h(pret.pretA)} ajoutée au Calendrier (${demande.prixFinal} ₪, relevé de ${resto.nom}).`);
-      setF({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0 });
+      setF({ client: "", telClient: "", adresse: null, pretA: "", note: "", tresLourds: 0, numero: "", prioritaire: false });
       setPrix("");
     } catch {
       setInfo("Impossible pour l'instant : vérifie la connexion et les règles Firebase v29.");
@@ -292,6 +309,8 @@ function SaisieWhatsApp({ restos, jour, heure, fermer }) {
       <label className="champ">Restaurant
         <select value={cle} onChange={(e) => setCle(e.target.value)}>{restos.map((r) => <option key={r.cle} value={r.cle}>{r.nom}</option>)}</select>
       </label>
+      <label className="champ">N° de commande du restaurant (facultatif)<input value={f.numero} maxLength={20} onChange={(e) => maj("numero", e.target.value)} /></label>
+      <label className="champ" style={{ display: "flex", gap: 10, alignItems: "center" }}><input type="checkbox" checked={!!f.prioritaire} onChange={(e) => maj("prioritaire", e.target.checked)} style={{ width: 22, height: 22 }} /> ⚡ Prioritaire</label>
       <label className="champ">Prénom du client<input value={f.client} maxLength={60} onChange={(e) => maj("client", e.target.value)} /></label>
       <label className="champ">Téléphone du client<input inputMode="tel" value={f.telClient} maxLength={20} onChange={(e) => maj("telClient", e.target.value)} /></label>
       <label className="champ" htmlFor="rw-adresse">Adresse de livraison</label>
@@ -300,7 +319,7 @@ function SaisieWhatsApp({ restos, jour, heure, fermer }) {
       <div className="tb-actions">
         {[0, 10, 20, 30].map((n) => <button key={n} type="button" className="tb-bouton tb-clair" onClick={() => maj("pretA", heurePlus(heure, n))}>{n === 0 ? "Maintenant" : `+${n} min`}</button>)}
       </div>
-      <label className="champ">Articles très lourds (packs d'eau…) · +{(resto && resto.tarifs && resto.tarifs.tresLourd) ?? 5} ₪ chacun<input type="number" inputMode="numeric" value={f.tresLourds || 0} onChange={(e) => maj("tresLourds", Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))))} /></label>
+      <label className="champ">Articles très lourds (packs d'eau…) · +{(resto && resto.tarifs && resto.tarifs.tresLourd) ?? 5} ₪ chacun<input type="text" inputMode="numeric" value={String(f.tresLourds || 0)} onFocus={(e) => e.target.select()} onChange={(e) => maj("tresLourds", Math.min(30, Number(e.target.value.replace(/\D/g, "")) || 0))} /></label>
       <label className="champ">Note (facultatif)<input value={f.note} maxLength={300} onChange={(e) => maj("note", e.target.value)} /></label>
       <label className="champ">Prix (₪){trajet ? ` · ${trajet.km} km` : ""}<input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value.replace(/[^0-9.,]/g, ""))} /></label>
       {info && <p className="tdb-note" role="status">{info}</p>}

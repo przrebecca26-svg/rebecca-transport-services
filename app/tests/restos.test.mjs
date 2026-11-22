@@ -123,7 +123,7 @@ test("relevé de la semaine côté restaurant", () => {
 
 test("messages", () => {
   const n = messageNotifResto({ nom: "Pizza Centrale" }, { id: "c1", pretA: "19:30", adresse: { label: "Smilansky 5" } });
-  egal(n, { titre: "🍕 Commande Pizza Centrale", corps: "Prête à 19h30 · Smilansky 5 · Réponds en 5 min", tag: "resto-c1", lien: "/admin#/admin?onglet=commandes-resto" });
+  egal(n, { titre: "🍕 Commande Pizza Centrale", corps: "#C1 · Prête à 19h30 · Smilansky 5 · Réponds en 5 min", tag: "resto-c1", lien: "/admin#/admin?onglet=commandes-resto" });
   const w = messageWhatsAppResto("Pizza Centrale", saisie);
   vrai(w.includes("Client : Dan") && w.includes("Prête à 19h30") && w.includes("Code porte"));
   vrai(messageLienResto("Pizza Centrale", "https://x/#/resto/" + CLE).includes("5 minutes"));
@@ -208,4 +208,19 @@ test("créneaux et horaires en listes déroulantes : aller-retour avec le texte"
   egal(erreurLigne({ de: 4, a: 4, debut: "19:00", fin: "20:00" }, 0), "");
   egal(erreurLigne({ de: 4, a: 4, debut: "21:00", fin: "19:00" }, 0), "L'heure de fin doit être après l'heure de début.");
   egal(texteDepuisLignes([{ de: 4, a: 4, debut: "23:00", fin: "24:00" }]), "jeudi 23h-24h");
+});
+
+// 22 nov. 2026 : numéro de commande
+import { codeCommande, numeroCommande, commandePropre as cp2, numeroLivraison } from "../src/pricing/restos.js";
+section("Numéro de commande");
+test("le numéro du restaurant, sinon un code automatique tiré de l'identifiant", () => {
+  egal(numeroCommande({ id: "abc12xyz", numero: "457" }), "n° 457");
+  egal(numeroCommande({ id: "abc12xyz" }), "#ABC12");
+  egal(codeCommande("a-b_c9Zq8"), "ABC9Z");
+});
+test("le numéro et « prioritaire » partent avec la commande", () => {
+  const c = cp2({ client: "Dan", telClient: "0541234567", adresse: { label: "Rue 1" }, pretA: "12:00", note: "", numero: " 88 ", prioritaire: true }, "2026-11-22", "lien");
+  egal([c.numero, c.prioritaire], ["88", true]);
+  egal(numeroLivraison({ details: { numeroResto: "88" } }), "n° 88");
+  egal(numeroLivraison({ details: { commandeResto: { id: "zz9kk1" } } }), "#ZZ9KK");
 });

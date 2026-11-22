@@ -2,11 +2,13 @@ import { useState } from "react";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { useEquipeContexte } from "../equipeContexte.jsx";
-import { chronoDe, champsAnnulerEtape, champsEtape, faitDe, prixDe } from "../pricing/finCourse.js";
+import { chronoDe, champsAnnulerEtape, champsEtape, faitDe, prixDe, trajetDe } from "../pricing/finCourse.js";
 import { derniereEtapeTournee, etatTournee, ordreLivraisons } from "../pricing/tourneeResto.js";
-import { messageAideResto, messageAvisResto, messageEnRouteResto, messageMerciResto } from "../pricing/restos.js";
+import { messageAideResto, messageAvisResto, messageEnRouteResto, messageMerciResto, numeroLivraison } from "../pricing/restos.js";
 import { lienWazePoint, lienWhatsApp } from "../pricing/navigation.js";
 import { synchroniserSuivi } from "../suiviClient.js";
+import { SaisieWhatsApp, useRestos } from "./CommandesRestoAdmin.jsx";
+import { utcVersLocal } from "../pricing/calendrier.js";
 import { apresChamps } from "../pricing/finCourse.js";
 
 // TOURNEE RESTAURANT GROUPEE dans le Calendrier (22 nov. 2026, Rebecca) : plusieurs commandes du meme restaurant
@@ -20,6 +22,8 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
   const [aPart, setAPart] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState("");
+  const [ajout, setAjout] = useState(false); // 22 nov. 2026 : nouvelle commande prise sur place, ajoutée à la tournée
+  const restos = useRestos();
   const ordre = ordreLivraisons(tournee, domicile);
   const e = etatTournee(tournee);
   const premier = tournee[0];
@@ -50,6 +54,14 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
     return ecrire(tournee.filter((d) => !chronoDe(d)[etape] && !faitDe(d)).map((d) => ({ d, champs: champsEtape(d, etape, heure, moi) })));
   };
   const deposer = (d) => ecrire([{ d, champs: champsEtape(d, "depose", heureIsrael(), moi) }]);
+  // 22 nov. 2026 : récupérer commande par commande, « Partir du restaurant », arrivée chez chaque client
+  const recuperer = (d) => ecrire([{ d, champs: champsEtape(d, "prise", heureIsrael(), moi) }]);
+  const champPropre = (d, k, v) => ({ [`chrono.${trajetDe(d)}.${k}`]: v });
+  const partirResto = () => {
+    const heure = heureIsrael();
+    return ecrire(tournee.filter((d) => !faitDe(d)).map((d) => ({ d, champs: { ...(chronoDe(d).prise ? {} : champsEtape(d, "prise", heure, moi)), ...champPropre(d, "departResto", heure) } })));
+  };
+  const arriverClient = (d) => ecrire([{ d, champs: champPropre(d, "arriveeClient", heureIsrael()) }]);
   const rentrer = () => {
     const heure = heureIsrael();
     return ecrire(tournee.filter((d) => !chronoDe(d).maison).map((d) => ({ d, champs: champsEtape(d, "maison", heure, moi) })));
@@ -57,11 +69,12 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
   const annuler = () => {
     const x = derniereEtapeTournee(tournee);
     if (!x) return undefined;
-    return ecrire(tournee.filter((d) => x.ids.includes(d.id)).map((d) => ({ d, champs: champsAnnulerEtape(d) })));
+    const propre = x.etape === "departResto" || x.etape === "arriveeClient";
+    return ecrire(tournee.filter((d) => x.ids.includes(d.id)).map((d) => ({ d, champs: propre ? champPropre(d, x.etape, "") : champsAnnulerEtape(d) })));
   };
   const avisDemande = tournee.some((d) => d.avisDemandeLe);
   const noterAvis = () => ecrire(tournee.map((d) => ({ d, champs: { avisDemandeLe: aujourdhui } })));
-  const prochaine = e.prise ? ordre.find((d) => !e.deposees.includes(d.id)) : null;
+  const prochaine = e.departResto ? ordre.find((d) => !e.deposees.includes(d.id)) : null;
 
   if (aPart && seule) {
     return (
@@ -93,30 +106,57 @@ export default function TourneeResto({ tournee, domicile = null, seule = null, a
           <div className="tb-actions">
             {!e.partie && <button type="button" className="tb-bouton" disabled={enCours} onClick={() => commune("depart")}>🚗 Partie (pour les {tournee.length})</button>}
             {!e.arrivee && <button type="button" className={"tb-bouton" + (e.partie ? "" : " tb-clair")} disabled={enCours} onClick={() => commune("arrivee")}>📍 Arrivée au restaurant</button>}
-            {!e.prise && <button type="button" className={"tb-bouton" + (e.arrivee ? "" : " tb-clair")} disabled={enCours} onClick={() => commune("prise")}>📦 Récupérées (les {tournee.length})</button>}
             {e.arrivee && !e.prise && telResto && <a className="tb-bouton tb-clair" href={lienWhatsApp(telResto, messageAideResto("attente", nomResto, { client: "", pretA: heures[heures.length - 1] }))} target="_blank" rel="noopener noreferrer">⏳ Pas prête ?</a>}
-            {resto && resto.lat != null && !e.prise && <a className="tb-bouton tb-clair" href={lienWazePoint(resto)} target="_blank" rel="noopener noreferrer">Waze resto</a>}
+            {resto && resto.lat != null && !e.departResto && <a className="tb-bouton tb-clair" href={lienWazePoint(resto)} target="_blank" rel="noopener noreferrer">Waze resto</a>}
           </div>
+          {!e.departResto && (
+            <div className="ag-tournee-liste" style={{ margin: "8px 0" }}>
+              <p className="tb-note">À récupérer au restaurant :</p>
+              {tournee.map((d) => {
+                const ok = e.recuperees.includes(d.id);
+                return (
+                  <div key={d.id} className="tb-actions" style={{ alignItems: "center" }}>
+                    <span style={{ flex: 1 }}><strong>{numeroLivraison(d)}</strong>{d.details && d.details.prioritaire ? " ⚡" : ""} · {(d.details || {}).destinataire || "Client"} · prête {h(d.heure)}{ok ? ` · ✓ récupérée ${h(chronoDe(d).prise)}` : ""}</span>
+                    {!ok && <button type="button" className={"tb-bouton" + (e.arrivee ? "" : " tb-clair")} disabled={enCours} onClick={() => recuperer(d)}>📦 Récupérée</button>}
+                  </div>
+                );
+              })}
+              <div className="tb-actions">
+                <button type="button" className={"tb-bouton" + (e.prise ? "" : " tb-clair")} disabled={enCours} onClick={partirResto}>🚗 Partir du restaurant{e.prise ? "" : ` (${e.recuperees.length}/${tournee.length} récupérées)`}</button>
+              </div>
+              <div className="tb-actions"><button type="button" className="ag-modifier" onClick={() => setAjout(!ajout)}>{ajout ? "Fermer" : "➕ Nouvelle commande sur place (ajoutée à la tournée)"}</button></div>
+              {ajout && restos.some((r) => r.cle === (premier.details.commandeResto || {}).cle) && <SaisieWhatsApp restos={restos} cleDepart={premier.details.commandeResto.cle} jour={utcVersLocal(Date.now()).date} heure={utcVersLocal(Date.now()).heure} fermer={() => setAjout(false)} />}
+              <p className="tb-note">Au départ, la tournée se calcule : la commande prioritaire d'abord, puis le meilleur trajet, la plus proche de la maison en dernier.</p>
+            </div>
+          )}
+          {e.departResto && (
           <div className="ag-tournee-liste" style={{ margin: "8px 0" }}>
             {ordre.map((d, i) => {
               const v = d.details || {};
               const faite = e.deposees.includes(d.id);
               const estProchaine = prochaine && prochaine.id === d.id;
+              const arrivee = e.arriveesClient.includes(d.id);
               const depose = chronoDe(d).depose;
               return (
-                <div key={d.id} style={{ marginBottom: 10, opacity: faite ? 0.7 : 1 }}>
-                  <strong>{i + 1}. {v.destinataire || "Client"}</strong> · {prixDe(d)} ₪{faite ? ` · ✓ livrée${depose ? " " + h(depose) : ""}` : estProchaine ? " · 👉 prochaine" : ""}
+                <div key={d.id} style={{ marginBottom: 10, opacity: faite ? 0.7 : 1, ...(estProchaine ? { border: "1px solid #f1aeb7", borderRadius: 12, padding: 8 } : {}) }}>
+                  <strong>{i + 1}. {numeroLivraison(d)}{v.prioritaire ? " ⚡" : ""} · {v.destinataire || "Client"}</strong> · {prixDe(d)} ₪{faite ? ` · ✓ livrée${depose ? " " + h(depose) : ""}` : estProchaine ? " · 👉 prochaine" : ""}
                   <br /><small dir="auto">{v.livraison ? v.livraison.label : ""}{v.instructions ? ` · 📝 ${v.instructions}` : ""}</small>
-                  <div className="tb-actions">
-                    {!faite && v.livraison && v.livraison.lat != null && <a className="tb-bouton tb-clair" href={lienWazePoint(v.livraison)} target="_blank" rel="noopener noreferrer">Waze</a>}
-                    {!faite && estProchaine && v.telDestinataire && <a className="tb-bouton tb-clair" href={lienWhatsApp(v.telDestinataire, messageEnRouteResto(d))} target="_blank" rel="noopener noreferrer">💬 En route (au client)</a>}
-                    {!faite && e.prise && <button type="button" className={"tb-bouton" + (estProchaine ? "" : " tb-clair")} disabled={enCours} onClick={() => deposer(d)}>✓ Déposée</button>}
-                    {faite && telResto && <a className="tb-bouton tb-clair" href={lienWhatsApp(telResto, messageMerciResto(d, depose || ""))} target="_blank" rel="noopener noreferrer">💬 Merci au restaurant</a>}
-                  </div>
+                  {!faite && (estProchaine || arrivee) && (
+                    <div className="tb-actions">
+                      {v.livraison && v.livraison.lat != null && <a className="tb-bouton tb-clair" href={lienWazePoint(v.livraison)} target="_blank" rel="noopener noreferrer">Waze</a>}
+                      {!arrivee && v.telDestinataire && <a className="tb-bouton tb-clair" href={lienWhatsApp(v.telDestinataire, messageEnRouteResto(d))} target="_blank" rel="noopener noreferrer">💬 En route (au client)</a>}
+                      {!arrivee && <button type="button" className="tb-bouton" disabled={enCours} onClick={() => arriverClient(d)}>📍 Je suis arrivée</button>}
+                      {arrivee && <button type="button" className="tb-bouton" disabled={enCours} onClick={() => deposer(d)}>✓ Livrée</button>}
+                      {arrivee && v.telDestinataire && <a className="tb-bouton tb-clair" href={"tel:" + v.telDestinataire}>📞 Client</a>}
+                    </div>
+                  )}
+                  {!faite && !estProchaine && !arrivee && <div className="tb-actions"><button type="button" className="ag-modifier" disabled={enCours} onClick={() => arriverClient(d)}>Livrer celle-ci maintenant</button></div>}
+                  {faite && telResto && <div className="tb-actions"><a className="tb-bouton tb-clair" href={lienWhatsApp(telResto, messageMerciResto(d, depose || ""))} target="_blank" rel="noopener noreferrer">💬 Merci au restaurant</a></div>}
                 </div>
               );
             })}
           </div>
+          )}
           <div className="tb-actions">
             {e.toutesDeposees && !e.rentree && <button type="button" className="tb-bouton" disabled={enCours} onClick={rentrer}>🏠 Rentrée</button>}
             {e.toutesDeposees && !avisDemande && telResto && <a className="tb-bouton tb-clair" href={lienWhatsApp(telResto, messageAvisResto(premier))} target="_blank" rel="noopener noreferrer" onClick={noterAvis}>⭐ Demander un avis au restaurant</a>}

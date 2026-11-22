@@ -4,7 +4,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDZOjiRg9tgHo620Dqw1PYJuBciJ80Enmg",
@@ -21,7 +21,10 @@ export const auth = getAuth(app);
 // fermée) et envoyés au retour du réseau. Sans cela, un paiement noté sans réseau pouvait se perdre.
 let base;
 try {
-  base = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  // 22 nov. 2026, 12h31 (Rebecca : « ça reste bloqué sur chargement ») : avec le partage entre onglets, si l'appli est
+  // aussi ouverte ailleurs (onglet Safari en veille, ancienne fenêtre), iOS endort cet onglet et TOUT reste bloqué en
+  // attendant lui. Maintenant, la fenêtre ouverte en dernier prend la main ; les autres continuent sans mémoire hors ligne.
+  base = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({ forceOwnership: true }) }) });
 } catch {
   base = getFirestore(app);
 }

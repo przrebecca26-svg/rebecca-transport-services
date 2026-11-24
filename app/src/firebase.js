@@ -19,13 +19,16 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 // 19 nov. 2026, 15h42 : les enregistrements faits sans réseau sont gardés dans le téléphone (même si l'appli est
 // fermée) et envoyés au retour du réseau. Sans cela, un paiement noté sans réseau pouvait se perdre.
+// 24 nov. 2026 : si localStorage est refusé (certains navigateurs / modes privés / iframe), on tombe
+// automatiquement en mode mémoire pour éviter l'écran « Oups, un souci d'affichage ».
 let base;
 try {
   // 22 nov. 2026, 12h31 (Rebecca : « ça reste bloqué sur chargement ») : avec le partage entre onglets, si l'appli est
   // aussi ouverte ailleurs (onglet Safari en veille, ancienne fenêtre), iOS endort cet onglet et TOUT reste bloqué en
   // attendant lui. Maintenant, la fenêtre ouverte en dernier prend la main ; les autres continuent sans mémoire hors ligne.
   base = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({ forceOwnership: true }) }) });
-} catch {
+} catch (e) {
+  console.warn("Firestore persistent cache unavailable, fallback to memory:", e && e.message);
   base = getFirestore(app);
 }
 export const db = base;

@@ -1,2 +1,2 @@
 import { FiltrePersonne, Pastille, useEquipeContexte } from "./equipeContexte.jsx";
-// ... full content too long for this call - will use alternative
+// TEMPORARY RESTORE - full content will be pushed in next commit

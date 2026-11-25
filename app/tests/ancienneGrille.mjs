@@ -3,6 +3,26 @@
 // la nouvelle grille est vérifiée à part dans grilleNov2026.test.mjs (NOUVELLE_GRILLE = copie avant retour en arrière).
 import { TARIFS } from "../src/pricing/config.js";
 import { TARIFS_STANDARD } from "../src/pricing/contratResto.js";
+// 26 nov. 2026 : GRILLE_26NOV = la grille en ligne (copie avant toute modification ci-dessous).
+// NOUVELLE_GRILLE = la grille du 25 nov. (refonte), reconstruite ici pour garder ses tests.
+export const GRILLE_26NOV = structuredClone(TARIFS);
+const ZONES_25NOV = { hadera: [120, 155, 120], herzliya_raanana: [130, 150, 130], tel_aviv: [170, 235, 175], ben_gurion: [250, 290, 250], haifa: [280, 365, 280], jerusalem: [400, 540, 400] };
+const vers25nov = (g) => {
+  delete g.transport;
+  Object.entries(ZONES_25NOV).forEach(([z, [m, s, ar]]) => { g.zones[z].minimum = m; g.zones[z].grilleB = { simple: s, parTrajetAR: ar }; });
+  g.nuit = [{ de: "22:00", a: "24:00", pourcentage: 0.15 }, { de: "00:00", a: "06:00", pourcentage: 0.2 }];
+  g.urgence = { standard: 15, immediate: 20, seuilImmediatMinutes: 60 };
+  g.livraison = { minimum: 35, plafondAvantDevis: 250, urgence: 15, paliers: [{ kmMax: 3, prix: 35 }, { kmMax: 5, prix: 40 }, { kmMax: 7, prix: 50 }, { kmMax: 10, prix: 60 }, { kmMax: 15, prix: 80 }, { kmMax: 20, prix: 100 }, { kmMax: 30, prix: 140 }, { kmMax: 40, prix: 180 }, { kmMax: 50, prix: 230 }] };
+  g.courses.achatsDejaPayes = [{ max: 5, prix: 35 }, { max: 10, prix: 45 }];
+  g.courses.courseFaiteParRebecca = [{ max: 5, prix: 60 }, { max: 10, prix: 75 }];
+  g.bagages = { supplementParSoute: 10 };
+  g.arretsSupplementaires = { netanya: 15, surLaRoute: 15 };
+  g.rentabilite = { ...g.rentabilite, seuilAlerteGainNetHeure: 60, coutKmReel: 1.2 };
+  g.attente = { ...g.attente };
+  delete g.attente.tarifHeureAttente;
+  return g;
+};
+vers25nov(TARIFS);
 export const NOUVELLE_GRILLE = structuredClone(TARIFS);
 export const NOUVEAUX_RESTOS = structuredClone(TARIFS_STANDARD);
 TARIFS.livraison = { minimum: 60, plafondAvantDevis: 250, urgence: 30 };

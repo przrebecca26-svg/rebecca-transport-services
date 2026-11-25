@@ -10,11 +10,8 @@ import { reduirePhoto } from "../photoReduite.js";
 // Documents publics (règles v36 déjà en place : reglages lisibles par tous, écrits par Rebecca seule) :
 //  - reglages/vitrineRestos : la liste (textes) ; - reglages/vitrineImg_ID : logo, photos et photos du menu.
 const nettoie = (t) => String(t || "").replace(/\D/g, "").replace(/^0/, "972");
-export function useVitrineRestos() {
-  const [liste, setListe] = useState(null);
-  useEffect(() => onSnapshot(doc(db, "reglages", "vitrineRestos"), (s) => { try { setListe(JSON.parse((s.exists() && s.data().json) || "[]")); } catch { setListe([]); } }, () => setListe([])), []);
-  return liste;
-}
+export { useVitrineRestos } from "../vitrineRestosBase.js";
+import { useVitrineRestos } from "../vitrineRestosBase.js";
 function useImages(id) {
   const [img, setImg] = useState({});
   const [menu, setMenu] = useState([]);

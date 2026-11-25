@@ -776,7 +776,10 @@ export function missionDuTransfert(trajets, ids, date, duree, t = TARIFS, nomLie
   const arrets = j.arrets.filter((x) => x.trajet);
   const etapes = arrets.map((x) => {
     const a = texteArret(x, nomLieu);
-    return { heure: a.heure, texte: a.texte, lieu: a.lieu, adresse: x.lieu.label };
+    // 25 nov. 2026 : « Déposer Shyrel » et pas « Déposer Shyrel · École » (le nom du trajet garde l'école) ;
+    // le lieu (chez Deborah, son adresse) suit l'arret
+    const qui = nomsCourts(x.trajet.nom) || "l'enfant";
+    return { heure: a.heure, texte: `${x.sorte === "prise" ? "Prendre" : "Déposer"} ${qui}`, lieu: a.lieu, adresse: x.lieu.label };
   });
   const moments = momentsDuJour(j);
   const debut = hhmm(auCinq(Math.min(...moments.map((m) => m.debut)) - 15, false)); // 15 min pour arriver au 1er arret
@@ -788,7 +791,7 @@ export function messageMission(m, nomMembre = "") {
   const [a, mo, jj] = m.date.split("-").map(Number);
   const jour = new Date(Date.UTC(a, mo - 1, jj, 12)).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
   const ecole = (m.etapes || []).length > 0 && m.etapes.every((e) => /^(Prendre|Déposer) /.test(e.texte || ""));
-  return [`Bonjour${nomMembre ? " " + nomMembre : ""} 😊 Peux-tu faire ${ecole ? "ces trajets d'école" : "ceci"} ${jour} ?`, "", ...m.etapes.map((e) => `${e.heure} : ${e.texte}${e.adresse ? ` (${e.adresse})` : ""}`), "", "Merci ! Rebecca"].join("\n");
+  return [`Bonjour${nomMembre ? " " + nomMembre : ""} 😊 Peux-tu faire ${ecole ? "ces trajets d'école" : "ceci"} ${jour} ?`, "", ...m.etapes.map((e) => `${e.heure} : ${e.texte}${e.lieu ? ` · ${e.lieu}` : ""}${e.adresse ? ` (${e.adresse})` : ""}`), "", "Merci ! Rebecca"].join("\n");
 }
 
 /* ---------- Ma journee dans mon Calendrier (12 nov. 2026, 16h07) ----------

@@ -398,10 +398,10 @@ test("tout confie : rien ne me bloque ce jour-la (liste vide)", () => {
 
 test("la mission du coequipier : etapes dans l'ordre, heures, debut et fin ; message WhatsApp", () => {
   const m = To.missionDuTransfert(TOURNEE, ["f3", "f4"], LUNDI, duree, T);
-  egal(m.etapes.map((e) => `${e.heure} ${e.texte}`).sort(), ["14h00 Prendre Les 2 filles (sortie)", "14h14 Déposer Les 2 filles (sortie)", "14h14 Prendre Ma fille (chez l'amie)", "14h28 Déposer Ma fille (chez l'amie)"]);
+  egal(m.etapes.map((e) => `${e.heure} ${e.texte}`).sort(), ["14h00 Prendre Les 2 filles", "14h14 Déposer Les 2 filles", "14h14 Prendre Ma fille", "14h28 Déposer Ma fille"]);
   egal([m.debut, m.fin], ["13:45", "14:35"]);
   const msg = To.messageMission(m, "Jérémy");
-  vrai(msg.startsWith("Bonjour Jérémy") && msg.includes("lundi 16 novembre") && msg.includes("14h00 : Prendre Les 2 filles (sortie) (Gan, Netanya)"), msg);
+  vrai(msg.startsWith("Bonjour Jérémy") && msg.includes("lundi 16 novembre") && msg.includes("14h00 : Prendre Les 2 filles · Gan (Gan, Netanya)"), msg);
   egal(To.missionDuTransfert(TOURNEE, [], LUNDI, duree, T), null);
 });
 
@@ -411,7 +411,7 @@ test("25 nov. 2026 : trajet ajoute ce jour-la (Shyrel chez Deborah) confie a Jer
   // sans les changements du jour, le trajet ajoute est introuvable ; avec, la mission le reprend
   egal(To.missionDuTransfert(TOURNEE, [p.id], LUNDI, duree, T), null);
   const m = To.missionDuTransfert(TOURNEE, [p.id], LUNDI, duree, T, null, jours);
-  egal(m.etapes.map((e) => e.texte), ["Prendre Shyrel (chez Deborah)", "Déposer Shyrel (chez Deborah)"]);
+  egal(m.etapes.map((e) => `${e.texte} · ${e.lieu}`), ["Prendre Shyrel · Gan", "Déposer Shyrel · Chez l'amie"]);
   // l'heure changee ce jour est reprise dans la mission
   const j2 = To.changerHeureCeJour(jours, LUNDI, [p.id], "14:30");
   egal(To.missionDuTransfert(TOURNEE, [p.id], LUNDI, duree, T, null, j2).etapes[0].heure, "14h30");

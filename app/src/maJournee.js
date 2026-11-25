@@ -7,12 +7,12 @@ import { ajouterLigne, courseDuCompte } from "./pricing/comptesEntreNous.js";
 import { enregistrerComptes, useComptes } from "./comptesBase.js";
 import { compteDansForfait, courseForfait, famillesDeLEtape, familleEncoreFaite, idForfait, lireForfait, telephoneFamille } from "./pricing/forfaitJour.js";
 import { vacancesDuJour } from "./pricing/calendrier.js";
-import { avecMoiDe, changerAvecMoi, ajoutsDesJours, ajouterTrajetCeJour, ajouterTache, annulerEtape, estPonctuel, retirerAjout, trajetPonctuel, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
+import { avecMoiDe, changerAvecMoi, ajoutsDesJours, ajouterTrajetCeJour, ajouterTache, annulerEtape, estPonctuel, retirerAjout, trajetPonctuel, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesConfiees, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { enregistrerJours, useDurees, useJoursTournee, useTournee } from "./tourneeBase.js";
 import { useRepertoire } from "./repertoireBase.js";
-import { confierAuCoequipier, reprendreDuCoequipier } from "./confierBase.js";
+import { confierAuCoequipier, confierTache, reprendreDuCoequipier, reprendreTache } from "./confierBase.js";
 
 // MA JOURNEE DANS MON CALENDRIER (12 nov. 2026) - espace de Rebecca seulement.
 // Lit sa tournee privee (admin/tournee) et renvoie, pour chaque date, les vraies etapes de sa journee
@@ -203,11 +203,17 @@ export function useMaJournee(actif) {
     },
     // 25 nov. 2026 : depuis le Calendrier, confier des trajets de CE jour a Jeremy (ou un autre coequipier)
     confier: (date, ids, membre) => confierAuCoequipier({ donnees: d, tous, ids, date, duree: durees.duree, nomLieu, membre, jours }),
-    // Trajets confies ce jour-la (pour « Je le reprends ») ; l'id du transfert = l'id de la mission du coequipier
-    confies: (date) => (d.transferts || []).filter((x) => x.date === date),
+    confierTache: (date, tache, membre) => confierTache({ jours, date, tache, membre, nomLieu }),
+    // Trajets et taches confies ce jour-la (pour « Je le reprends ») ; id = id de la mission du coequipier
+    confies: (date) => [...(d.transferts || []).filter((x) => x.date === date), ...tachesConfiees(jours, date).map((x) => ({ id: x.mission, membre: x.membre }))],
     reprendre: (id) => {
       const x = (d.transferts || []).find((y) => y.id === id);
-      return x ? reprendreDuCoequipier({ donnees: d, transfert: x }) : Promise.resolve();
+      if (x) return reprendreDuCoequipier({ donnees: d, transfert: x });
+      for (const date of Object.keys(jours)) {
+        const t = tachesConfiees(jours, date).find((y) => y.mission === id);
+        if (t) return reprendreTache({ jours, date, tache: t.tache, mission: t.mission, membre: t.membre });
+      }
+      return Promise.resolve();
     },
     // 19 nov. 2026, 14h10 : « avec ou sans Shyrel » dans la voiture (enfants de ma fiche « Moi » du Repertoire)
     enfantsMoi: [...new Set(repertoire.familles.filter((f) => f.categorie === "moi").flatMap((f) => (f.enfants || []).map((e) => String(e.prenom || "").trim())).filter(Boolean))],

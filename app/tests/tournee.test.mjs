@@ -421,6 +421,22 @@ test("25 nov. 2026 : trajet ajoute ce jour-la (Shyrel chez Deborah) confie a Jer
   egal([avant, apres], [2, 0]);
 });
 
+test("25 nov. 2026 : une tache confiee sort de ma journee et revient avec « Je le reprends »", () => {
+  const jours = To.ajouterTache({}, "2026-11-13", { titre: "Livraison Kelly", debut: "11:00", fin: "11:30", lieu: AMIE, type: "course" });
+  const t = To.tachesDuJour(jours, "2026-11-13")[0];
+  const c = To.confierTacheCeJour(jours, "2026-11-13", t.id, { mission: "m1", membre: "jeremy", nom: "Jérémy" });
+  egal(To.tachesDuJour(c, "2026-11-13"), []);
+  egal(To.tachesConfiees(c, "2026-11-13").map((x) => [x.tache.id, x.mission, x.membre]), [[t.id, "m1", "jeremy"]]);
+  // relu depuis la base : la marque « confiee » est gardee
+  egal(To.tachesDuJour(To.lireJours(JSON.stringify(c)), "2026-11-13"), []);
+  // mes creneaux bloques ne comptent plus la tache
+  vrai(!To.creneauxParDate([], [], duree, MAISON, T, "2026-11-12", c)["2026-11-13"].some((x) => x.debut === "11:00"));
+  const m = To.missionDeLaTache(t);
+  egal([m.debut, m.fin, m.etapes[0].texte], ["11:00", "11:30", "Livraison Kelly (jusqu'à 11h30)"]);
+  vrai(To.messageMission({ ...m, date: "2026-11-13" }, "Jérémy").includes("Peux-tu faire ceci"));
+  egal(To.tachesDuJour(To.reprendreTacheCeJour(c, "2026-11-13", t.id), "2026-11-13").map((x) => x.id), [t.id]);
+});
+
 test("un trajet hors de ses dates ne compte pas ; lecture des transferts", () => {
   const borne = To.trajetVide({ id: "b", nom: "B", de: GAN, a: AMIE, heure: "16:00", jours: tous(), du: "2026-12-01" });
   egal(To.trajetsDuJourDate([borne], LUNDI), []);

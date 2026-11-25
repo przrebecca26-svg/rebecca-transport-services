@@ -11,6 +11,7 @@ import { messageRetard } from "./pricing/suiteClient.js";
 import { texteDuree } from "./pricing/circulation.js";
 import { filtrerPersonne } from "./pricing/quiFait.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
+import { attribueA, confierDirect, messageTransfert, nomDe } from "./pricing/quiFait.js";
 import { indispoValide } from "./fermetures.js";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
@@ -439,6 +440,7 @@ function Evenement({ d, aujourdhui, admin = false, journee = null }) {
           <p className="tb-note">Pour accepter, refuser ou changer le prix : onglet Demandes.</p>
           {admin && d.statut === "acceptee" && <PartagerPosition d={d} />}
           {admin && <AvecMoi journee={journee} date={d.date} cle={cleAvec} />}
+          {admin && <ConfierCourse d={d} />}
           {admin && (suppr === "" ? (
             <button type="button" className="ag-modifier" onClick={() => setSuppr("?")}>Supprimer cette course</button>
           ) : suppr === "?" ? (
@@ -513,6 +515,7 @@ function Mission({ m, pourTous, journee = null }) {
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
   const membre = (membres || []).find((x) => x && x.id === m.membre);
+  const ecole = (m.etapes || []).length > 0 && m.etapes.every((e) => /^(Prendre|Déposer) /.test(e.texte || ""));
   const wa = pourTous && membre && membre.telephone && m.date ? lienWhatsApp(membre.telephone, messageMission(m, m.nomMembre || membre.nom || "")) : "";
   const peutReprendre = pourTous && journee && journee.confies && journee.confies(m.date).some((x) => x.id === m.id);
   const reprendre = () => {
@@ -522,7 +525,7 @@ function Mission({ m, pourTous, journee = null }) {
   };
   return (
     <div className="ag-mission">
-      <p><strong>🎒 {m.debut.replace(":", "h")} → {m.fin.replace(":", "h")} · Ramassage scolaire{pourTous && m.nomMembre ? ` · 🤝 confié à ${m.nomMembre}` : ""}</strong></p>
+      <p><strong>{ecole ? "🎒" : "🤝"} {m.debut.replace(":", "h")} → {m.fin.replace(":", "h")} · {ecole ? "Ramassage scolaire" : "Mission"}{pourTous && m.nomMembre ? ` · confié à ${m.nomMembre}` : ""}</strong></p>
       <ul>
         {(m.etapes || []).map((e, i) => (
           <li key={i}>{e.heure} · {e.texte} <small>{e.lieu}</small></li>
@@ -533,6 +536,90 @@ function Mission({ m, pourTous, journee = null }) {
           {wa && <a className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">💬 Prévenir {m.nomMembre || membre.nom || ""}</a>}
           {peutReprendre && <button type="button" className="ag-modifier" disabled={enCours} onClick={reprendre}>Je le reprends</button>}
         </div>
+      )}
+      {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
+    </div>
+  );
+}
+
+// 25 nov. 2026 (Rebecca : « confié à Jérémy sur toutes mes tâches, pas obligé qu'il accepte ») : une tâche de ma journée
+function ConfierUneTache({ journee, date, tache }) {
+  const { membres } = useEquipeContexte();
+  const [erreur, setErreur] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const equipiers = (membres || []).filter((m) => m && m.id !== ADMIN_ID);
+  if (!journee || !journee.confierTache || !tache || !equipiers.length) return null;
+  const confier = async (m) => {
+    setErreur("");
+    setEnCours(true);
+    try {
+      const r = await journee.confierTache(date, tache, m);
+      if (r && r.lien === undefined) setErreur(r.texte);
+    } catch {
+      setErreur("Enregistrement impossible. Vérifie la connexion.");
+    }
+    setEnCours(false);
+  };
+  return (
+    <div className="ag-etape-actions">
+      <p><strong>🤝 Confier cette tâche</strong></p>
+      <p className="tb-note">Elle passe tout de suite dans son agenda et sort du tien (pas besoin qu'il accepte). Ensuite, « 💬 Prévenir » pour lui envoyer sur WhatsApp.</p>
+      <div className="tb-actions">
+        {equipiers.map((m) => (
+          <button key={m.id} type="button" className="tb-bouton" disabled={enCours} onClick={() => confier(m)}>{enCours ? "Enregistrement…" : `Confier à ${m.nom || "mon coéquipier"}`}</button>
+        ))}
+      </div>
+      {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
+    </div>
+  );
+}
+
+// 25 nov. 2026 : une course (demande) confiée directement depuis l'agenda, sans acceptation
+function ConfierCourse({ d }) {
+  const { membres } = useEquipeContexte();
+  const [erreur, setErreur] = useState("");
+  const [lien, setLien] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const equipiers = (membres || []).filter((m) => m && m.id !== ADMIN_ID);
+  if (!equipiers.length || !d || !d.id || ["terminee", "annulee", "refusee"].includes(d.statut)) return null;
+  const qui = attribueA(d);
+  const changer = async (versId) => {
+    setErreur("");
+    setEnCours(true);
+    const r = confierDirect(d, versId, Date.now());
+    try {
+      if (r.maj) await updateDoc(doc(db, "demandes", d.id), { ...r.maj, ...(r.trace ? { historiqueAttribution: arrayUnion(r.trace) } : {}), majLe: serverTimestamp() });
+      const vers = membres.find((m) => m.id === versId);
+      setLien(versId !== ADMIN_ID && vers && vers.telephone ? { nom: vers.nom || "", url: lienWhatsApp(vers.telephone, messageTransfert(d, "Rebecca", vers.nom || "")) } : null);
+    } catch {
+      setErreur("Enregistrement impossible. Vérifie la connexion.");
+    }
+    setEnCours(false);
+  };
+  return (
+    <div className="ag-etape-actions">
+      {qui === ADMIN_ID ? (
+        <>
+          <p><strong>🤝 Confier cette course</strong> <small>(tout de suite dans son agenda, sans qu'il accepte)</small></p>
+          <div className="tb-actions">
+            {equipiers.map((m) => (
+              <button key={m.id} type="button" className="tb-bouton" disabled={enCours} onClick={() => changer(m.id)}>Confier à {m.nom || "mon coéquipier"}</button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <p><strong>🤝 Confiée à {nomDe(membres, qui)}</strong></p>
+          <div className="tb-actions">
+            {lien && lien.url && <a className="ag-waze" href={lien.url} target="_blank" rel="noopener noreferrer">💬 Prévenir {lien.nom}</a>}
+            {!lien && (() => {
+              const m = membres.find((x) => x.id === qui);
+              const url = m && m.telephone ? lienWhatsApp(m.telephone, messageTransfert(d, "Rebecca", m.nom || "")) : "";
+              return url ? <a className="ag-waze" href={url} target="_blank" rel="noopener noreferrer">💬 Prévenir {m.nom}</a> : null;
+            })()}
+            <button type="button" className="ag-modifier" disabled={enCours} onClick={() => changer(ADMIN_ID)}>Je la reprends</button>
+          </div>
+        </>
       )}
       {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
     </div>
@@ -820,6 +907,7 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
       {ouvert && e.genre === "tache" && (
         <div className="ag-etape-actions">
           <AvecMoi journee={journee} date={date} cle={cleEtape(e)} />
+          <ConfierUneTache journee={journee} date={date} tache={e.tache} />
           <FormTache date={date} journee={journee} initial={e.tache} onFin={() => setOuvert(false)} />
           <div className="tb-actions">
             <button type="button" className="tb-bouton ag-danger" onClick={() => faire(() => journee.retirerTache(date, e.tache.id))}>Supprimer cette tâche</button>

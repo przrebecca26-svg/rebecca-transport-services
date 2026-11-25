@@ -77,6 +77,7 @@ export default function CartesCadeauxAdmin() {
       {tri.length === 0 && <p className="admin-texte tb-pad">Aucune carte cadeau pour l'instant.</p>}
       {tri.map((c) => {
         const msgAcheteur = `Bonjour ${c.acheteurNom}, merci pour votre paiement ! 🎁 La carte cadeau pour ${c.pourNom} est active : ${lienCarte(c.id)}\nValable jusqu'au ${dateFrCadeau(finValidite(c) || champsActivation(aujourdhui()).expireLe)}, sur toutes les activités (non remboursable).\nVous pouvez l'envoyer depuis ce lien. Rebecca`;
+        const msgOfferte = `Bonjour${c.pourNom && !/^gagnant/i.test(c.pourNom) ? " " + c.pourNom : ""} ! 🎁 Rebecca Services vous offre une carte cadeau de ${c.montant} ₪${c.message ? ` (${c.message})` : ""} : ${lienCarte(c.id)}\nCode : ${c.code}\nValable jusqu'au ${dateFrCadeau(finValidite(c) || champsActivation(aujourdhui()).expireLe)}, sur toutes les activités (non remboursable). Félicitations ! Rebecca`;
         return (
           <div key={c.id} className="tb-bloc">
             <h3>{c.montant} ₪ · pour {c.pourNom} <small>({STATUTS_CADEAU[statutAffiche(c, jour)] || c.statut})</small></h3>
@@ -95,10 +96,15 @@ export default function CartesCadeauxAdmin() {
               )}
               {c.statut === "active" && (
                 <select aria-label="Corriger le moyen de paiement" value={c.moyen || ""} onChange={(e) => maj(c.id, { moyen: e.target.value })}>
-                  {MOYENS_CADEAU.map((m) => <option key={m}>{m}</option>)}
+                  {/* 25 nov. 2026 : une carte créée par Rebecca est « Offerte » (le choix s'affichait « PayPal ») */}
+                  {(c.offerte || c.moyen === "Offerte" ? ["Offerte", ...MOYENS_CADEAU] : MOYENS_CADEAU).map((m) => <option key={m}>{m}</option>)}
                 </select>
               )}
-              {c.statut === "active" && <a className="tb-bouton tb-clair" href={lienWhatsApp(c.acheteurTel, msgAcheteur) || "#"} target="_blank" rel="noreferrer">💬 Envoyer la carte à {c.acheteurNom}</a>}
+              {/* 25 nov. 2026 : une carte offerte par Rebecca s'envoie au gagnant (son numéro, ou WhatsApp « choisir un contact ») */}
+              {c.statut === "active" && (c.offerte || c.moyen === "Offerte") && (
+                <a className="tb-bouton tb-clair" href={lienWhatsApp(c.pourTel, msgOfferte) || `https://wa.me/?text=${encodeURIComponent(msgOfferte)}`} target="_blank" rel="noreferrer">💬 Envoyer la carte à {c.pourNom || "la personne"}</a>
+              )}
+              {c.statut === "active" && !(c.offerte || c.moyen === "Offerte") && <a className="tb-bouton tb-clair" href={lienWhatsApp(c.acheteurTel, msgAcheteur) || "#"} target="_blank" rel="noreferrer">💬 Envoyer la carte à {c.acheteurNom}</a>}
               {suppr === c.id ? (
                 <>
                   <button className="tb-bouton tb-danger" onClick={() => deleteDoc(doc(db, "cartesCadeaux", c.id)).then(() => setSuppr("")).catch(() => setInfo("Suppression impossible."))}>Oui, supprimer</button>

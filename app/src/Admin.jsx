@@ -1,5 +1,6 @@
 import CentreNotifs from "./components/CentreNotifs.jsx";
 import PrendreRdv from "./PrendreRdv.jsx";
+import { SyncAgendaIphone } from "./components/AgendaIphone.jsx";
 import { useEffect, useRef, useState } from "react";
 import { createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
@@ -406,6 +407,7 @@ export default function Admin() {
       <EquipeContexte.Provider value={contexte}>
       {role === "admin" && <SyncCreneaux />}
       {role === "admin" && <SyncTournee />}
+      {role === "admin" && <SyncAgendaIphone />}
       {role === "admin" && <SyncComptes />}
       <div className="admin admin-tableau theme-sombre">
         <header className="ts-entete">

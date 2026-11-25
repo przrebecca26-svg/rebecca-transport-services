@@ -104,7 +104,7 @@ export function synchroniser(voulus = [], existants = []) {
     const e = parId.get(v.id);
     return !e || e.debut !== v.debut || e.fin !== v.fin || e.personne !== v.personne;
   });
-  const aSupprimer = existants.filter((e) => !ids.has(e.id) && e.source !== "rendezvous").map((e) => e.id);
+  const aSupprimer = existants.filter((e) => !ids.has(e.id) && e.source !== "rendezvous" && e.source !== "iphone").map((e) => e.id); // 25 nov. 2026 : agenda iPhone géré à part
   return { aEcrire, aSupprimer };
 }
 

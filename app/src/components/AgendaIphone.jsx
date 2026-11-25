@@ -60,3 +60,43 @@ export default function AgendaIphone({ jour }) {
     </div>
   );
 }
+
+// 25 nov. 2026 (étape 2) : mes rendez-vous iPhone des 30 prochains jours bloquent les créneaux du site
+// (liste publique creneauxOccupes : début et fin SEULEMENT, jamais le titre ni le lieu). Monté dans l'espace admin.
+export function SyncAgendaIphone() {
+  const a = useAgendaIphone();
+  useEffect(() => {
+    if (!a.ev && a.lien) return undefined;
+    const t = setTimeout(async () => {
+      const [{ db }, fs] = await Promise.all([import("../firebase.js"), import("firebase/firestore")]);
+      const { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } = fs;
+      const voulus = new Map();
+      if (a.ev) {
+        const j0 = new Date();
+        for (let i = 0; i < 30; i++) {
+          const date = new Date(j0.getTime() + i * 86400000).toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+          rdvDuJour(a.ev, date).forEach((r, k) => {
+            const debut = r.journee ? "00:00" : r.debut;
+            const fin = r.journee ? "23:59" : r.fin;
+            if (fin > debut) voulus.set(`iphone-${date}-${k}`, { debut: `${date}T${debut}`, fin: `${date}T${fin}` });
+          });
+        }
+      }
+      try {
+        const deja = await getDocs(query(collection(db, "creneauxOccupes"), where("source", "==", "iphone")));
+        const lot = writeBatch(db);
+        let n = 0;
+        deja.docs.forEach((x) => { if (!voulus.has(x.id)) { lot.delete(x.ref); n++; } });
+        for (const [id, v] of voulus) {
+          const e = deja.docs.find((x) => x.id === id);
+          if (e && e.data().debut === v.debut && e.data().fin === v.fin) continue;
+          lot.set(doc(db, "creneauxOccupes", id), { ...v, personne: "rebecca", source: "iphone", majLe: serverTimestamp() });
+          if (++n > 400) break;
+        }
+        if (n) await lot.commit();
+      } catch { /* hors ligne : on réessaiera */ }
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [a.ev, a.lien]);
+  return null;
+}

@@ -91,9 +91,9 @@ export const ACTIVITES = {
 
 export const SERVICES = [
   { id: "transport", activite: "transport", titre: "Transport privé", icone: "🚗", texte: "Un trajet d'une adresse à une autre, aller simple ou aller-retour.", prix: "dès 30 ₪" },
-  { id: "aeroport", activite: "transport", titre: "Aéroport Ben Gourion", icone: "✈️", texte: "Départ vers l'aéroport ou arrivée et transfert à votre adresse.", prix: "dès 220 ₪" },
+  { id: "aeroport", activite: "transport", titre: "Aéroport Ben Gourion", icone: "✈️", texte: "Départ vers l'aéroport ou arrivée et transfert à votre adresse.", prix: "dès 250 ₪" },
   { id: "livraison", activite: "coursier", titre: "Livraison", icone: "📦", texte: "Colis, clés, documents, enveloppes, achats, petits objets.", prix: "dès 30 ₪" },
-  { id: "courses", activite: "coursier", titre: "Courses et achats", icone: "🛍️", texte: "Je récupère vos achats ou je fais les courses pour vous.", prix: "dès 30 ₪" },
+  { id: "courses", activite: "coursier", titre: "Courses et achats", icone: "🛍️", texte: "Je récupère vos achats ou je fais les courses pour vous.", prix: "dès 25 ₪" },
   { id: "hatan_kala", activite: "transport", titre: "Hatan & Kala", icone: "💍", texte: "Transport des mariés, décoration du véhicule possible.", prix: "dès 220 ₪" },
   { id: "demenagement", activite: "coursier", titre: "Petit déménagement", icone: "📚", texte: "Valises, cartons, petits objets.", prix: "dès 130 ₪" },
   { id: "ramassage", activite: "transport", titre: "Ramassage scolaire", icone: "🎒", texte: "Je vais chercher vos enfants à l'école ou je les y emmène : un jour, à la semaine ou au mois. Trajet partageable avec d'autres familles.", prix: "dès 35 ₪ / trajet" },
@@ -244,7 +244,7 @@ export const FORMULAIRES = {
     { name: "articles", label: "Nombre d'articles", type: "nombre", min: 1, max: 100, required: true, defaut: "1", indice: "Au-delà de 10 articles : sur devis." },
     { name: "magasin", label: "Magasin", type: "text", required: true },
     { name: "liste", label: (v) => (v.typePrestation === "courses" ? "Liste des courses" : "Description des achats à récupérer"), type: "texte-long", required: true },
-    { name: "avanceArgent", label: "Rebecca avance l'argent des achats", type: "case", si: (v) => v.typePrestation === "courses", indice: "10 % du ticket en frais de gestion. Les achats vous sont facturés à part." },
+    { name: "avanceArgent", label: "Rebecca avance l'argent des achats", type: "case", si: (v) => v.typePrestation === "courses", indice: "Sans frais en plus : les achats vous sont facturés à part, au prix du ticket." },
     { name: "montantTicket", label: "Montant estimé du ticket (₪)", type: "nombre", min: 0, max: 5000, si: (v) => v.typePrestation === "courses" && v.avanceArgent },
     { name: "paiementAchats", label: "Paiement des achats", type: "select", required: true, defaut: "Espèces", options: TARIFS.moyensPaiement.map((m) => ({ v: m, l: m })) },
     { name: "livraison", label: "Adresse de livraison", type: "adresse", required: true },

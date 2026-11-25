@@ -3,6 +3,7 @@
 import { bilan } from "./outils.mjs";
 await import("./ancienneGrille.mjs");
 await import("./grilleNov2026.test.mjs");
+await import("./grille26nov.test.mjs");
 await import("./ics.test.mjs");
 await import("./metier.test.mjs");
 await import("./avenantResto.test.mjs");

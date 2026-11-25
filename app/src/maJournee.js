@@ -7,7 +7,7 @@ import { ajouterLigne, courseDuCompte } from "./pricing/comptesEntreNous.js";
 import { enregistrerComptes, useComptes } from "./comptesBase.js";
 import { compteDansForfait, courseForfait, famillesDeLEtape, familleEncoreFaite, idForfait, lireForfait, telephoneFamille } from "./pricing/forfaitJour.js";
 import { vacancesDuJour } from "./pricing/calendrier.js";
-import { avecMoiDe, changerAvecMoi, ajoutsDesJours, ajouterTrajetCeJour, ajouterTache, annulerEtape, estPonctuel, retirerAjout, trajetPonctuel, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesConfiees, tachesDuJour, trajetsDuJourDate } from "./pricing/tournee.js";
+import { avecMoiDe, changerAvecMoi, ajoutsDesJours, ajouterTrajetCeJour, ajouterTache, annulerEtape, estPonctuel, retirerAjout, trajetPonctuel, changerHeureCeJour, cleEtape, faitA, validerEtape, enMin, filTournee, journeeDeLaDate, journeeNormale, modifierTache, nomDuLieu, remettreCeJour, retirerCeJour, retirerTache, tachesConfiees, tachesDuJour, trajetsDuJourDate, etapesPerso } from "./pricing/tournee.js";
 import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { enregistrerJours, useDurees, useJoursTournee, useTournee } from "./tourneeBase.js";
@@ -40,6 +40,8 @@ export function useMaJournee(actif) {
   const fil = (date) => {
     if (etat !== "ok") return [];
     const taches = tachesDuJour(jours, date).flatMap((x) => {
+      // 25 nov. 2026, 22h30 : trajet personnel -> prendre la personne, les arrêts, la déposer (étapes privées)
+      if (x.type === "perso") return etapesPerso(x).map((e) => ({ ...e, genre: "tache", tache: x, lieu: e.adresse ? nomLieu(e.adresse) || String(e.adresse.label || "").split(",")[0] : "" }));
       const t = { min: enMin(x.debut), genre: "tache", heure: x.debut.replace(":", "h"), jusqua: x.fin.replace(":", "h"), texte: x.titre, tache: x, adresse: x.lieu, lieu: x.lieu ? nomLieu(x.lieu) || String(x.lieu.label).split(",")[0] : "" };
       // 25 nov. 2026 : « d'abord passer prendre Maman » -> une étape avant la tâche (trajet estimé, 5 min sur place)
       if (!x.prise || !Number.isFinite(x.prise.lat) || !x.lieu || !Number.isFinite(x.lieu.lat)) return [t];

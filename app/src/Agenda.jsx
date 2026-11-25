@@ -3,7 +3,9 @@ import InfoVol from "./components/InfoVol.jsx";
 import FinCourseAgenda from "./FinCourseAgenda.jsx";
 import TourneeResto from "./components/TourneeResto.jsx";
 import { etapesTournee, tourneesResto } from "./pricing/tourneeResto.js";
-import { messageEnfant, parentsAPrevenir } from "./pricing/finCourse.js";
+import { messageEnfant, parentsAPrevenir, prixTrajet } from "./pricing/finCourse.js";
+import { alertesPerso, bilanJournee } from "./pricing/deplacementsJour.js";
+import { TARIFS } from "./pricing/config.js";
 import { heureDans, minutesJusqua } from "./arrivee.js";
 import { arreterSuivi, demarrerSuivi, idSuivi } from "./suiviRamassage.js";
 import { lienPosition } from "./pricing/positionDirect.js";
@@ -36,7 +38,7 @@ import { cleLieu } from "./pricing/tournee.js";
 import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
-import { AEROPORT_BEN_GOURION, TYPES_TACHE, cleEtape, etapeValidable, iconeTache, texteAvecMoi, messageMission } from "./pricing/tournee.js";
+import { AEROPORT_BEN_GOURION, TYPES_TACHE, avecMoiPerso, cleEtape, etapeValidable, iconeTache, texteAvecMoi, messageMission } from "./pricing/tournee.js";
 import { supprimerCourseComplete } from "./suppression.js";
 import { aLaMaison, comprendreDateHeure, demandeCreneau, dureeDite, quoiDeTache, trouverCreneau } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
@@ -399,7 +401,7 @@ function EtiquettesJour({ jour }) {
   );
 }
 
-function Evenement({ d, aujourdhui, admin = false, journee = null }) {
+function Evenement({ d, aujourdhui, admin = false, journee = null, avecMoi = [] }) {
   const cleAvec = "c:" + d.id + (d.estRetour ? "-r" : "");
   const [ouvert, setOuvert] = useState(false);
   // 19 nov. 2026 : supprimer une course de test directement depuis ma journée (Rebecca seule)
@@ -417,6 +419,7 @@ function Evenement({ d, aujourdhui, admin = false, journee = null }) {
           <small>{d.nom} · {textePrix(d)}{admin && d.prixAmi ? " 💛" : ""}{admin && badgeAvecMoi(journee, d.date, cleAvec)}</small>
           {typeof d.kmEstime === "number" && typeof d.minutesEstimees === "number" && <small>🚗 Trajet {texteDuree(d.minutesEstimees, d.date, d.heure)}</small>}
           <InfoVol d={d} compact />
+          {avecMoi.length > 0 && <small>👥 {avecMoi.join(", ")} avec toi dans la voiture</small>}
         </span>
         <span className={"tb-badge tb-" + st.classe}>{st.label}</span>
       </button>
@@ -924,8 +927,9 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
 // - Ramassage scolaire : choisir l'enfant dans le Repertoire, ou « Nouvel enfant » (sa fiche se cree : parents,
 //   telephones, ecole, horaires) ;
 // - Course / Livraison, Rendez-vous beaute, Autre (docteur...) : quoi, pour qui, adulte ou enfant.
-const PLACEHOLDER_QUOI = { course: "Livraison Herzliya, courses Carrefour…", beaute: "Nails, coiffure, Slim & Lift…", autre: "Docteur, banque, réunion…", transport: "Aéroport Ben Gourion, gare…" };
-const LIBELLE_QUOI = { course: "Quelle course ou livraison ?", beaute: "Quelle prestation ?", autre: "Quoi ?", transport: "Quel trajet ?" };
+const PLACEHOLDER_QUOI = { course: "Livraison Herzliya, courses Carrefour…", beaute: "Nails, coiffure, Slim & Lift…", autre: "Docteur, banque, réunion…", transport: "Aéroport Ben Gourion, gare…", perso: "Déjeuner à Tel-Aviv…" };
+const LIBELLE_QUOI = { course: "Quelle course ou livraison ?", beaute: "Quelle prestation ?", autre: "Quoi ?", transport: "Quel trajet ?", perso: "Quel trajet ? (facultatif)" };
+const ARRET_VIDE = { nom: "", adresse: null, debut: "", fin: "" };
 const NOUVEL_ENFANT = { famille: "", parent: "", telephone: "", parent2: "", telephone2: "", prenom: "", age: "enfant", ecole: null, entree: "", sortie: "" };
 const decaler = (h, minutes) => {
   const m = /^(\d{2}):(\d{2})$/.exec(h || "");
@@ -951,8 +955,8 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
   const choixInitial = initial && initial.enfant ? initial.enfant.famille + "|" + initial.enfant.enfant : "";
   const [f, setF] = useState(
     initial
-      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, prise: initial.prise || null, enfant: choixInitial, compte: initial.compte || "", livraison: initial.livraison || null }
-      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null, heure2: "", retour: null, reste: false }
+      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, prise: initial.prise || null, enfant: choixInitial, compte: initial.compte || "", livraison: initial.livraison || null, arrets: initial.arrets || [] }
+      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null, heure2: "", retour: null, reste: false, arrets: [] }
   );
   const [nouvel, setNouvel] = useState(NOUVEL_ENFANT);
   const [message, setMessage] = useState("");
@@ -992,7 +996,9 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
       ? estNouvel
         ? nouvel.prenom.trim() && (nouvel.famille || nouvel.parent.trim())
         : !!choisi
-      : f.quoi.trim();
+      : f.type === "perso"
+        ? f.pour.trim()
+        : f.quoi.trim();
   const adresseOk = (x) => !!(x && typeof x.lat === "number" && typeof x.lon === "number");
   const allerRetour = f.sens === "allerretour";
   const ponctuelOk = /^\d{2}:\d{2}$/.test(f.heure || "") && adresseOk(f.de) && adresseOk(f.a) && (!allerRetour || (/^\d{2}:\d{2}$/.test(f.heure2 || "") && f.heure2 > f.heure));
@@ -1037,7 +1043,7 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
         tache = { type: "ramassage", titre: "Ramassage · " + prenom, pour: prenom, age: estNouvel ? nouvel.age : choisi ? choisi.age : "enfant", enfant: ref, debut: f.debut, fin: f.fin, lieu };
       } else {
         const cpt = f.type === "course" && f.compte ? (journee.comptes || []).find((c) => c.id === f.compte) : null;
-        tache = { type: f.type, titre: f.quoi, pour: cpt ? cpt.nom : f.pour, age: cpt ? "adulte" : f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu, compte: cpt ? cpt.id : "", livraison: f.type === "course" ? f.livraison || null : null, prise: f.type === "autre" || f.type === "transport" ? f.prise || null : null };
+        tache = { type: f.type, titre: f.type === "perso" ? f.quoi.trim() || `Trajet avec ${f.pour.trim()}` : f.quoi, pour: cpt ? cpt.nom : f.pour, arrets: f.type === "perso" ? f.arrets || [] : undefined, age: cpt ? "adulte" : f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu, compte: cpt ? cpt.id : "", livraison: f.type === "course" ? f.livraison || null : null, prise: ["autre", "transport", "perso"].includes(f.type) ? f.prise || null : null };
       }
       if (initial) await journee.modifierTache(date, initial.id, tache);
       else await journee.ajouterTache(date, tache);
@@ -1149,8 +1155,8 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
           <label className="ag-champ">2. {LIBELLE_QUOI[f.type]}
             <input type="text" maxLength={80} placeholder={PLACEHOLDER_QUOI[f.type]} value={f.quoi} onChange={(x) => set("quoi", x.target.value)} />
           </label>
-          <label className="ag-champ">Pour qui ? (facultatif)
-            <input type="text" maxLength={60} placeholder={f.type === "autre" ? "Moi, Shyrel…" : f.type === "transport" ? "Ma nièce, Maman…" : "Prénom de la cliente ou du client"} value={f.pour} onChange={(x) => set("pour", x.target.value)} />
+          <label className="ag-champ">{f.type === "perso" ? "Qui est avec moi ? *" : "Pour qui ? (facultatif)"}
+            <input type="text" maxLength={60} placeholder={f.type === "autre" ? "Moi, Shyrel…" : f.type === "transport" ? "Ma nièce, Maman…" : f.type === "perso" ? "Debo, Maman…" : "Prénom de la cliente ou du client"} value={f.pour} onChange={(x) => set("pour", x.target.value)} />
           </label>
           <ChoixAge valeur={f.age} changer={(v) => set("age", v)} />
           {f.type === "course" && (journee.comptes || []).length > 0 && (
@@ -1222,9 +1228,40 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
       {f.type && !ponctuel && (
         <>
           <div className="ag-heures">
-            <label className="ag-champ">{f.type === "transport" ? "Je la prends à" : "De"} <input type="time" value={f.debut} onChange={(x) => set("debut", x.target.value)} /></label>
-            <label className="ag-champ">{f.type === "transport" ? "De retour vers" : "À"} <input type="time" value={f.fin} onChange={(x) => set("fin", x.target.value)} /></label>
+            <label className="ag-champ">{f.type === "transport" || f.type === "perso" ? "Je la prends à" : "De"} <input type="time" value={f.debut} onChange={(x) => set("debut", x.target.value)} /></label>
+            <label className="ag-champ">{f.type === "transport" ? "De retour vers" : f.type === "perso" ? "Je la laisse à" : "À"} <input type="time" value={f.fin} onChange={(x) => set("fin", x.target.value)} /></label>
           </div>
+          {f.type === "perso" && !estNouvel && (
+            // 25 nov. 2026, 22h30 : trajet personnel avec un passager, des arrêts, le pro passe avant
+            <>
+              <div className="ag-champ">Où je la prends
+                <ChoixLieu id={"cl-pe-de-" + date} connues={connues} valeur={f.prise || null} choisir={(v) => set("prise", v)} />
+                <AddressField id={"tache-pe-de-" + date + (initial ? initial.id : "")} valeur={f.prise || null} position={false} onChange={(v) => set("prise", v)} />
+              </div>
+              {(f.arrets || []).map((a, i) => {
+                const majA = (k, v) => setF((x) => ({ ...x, arrets: x.arrets.map((y, n) => (n === i ? { ...y, [k]: v } : y)) }));
+                return (
+                  <div key={i} className="ag-champ" style={{ borderTop: "1px dashed #555", paddingTop: 8 }}>
+                    Arrêt {i + 1}
+                    <input type="text" maxLength={60} placeholder="Déjeuner, hôtel…" value={a.nom} onChange={(x) => majA("nom", x.target.value)} />
+                    <div className="ag-heures">
+                      <label className="ag-champ">De <input type="time" value={a.debut} onChange={(x) => majA("debut", x.target.value)} /></label>
+                      <label className="ag-champ">À <input type="time" value={a.fin} onChange={(x) => majA("fin", x.target.value)} /></label>
+                    </div>
+                    <ChoixLieu id={"cl-pe-ar" + i + "-" + date} connues={connues} valeur={a.adresse} choisir={(v) => majA("adresse", v)} />
+                    <AddressField id={"tache-pe-ar" + i + "-" + date + (initial ? initial.id : "")} valeur={a.adresse} position={false} onChange={(v) => majA("adresse", v)} />
+                    <button type="button" className="ag-modifier" onClick={() => setF((x) => ({ ...x, arrets: x.arrets.filter((_, n) => n !== i) }))}>✗ Retirer cet arrêt</button>
+                  </div>
+                );
+              })}
+              {(f.arrets || []).length < 3 && <button type="button" className="ag-modifier" onClick={() => setF((x) => ({ ...x, arrets: [...(x.arrets || []), { ...ARRET_VIDE }] }))}>+ Ajouter un arrêt (déjeuner, hôtel…)</button>}
+              <div className="ag-champ">Où je la laisse
+                <ChoixLieu id={"cl-pe-a-" + date} connues={connues} valeur={f.lieu} choisir={(v) => set("lieu", v)} />
+                <AddressField id={"tache-pe-a-" + date + (initial ? initial.id : "")} valeur={f.lieu} position={false} onChange={(v) => set("lieu", v)} />
+              </div>
+              <p className="tb-note">Tes courses de cliente entre ces deux heures restent prioritaires : elles gardent leur heure et la mention « 👥 avec toi » s'affiche. Ton calendrier remet tout dans l'ordre et te prévient si une étape perso te met en retard. Rien n'est facturé, et les km de ces étapes sont comptés en perso.</p>
+            </>
+          )}
           {f.type === "transport" && !estNouvel && (
             // 25 nov. 2026, 21h55 : prendre quelqu'un (chez elle) et le déposer (aéroport, gare…)
             <>
@@ -1240,7 +1277,7 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
               <p className="tb-note">Ton calendrier montre « Prendre » à l'heure choisie puis « Déposer » à l'arrivée estimée ; tout le créneau jusqu'à ton retour est bloqué. Pour une course payée par une cliente, passe plutôt par le Devis rapide (Aéroport).</p>
             </>
           )}
-          {!estNouvel && f.type !== "transport" && (
+          {!estNouvel && f.type !== "transport" && f.type !== "perso" && (
             <div className="ag-champ">{f.type === "course" ? "Adresse de récupération (facultatif)" : "Adresse (facultatif : vide = à la maison)"}
               <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position onChange={(v) => set("lieu", v)} />
               {/* 19 nov. 2026, 15h05 : une tâche à la maison entre dans le trafic (rentrer, faire, repartir) */}
@@ -1268,6 +1305,34 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
         <button type="button" className="tb-bouton tb-clair" onClick={onFin}>Annuler</button>
       </div>
       {message && <p className="fm-erreur" role="alert">{message}</p>}
+    </div>
+  );
+}
+
+// 25 nov. 2026, 22h30 (Rebecca) : « distinguer les déplacements personnels des professionnels, sans compter deux fois
+// les km communs », alerte si une étape perso met en retard pour une cliente, chiffre d'affaires et gain du jour.
+function BilanDeplacements({ jour, fil, evenements, domicile, persos }) {
+  const [ouvert, setOuvert] = useState(false);
+  const courses = evenements.filter((d) => d.statut === "acceptee" || d.statut === "terminee");
+  if (!courses.length && !persos.length) return null;
+  const etapes = [...fil, ...etapesAvecTournees(courses, domicile)];
+  const ca = courses.reduce((s, d) => s + (prixTrajet(d) || 0), 0);
+  const b = bilanJournee(etapes, domicile, { ca, t: TARIFS });
+  const alertes = alertesPerso(etapes, jour, TARIFS);
+  return (
+    <div className="ag-changements">
+      {alertes.map((a) => <p key={a.cle} className="fm-erreur" role="alert">{a.texte}</p>)}
+      <button type="button" className="ag-modifier" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert}>🧮 Ma journée : {b.kmPro} km pro{b.kmPerso ? ` · ${b.kmPerso} km perso (~${b.essencePerso} ₪ d'essence)` : ""}{b.gainParHeure != null ? ` · ~${b.gainParHeure} ₪/h` : ""} {ouvert ? "▲" : "▼"}</button>
+      {ouvert && (
+        <div className="tb-note">
+          <p>🚗 <b>Pro :</b> {b.kmPro} km · essence ~{b.essencePro} ₪ + usure ~{b.usurePro} ₪ = ~{b.coutPro} ₪</p>
+          {b.kmPerso > 0 && <p>🏠 <b>Perso :</b> {b.kmPerso} km · essence ~{b.essencePerso} ₪ + usure ~{Math.max(0, b.coutPerso - b.essencePerso)} ₪ = ~{b.coutPerso} ₪ (pas dans tes comptes pro)</p>}
+          <p>💼 <b>Chiffre d'affaires du jour :</b> {b.ca} ₪ (chaque trajet d'un aller-retour compte le jour où il est fait) · gain estimé ~{b.gain} ₪ pour ~{Math.round(b.minutesPro / 6) / 10} h de travail</p>
+          <p>💰 L'encaissé est à part : un trajet déjà payé (retour d'un aller-retour payé à l'aller) ne se ré-encaisse pas.</p>
+          {b.trajets.map((t, i) => <p key={i}>{t.pro ? "💼" : "🏠"} {t.de} → {t.vers} · {Math.round(t.km)} km · ~{t.minutes} min</p>)}
+          <p>Estimation (distance par la route approchée) ; le trafic réel est dans « Trafic » le jour même. Les km quand quelqu'un est avec toi pendant une course restent pro (comptés une seule fois).</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1315,11 +1380,14 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
   const rep = useRepertoire();
   // 22 nov. 2026 : commandes du meme restaurant pretes a 10 min pres = une seule tournee (une arrivee, une recuperation)
   const { tournees, seules } = tourneesResto(evenements);
+  // 25 nov. 2026, 22h30 : trajets personnels du jour (quelqu'un avec moi), étapes pro + perso, bilan et alertes
+  const persos = [...new Map(fil.filter((e) => e.tache && e.tache.type === "perso").map((e) => [e.tache.id, e.tache])).values()];
+  const avecMoi = (d) => (pourTous ? avecMoiPerso(persos, enMinutes(d.heure)) : []);
   // Les creneaux personnels sont ceux de Rebecca (sa tournee) : jamais dans l'agenda d'un coequipier (12 nov. 2026)
   const fermetures = tourneeOk || equipier ? creneaux.filter((c) => c.type !== "personnel") : creneaux;
   const lignes = [
     ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} familles={rep.familles || []} suivante={e.sorte === "prise" ? fil.slice(i + 1).find((x) => x.genre === "arret" && x.sorte === "depose" && x.adresse) || null : null} />, etape: true })),
-    ...seules.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} /> })),
+    ...seules.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} avecMoi={avecMoi(d)} /> })),
     ...tournees.map((t) => ({ min: enMinutes(t[0].heure), cle: "tr" + t[0].id, rendu: <TourneeResto tournee={t} domicile={domicile} aujourdhui={aujourdhui} seule={(d) => <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} />} /> })),
     ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} journee={journee} /> })),
   ].sort((a, b) => a.min - b.min);
@@ -1364,6 +1432,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
         )
       )}
       {fermetures.length === 0 && lignes.length === 0 && !calcul && <p className="ag-libre">Libre</p>}
+      {pourTous && !equipier && <BilanDeplacements jour={jour} fil={fil} evenements={evenements} domicile={domicile} persos={persos} />}
       {journee && <AjoutTache date={jour} journee={journee} occupe={occupe} aujourdhui={aujourdhui} />}
     </div>
   );

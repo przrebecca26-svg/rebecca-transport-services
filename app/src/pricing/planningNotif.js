@@ -3,7 +3,9 @@
 // une notification 15 minutes avant chaque course de l'agenda (aéroport, livraison, ramassage, RDV beauté...),
 // et dès qu'il y a un truc sur le site une alerte qui dit ce que c'est (devis, acompte payé, rendez-vous pris...). »
 // Tout est calcule ici (sans Google) : le robot Netlify lit les donnees et envoie les notifications.
-import { lireTournee, lireJours, appliquerJour, trajetsDuJourDate, tachesDuJour } from "./tournee.js";
+import { lireTournee, lireJours, appliquerJour, trajetsDuJourDate, tachesDuJour, etapesPerso } from "./tournee.js";
+import { extremites } from "./enchainement.js";
+import { departsEstimes } from "./deplacementsJour.js";
 import { lireFamilles, lireChoix, trajetsDesChoix } from "./familles.js";
 import { famillesBrutes } from "./repertoire.js";
 import { vacancesDuJour, ajouterJours } from "./calendrier.js";
@@ -36,9 +38,12 @@ export function evenementsDuJour(date, { demandes = [], tourneeJson = "", joursJ
     if (!d || d.statut !== "acceptee" || d.service === "ramassage") continue;
     const icone = ICONES[d.service] || "📌";
     const titre = court(d.serviceTitre || d.service, 30);
-    if (d.date === date && HEURE_OK.test(d.heure || "")) liste.push({ min: enMin(d.heure), heure: d.heure, sorte: BEAUTE.includes(d.service) ? "beaute" : "course", texte: `${icone} ${titre} · ${court(d.nom, 30)}`, id: `d-${d.id}` });
+    // 25 nov. 2026, 22h30 : l'adresse de prise en charge sert à calculer l'heure de départ (alerte « Pars maintenant »)
+    let x = {};
+    try { x = extremites(d) || {}; } catch { x = {}; }
+    if (d.date === date && HEURE_OK.test(d.heure || "")) liste.push({ min: enMin(d.heure), heure: d.heure, sorte: BEAUTE.includes(d.service) ? "beaute" : "course", texte: `${icone} ${titre} · ${court(d.nom, 30)}`, id: `d-${d.id}`, adresse: x.debut || null });
     const v = d.details || {};
-    if (estAllerRetour(d) && v.dateRetour === date && HEURE_OK.test(v.heureRetour || "")) liste.push({ min: enMin(v.heureRetour), heure: v.heureRetour, sorte: "course", texte: `${icone} Retour ${titre} · ${court(d.nom, 30)}`, id: `r-${d.id}` });
+    if (estAllerRetour(d) && v.dateRetour === date && HEURE_OK.test(v.heureRetour || "")) liste.push({ min: enMin(v.heureRetour), heure: v.heureRetour, sorte: "course", texte: `${icone} Retour ${titre} · ${court(d.nom, 30)}`, id: `r-${d.id}`, adresse: x.fin || null });
   }
   // 2. Tournee scolaire de ce jour (avec les changements du jour), sauf vacances scolaires
   if (!vacancesDuJour(date)) {
@@ -58,7 +63,15 @@ export function evenementsDuJour(date, { demandes = [], tourneeJson = "", joursJ
     }
     for (const g of groupes.values()) liste.push({ min: enMin(g.heure), heure: g.heure, sorte: "ramassage", texte: `🎒 ${g.type === "matin" ? "Déposer" : "Récupérer"} ${[...new Set(g.noms)].join(", ")}`, id: `t-${g.heure}-${g.type}` });
     // 3. Mes taches du jour
-    for (const x of tachesDuJour(jours, date)) if (HEURE_OK.test(x.debut || "")) liste.push({ min: enMin(x.debut), heure: x.debut, sorte: "tache", texte: `📝 ${court(x.titre, 50)}`, id: `k-${x.id}` });
+    for (const x of tachesDuJour(jours, date)) {
+      if (!HEURE_OK.test(x.debut || "")) continue;
+      // 25 nov. 2026, 22h30 : trajet personnel -> chaque étape (prendre, arrêts, déposer) a sa notification
+      if (x.type === "perso") {
+        for (const e of etapesPerso(x)) liste.push({ min: e.min, heure: e.heure.replace("h", ":"), sorte: "tache", texte: `🚗 ${court(e.texte, 50)}`, id: `k-${x.id}-${e.cle.split("@")[0]}`, adresse: e.adresse, jusqua: e.jusqua });
+        continue;
+      }
+      liste.push({ min: enMin(x.debut), heure: x.debut, sorte: "tache", texte: `📝 ${court(x.titre, 50)}`, id: `k-${x.id}`, adresse: x.prise || x.lieu || null, jusqua: x.fin ? x.fin.replace(":", "h") : "" });
+    }
   }
   return liste.sort((a, b) => a.min - b.min);
 }
@@ -95,11 +108,24 @@ export function messageMatin(aujourdhui, donnees) {
 }
 
 // 15 minutes avant : les courses dont l'heure d'alerte tombe dans ce passage du robot (toutes les 2 minutes)
+// 25 nov. 2026, 22h30 (Rebecca : « des alertes de départ en fonction des temps de trajet ») : si la route depuis
+// l'étape d'avant (ou la maison) demande de partir plus tôt, l'alerte arrive à l'heure de départ : « 🚗 Pars maintenant ».
 export function rappelsAvant(maintenantMs, donnees, minutes = 15, pas = 2) {
   const { date, min } = maintenantIsrael(maintenantMs);
-  return evenementsDuJour(date, donnees)
-    .filter((e) => e.min - minutes <= min && e.min - minutes > min - pas)
-    .map((e) => ({ titre: `⏰ Dans ${minutes} min · ${hFr(e.heure)}`, corps: e.texte, tag: `avant-${date}-${e.id}`, lien: "/admin#/admin" }));
+  const liste = evenementsDuJour(date, donnees);
+  let domicile = null;
+  try { domicile = lireTournee(donnees.tourneeJson || "").domicile; } catch { domicile = null; }
+  const departs = new Map(departsEstimes(liste, domicile, date).map((x) => [x.id, x]));
+  return liste
+    .map((e) => {
+      const d = departs.get(e.id);
+      const alerte = d && d.partir < e.min - minutes ? d.partir : e.min - minutes;
+      return { e, d: d && d.partir < e.min - minutes ? d : null, alerte };
+    })
+    .filter(({ alerte }) => alerte <= min && alerte > min - pas)
+    .map(({ e, d }) => (d
+      ? { titre: `🚗 Pars maintenant · ${hFr(e.heure)}`, corps: `${e.texte} · environ ${d.route} min de route`, tag: `avant-${date}-${e.id}`, lien: "/admin#/admin" }
+      : { titre: `⏰ Dans ${minutes} min · ${hFr(e.heure)}`, corps: e.texte, tag: `avant-${date}-${e.id}`, lien: "/admin#/admin" }));
 }
 
 /* ---------- Tout ce qui se passe sur le site ---------- */

@@ -992,7 +992,8 @@ export function retirerAjout(jours, date, ids) {
    faits = { cle de l'etape: "HH:MM" (heure ou elle a coche) }. Recocher = annuler. */
 export function cleEtape(e) {
   if (!e) return "";
-  if (e.genre === "tache" && e.tache && e.tache.id) return "t:" + e.tache.id;
+  // 25 nov. 2026, 22h30 : une tâche à plusieurs étapes (prendre, arrêts, déposer) -> une clé par étape
+  if (e.genre === "tache" && e.tache && e.tache.id) return "t:" + e.tache.id + (typeof e.cle === "string" && /^(prise|depose|arret\d)@/.test(e.cle) ? ":" + e.cle.split("@")[0] : "");
   if (e.genre === "arret" && Array.isArray(e.ids) && e.ids.length) return "a:" + [...e.ids].sort().join("+") + ":" + (e.sorte || "");
   return "";
 }
@@ -1022,6 +1023,9 @@ export const TYPES_TACHE = [
   { v: "autre", l: "Autre (docteur…)", icone: "📌" },
   // 25 nov. 2026, 21h51 (Rebecca : amener sa nièce à l'aéroport dimanche à 5h) : prendre quelqu'un et le déposer
   { v: "transport", l: "Transport / aéroport", icone: "✈️" },
+  // 25 nov. 2026, 22h30 (Rebecca : « je récupère ma sœur, elle est avec moi pendant ma cliente, on déjeune à Tel-Aviv,
+  // je la laisse à l'hôtel ») : un trajet privé avec un passager et des arrêts ; le pro passe toujours avant
+  { v: "perso", l: "Trajet personnel (quelqu'un avec moi)", icone: "🚗" },
 ];
 // Aéroport Ben Gourion (bouton rapide du formulaire ; trajet estimé à vol d'oiseau, comme les autres tâches)
 // approx : la position sert à estimer le trajet ; Waze cherche par le nom (il connaît le Terminal 3)
@@ -1034,8 +1038,33 @@ function detailsTache(x) {
   // 13 nov. 2026 : une course pour un « compte entre nous » (gg...) : adresse de livraison en plus, prix note a la fin
   const plus = type === "course" ? { compte: String(x.compte || "").slice(0, 40), livraison: adresseLue(x.livraison) } : {};
   // 25 nov. 2026, 21h55 : l'adresse « d'abord passer prendre » (Autre) et « où je la prends » (Transport) est gardée
-  const prise = type === "autre" || type === "transport" ? { prise: adresseLue(x.prise) } : {};
-  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null, ...plus, ...prise };
+  const prise = type === "autre" || type === "transport" || type === "perso" ? { prise: adresseLue(x.prise) } : {};
+  const arrets = type === "perso" ? { arrets: lireArretsPerso(x.arrets) } : {};
+  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null, ...plus, ...prise, ...arrets };
+}
+// Trajet personnel : arrêts entre la prise et la dépose (déjeuner, hôtel…), chacun avec ses heures (3 au plus)
+export function lireArretsPerso(l) {
+  return (Array.isArray(l) ? l : [])
+    .map((a) => ({ nom: String((a && a.nom) || "").trim().slice(0, 60), adresse: adresseLue(a && a.adresse), debut: HEURE_OK.test((a && a.debut) || "") ? a.debut : "", fin: HEURE_OK.test((a && a.fin) || "") ? a.fin : "" }))
+    .filter((a) => a.debut && (a.nom || a.adresse))
+    .map((a) => ({ ...a, fin: a.fin && a.fin > a.debut ? a.fin : a.debut }))
+    .sort((a, b) => (a.debut < b.debut ? -1 : 1))
+    .slice(0, 3);
+}
+// Les étapes d'un trajet personnel, dans l'ordre : prendre la personne, les arrêts, la déposer.
+// min = minutes depuis minuit ; jusqua = fin de l'étape (« 12h50 ») ; perso = étape privée (jamais facturée)
+const hm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
+export function etapesPerso(x) {
+  if (!x || x.type !== "perso" || !HEURE_OK.test(x.debut || "") || !HEURE_OK.test(x.fin || "")) return [];
+  const qui = x.pour ? ` ${x.pour}` : "";
+  const sortie = [{ min: enMin(x.debut), heure: hm(enMin(x.debut)), jusqua: hm(enMin(x.debut) + 5), texte: `Prendre${qui}`, adresse: x.prise || null, cle: "prise@" + x.id, perso: true }];
+  (x.arrets || []).forEach((a, i) => sortie.push({ min: enMin(a.debut), heure: hm(enMin(a.debut)), jusqua: hm(Math.max(enMin(a.fin), enMin(a.debut) + 5)), texte: a.nom || "Arrêt", adresse: a.adresse || null, cle: `arret${i}@${x.id}`, perso: true }));
+  sortie.push({ min: enMin(x.fin), heure: hm(enMin(x.fin)), jusqua: hm(enMin(x.fin) + 5), texte: `Déposer${qui}${x.titre && !/^(Trajet avec|Tâche$)/.test(x.titre) ? " · " + x.titre : ""}`, adresse: x.lieu || null, cle: "depose@" + x.id, perso: true });
+  return sortie.sort((a, b) => a.min - b.min);
+}
+// Qui est avec moi dans la voiture à cette minute (trajets personnels du jour) : « Debo »
+export function avecMoiPerso(taches, minute) {
+  return (taches || []).filter((x) => x && x.type === "perso" && HEURE_OK.test(x.debut || "") && HEURE_OK.test(x.fin || "") && minute >= enMin(x.debut) && minute < enMin(x.fin)).map((x) => x.pour || "quelqu'un");
 }
 export function ajouterTache(jours, date, tache) {
   const { titre, debut, fin, lieu = null } = tache || {};

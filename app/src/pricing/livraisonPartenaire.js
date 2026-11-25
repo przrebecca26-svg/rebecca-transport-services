@@ -13,15 +13,17 @@
 import { analyserRentabilite } from "./engine.js";
 import { etatAbonnement } from "./pros.js";
 
+// 26 nov. 2026, 00h51 (Rebecca, audit ChatGPT) : -10 % sur les livraisons jusqu'a 20 km, si la course reste a 40 ₪/h au moins.
+// (Avant : prix fixes 30 / 35 ₪, devenus egaux au tarif public.) version 2 : les anciens reglages enregistres sont remplaces.
 export const PARAMS_DEFAUT = {
+  version: 2,
   actif: true,
   formules: ["business", "packpro"],
-  paliers: [
-    { kmMax: 3, prix: 30 },
-    { kmMax: 5, prix: 35 },
-  ],
-  minimum: 30,
-  seuilHeure: 60,
+  pourcentage: 0.1,
+  kmMax: 20,
+  paliers: [],
+  minimum: 20,
+  seuilHeure: 40,
 };
 
 const nb = (x, min, max, defaut) => {
@@ -36,6 +38,8 @@ export function lireParams(json) {
     v = null;
   }
   if (!v || typeof v !== "object") return { ...PARAMS_DEFAUT, paliers: PARAMS_DEFAUT.paliers.map((p) => ({ ...p })), formules: [...PARAMS_DEFAUT.formules] };
+  // Reglages d'avant le 26 nov. (prix fixes 30 / 35 ₪) : on garde seulement « actif » et les formules
+  if (v.version !== 2) return { ...PARAMS_DEFAUT, paliers: [], actif: v.actif !== false, formules: (Array.isArray(v.formules) ? v.formules : PARAMS_DEFAUT.formules).filter((f) => ["referencement", "vitrine", "business", "packpro"].includes(f)) };
   const paliers = (Array.isArray(v.paliers) ? v.paliers : PARAMS_DEFAUT.paliers)
     .map((p) => ({ kmMax: nb(p && p.kmMax, 0.5, 50, 0), prix: nb(p && p.prix, 0, 1000, 0) }))
     .filter((p) => p.kmMax > 0 && p.prix > 0)
@@ -43,8 +47,11 @@ export function lireParams(json) {
     .slice(0, 6);
   const formules = (Array.isArray(v.formules) ? v.formules : PARAMS_DEFAUT.formules).filter((f) => ["referencement", "vitrine", "business", "packpro"].includes(f));
   return {
+    version: 2,
     actif: v.actif !== false,
     formules,
+    pourcentage: nb(v.pourcentage, 0, 0.5, PARAMS_DEFAUT.pourcentage),
+    kmMax: nb(v.kmMax, 0.5, 50, PARAMS_DEFAUT.kmMax),
     paliers,
     minimum: nb(v.minimum, 0, 1000, PARAMS_DEFAUT.minimum),
     seuilHeure: nb(v.seuilHeure, 0, 1000, PARAMS_DEFAUT.seuilHeure),
@@ -82,10 +89,12 @@ export function appliquerLivraisonPartenaire(r, d, { dossier, params, aujourdhui
   if (prixAmi) return fin("non_cumulable", "💛 Prix ami : non cumulable avec l'avantage partenaire.");
   if (r.details && r.details.promo && r.details.promo.statut === "applique") return fin("non_cumulable", "Code promo appliqué : non cumulable avec l'avantage partenaire.");
   const km = d.aller && Number(d.aller.km) >= 0 ? Number(d.aller.km) : null;
-  const palier = km == null ? null : p.paliers.find((x) => km <= x.kmMax);
   const base = ligneBase(r);
-  if (!palier || !base) return fin("hors_zone", `Plus de ${p.paliers.length ? p.paliers[p.paliers.length - 1].kmMax : 5} km : grille normale du site.`);
-  const prixPartenaire = Math.max(p.minimum, palier.prix);
+  const enPourcent = p.pourcentage > 0;
+  const palier = km == null ? null : enPourcent ? (km <= p.kmMax ? { prix: null } : null) : (p.paliers || []).find((x) => km <= x.kmMax);
+  const kmLimite = enPourcent ? p.kmMax : p.paliers && p.paliers.length ? p.paliers[p.paliers.length - 1].kmMax : 5;
+  if (!palier || !base) return fin("hors_zone", `Plus de ${kmLimite} km : grille normale du site.`);
+  const prixPartenaire = Math.max(p.minimum, enPourcent ? base.montant - Math.round(base.montant * p.pourcentage * 2) / 2 : palier.prix);
   const reduction = Math.round((base.montant - prixPartenaire) * 100) / 100;
   if (!(reduction > 0)) return fin("hors_zone", "Le tarif public est déjà au tarif partenaire.");
   const total = Math.max(p.minimum, Math.ceil(r.total - reduction - 1e-9));

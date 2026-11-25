@@ -195,9 +195,9 @@ function attenteEnLigne(lignes, minutes, t) {
   if (!minutes || minutes <= 0) return 0;
   const facturables = Math.max(0, minutes - t.attente.toleranceMinutes);
   if (facturables === 0) return 0;
-  const pas = t.attente.pasMinutes;
+  const pas = t.attente.pasAttenteMinutes || t.attente.pasMinutes; // 26 nov. 2026 : a la minute reelle
   const tranches = Math.ceil(facturables / pas);
-  const montant = (tranches * pas * (t.attente.tarifHeureAttente || t.attente.tarifHeure)) / 60;
+  const montant = Math.round(((tranches * pas * (t.attente.tarifHeureAttente || t.attente.tarifHeure)) / 60) * 100) / 100;
   lignes.push({
     libelle: `Attente : ${minutes} min (dont ${t.attente.toleranceMinutes} min offertes)`,
     montant,
@@ -558,6 +558,25 @@ export function prixTrajetRamassage(d, t = TARIFS) {
   return { parTrajet: Math.min(Math.max(formule, plancher.prixParTrajetAR), plafond), horsAxe };
 }
 
+// 26 nov. 2026 : reduction du ramassage pour obtenir les prix de la grille (occasionnel / regulier, 1 ou plusieurs enfants).
+// null = pas de grille 2026 (ancienne regle en %). trajetsParJour : 1 (aller ou retour) ou 2 (aller-retour).
+export function reductionRamassage(regulier, nbEnfants, trajetsParJour, t = TARIFS) {
+  const g = t.ramassage && t.ramassage.grille2026;
+  if (!g || !(g.reference > 0)) return null;
+  const ar = trajetsParJour >= 1.5;
+  const brutJour = g.reference * (ar ? 2 : 1);
+  let cible;
+  if (!regulier) cible = ar ? g.occasionnelAllerRetour : g.reference;
+  else {
+    const x = nbEnfants > 1 ? g.plusieurs : g.unEnfant;
+    cible = ar ? x.allerRetour : x.trajet;
+  }
+  if (!(cible > 0)) return 0;
+  return Math.max(0, Math.round((1 - cible / brutJour) * 1e6) / 1e6);
+}
+// Montant apres reduction, arrondi a 5 ₪ (sans erreur d'arrondi des decimales : 1540 x (1 - 0,357143) = 990)
+export const apresReduction = (brut, pct, t = TARIFS) => arrondiSup(Math.round(brut * (1 - pct) * 100) / 100, t.arrondi);
+
 function calculerRamassage(d, t) {
   if (!d.aller || !(d.aller.km > 0) || !(d.aller.minutes > 0)) return erreur("Distance du trajet manquante.");
   const lignes = [];
@@ -582,19 +601,27 @@ function calculerRamassage(d, t) {
   if (!hebdo) {
     lignes.push({ libelle: trajets === 2 ? `Ramassage : 2 trajets x ${parTrajet} ₪` : "Ramassage : 1 trajet", montant: parTrajet * trajets, base: true });
     ligneEnPlus(trajets);
+    // 26 nov. 2026 : aller-retour occasionnel 60 ₪ au lieu de 2 x 35
+    const pctJour = trajets === 2 ? reductionRamassage(false, nbEnfants, 2, t) : null;
+    if (pctJour > 0) {
+      const brutJour = prixTrajet * 2;
+      const apres = apresReduction(brutJour, pctJour, t);
+      if (apres < brutJour) lignes.push({ libelle: "Aller-retour le même jour", montant: apres - brutJour, base: true });
+    }
     supplementNuit(lignes, "Trajet 1", parTrajet, d.heure, t);
     if (trajets === 2) supplementNuit(lignes, "Trajet 2", parTrajet, d.heure2 || d.heure, t);
   } else {
     const brut = prixTrajet * trajets * jours;
     // Regle du 15 nov. 2026 : semaine -10 % (1 enfant) ou -15 % (2 enfants ou plus)
     const r0 = t.ramassage || {};
-    const pctSemaine = nbEnfants > 1 ? (typeof r0.reductionSemainePlusieurs === "number" ? r0.reductionSemainePlusieurs : 0.15) : typeof r0.reductionSemaine === "number" ? r0.reductionSemaine : 0.1;
+    const pct2026 = reductionRamassage(true, nbEnfants, trajets, t);
+    const pctSemaine = pct2026 != null ? pct2026 : nbEnfants > 1 ? (typeof r0.reductionSemainePlusieurs === "number" ? r0.reductionSemainePlusieurs : 0.15) : typeof r0.reductionSemaine === "number" ? r0.reductionSemaine : 0.1;
     const palier = pctSemaine > 0 ? { pourcentage: pctSemaine } : null;
     lignes.push({ libelle: `Forfait semaine : ${jours} jour(s) x ${trajets} trajet(s) x ${parTrajet} ₪`, montant: parTrajet * trajets * jours, base: true });
     ligneEnPlus(trajets * jours);
     if (palier) {
-      const apres = arrondiSup(brut * (1 - palier.pourcentage), t.arrondi);
-      if (apres < brut) lignes.push({ libelle: `Réduction forfait ${Math.round(palier.pourcentage * 100)} %`, montant: apres - brut, base: true });
+      const apres = pct2026 != null ? apresReduction(brut, palier.pourcentage, t) : arrondiSup(brut * (1 - palier.pourcentage), t.arrondi);
+      if (apres < brut) lignes.push({ libelle: pct2026 != null ? "Tarif régulier (abonnement)" : `Réduction forfait ${Math.round(palier.pourcentage * 100)} %`, montant: apres - brut, base: true });
       details.reduction = Math.round(palier.pourcentage * 100);
     }
     aConfirmer.push("Forfait par semaine : Rebecca confirme les jours et les horaires avec vous.");

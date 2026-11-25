@@ -18,4 +18,13 @@ test("courses : retrait 25/30/40, faites par Rebecca 40/55/70/85, aucun % sur le
   egal([c(5, false), c(10, false), c(20, false), c(5, true), c(10, true), c(20, true), c(30, true)], [25, 30, 40, 40, 55, 70, 85]);
   egal(c(5, true, { rebeccaAvanceArgent: true, montantTicket: 800 }), 40);
 });
-test("livraison : 30 ₪ jusqu'à 3 km, 20 km 100 ₪", () => egal([2.2, 20].map((k) => calculer({ ...d(k, 10, null), service: "livraison" }, T).total), [30, 100]));
+test("livraison (paliers ChatGPT, progressifs) : 2 km 25 ₪, 3 km 30 ₪, 20 km 95 ₪", () => egal([2, 3, 20].map((k) => calculer({ ...d(k, 10, null), service: "livraison" }, T).total), [25, 30, 95]));
+import { reductionRamassage, apresReduction } from "../src/pricing/engine.js";
+test("ramassage au mois (22 jours) : 1 enfant matin 550 ₪, matin et retour 990 ₪, 2 enfants matin et retour 1 210 ₪", () => {
+  egal([apresReduction(35 * 22, reductionRamassage(true, 1, 1, T), T), apresReduction(35 * 44, reductionRamassage(true, 1, 2, T), T), apresReduction(35 * 44, reductionRamassage(true, 2, 2, T), T)], [550, 990, 1210]);
+});
+test("ramassage sur le site : 1 trajet 35 ₪, aller-retour occasionnel 60 ₪, semaine de 5 jours aller-retour 225 ₪", () => {
+  const r = (x) => calculer({ service: "ramassage", date: "2026-12-01", heure: "16:00", heure2: "17:00", aller: { km: 2, minutes: 6 }, zoneDepart: "netanya", zoneArrivee: "netanya", nbEnfants: 1, ...x }, T).total;
+  egal([r({ trajets: 1 }), r({ trajets: 2 }), r({ trajets: 2, frequence: "semaine", joursSemaine: [0, 1, 2, 3, 4] })], [35, 60, 225]);
+});
+test("attente : 10 min offertes puis 1 ₪ par minute réelle (17 min = 7 ₪)", () => egal(calculer(d(48.3, 50, "ben_gurion", { attenteMinutes: 17 }), T).total, 257));

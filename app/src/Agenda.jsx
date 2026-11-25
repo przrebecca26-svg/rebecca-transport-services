@@ -13,7 +13,8 @@ import { filtrerPersonne } from "./pricing/quiFait.js";
 import { ADMIN_ID } from "./pricing/equipe.js";
 import { indispoValide } from "./fermetures.js";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
+import { trajetACalculer } from "./services.js";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { retourAutreJour } from "./pricing/enchainement.js";
@@ -434,6 +435,7 @@ function Evenement({ d, aujourdhui, admin = false, journee = null }) {
             {whatsapp && <a className="tb-bouton" href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
             {appel && <a className="tb-bouton tb-clair" href={appel}>Appeler</a>}
           </div>
+          {admin && <EtapesEtModifier d={d} />}
           <p className="tb-note">Pour accepter, refuser ou changer le prix : onglet Demandes.</p>
           {admin && d.statut === "acceptee" && <PartagerPosition d={d} />}
           {admin && <AvecMoi journee={journee} date={d.date} cle={cleAvec} />}
@@ -447,6 +449,57 @@ function Evenement({ d, aujourdhui, admin = false, journee = null }) {
           ) : <p className="admin-erreur" role="alert">{suppr}</p>)}
         </div>
       )}
+    </div>
+  );
+}
+
+// 25 nov. 2026 (Rebecca, course de Kelly) : voir les 2 étapes avec leur heure (récupérer puis livrer)
+// et changer l'heure, la date ou une note (« chez Deborah ») directement depuis le Calendrier.
+const ajouterMin = (h, m) => { const [a, b] = String(h || "").split(":").map(Number); if (!Number.isFinite(a)) return ""; const t = (a * 60 + (b || 0) + Math.round(m || 0)) % 1440; return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
+function EtapesEtModifier({ d }) {
+  const v = d.details || {};
+  const t = trajetACalculer(d.service, v);
+  const heure = d.estRetour ? v.heureRetour || d.heure : d.heure;
+  const [a, b] = t ? (d.estRetour ? [t.arrivee, t.depart] : [t.depart, t.arrivee]) : [null, null];
+  const verbe = d.service === "livraison" || d.service === "courses" ? ["📦 Récupérer", "🏁 Livrer"] : ["🚗 Prendre en charge", "🏁 Déposer"];
+  const [ouvert, setOuvert] = useState(false);
+  const [f, setF] = useState({ date: d.date || "", heure: heure || "", note: d.noteAdmin || "" });
+  const [msg, setMsg] = useState("");
+  const sauver = async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date) || !/^\d{2}:\d{2}$/.test(f.heure)) return setMsg("Choisis une date et une heure.");
+    setMsg("Enregistrement…");
+    const maj = d.estRetour ? { "details.heureRetour": f.heure, "details.dateRetour": f.date } : { date: f.date, heure: f.heure };
+    try {
+      await updateDoc(doc(db, "demandes", d.id), { ...maj, noteAdmin: f.note.trim() });
+      setMsg("✅ Enregistré : ta journée se recalcule.");
+      setOuvert(false);
+    } catch {
+      setMsg("Enregistrement impossible : vérifie la connexion.");
+    }
+  };
+  return (
+    <div className="ag-etapes-course">
+      {a && b && (
+        <ul style={{ listStyle: "none", padding: 0, margin: "6px 0" }}>
+          <li><strong>{(heure || "").replace(":", "h")}</strong> {verbe[0]}{d.noteAdmin ? ` (${d.noteAdmin})` : ""} · <small dir="auto">{a.label}</small></li>
+          <li><strong>{typeof d.minutesEstimees === "number" ? "≈ " + ajouterMin(heure, d.minutesEstimees + 5).replace(":", "h") : "ensuite"}</strong> {verbe[1]}{d.nom ? ` chez ${d.nom}` : ""} · <small dir="auto">{b.label}</small></li>
+        </ul>
+      )}
+      {!a && d.noteAdmin && <p className="tb-note">📝 {d.noteAdmin}</p>}
+      {!ouvert ? (
+        <button type="button" className="ag-modifier" onClick={() => { setF({ date: (d.estRetour ? v.dateRetour : d.date) || "", heure: heure || "", note: d.noteAdmin || "" }); setOuvert(true); setMsg(""); }}>✏️ Modifier l'heure, la date ou la note</button>
+      ) : (
+        <div className="tb-bloc">
+          <label className="tb-note">Date<input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></label>
+          <label className="tb-note">Heure de départ (1re étape)<input type="time" value={f.heure} onChange={(e) => setF({ ...f, heure: e.target.value })} /></label>
+          <label className="tb-note">Note pour moi (ex. « chez Deborah »)<input type="text" value={f.note} maxLength={120} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
+          <div className="tb-actions">
+            <button type="button" className="tb-bouton" onClick={sauver}>Enregistrer</button>
+            <button type="button" className="ag-modifier" onClick={() => setOuvert(false)}>Annuler</button>
+          </div>
+        </div>
+      )}
+      {msg && <p className="tb-note" role="status">{msg}</p>}
     </div>
   );
 }
@@ -1362,7 +1415,7 @@ export default function Agenda() {
         <button className="ag-fleche" onClick={() => pas(-1)} aria-label="Précédent">‹</button>
         <button className="ag-titre" onClick={() => setRef(aujourdhui)} title="Revenir à aujourd'hui">
           <strong>{titre}</strong>
-          <small>Aujourd'hui</small>
+          <small>{ref === aujourdhui ? "Aujourd'hui" : "↩ Revenir à aujourd'hui"}</small>
         </button>
         <button className="ag-fleche" onClick={() => pas(1)} aria-label="Suivant">›</button>
       </div>

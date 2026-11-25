@@ -13,6 +13,8 @@
 //  - reglages/prosImg_<id>   : logo et photos publiques d'une fiche
 // Plus tard, avec les regles v37 : inscription en ligne (prosCandidatures), demandes et statistiques.
 
+import { NOMS_HE_DEFAUT } from "./prosTextes.js";
+
 export const FORMULES_PRO = [
   { v: "referencement", l: "Référencement", detail: "Fiche standard dans l'annuaire (gratuit au lancement)" },
   { v: "vitrine", l: "Vitrine", detail: "Page professionnelle personnalisée : présentation, prestations, tarifs, coordonnées, WhatsApp" },
@@ -56,12 +58,12 @@ export function lireCategories(json) {
   } catch {
     l = null;
   }
-  if (!Array.isArray(l) || !l.length) return CATEGORIES_DEFAUT.map((c) => ({ ...c }));
+  if (!Array.isArray(l) || !l.length) return CATEGORIES_DEFAUT.map((c) => ({ ...c, nomHe: NOMS_HE_DEFAUT[c.id] || "" }));
   const vus = new Set();
   return l
     .filter((c) => c && idOk(c.id) && !vus.has(c.id) && vus.add(c.id))
     .slice(0, 40)
-    .map((c) => ({ id: c.id, nom: txt(c.nom, 60) || c.id, icone: txt(c.icone, 4) || "✨", visible: c.visible !== false, sensible: c.sensible === true }));
+    .map((c) => ({ id: c.id, nom: txt(c.nom, 60) || c.id, nomHe: txt(c.nomHe, 60) || NOMS_HE_DEFAUT[c.id] || "", icone: txt(c.icone, 4) || "✨", visible: c.visible !== false, sensible: c.sensible === true }));
 }
 export const categoriesVisibles = (cats) => (cats || []).filter((c) => c.visible);
 export const nomCategorie = (cats, id) => ((cats || []).find((c) => c.id === id) || { nom: "Autres métiers" }).nom;
@@ -381,7 +383,7 @@ export function lienContactPro(fiche, fermeture = null, options = {}) {
   if (fermeture) return { lien: "", message: `Les demandes ne sont pas envoyées pendant ${fermeture.label || "Chabbat et les fêtes"}. Revenez après la réouverture${fermeture.reprise ? ` (${fermeture.reprise.date} à ${fermeture.reprise.heure})` : ""}.` };
   const n = versInternational(fiche.whatsapp || fiche.telephone);
   if (n.length < 11) return { lien: "", message: "Ce professionnel n'a pas laissé de numéro public." };
-  return { lien: `https://wa.me/${n}?text=${encodeURIComponent(messageContactPro(fiche, options))}`, message: "" };
+  return { lien: `https://wa.me/${n}?text=${encodeURIComponent(options.texte || messageContactPro(fiche, options))}`, message: "" };
 }
 
 /* ---------- Inscription par le pro lui-meme ---------- */
@@ -435,7 +437,7 @@ export const CONDITIONS_ANNUAIRE = [
   "Ma fiche n'est publiée qu'après validation par Rebecca Services, qui peut la modifier, la suspendre ou la retirer.",
   "Les informations et justificatifs que je fournis sont exacts ; je préviens si un document expire ou change.",
   "Le label « Partenaire vérifié » signifie que des documents ont été contrôlés : ce n'est pas une garantie de résultat.",
-  "Aucune demande n'est transmise pendant Chabbat et les fêtes juives.",
+  "Chaque professionnel décide lui-même s'il travaille pendant Chabbat et les fêtes juives.",
   "Le Référencement est gratuit au lancement. Les formules Vitrine, Business et Pack Pro sont payantes, sur devis.",
 ];
 

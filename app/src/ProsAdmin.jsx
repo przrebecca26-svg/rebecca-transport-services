@@ -406,6 +406,7 @@ function Metiers({ categories, dossiers }) {
         <div key={c.id} className="tb-actions" style={{ alignItems: "center" }}>
           <input value={c.icone} onChange={(e) => maj(i, "icone", e.target.value)} style={{ width: 48 }} aria-label="Icône" />
           <input value={c.nom} onChange={(e) => maj(i, "nom", e.target.value)} style={{ flex: 1 }} aria-label="Nom du métier" />
+          <input value={c.nomHe || ""} dir="rtl" placeholder="עברית" onChange={(e) => maj(i, "nomHe", e.target.value)} style={{ flex: 1 }} aria-label="Nom du métier en hébreu" />
           <label className="case"><input type="checkbox" checked={c.visible} onChange={() => maj(i, "visible", !c.visible)} /><span>Visible</span></label>
         </div>
       ))}

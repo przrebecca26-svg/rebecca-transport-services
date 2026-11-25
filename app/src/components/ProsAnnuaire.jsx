@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { categoriesVisibles, libelleFormule, lienContactPro, nomCategorie, rechercherPros, villesDesFiches } from "../pricing/pros.js";
 import { fermetureEnCours } from "../pricing/assistance.js";
-import { compterPro, useAnnuairePros, useCategoriesPros, useImagesPro } from "../prosBase.js";
+import { compterPro, demanderRdvPro, useAgendaPro, useAnnuairePros, useCategoriesPros, useCellulesPro, useImagesPro } from "../prosBase.js";
+import { ajouterJoursDate, creneauxLibres, erreursDemandeClient } from "../pricing/prosAgenda.js";
 
 // ANNUAIRE DES PROFESSIONNELS PARTENAIRES (25 nov. 2026) - #/pros et #/pros/ID
 // Page cachée du public jusqu'à l'accord de Rebecca (Réglages -> Pages du site). Rebecca la voit en aperçu dans son
@@ -22,6 +23,75 @@ function Contact({ fiche, onClic }) {
     <div className="tb-actions">
       <a className="pp-bouton" href={c.lien} target="_blank" rel="noopener noreferrer" onClick={onClic}>💬 Contacter</a>
       <a className="bouton-secondaire" href={r.lien} target="_blank" rel="noopener noreferrer" onClick={onClic}>📅 Demander un rendez-vous</a>
+    </div>
+  );
+}
+
+// Réservation en ligne (agenda Business ou Pack Pro) : la cliente DEMANDE, le professionnel confirme par WhatsApp.
+// Aucune demande pendant Chabbat et les fêtes ; aucun créneau proposé pendant ces périodes ; jamais deux fois le même.
+function ReserverPro({ f, apercu }) {
+  const agenda = useAgendaPro(f.id);
+  const [ouvert, setOuvert] = useState(false);
+  const [form, setForm] = useState({ prestation: "", date: "", heure: "", nom: "", telephone: "", note: "" });
+  const [e, setE] = useState({});
+  const [etat, setEtat] = useState("");
+  const cellules = useCellulesPro(ouvert ? f.id : "", form.date);
+  if (!agenda || !agenda.actif || !agenda.enLigne) return null;
+  const prestations = agenda.prestations.filter((p) => p.enLigne);
+  if (!prestations.length) return null;
+  const p = prestations.find((x) => x.nom === form.prestation);
+  const auj = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
+  const jours = Array.from({ length: Math.min(agenda.joursMax, 30) }, (_, i) => ajouterJoursDate(auj, i));
+  const heures = p && form.date && cellules ? creneauxLibres(agenda, form.date, p.duree, { cellules, enLigne: true }) : [];
+  const ferme = fermetureEnCours();
+  const envoyer = async () => {
+    const err = erreursDemandeClient(form);
+    setE(err);
+    if (Object.keys(err).length || !p) return;
+    if (ferme) return setEtat(`Les demandes ne sont pas envoyées pendant ${ferme.label || "Chabbat et les fêtes"}.`);
+    if (apercu) return setEtat("Aperçu : rien n'est envoyé d'ici.");
+    setEtat("envoi");
+    try {
+      await demanderRdvPro(f.id, form, p, agenda);
+      setEtat("ok");
+    } catch (x) {
+      setEtat(x && x.message === "pris" ? "Ce créneau vient d'être pris : choisissez-en un autre." : "Envoi impossible pour l'instant. Contactez le professionnel sur WhatsApp.");
+      setForm({ ...form, heure: "" });
+    }
+    return undefined;
+  };
+  if (etat === "ok") return <p className="tb-note" role="status">✓ Demande envoyée à {f.nomCommercial}. Le rendez-vous n'est confirmé que lorsque le professionnel vous répond (WhatsApp).</p>;
+  if (!ouvert) return <button type="button" className="bouton-secondaire" onClick={() => setOuvert(true)}>🗓️ Réserver en ligne</button>;
+  return (
+    <div className="pp-bloc" style={{ padding: 10 }}>
+      <label className="champ"><span>Prestation</span>
+        <select value={form.prestation} onChange={(x) => setForm({ ...form, prestation: x.target.value, heure: "" })}>
+          <option value="">Choisir…</option>
+          {prestations.map((x) => <option key={x.id} value={x.nom}>{x.nom} · {x.duree} min{x.prix ? ` · ${x.prix}` : ""}</option>)}
+        </select>
+        {e.prestation && <span className="erreur">{e.prestation}</span>}
+      </label>
+      <label className="champ"><span>Jour</span>
+        <select value={form.date} onChange={(x) => setForm({ ...form, date: x.target.value, heure: "" })}>
+          <option value="">Choisir…</option>
+          {jours.map((d) => <option key={d} value={d}>{new Date(`${d}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</option>)}
+        </select>
+      </label>
+      {p && form.date && (
+        <div className="champ">
+          <span>Heure</span>
+          {!cellules ? <span className="aide">Chargement…</span> : heures.length ? (
+            <div className="tb-actions">{heures.map((h) => <button key={h} type="button" className={form.heure === h ? "pp-bouton" : "bouton-secondaire"} onClick={() => setForm({ ...form, heure: h })}>{h.replace(":", "h")}</button>)}</div>
+          ) : <span className="aide">Aucun créneau libre ce jour-là.</span>}
+          {e.heure && <span className="erreur">{e.heure}</span>}
+        </div>
+      )}
+      <label className="champ"><span>Votre nom</span><input value={form.nom} onChange={(x) => setForm({ ...form, nom: x.target.value })} />{e.nom && <span className="erreur">{e.nom}</span>}</label>
+      <label className="champ"><span>Votre téléphone</span><input type="tel" value={form.telephone} onChange={(x) => setForm({ ...form, telephone: x.target.value })} />{e.telephone && <span className="erreur">{e.telephone}</span>}</label>
+      <label className="champ"><span>Message (facultatif)</span><input value={form.note} onChange={(x) => setForm({ ...form, note: x.target.value })} /></label>
+      <button type="button" className="pp-bouton" disabled={etat === "envoi"} onClick={envoyer}>{etat === "envoi" ? "Envoi…" : "Envoyer ma demande"}</button>
+      {etat && etat !== "envoi" && <p className="tb-note" role="status">{etat}</p>}
+      <p className="tb-note">Vos nom et téléphone sont transmis uniquement à ce professionnel. Le rendez-vous et son paiement se règlent directement avec lui.</p>
     </div>
   );
 }
@@ -58,6 +128,7 @@ function Fiche({ f, categories, ouverte, onOuvrir, apercu }) {
           {(f.langues || []).length > 0 && <p>🗣️ {f.langues.join(", ")}</p>}
           {f.siteDigital && <p><a className="lien" href={f.siteDigital} target="_blank" rel="noopener noreferrer">🌐 Voir sa page ({libelleFormule(f.formule)})</a></p>}
           <Contact fiche={f} onClic={() => !apercu && compterPro(f.id, "whatsapp")} />
+          <ReserverPro f={f} apercu={apercu} />
           <p className="tb-note" style={{ marginTop: 8 }}>
             <b>Prestataire indépendant.</b> Ce professionnel réalise lui-même ses prestations, sous sa responsabilité. Rebecca Services ne réalise pas ces prestations et n'en encaisse pas le prix.
             {f.verifie ? " Le label « Partenaire vérifié » indique que des documents ont été contrôlés ; ce n'est pas une garantie de résultat." : ""}
@@ -68,8 +139,10 @@ function Fiche({ f, categories, ouverte, onOuvrir, apercu }) {
   );
 }
 
-export default function ProsAnnuaire({ onAccueil, apercu = false }) {
-  const fiches = useAnnuairePros();
+export default function ProsAnnuaire({ onAccueil, apercu = false, fichesApercu = null }) {
+  const publiques = useAnnuairePros();
+  // Aperçu de Rebecca : calculé depuis ses dossiers privés (l'annuaire public reste vide tant que la page est cachée)
+  const fiches = fichesApercu || publiques;
   const categories = useCategoriesPros();
   const [filtre, setFiltre] = useState({ categorie: "", ville: "", texte: "" });
   const [ouverte, setOuverte] = useState(() => idDansLien(window.location.hash));

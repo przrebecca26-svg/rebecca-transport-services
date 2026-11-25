@@ -39,6 +39,7 @@ await import("./rendezvous.test.mjs");
 await import("./statistiques.test.mjs");
 await import("./verrouCreneaux.test.mjs");
 await import("./pros.test.mjs");
+await import("./prosAgenda.test.mjs");
 await import("./ramassagePlanning.test.mjs");
 await import("./partage.test.mjs");
 await import("./partageRamassage.test.mjs");

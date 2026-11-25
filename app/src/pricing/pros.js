@@ -40,6 +40,13 @@ export const CATEGORIES_DEFAUT = [
 
 const txt = (x, n) => String(x == null ? "" : x).trim().slice(0, n);
 const idOk = (x) => typeof x === "string" && /^[a-z0-9_-]{2,40}$/.test(x);
+// Code d'invitation de l'espace pro (lien #/admin?pro=CODE) : impossible a deviner
+export function nouveauCodeInvitation() {
+  const c = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const t = new Uint8Array(16);
+  (globalThis.crypto || { getRandomValues: (a) => a.map(() => Math.floor(Math.random() * 256)) }).getRandomValues(t);
+  return [...t].map((x) => c[x % c.length]).join("");
+}
 export const nouvelIdPro = () => `p${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`.slice(0, 24);
 
 export function lireCategories(json) {
@@ -160,6 +167,7 @@ export const dossierVide = () => ({
   villes: "", zone: "", langues: ["Français"], horaires: "", telephone: "", whatsapp: "", whatsappPublic: true,
   email: "", osek: "", siteDigital: "", qualificationNecessaire: false, notePrivee: "", justificatifs: {}, journal: [],
   creeLeMs: 0, majLeMs: 0, source: "admin",
+  projetDigital: "", abonnement: { mensuel: 0, debut: "", paiements: [], actif: false }, compteEmail: "", codeInvitation: "",
 });
 export function normaliserDossier(d) {
   const v = { ...dossierVide(), ...(d || {}) };
@@ -200,6 +208,86 @@ export function normaliserDossier(d) {
     creeLeMs: Number(v.creeLeMs) || 0,
     majLeMs: Number(v.majLeMs) || 0,
     source: v.source === "inscription" ? "inscription" : "admin",
+    projetDigital: txt(v.projetDigital, 40),
+    abonnement: lireAbonnement(v.abonnement),
+    compteEmail: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v.compteEmail || "").trim()) ? String(v.compteEmail).trim().toLowerCase() : "",
+    codeInvitation: /^[A-Za-z0-9]{12,40}$/.test(String(v.codeInvitation || "")) ? v.codeInvitation : "",
+  };
+}
+
+/* ---------- Abonnement mensuel (Vitrine, Business, Pack Pro) ----------
+   Le montant est celui du devis accepte dans Projets Digital (grille validee) : Rebecca le recopie, aucun tarif n'est
+   fixe ici. Les paiements de l'abonnement sont notes a part : jamais melanges avec les livraisons. */
+export function lireAbonnement(a) {
+  const v = a && typeof a === "object" ? a : {};
+  return {
+    mensuel: Math.max(0, Math.min(100000, Math.round((Number(v.mensuel) || 0) * 100) / 100)),
+    debut: DATE_OK.test(v.debut || "") ? v.debut : "",
+    actif: v.actif === true,
+    paiements: (Array.isArray(v.paiements) ? v.paiements : [])
+      .filter((p) => p && DATE_OK.test(p.date || "") && Number(p.montant) > 0)
+      .slice(0, 120)
+      .map((p) => ({ date: p.date, montant: Math.round(Number(p.montant) * 100) / 100, moyen: txt(p.moyen, 30), mois: /^\d{4}-\d{2}$/.test(p.mois || "") ? p.mois : p.date.slice(0, 7) })),
+  };
+}
+const moisEntre = (debut, fin) => (Number(fin.slice(0, 4)) - Number(debut.slice(0, 4))) * 12 + Number(fin.slice(5, 7)) - Number(debut.slice(5, 7));
+const moisPlus = (mois, n) => {
+  const d = new Date(Date.UTC(Number(mois.slice(0, 4)), Number(mois.slice(5, 7)) - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+};
+// Etat de l'abonnement a une date : mois dus (le mois de debut compte), payes, en retard, prochaine echeance
+export function etatAbonnement(a, aujourdhui) {
+  const ab = lireAbonnement(a);
+  if (!ab.actif || !ab.debut || !(ab.mensuel > 0)) return { actif: false, dus: 0, payes: 0, retard: 0, encaisse: ab.paiements.reduce((s, p) => s + p.montant, 0), prochaine: "" };
+  const dus = aujourdhui < ab.debut ? 0 : moisEntre(ab.debut.slice(0, 7), aujourdhui.slice(0, 7)) + 1;
+  const encaisse = Math.round(ab.paiements.reduce((s, p) => s + p.montant, 0) * 100) / 100;
+  const payes = Math.floor((encaisse + 0.001) / ab.mensuel);
+  const jour = ab.debut.slice(8, 10);
+  const prochaineMois = moisPlus(ab.debut.slice(0, 7), payes);
+  return { actif: true, dus, payes, retard: Math.max(0, dus - payes), encaisse, prochaine: `${prochaineMois}-${jour > "28" ? "28" : jour}` };
+}
+
+/* ---------- « Deux en un » : livraisons de Rebecca Services pour un pro ----------
+   Ce sont des demandes normales (grille de prix validee), rattachees au pro par Rebecca (champ proPartenaire) :
+   leur argent est compte a part de l'abonnement Digital. */
+export function livraisonsDuPro(demandes, proId) {
+  return (demandes || []).filter((d) => d.proPartenaire === proId).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+export function encaisseDe(resId, mouvements) {
+  return Math.round((mouvements || []).filter((m) => m.resId === resId).reduce((s, m) => s + (m.kind === "paiement" || m.kind === "correction" ? Number(m.montant) || 0 : m.kind === "remboursement_effectue" ? -(Number(m.montant) || 0) : 0), 0) * 100) / 100;
+}
+
+/* ---------- Tableau de bord du reseau (Rebecca) ---------- */
+// projets = projetsDigital [{ id, echeances }] ; recuProjet(id) = montant encaisse sur ce projet
+export function tableauReseau({ dossiers = [], categories = [], demandes = [], mouvements = [], recuProjet = () => 0, stats = {}, aujourdhui, du = "", au = "9999-12-31" }) {
+  const n = (s) => dossiers.filter((d) => d.statut === s).length;
+  const dansPeriode = (date) => date >= du && date <= au;
+  const formules = Object.fromEntries(FORMULES_PRO.map((f) => [f.v, dossiers.filter((d) => d.statut === "accepte" && d.formule === f.v).length]));
+  const lignes = dossiers.map((d) => {
+    const ab = etatAbonnement(d.abonnement, aujourdhui);
+    const abPeriode = lireAbonnement(d.abonnement).paiements.filter((p) => dansPeriode(p.date)).reduce((s, p) => s + p.montant, 0);
+    const livs = livraisonsDuPro(demandes, d.id).filter((x) => dansPeriode(x.date || ""));
+    const livEncaisse = livs.reduce((s, x) => s + encaisseDe(x.id, mouvements), 0);
+    const digital = d.projetDigital ? recuProjet(d.projetDigital) : 0;
+    const st = stats[d.id] || {};
+    return { id: d.id, nom: d.nomCommercial, statut: d.statut, formule: d.formule, abonnement: ab, abonnementPeriode: Math.round(abPeriode * 100) / 100, livraisons: livs.length, livraisonsEncaisse: Math.round(livEncaisse * 100) / 100, digital, visites: Number(st.visites) || 0, clics: Number(st.whatsapp) || 0, total: Math.round((abPeriode + livEncaisse + digital) * 100) / 100 };
+  });
+  const somme = (k) => Math.round(lignes.reduce((s, l) => s + (Number(l[k]) || 0), 0) * 100) / 100;
+  return {
+    actifs: dossiers.filter((d) => d.statut === "accepte" && d.actif).length,
+    suspendus: n("suspendu"),
+    enAttente: n("soumis") + n("en_examen") + n("brouillon"),
+    refuses: n("refuse"),
+    formules,
+    abonnementsActifs: lignes.filter((l) => l.abonnement.actif).length,
+    abonnementsEnRetard: lignes.filter((l) => l.abonnement.retard > 0).map((l) => ({ id: l.id, nom: l.nom, retard: l.abonnement.retard })),
+    aRenouveler: alertesJustificatifs(dossiers, aujourdhui),
+    revenusDigital: somme("digital"),
+    revenusAbonnements: somme("abonnementPeriode"),
+    revenusLivraisons: somme("livraisonsEncaisse"),
+    total: somme("total"),
+    lignes: lignes.sort((a, b) => b.total - a.total),
+    categoriesCachees: categories.filter((c) => !c.visible).map((c) => c.nom),
   };
 }
 const telOk = (t) => String(t || "").replace(/\D/g, "").length >= 9;
@@ -354,4 +442,20 @@ export const CONDITIONS_ANNUAIRE = [
 export function importerCandidature(d, quandMs = Date.now()) {
   const x = normaliserDossier(d);
   return ajouterJournal({ ...x, id: nouvelIdPro(), statut: "soumis", actif: false, badge: false, justificatifs: {}, journal: [], notePrivee: "", source: "inscription", creeLeMs: x.creeLeMs || quandMs, majLeMs: quandMs }, "Inscription reçue depuis le site", quandMs);
+}
+
+// Lien de l'espace pro (#/admin?pro=CODE) et lecture du code dans l'adresse
+export const lienEspacePro = (code, origine = "https://rebeccaservices.com") => `${origine}/#/admin?pro=${code}`;
+export function lireAccesPro(hash) {
+  const m = /[?&]pro=([A-Za-z0-9]{12,40})/.exec(hash || "");
+  return m ? m[1] : "";
+}
+export function messageInvitationPro(d, lien) {
+  return [
+    `Bonjour ${d.prenom || d.nomCommercial}, c'est Rebecca de Rebecca Services.`,
+    "Voici le lien de votre espace professionnel (agenda, rendez-vous, demandes de vos clientes) :",
+    lien,
+    `Connectez-vous avec l'adresse ${d.compteEmail} (Google ou e-mail et mot de passe), puis touchez « Lier mon espace pro ».`,
+    "Astuce : sur iPhone, Partager → « Sur l'écran d'accueil » pour l'avoir comme une application.",
+  ].join("\n");
 }

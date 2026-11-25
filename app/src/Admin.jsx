@@ -20,6 +20,9 @@ import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
 import ProjetsDigital from "./ProjetsDigital.jsx";
 import Partenaires from "./Partenaires.jsx";
 import ProsAdmin from "./ProsAdmin.jsx";
+import EspacePro from "./EspacePro.jsx";
+import { lierComptePro, useComptePro } from "./prosBase.js";
+import { lireAccesPro } from "./pricing/pros.js";
 import EspaceCoursier from "./EspaceCoursier.jsx";
 import { lireAccesCoursier } from "./pricing/coursiers.js";
 import { definirLienAvisGoogle } from "./pricing/finCourse.js";
@@ -207,6 +210,17 @@ function useCoursier(user, estAdmin) {
   return fiche;
 }
 const MEMO_COURSIER = "rs-acces-coursier";
+// 25 nov. 2026 : lien d'invitation d'un professionnel partenaire (#/admin?pro=CODE), garde le temps de se connecter
+const MEMO_PRO = "rs-acces-pro";
+function accesPro() {
+  const c = lireAccesPro(window.location.hash);
+  try {
+    if (c) sessionStorage.setItem(MEMO_PRO, c);
+    return c || sessionStorage.getItem(MEMO_PRO) || "";
+  } catch {
+    return c;
+  }
+}
 function accesCoursier() {
   const id = lireAccesCoursier(window.location.hash);
   try {
@@ -323,6 +337,15 @@ export default function Admin() {
   const estAdmin = !!user && user.email === ADMIN_EMAIL && user.emailVerified;
   const equipe = useEquipe(user, estAdmin);
   const coursier = useCoursier(user, estAdmin);
+  const comptePro = useComptePro(user && !estAdmin && user.emailVerified ? user.uid : null);
+  const lierPro = async () => {
+    setErreur("");
+    try {
+      await lierComptePro(user, accesPro());
+    } catch (e) {
+      setErreur(e && e.message && !/permission/i.test(e.message) ? e.message : `Liaison impossible : connecte-toi avec l'adresse que tu as donnée à Rebecca (${user.email} n'est pas celle de l'invitation), ou demande-lui un nouveau lien.`);
+    }
+  };
   const lierCoursier = async () => {
     setErreur("");
     const candidature = accesCoursier();
@@ -372,6 +395,8 @@ export default function Admin() {
   }, [totalATraiter]); // eslint-disable-line react-hooks/exhaustive-deps
   // 18 nov. 2026 : espace d'un coursier partenaire actif (rien d'autre)
   if (coursier && coursier.statut === "actif") return <EspaceCoursier uid={user.uid} fiche={coursier} deconnecter={deconnecter} />;
+  // 25 nov. 2026 : espace d'un professionnel partenaire (son agenda, rien d'autre)
+  if (comptePro && comptePro.statut === "actif") return <EspacePro compte={comptePro} deconnecter={deconnecter} />;
 
   if (role === "admin" || role === "equipe") {
     const membre = role === "equipe" ? equipe.fiche : null;
@@ -508,7 +533,24 @@ export default function Admin() {
           </>
         )}
 
-        {user && !estAdmin && user.emailVerified && !coursier && coursier !== undefined && equipe.pret && role === "aucun" && accesCoursier() && (
+        {user && !estAdmin && user.emailVerified && comptePro && comptePro.statut !== "actif" && (
+          <>
+            <p className="admin-texte"><strong>Ton espace professionnel est suspendu.</strong></p>
+            <p className="admin-texte">Vois avec Rebecca.</p>
+            <button className="admin-bouton admin-secondaire" onClick={deconnecter}>Se déconnecter</button>
+          </>
+        )}
+
+        {user && !estAdmin && user.emailVerified && !comptePro && comptePro !== undefined && !coursier && role === "aucun" && accesPro() && (
+          <>
+            <p className="admin-texte">Tu es professionnel partenaire de Rebecca Services ? Lie ce compte ({user.email}) à ton espace pro.</p>
+            <button className="admin-bouton" onClick={lierPro}>Lier mon espace pro</button>
+            <button className="admin-bouton admin-secondaire" onClick={deconnecter}>Se déconnecter</button>
+            {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}
+          </>
+        )}
+
+        {user && !estAdmin && user.emailVerified && !coursier && coursier !== undefined && equipe.pret && role === "aucun" && accesCoursier() && !accesPro() && (
           <>
             <p className="admin-texte">Tu es coursier partenaire de Rebecca Services ? Lie ce compte ({user.email}) à ta candidature approuvée.</p>
             <button className="admin-bouton" onClick={lierCoursier}>Lier mon compte coursier</button>
@@ -517,7 +559,7 @@ export default function Admin() {
           </>
         )}
 
-        {user && !estAdmin && user.emailVerified && !coursier && coursier !== undefined && equipe.pret && role === "aucun" && !accesCoursier() && (
+        {user && !estAdmin && user.emailVerified && !coursier && coursier !== undefined && equipe.pret && role === "aucun" && !accesCoursier() && !accesPro() && !comptePro && (
           <>
             <p className="admin-texte">Ce compte ({user.email}) n'a pas encore accès à l'espace privé.</p>
             <p className="admin-texte">Tu fais partie de l'équipe ? Envoie une demande d'accès : Rebecca l'activera.</p>

@@ -129,23 +129,23 @@ export const TARIFS = {
     hadera: { nom: "Hadera", minimum: 110, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 110, parTrajetAR: 100 }, alias: ["hadera", "hedera", "חדרה"] },
     herzliya_raanana: {
       nom: "Herzliya / Ra'anana",
-      minimum: 115,
+      minimum: 105,
       axe: { sens: "sud", rang: 1 },
-      grilleB: { simple: 115, parTrajetAR: 105 },
+      grilleB: { simple: 105, parTrajetAR: 95 },
       alias: ["herzliya", "herzlia", "hertzliya", "raanana", "ra anana", "הרצליה", "רעננה"],
     },
     tel_aviv: {
       nom: "Tel-Aviv",
-      minimum: 160,
+      minimum: 150,
       axe: { sens: "sud", rang: 2 },
-      grilleB: { simple: 160, parTrajetAR: 145 },
+      grilleB: { simple: 150, parTrajetAR: 135 },
       alias: ["tel aviv", "telaviv", "tel aviv yafo", "תל אביב"],
     },
     ben_gurion: {
       nom: "Aéroport Ben Gourion",
-      minimum: 250,
+      minimum: 220,
       axe: { sens: "sud", rang: 3 },
-      grilleB: { simple: 250, parTrajetAR: 230 },
+      grilleB: { simple: 250, parTrajetAR: 220 }, // 26 nov. 2026, 00h50 (Rebecca) : 250 aller simple, aller-retour 2 x 220 = 440
       alias: [
         "ben gurion airport",
         "ben gourion airport",
@@ -170,16 +170,17 @@ export const TARIFS = {
   // officiel. Sert dans Netanya et hors des villes de la grille ; au-dela de 50 km : 220 ₪ + auDelaParKm par km.
   // Aller-retour : chaque trajet a -10 % (remiseAllerRetour). Les villes de la grille gardent leur prix fixe.
   transport: {
-    // 26 nov. 2026, 00h30 (Rebecca : « une moyenne, sans être plus chère qu'un taxi ») : milieu entre la grille ChatGPT et le compteur
-    paliers: [{ kmMax: 2, prix: 35 }, { kmMax: 3, prix: 40 }, { kmMax: 5, prix: 50 }, { kmMax: 8, prix: 60 }, { kmMax: 10, prix: 70 }, { kmMax: 15, prix: 95 }, { kmMax: 20, prix: 120 }, { kmMax: 30, prix: 160 }, { kmMax: 40, prix: 205 }, { kmMax: 50, prix: 250 }],
-    auDelaParKm: 4.5,
+    // 26 nov. 2026, 00h50 (Rebecca, audit ChatGPT) : transport local -5 ₪ ; progressif = pas de saut de prix entre deux paliers
+    paliers: [{ kmMax: 2, prix: 30 }, { kmMax: 3, prix: 35 }, { kmMax: 5, prix: 45 }, { kmMax: 8, prix: 55 }, { kmMax: 10, prix: 65 }, { kmMax: 15, prix: 85 }, { kmMax: 20, prix: 110 }, { kmMax: 30, prix: 145 }, { kmMax: 40, prix: 180 }, { kmMax: 50, prix: 220 }],
+    auDelaParKm: 4,
+    progressif: true,
     remiseAllerRetour: 0.1,
   },
 
   // 25 nov. 2026 (Rebecca : « je suis trop chère, on me refuse ») : grille par distance, comme les coursiers du marché.
   // Le prix suit la distance récupération -> livraison ; au-delà du dernier palier = sur devis.
   // 26 nov. 2026 : nouvelle grille (30 ₪ jusqu'a 3 km, puis paliers ; au-dela de 8 km, au moins 45 ₪/h retour a vide compris ; au-dela de 50 km = sur devis)
-  livraison: { minimum: 30, plafondAvantDevis: 250, urgence: 10,
+  livraison: { minimum: 30, plafondAvantDevis: 250, urgence: 10, progressif: true,
     paliers: [{ kmMax: 3, prix: 30 }, { kmMax: 5, prix: 35 }, { kmMax: 8, prix: 45 }, { kmMax: 10, prix: 55 }, { kmMax: 15, prix: 80 }, { kmMax: 20, prix: 100 }, { kmMax: 30, prix: 130 }, { kmMax: 40, prix: 165 }, { kmMax: 50, prix: 205 }] },
 
   courses: {
@@ -188,17 +189,17 @@ export const TARIFS = {
     // 26 nov. 2026 : retrait 30 / 35 / 45 ₪ ; courses faites par Rebecca selon le temps (5 articles ~ 15 min = 40 ₪,
     // 10 ~ 30 min = 60 ₪, 20 ~ 45 min = 75 ₪, 30 ~ 1 h = 90 ₪) ; au-dela = sur devis
     achatsDejaPayes: [
-      { max: 5, prix: 30 },
-      { max: 10, prix: 35 },
-      { max: 20, prix: 45 },
+      { max: 5, prix: 25 },
+      { max: 10, prix: 30 },
+      { max: 20, prix: 40 },
     ],
     courseFaiteParRebecca: [
       { max: 5, prix: 40 },
-      { max: 10, prix: 60 },
-      { max: 20, prix: 75 },
-      { max: 30, prix: 90 },
+      { max: 10, prix: 55 },
+      { max: 20, prix: 70 },
+      { max: 30, prix: 85 },
     ],
-    fraisAvanceAchats: 0.1, // 10 % du ticket si Rebecca avance l'argent
+    fraisAvanceAchats: 0, // 26 nov. 2026 : plus de 10 % sur les achats avances (avant 0.1)
   },
 
   // Bagages : petit sac et valise cabine gratuits ; supplement par bagage en soute (grande valise)
@@ -228,7 +229,8 @@ export const TARIFS = {
   // (un enfant = la moitie d'un trajet des qu'ils sont au moins deux). Transport et aeroport : 25 % par passager en plus.
   // La note peut etre partagee : par enfant / par personne, ou en parts egales entre les familles.
   // 16 nov. 2026 : transport et aeroport, un ENFANT en plus ne paie qu'une part du supplement passager (0.5 = la moitie).
-  partage: { inclus: 2, ramassage: 0.5, transport: 0.25, enfantTransport: 0.5, maxFamilles: 3 },
+  partage: { inclus: 2, ramassage: 0.5, transport: 0, // 26 nov. 2026 : transport facture par vehicule (avant 0.25)
+    enfantTransport: 0.5, maxFamilles: 3 },
   // 17 nov. 2026 : duree du trajet aux heures de pointe (affichage seulement, le prix ne change pas).
   // Heures en nombre (9.5 = 9h30) ; dimanche a jeudi pour le matin et le soir ; pourcentages ajoutes a la duree.
   circulation: { matinDebut: 7, matinFin: 9.5, matin: 0.5, soirDebut: 15.5, soirFin: 18.5, soir: 0.4, vendrediDebut: 11, vendrediFin: 14.5, vendredi: 0.2 },

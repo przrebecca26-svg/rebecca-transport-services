@@ -73,6 +73,15 @@ function prixAllerSimple(km, minutes, scenario, t) {
   return arrondiSup(prixFormule(km, minutes, t) * (1 + partRetourAVide(scenario, t)), t.arrondi);
 }
 
+// 26 nov. 2026 : entre deux paliers, le prix monte petit a petit (pas de saut), arrondi au multiple de 5 superieur
+function prixProgressif(paliers, i, km, t) {
+  if (i === 0) return paliers[0].prix;
+  const a = paliers[i - 1];
+  const b = paliers[i];
+  const part = Math.min(1, Math.max(0, (km - a.kmMax) / (b.kmMax - a.kmMax)));
+  return Math.min(b.prix, arrondiSup(a.prix + part * (b.prix - a.prix), t.arrondi));
+}
+
 const grilleDistance = (t) => !!(t.transport && Array.isArray(t.transport.paliers) && t.transport.paliers.length);
 
 // 26 nov. 2026 : prix d'un trajet de transport selon la distance (grille sous le taxi)
@@ -80,8 +89,8 @@ export function prixTransportKm(km, t = TARIFS) {
   const g = t.transport || {};
   const paliers = Array.isArray(g.paliers) ? g.paliers : [];
   if (!paliers.length) return 0;
-  const p = paliers.find((x) => km <= x.kmMax);
-  if (p) return p.prix;
+  const i = paliers.findIndex((x) => km <= x.kmMax);
+  if (i >= 0) return g.progressif ? prixProgressif(paliers, i, km, t) : paliers[i].prix;
   const dernier = paliers[paliers.length - 1];
   return arrondiSup(dernier.prix + (km - dernier.kmMax) * (g.auDelaParKm || 0), t.arrondi);
 }
@@ -386,9 +395,9 @@ function calculerLivraison(d, t) {
   const paliers = Array.isArray(t.livraison.paliers) ? t.livraison.paliers : null;
   if (paliers && paliers.length) {
     // 25 nov. 2026 : grille par distance (le palier remplace la formule et le plancher des villes)
-    const p = paliers.find((x) => d.aller.km <= x.kmMax);
-    if (!p) return construire({ lignes: [], devis: true, aConfirmer: ["Livraison longue distance : sur devis."], details: { estimation: base } });
-    base = p.prix;
+    const ip = paliers.findIndex((x) => d.aller.km <= x.kmMax);
+    if (ip < 0) return construire({ lignes: [], devis: true, aConfirmer: ["Livraison longue distance : sur devis."], details: { estimation: base } });
+    base = t.livraison.progressif ? prixProgressif(paliers, ip, d.aller.km, t) : paliers[ip].prix;
     couverts.add(directions.length ? directions[0].i : 0);
   } else if (directions.length) {
     base = Math.max(base, grille(directions[0].zone));
@@ -441,7 +450,9 @@ function calculerCourses(d, t) {
   const separe = [];
   const aConfirmer = [];
   if (d.courseFaiteParRebecca && d.rebeccaAvanceArgent) {
-    if (d.montantTicket > 0) {
+    if (!(t.courses.fraisAvanceAchats > 0)) {
+      if (d.montantTicket > 0) separe.push({ libelle: "Achats avancés par Rebecca (à rembourser)", montant: d.montantTicket });
+    } else if (d.montantTicket > 0) {
       lignes.push({ libelle: "Frais de gestion (10 % du ticket)", montant: Math.ceil(d.montantTicket * t.courses.fraisAvanceAchats) });
       separe.push({ libelle: "Achats avancés par Rebecca (à rembourser)", montant: d.montantTicket });
     } else {

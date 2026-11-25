@@ -16,6 +16,8 @@ const vers25nov = (g) => {
   g.courses.achatsDejaPayes = [{ max: 5, prix: 35 }, { max: 10, prix: 45 }];
   g.courses.courseFaiteParRebecca = [{ max: 5, prix: 60 }, { max: 10, prix: 75 }];
   g.bagages = { supplementParSoute: 10 };
+  g.partage = { ...g.partage, transport: 0.25 };
+  g.courses.fraisAvanceAchats = 0.1;
   g.arretsSupplementaires = { netanya: 15, surLaRoute: 15 };
   g.rentabilite = { ...g.rentabilite, seuilAlerteGainNetHeure: 60, coutKmReel: 1.2 };
   g.attente = { ...g.attente };

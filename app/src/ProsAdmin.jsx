@@ -14,6 +14,9 @@ import {
   supprimerJustifPhoto, useCandidaturesPros, useCategoriesPros, useDossiersPros, useImagesPro, useJustifPhoto, useStatsPros,
   publierAnnuaire, enregistrerInvitation, supprimerInvitation, useComptesPros, changerStatutCompte, useTousRdvPros, useCollectionAdmin, rattacherLivraison,
 } from "./prosBase.js";
+import { PARAMS_DEFAUT, bilanLivraisonPartenaire, eligibilitePro } from "./pricing/livraisonPartenaire.js";
+import { bilanTrajet } from "./pricing/finCourse.js";
+import { enregistrerParamsLivraisonPartenaire, useParamsLivraisonPartenaire } from "./prosBase.js";
 import ProsAnnuaire from "./components/ProsAnnuaire.jsx";
 import ProInscription from "./components/ProInscription.jsx";
 
@@ -205,6 +208,8 @@ function Abonnement({ d, setD }) {
 
 // « Deux en un » : courses de Rebecca Services faites pour ce pro (grille du site), comptées à part
 function Livraisons({ d, demandes, mouvements }) {
+  const params = useParamsLivraisonPartenaire();
+  const elig = eligibilitePro(d, params || PARAMS_DEFAUT, aujourdhuiIsrael());
   const [choix, setChoix] = useState("");
   const [info, setInfo] = useState("");
   const miennes = livraisonsDuPro(demandes, d.id);
@@ -213,9 +218,9 @@ function Livraisons({ d, demandes, mouvements }) {
   return (
     <>
       <h4>📦 Livraisons Rebecca Services (deux en un)</h4>
-      <p className="tb-note">{miennes.length} course(s) · encaissé {shek(total)} · compté à part de son abonnement Digital. Prix : grille du site (aucun tarif spécial tant que tu n'as pas validé la formule « Livraison partenaire »).</p>
+      <p className="tb-note">{miennes.length} course(s) · encaissé {shek(total)} · compté à part de son abonnement Digital. {elig.ok ? "✅ A droit à l'avantage « Livraison partenaire » (Devis rapide → Livraison → 🤝)." : `Tarif public : ${elig.raison}`}</p>
       {miennes.slice(0, 10).map((x) => (
-        <p key={x.id} className="tb-note">{String(x.date || "").split("-").reverse().join("/")} · {x.serviceTitre || x.service} · {shek(encaisseDe(x.id, mouvements))} <button type="button" className="bouton-secondaire" onClick={() => rattacherLivraison(x.id, null).catch(() => setInfo("Impossible."))}>Détacher</button></p>
+        <p key={x.id} className="tb-note">{String(x.date || "").split("-").reverse().join("/")} · {x.serviceTitre || x.service} · {shek(encaisseDe(x.id, mouvements))}{x.livraisonPartenaire && x.livraisonPartenaire.reduction > 0 ? ` · 🤝 −${shek(x.livraisonPartenaire.reduction)}${x.livraisonPartenaire.exception ? " (exception)" : ""}` : x.livraisonPartenaire && x.livraisonPartenaire.statut === "rentabilite" ? " · ⚠️ rentabilité insuffisante, tarif normal" : ""} <button type="button" className="bouton-secondaire" onClick={() => rattacherLivraison(x.id, null).catch(() => setInfo("Impossible."))}>Détacher</button></p>
       ))}
       <div className="tb-actions">
         <select value={choix} onChange={(e) => setChoix(e.target.value)} style={{ flex: 1 }}>
@@ -478,6 +483,81 @@ function TableauReseau({ dossiers, categories, stats, donnees }) {
   );
 }
 
+// 25 nov. 2026 (21h42) : rubrique « Livraison partenaire » - réglages, réductions accordées, livraisons, rentabilité par pro
+function LivraisonPartenaire({ dossiers, donnees }) {
+  const lus = useParamsLivraisonPartenaire();
+  const [p, setP] = useState(null);
+  const [info, setInfo] = useState("");
+  const [periode, setPeriode] = useState("mois");
+  useEffect(() => { if (lus && !p) setP(lus); }, [lus]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!p || !donnees.demandes || !donnees.mouvements) return <p className="tb-note">Chargement…</p>;
+  const auj = aujourdhuiIsrael();
+  const bornes = periode === "mois" ? [`${auj.slice(0, 7)}-01`, `${auj.slice(0, 7)}-31`] : periode === "annee" ? [`${auj.slice(0, 4)}-01-01`, `${auj.slice(0, 4)}-12-31`] : ["", "9999-12-31"];
+  const b = bilanLivraisonPartenaire({ dossiers, demandes: donnees.demandes, mouvements: donnees.mouvements, params: p, aujourdhui: auj, du: bornes[0], au: bornes[1], encaisseDe, bilan: bilanTrajet });
+  const majPalier = (i, k, val) => setP({ ...p, paliers: p.paliers.map((x, n) => (n === i ? { ...x, [k]: Number(val) } : x)) });
+  const basculer = (f) => setP({ ...p, formules: p.formules.includes(f) ? p.formules.filter((x) => x !== f) : [...p.formules, f] });
+  const sauver = async () => {
+    try {
+      await enregistrerParamsLivraisonPartenaire(p);
+      setInfo("✓ Réglages enregistrés");
+    } catch {
+      setInfo("Enregistrement impossible. Vérifie la connexion.");
+    }
+  };
+  const ph = (x) => (x == null ? "—" : `${x} ₪/h`);
+  return (
+    <>
+      {b.alertes.length > 0 && (
+        <div className="pp-bloc">
+          <h3>⚠️ Alertes ({b.alertes.length})</h3>
+          {b.alertes.map((a, i) => <p key={a.id + i} className="erreur">{String(a.date || "").split("-").reverse().join("/")} · {a.nom} · {a.texte}</p>)}
+        </div>
+      )}
+      <div className="pp-bloc">
+        <h3>🤝 Livraison partenaire</h3>
+        <div className="tb-actions">
+          {[["mois", "Ce mois"], ["annee", "Cette année"], ["tout", "Depuis le début"]].map(([v, l]) => <button key={v} type="button" className={periode === v ? "pp-bouton" : "bouton-secondaire"} onClick={() => setPeriode(v)}>{l}</button>)}
+        </div>
+        <p>Livraisons réalisées : <b>{b.livraisons}</b> · avec avantage : <b>{b.avecAvantage}</b></p>
+        <p>Réductions accordées : <b>{shek(b.reductions)}</b></p>
+        <p>Encaissé sur ces livraisons : <b>{shek(b.encaisse)}</b> <small>(compté à part des abonnements et du Digital)</small></p>
+        <h4>Par professionnel</h4>
+        {!b.lignes.length && <p className="tb-note">Aucun professionnel concerné pour l'instant.</p>}
+        {b.lignes.map((l) => (
+          <p key={l.id} className="tb-note">
+            <b>{l.nom}</b> · {libelleFormule(l.formule)} · {l.eligible ? "✅ avantage" : `tarif public (${l.raison.replace(/ : tarif public\.?$/, "")})`}
+            <br />{l.livraisons} livraison(s) faite(s){l.aVenir ? ` · ${l.aVenir} à venir` : ""} · réductions {shek(l.reductions)}{l.exceptions ? ` (dont ${l.exceptions} exception${l.exceptions > 1 ? "s" : ""})` : ""} · encaissé {shek(l.encaisse)} · rentabilité réelle {ph(l.gainHeureReel)} · prévue {ph(l.gainHeurePrevu)}
+          </p>
+        ))}
+      </div>
+      <div className="pp-bloc">
+        <h3>⚙️ Réglages</h3>
+        <label className="case"><input type="checkbox" checked={p.actif} onChange={() => setP({ ...p, actif: !p.actif })} /><span>Formule « Livraison partenaire » active</span></label>
+        <p className="tb-note">Formules qui ont l'avantage :</p>
+        <div className="tb-actions">
+          {FORMULES_PRO.map((f) => <label key={f.v} className="case"><input type="checkbox" checked={p.formules.includes(f.v)} onChange={() => basculer(f.v)} /><span>{f.l}</span></label>)}
+        </div>
+        <p className="tb-note">Tarifs partenaires (le tarif public reste celui de la grille du site ; au-delà du dernier palier : grille normale) :</p>
+        {p.paliers.map((x, i) => (
+          <div key={i} className="tb-actions" style={{ alignItems: "flex-end" }}>
+            <label className="champ"><span>Jusqu'à (km)</span><input type="number" min="0.5" step="0.5" value={x.kmMax} onChange={(e) => majPalier(i, "kmMax", e.target.value)} /></label>
+            <label className="champ"><span>Prix partenaire (₪)</span><input type="number" min="0" value={x.prix} onChange={(e) => majPalier(i, "prix", e.target.value)} /></label>
+            <button type="button" className="bouton-secondaire" aria-label="Retirer" onClick={() => setP({ ...p, paliers: p.paliers.filter((_, n) => n !== i) })}>✕</button>
+          </div>
+        ))}
+        {p.paliers.length < 6 && <button type="button" className="bouton-secondaire" onClick={() => setP({ ...p, paliers: [...p.paliers, { kmMax: (p.paliers.length ? p.paliers[p.paliers.length - 1].kmMax : 0) + 2, prix: 40 }] })}>+ Palier</button>}
+        <div className="tb-actions">
+          <label className="champ"><span>Tarif minimum (₪)</span><input type="number" min="0" value={p.minimum} onChange={(e) => setP({ ...p, minimum: Number(e.target.value) })} /></label>
+          <label className="champ"><span>Rentabilité minimum (₪/h)</span><input type="number" min="0" value={p.seuilHeure} onChange={(e) => setP({ ...p, seuilHeure: Number(e.target.value) })} /></label>
+        </div>
+        <p className="tb-note">Conditions : abonnement actif et à jour · suppléments habituels maintenus · non cumulable avec les promotions et le 💛 Prix ami · aucun volume minimum. Sous la rentabilité minimum, le tarif normal est proposé ; tu peux autoriser la réduction dans le devis.</p>
+        <button type="button" className="pp-bouton" onClick={sauver}>Enregistrer</button>
+        {info && <p className="tb-note" role="status">{info}</p>}
+      </div>
+    </>
+  );
+}
+
 export default function ProsAdmin() {
   const dossiers = useDossiersPros();
   const categories = useCategoriesPros();
@@ -510,13 +590,14 @@ export default function ProsAdmin() {
         <h2>✨ Professionnels partenaires</h2>
         <p className="tb-note">{publie && publie.visible ? `Annuaire ouvert au public : ${publie.nombre} fiche(s) publiée(s).` : "Annuaire caché du public : aucune fiche n'est publiée (même dans les données). Tu le vois en aperçu ici. Pour l'ouvrir : Réglages → Pages du site → « Annuaire des professionnels partenaires », puis reviens ici."}</p>
         <div className="tb-actions">
-          {[["liste", "Dossiers"], ["reseau", "📊 Réseau"], ["metiers", "Métiers"], ["apercu", "👁 Aperçu annuaire"], ["inscription", "👁 Aperçu inscription"]].map(([v, l]) => (
+          {[["liste", "Dossiers"], ["reseau", "📊 Réseau"], ["livraison", "🤝 Livraison partenaire"], ["metiers", "Métiers"], ["apercu", "👁 Aperçu annuaire"], ["inscription", "👁 Aperçu inscription"]].map(([v, l]) => (
             <button key={v} type="button" className={vue === v ? "pp-bouton" : "bouton-secondaire"} onClick={() => setVue(v)}>{l}</button>
           ))}
         </div>
       </div>
       {vue === "metiers" && <Metiers categories={categories} dossiers={dossiers} />}
       {vue === "apercu" && <ProsAnnuaire apercu fichesApercu={annuairePublic(dossiers, categories, aujourdhuiIsrael())} />}
+      {vue === "livraison" && <LivraisonPartenaire dossiers={dossiers} donnees={donnees} />}
       {vue === "reseau" && <TableauReseau dossiers={dossiers} categories={categories} stats={stats} donnees={donnees} />}
       {vue === "inscription" && <div className="pp-bloc"><p className="tb-note">Aperçu : ce que voit un professionnel sur rebeccaservices.com/#/pro (n'envoie rien d'ici).</p><ProInscription /></div>}
       {vue === "liste" && (

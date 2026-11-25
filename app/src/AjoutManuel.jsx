@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import ChoixAge from "./components/ChoixAge.jsx";
-import { collection, doc, onSnapshot, serverTimestamp, writeBatch } from "firebase/firestore";
+import { collection, doc, onSnapshot, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import { champOperateur } from "./pricing/reverser.js";
@@ -90,7 +90,7 @@ function Remerciement({ prenom, telephone, email }) {
 export { Remerciement };
 
 // D2a (9 nov. 2026) : prerempli = course venant du « Devis rapide » (service, date, heure, adresses, prix)
-export default function AjoutManuel({ mode = "course", demandes = [], marge = MARGE_DEFAUT, cleInitiale = null, prerempli = null, clientPrerempli = null, onFermer, onOuvrirDemande, onOuvrirFiche }) {
+export default function AjoutManuel({ mode = "course", demandes = [], marge = MARGE_DEFAUT, cleInitiale = null, prerempli = null, clientPrerempli = null, extraDemande = null, onFermer, onOuvrirDemande, onOuvrirFiche }) {
   const { moi } = useEquipeContexte(); // J5 : course ajoutee par un coequipier = sa course, son encaissement
   const [base, setBase] = useState({});
   const [lectureImpossible, setLectureImpossible] = useState(false);
@@ -274,6 +274,9 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
         lignes.push(fiche && !estSansCompte(fiche.cle) ? "Origine enregistrée sur son compte." : "Pré-fiche enregistrée. Si elle crée son compte avec ce numéro, tout se rattache à son compte.");
       }
       await lot.commit();
+      // 25 nov. 2026 : livraison partenaire (rattachement au pro + avantage), ecrit apres la creation de la course
+      if (demandeId && extraDemande) await updateDoc(doc(db, "demandes", demandeId), extraDemande).catch(() => lignes.push("⚠️ Rattachement au professionnel à refaire dans sa fiche."));
+      if (demandeId && extraDemande && extraDemande.livraisonPartenaire) lignes.push(extraDemande.livraisonPartenaire.reduction > 0 ? `🤝 Livraison partenaire : ${extraDemande.livraisonPartenaire.nom}, avantage ${shekels(extraDemande.livraisonPartenaire.reduction)}.` : `🤝 Rattachée à ${extraDemande.livraisonPartenaire.nom} (tarif normal).`);
       setFini({
         titre: mode === "course" ? "Course enregistrée ✓" : "Client enregistré ✓",
         lignes,

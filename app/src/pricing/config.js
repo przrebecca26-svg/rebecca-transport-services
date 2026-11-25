@@ -126,7 +126,7 @@ export const TARIFS = {
       alias: ["netanya", "natanya", "netania", "nethanya", "natania", "נתניה"],
     },
     // 26 nov. 2026 (nouvelle grille, sous le taxi) : prix fixes au depart de Netanya ; aller-retour = 2 trajets a -10 %
-    hadera: { nom: "Hadera", minimum: 100, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 100, parTrajetAR: 90 }, alias: ["hadera", "hedera", "חדרה"] },
+    hadera: { nom: "Hadera", minimum: 110, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 110, parTrajetAR: 100 }, alias: ["hadera", "hedera", "חדרה"] },
     herzliya_raanana: {
       nom: "Herzliya / Ra'anana",
       minimum: 115,
@@ -145,7 +145,7 @@ export const TARIFS = {
       nom: "Aéroport Ben Gourion",
       minimum: 250,
       axe: { sens: "sud", rang: 3 },
-      grilleB: { simple: 250, parTrajetAR: 220 },
+      grilleB: { simple: 250, parTrajetAR: 230 },
       alias: [
         "ben gurion airport",
         "ben gourion airport",

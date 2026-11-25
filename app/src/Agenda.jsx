@@ -22,6 +22,7 @@ import "./agenda.css";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
 import { useMaJournee } from "./maJournee.js";
 import TraficDuMatin from "./components/TraficDuMatin.jsx";
+import AgendaIphone from "./components/AgendaIphone.jsx";
 import MaPositionBloc, { useIci, useOu } from "./components/MaPositionBloc.jsx";
 import { arrondir } from "./pricing/maPosition.js";
 import ListeAttenteAdmin from "./components/ListeAttenteAdmin.jsx";
@@ -1369,6 +1370,7 @@ export default function Agenda() {
       {moi === ADMIN_ID && <ListeAttenteAdmin />}
       {vue === "jour" && tourneeOk && ref === aujourdhui && voirMaTournee && <MaPositionBloc jour={ref} fil={filTrafic} domicile={maJournee.domicile} journee={maJournee} courses={parDate[ref] || []} />}
       {vue === "jour" && tourneeOk && ref === aujourdhui && voirMaTournee && <TraficDuMatin jour={ref} fil={filTrafic} domicile={maJournee.domicile} ici={dehorsIci} aLaMaison={ouAujourdhui === "maison"} />}
+      {vue === "jour" && voirMaTournee && <AgendaIphone jour={ref} />}
       {vue === "jour" && <JourListe domicile={maJournee.domicile} equipier={moi !== ADMIN_ID} fil={voirMaTournee ? maJournee.fil(ref) : []} journee={voirMaTournee && tourneeOk && ref >= aujourdhui ? maJournee : null} valide={voirMaTournee && tourneeOk && ref <= aujourdhui && ref >= ajouterJours(aujourdhui, -1) ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={ref} creneaux={creneauxParJour[ref] || []} evenements={parDate[ref] || []} missions={missionsParDate[ref] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />}
 
       {vue === "semaine" && jours.map((j) => <JourListe key={j} titre domicile={maJournee.domicile} equipier={moi !== ADMIN_ID} fil={voirMaTournee ? maJournee.fil(j) : []} journee={voirMaTournee && tourneeOk && j >= aujourdhui ? maJournee : null} tourneeOk={tourneeOk} calcul={calcul} jour={j} creneaux={creneauxParJour[j] || []} evenements={parDate[j] || []} missions={missionsParDate[j] || []} pourTous={moi === ADMIN_ID} aujourdhui={aujourdhui} />)}

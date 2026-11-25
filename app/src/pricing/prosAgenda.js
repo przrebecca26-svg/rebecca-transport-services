@@ -30,6 +30,7 @@ export const agendaVide = () => ({
   delaiHeures: 12, // une cliente ne peut pas demander moins de X heures a l'avance
   joursMax: 60, // jusqu'a quand on peut reserver
   messageConfirmation: "",
+  fermeChabbat: false, // le pro peut choisir de fermer sa reservation en ligne pendant Chabbat et les fetes
 });
 export function lireAgenda(json) {
   let a = null;
@@ -54,6 +55,7 @@ export function lireAgenda(json) {
     delaiHeures: Math.max(0, Math.min(168, Math.round(Number(v.delaiHeures) || 0))),
     joursMax: Math.max(1, Math.min(180, Math.round(Number(v.joursMax) || 60))),
     messageConfirmation: txt(v.messageConfirmation, 300),
+    fermeChabbat: v.fermeChabbat === true,
   };
 }
 export function erreursAgenda(a) {
@@ -115,8 +117,10 @@ function fermeturesDuJour(date, t) {
 }
 const chevauche = (d, f, plages) => plages.some(([a, b]) => d < b && f > a);
 
-// Creneaux libres d'un jour pour une duree. options.enLigne = demande d'une cliente sur le site :
-// respecte le delai minimum, l'horizon, et ne propose rien pendant Chabbat et les fetes (proposition a valider).
+// Creneaux libres d'un jour pour une duree. options.enLigne = demande d'une cliente sur le site : respecte le delai
+// minimum et l'horizon. 25 nov. 2026, 20h23 (Rebecca) : Chabbat et fetes ne bloquent QUE l'agenda de Rebecca Services ;
+// chaque professionnel independant fait comme il veut (ses horaires et ses conges decident). bloquerChabbat reste
+// possible pour un pro qui le demanderait (reglage de son agenda).
 export function creneauxLibres(agenda, date, duree, { rdvs = [], cellules = null, maintenantMs = Date.now(), enLigne = false, pas = 15, t = TARIFS } = {}) {
   const a = agenda;
   if (!a || !DATE.test(date) || !(duree > 0)) return [];
@@ -124,7 +128,7 @@ export function creneauxLibres(agenda, date, duree, { rdvs = [], cellules = null
   if (!plages.length) return [];
   const pris = cellules ? new Set(Object.keys(cellules).filter((k) => cellules[k] === true)) : quartsOccupes(rdvs, date, a.pause);
   const absences = absencesDuJour(a, date);
-  const fermetures = enLigne ? fermeturesDuJour(date, t) : [];
+  const fermetures = enLigne && a.fermeChabbat ? fermeturesDuJour(date, t) : [];
   const sortie = [];
   for (const p of plages) {
     // en ligne : heures au quart d'heure (09:00, 09:15...) pour le verrou anti double reservation

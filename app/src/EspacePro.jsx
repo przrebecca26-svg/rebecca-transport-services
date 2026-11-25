@@ -199,7 +199,7 @@ export default function EspacePro({ compte, deconnecter }) {
         {vue === "livraison" && (
           <div className="pp-bloc">
             <h3>📦 Une livraison avec Rebecca Services</h3>
-            <p>Besoin de livrer une commande, des documents ou du matériel ? Rebecca Services s'en occupe, aux tarifs du site. Ces livraisons sont facturées à part, indépendamment de ton abonnement Digital.</p>
+            <p>Besoin de livrer une commande, des documents ou du matériel ? Rebecca Services s'en occupe, aux tarifs du site. Avec une formule Business ou Pack Pro et un abonnement à jour, tu profites d'un tarif préférentiel sur les livraisons courtes (suppléments habituels en plus, non cumulable avec les promotions). Ces livraisons sont facturées à part, indépendamment de ton abonnement Digital.</p>
             <a className="pp-bouton" href={lienWhatsApp(WHATSAPP, `Bonjour Rebecca, c'est ${nom} (professionnel partenaire). J'ai besoin d'une livraison :\nRécupération : \nLivraison : \nQuand : `)} target="_blank" rel="noopener noreferrer">💬 Demander une livraison</a>
             <p className="tb-note">Ou fais une demande sur rebeccaservices.com → Services coursier.</p>
           </div>

@@ -14,6 +14,9 @@ import { calculerTrajet } from "./routing.js";
 import { calculer } from "./pricing/engine.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import { useFermetures } from "./fermetures.js";
+import { appliquerLivraisonPartenaire, champsCourse } from "./pricing/livraisonPartenaire.js";
+import { aujourdhuiIsrael, useDossiersPros, useParamsLivraisonPartenaire } from "./prosBase.js";
+import { libelleFormule } from "./pricing/pros.js";
 import { majDepuisDevis, messageDevis, messageDevisDemande, valeursDepuisDemande, versAjoutManuel } from "./pricing/devisRapide.js";
 import "./client-commun.css";
 import "./devis-rapide.css";
@@ -45,6 +48,13 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
   const [minParHeure, setMinParHeure] = useState(0);
   useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => setMinParHeure(x.exists() ? Number(x.data().minParHeure) || 0 : 0), () => {}), []);
   const changer = (nom, valeur) => setV((o) => ({ ...o, [nom]: valeur }));
+  // 25 nov. 2026 (21h42) : livraison pour un professionnel partenaire (Business, Pack Pro) -> avantage partenaire
+  const dejaPart = course && course.livraisonPartenaire ? course.livraisonPartenaire : null;
+  const [proId, setProId] = useState(() => (course ? course.proPartenaire || (dejaPart && dejaPart.proId) || "" : ""));
+  const [exception, setException] = useState(() => !!(dejaPart && dejaPart.exception));
+  const dossiersPros = useDossiersPros();
+  const paramsPart = useParamsLivraisonPartenaire();
+  const prosChoix = (dossiersPros || []).filter((x) => x.statut === "accepte" || x.id === proId);
 
   // Distance reelle (meme calcul que le site)
   const t = trajetACalculer(service, v);
@@ -76,17 +86,30 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
   else if (!adresses.every((c) => adresseSaisie(v[c.name]))) manque = "Indique les adresses pour voir le prix.";
   const pret = !manque;
   const distanceOk = trajet && trajet.statut === "ok";
-  const resultat = useMemo(() => {
+  const brut = useMemo(() => {
     if (!pret) return null;
     if (besoinDistance(service, v) && service !== "hatan_kala" && service !== "demenagement" && !distanceOk) return null;
-    return calculer(versDemande(service, v, distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null));
+    const dem = versDemande(service, v, distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null);
+    return { dem, r: calculer(dem) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service, v, trajet, pret, distanceOk, reglages]);
+  const dossierPro = proId ? (dossiersPros || []).find((x) => x.id === proId) || null : null;
+  const part = useMemo(() => {
+    if (!brut) return { resultat: null, info: null };
+    if (!dossierPro) return { resultat: brut.r, info: null };
+    return appliquerLivraisonPartenaire(brut.r, brut.dem, { dossier: dossierPro, params: paramsPart, aujourdhui: aujourdhuiIsrael(), exception, prixAmi: !!(course && course.prixAmi) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brut, dossierPro, paramsPart, exception]);
+  const resultat = part.resultat;
+  const infoPart = part.info;
 
   const calcule = resultat && resultat.ok && !resultat.bloque;
   const prixNombre = Number(String(prixConvenu).replace(",", "."));
   const prixOk = String(prixConvenu).trim() !== "" && Number.isFinite(prixNombre) && prixNombre > 0 && prixNombre <= 20000;
-  const maj = course && pret && prixOk ? majDepuisDevis(course, v, resultat, Math.round(prixNombre * 100) / 100, distanceOk ? trajet : null) : null;
+  const champsPart = champsCourse(infoPart, aujourdhuiIsrael());
+  const majBase = course && pret && prixOk ? majDepuisDevis(course, v, resultat, Math.round(prixNombre * 100) / 100, distanceOk ? trajet : null) : null;
+  // Livraison partenaire : rattachee au pro et avantage note sur la course ; « Aucun » detache la course
+  const maj = majBase ? { ...majBase, ...(champsPart || (course && (course.proPartenaire || course.livraisonPartenaire) && !proId ? { proPartenaire: null, livraisonPartenaire: null } : {})) } : null;
   const message = course ? (maj ? messageDevisDemande({ ...course, ...maj }) || "" : "") : messageDevis(service, v, resultat, cli.prenom);
   const enregistrerModif = async () => {
     setMsgModif("");
@@ -111,6 +134,7 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
         mode="course"
         demandes={demandes}
         prerempli={versAjoutManuel(service, v, resultat)}
+        extraDemande={champsPart}
         clientPrerempli={{ prenom: cli.prenom.trim(), nom: cli.nom.trim(), telephone: tel.trim(), email: cli.email.trim() }}
         onFermer={() => setAjout(false)}
         onOuvrirDemande={(id) => aller("demandes", id)}
@@ -135,6 +159,28 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
         </div>
         <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pret} manque={manque} quand={{ date: v.date, heure: v.heure }} />
       </div>
+
+      {service === "livraison" && prosChoix.length > 0 && (
+        <section className="tdb-bloc">
+          <h2>🤝 Livraison partenaire</h2>
+          <select value={proId} onChange={(e) => { setProId(e.target.value); setException(false); }} aria-label="Professionnel partenaire">
+            <option value="">Aucun : cliente habituelle</option>
+            {prosChoix.map((x) => <option key={x.id} value={x.id}>{x.nomCommercial} · {libelleFormule(x.formule)}</option>)}
+          </select>
+          {infoPart && (
+            <p className={"tdb-note" + (infoPart.statut === "rentabilite" ? " dr-alerte-min" : "")} role={infoPart.statut === "rentabilite" ? "alert" : "status"}>
+              {infoPart.statut === "applique" ? "✅ " : infoPart.statut === "exception" ? "⚠️ " : infoPart.statut === "rentabilite" ? "⚠️ " : "ℹ️ "}{infoPart.raison}
+              {typeof infoPart.gainHeure === "number" && infoPart.statut !== "rentabilite" ? ` Rentabilité prévue : ${infoPart.gainHeure} ₪/h.` : ""}
+            </p>
+          )}
+          {infoPart && (infoPart.statut === "rentabilite" || infoPart.statut === "exception") && (
+            <label className="tdb-note" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={exception} onChange={(e) => setException(e.target.checked)} style={{ width: "auto" }} /> J'autorise exceptionnellement la réduction ({infoPart.prixPublic} ₪ → {infoPart.prixPartenaire} ₪)
+            </label>
+          )}
+          <p className="tdb-note">La course est rattachée à ce pro : ses livraisons restent comptées à part de son abonnement et du Digital.</p>
+        </section>
+      )}
 
       {calcule && renta && (() => {
         const a = alerteMinimum(renta, minParHeure, resultat.total);

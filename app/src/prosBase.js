@@ -3,6 +3,7 @@ import { addDoc, collection, deleteDoc, doc, increment, onSnapshot, query, runTr
 import { db } from "./firebase.js";
 import { annuairePublic, candidatureVersDossier, lireAnnuaire, lireCategories, lireDossiers, normaliserDossier } from "./pricing/pros.js";
 import { lireAgenda, normaliserRdv, quartsDe, quartsOccupes } from "./pricing/prosAgenda.js";
+import { lireParams } from "./pricing/livraisonPartenaire.js";
 
 // RESEAU DE PROFESSIONNELS PARTENAIRES - lecture et ecriture Firebase (25 nov. 2026). Voir pricing/pros.js.
 // Avec les regles v36 (deja publiees) : tout ce qui est admin/... et reglages/... marche tout de suite.
@@ -197,6 +198,9 @@ export function useCollectionAdmin(nom, actif) {
   useEffect(() => (actif ? onSnapshot(collection(db, nom), (s) => setL(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setL([])) : undefined), [nom, actif]);
   return l;
 }
+// 25 nov. 2026 (21h42) : formule « Livraison partenaire » - reglages prives de Rebecca (admin/livraisonPartenaire)
+export const useParamsLivraisonPartenaire = () => useDocJson(["admin", "livraisonPartenaire"], lireParams);
+export const enregistrerParamsLivraisonPartenaire = (p) => setDoc(doc(db, "admin", "livraisonPartenaire"), { json: JSON.stringify(lireParams(p)), majLe: serverTimestamp() });
 export const rattacherLivraison = (demandeId, proId) => setDoc(doc(db, "demandes", demandeId), { proPartenaire: proId || null }, { merge: true });
 
 // L'annuaire public n'est rempli QUE si la page est ouverte au public (protection des donnees quand elle est cachee)

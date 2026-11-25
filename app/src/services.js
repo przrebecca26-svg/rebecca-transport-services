@@ -90,13 +90,13 @@ export const ACTIVITES = {
 /* ---------- Description des services (page d'accueil) ---------- */
 
 export const SERVICES = [
-  { id: "transport", activite: "transport", titre: "Transport privé", icone: "🚗", texte: "Un trajet d'une adresse à une autre, aller simple ou aller-retour.", prix: "dès 50 ₪" },
+  { id: "transport", activite: "transport", titre: "Transport privé", icone: "🚗", texte: "Un trajet d'une adresse à une autre, aller simple ou aller-retour.", prix: "dès 35 ₪" },
   { id: "aeroport", activite: "transport", titre: "Aéroport Ben Gourion", icone: "✈️", texte: "Départ vers l'aéroport ou arrivée et transfert à votre adresse.", prix: "dès 250 ₪" },
-  { id: "livraison", activite: "coursier", titre: "Livraison", icone: "📦", texte: "Colis, clés, documents, enveloppes, achats, petits objets.", prix: "dès 60 ₪" },
+  { id: "livraison", activite: "coursier", titre: "Livraison", icone: "📦", texte: "Colis, clés, documents, enveloppes, achats, petits objets.", prix: "dès 35 ₪" },
   { id: "courses", activite: "coursier", titre: "Courses et achats", icone: "🛍️", texte: "Je récupère vos achats ou je fais les courses pour vous.", prix: "dès 60 ₪" },
   { id: "hatan_kala", activite: "transport", titre: "Hatan & Kala", icone: "💍", texte: "Transport des mariés, décoration du véhicule possible.", prix: "dès 220 ₪" },
   { id: "demenagement", activite: "coursier", titre: "Petit déménagement", icone: "📚", texte: "Valises, cartons, petits objets.", prix: "dès 130 ₪" },
-  { id: "ramassage", activite: "transport", titre: "Ramassage scolaire", icone: "🎒", texte: "Je vais chercher vos enfants à l'école ou je les y emmène : un jour, à la semaine ou au mois. Trajet partageable avec d'autres familles.", prix: "dès 55 ₪ / trajet" },
+  { id: "ramassage", activite: "transport", titre: "Ramassage scolaire", icone: "🎒", texte: "Je vais chercher vos enfants à l'école ou je les y emmène : un jour, à la semaine ou au mois. Trajet partageable avec d'autres familles.", prix: "dès 35 ₪ / trajet" },
   { id: "attente", activite: "transport", titre: "Mise à disposition", icone: "⏱️", texte: "Attente, accompagnement, événements : à l'heure.", prix: "100 ₪ / heure" },
 ];
 

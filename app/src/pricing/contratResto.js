@@ -15,8 +15,9 @@ export const LIEN_INSCRIPTION = "#/restaurant-partenaire";
 // Tarifs standard (Réglages → « Restaurants partenaires » ; ceux-ci si rien n'est réglé)
 export const TARIFS_STANDARD = {
   // 20 nov. 2026 (Rebecca) : B = minimum 75 ₪ par heure de créneau, 2 h au moins ; +5 ₪ par article très lourd
-  A: { jusqua3: 35, de3a6: 45, enPlus: 20, minimumCreneau: 0, parHeure: 0, tresLourd: 5 },
-  B: { jusqua3: 30, de3a6: 40, enPlus: 20, minimumCreneau: 5, parHeure: 75, tresLourd: 5 },
+  // 25 nov. 2026 (refonte) : A 30/40, B 25/35, commande en plus 15 ₪ (avant A 35/45, B 30/40, 20 ₪)
+  A: { jusqua3: 30, de3a6: 40, enPlus: 15, minimumCreneau: 0, parHeure: 0, tresLourd: 5 },
+  B: { jusqua3: 25, de3a6: 35, enPlus: 15, minimumCreneau: 5, parHeure: 75, tresLourd: 5 },
 };
 const entier = (x, d, max = 1000) => {
   const n = Math.round(Number(x));

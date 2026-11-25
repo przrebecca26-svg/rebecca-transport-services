@@ -37,7 +37,7 @@ export const TARIFS = {
   ],
 
   // Urgence : +30 NIS, ou +50 NIS si la prise en charge est dans l'heure
-  urgence: { standard: 30, immediate: 50, seuilImmediatMinutes: 60 },
+  urgence: { standard: 15, immediate: 20, seuilImmediatMinutes: 60 }, // 25 nov. 2026 : 30/50 -> 15/20 ₪
 
   // CALENDRIER JUIF : Chabbat et fetes (Yom Tov) bloques automatiquement.
   // Horaires calcules a partir du coucher du soleil a Netanya, fuseau Asia/Jerusalem.
@@ -116,9 +116,10 @@ export const TARIFS = {
   zones: {
     netanya: {
       nom: "Netanya et alentours",
-      minimum: 50,
+      minimum: 30,
       axe: { sens: "centre", rang: 0 },
-      grilleB: { simple: 75, parTrajetAR: 55 },
+      // 25 nov. 2026 : petit trajet dans Netanya dès 35 ₪ (avant 75), ramassage 35 ₪ le trajet (avant 55)
+      grilleB: { simple: 35, parTrajetAR: 35 },
       alias: ["netanya", "natanya", "netania", "nethanya", "natania", "נתניה"],
     },
     hadera: { nom: "Hadera", minimum: 120, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 155, parTrajetAR: 120 }, alias: ["hadera", "hedera", "חדרה"] },
@@ -161,7 +162,10 @@ export const TARIFS = {
   // Courses a l'interieur de Netanya : plafond 100 NIS (si trajet court)
   netanyaPlafond: { prix: 100, kmMax: 15 },
 
-  livraison: { minimum: 60, plafondAvantDevis: 250, urgence: 30 },
+  // 25 nov. 2026 (Rebecca : « je suis trop chère, on me refuse ») : grille par distance, comme les coursiers du marché.
+  // Le prix suit la distance récupération -> livraison ; au-delà du dernier palier = sur devis.
+  livraison: { minimum: 35, plafondAvantDevis: 250, urgence: 15,
+    paliers: [{ kmMax: 3, prix: 35 }, { kmMax: 5, prix: 40 }, { kmMax: 7, prix: 50 }, { kmMax: 10, prix: 60 }, { kmMax: 15, prix: 80 }, { kmMax: 20, prix: 100 }, { kmMax: 30, prix: 140 }, { kmMax: 40, prix: 180 }, { kmMax: 50, prix: 230 }] },
 
   courses: {
     // nombre d'articles maximum -> prix de la prestation
@@ -182,7 +186,7 @@ export const TARIFS = {
   // Arrets supplementaires (livraison, Hatan & Kala, mise a disposition) :
   // - dans Netanya ou SUR LA ROUTE (meme direction, pas plus loin que le point le plus eloigne deja atteint) = forfait
   // - plus loin = prix de la grille B de la ville
-  arretsSupplementaires: { netanya: 20, surLaRoute: 20 },
+  arretsSupplementaires: { netanya: 15, surLaRoute: 15 }, // 25 nov. 2026 : 20 -> 15 ₪
 
   // Ramassage scolaire : prix d'un trajet = prix par trajet de la grille B ; forfait semaine = reduction selon le nombre de jours
   // (de la plus forte a la plus faible). Exemple : 3 jours = -10 %, 5 jours ou plus = -15 %.

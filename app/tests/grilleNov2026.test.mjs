@@ -1,0 +1,14 @@
+import { calculer } from "../src/pricing/engine.js";
+import { NOUVELLE_GRILLE as T, NOUVEAUX_RESTOS as R } from "./ancienneGrille.mjs";
+import { egal, section, test } from "./outils.mjs";
+const base = { date: "2026-12-01", heure: "12:00", zoneDepart: "netanya", zoneArrivee: "netanya" };
+const prix = (service, km, minutes, extra = {}) => calculer({ ...base, service, aller: { km, minutes }, ...extra }, T).total;
+section("Grille du 25 nov. 2026 (refonte des prix)");
+test("livraison 2,2 km = 35 ₪ (avant 60)", () => egal(prix("livraison", 2.2, 5), 35));
+test("livraison 5 km = 40 ₪", () => egal(prix("livraison", 5, 10), 40));
+test("livraison 9 km = 60 ₪", () => egal(prix("livraison", 9, 15), 60));
+test("livraison Hadera 30 km = 140 ₪", () => egal(prix("livraison", 30, 30, { zoneArrivee: "hadera" }), 140));
+test("livraison 60 km = sur devis", () => egal(calculer({ ...base, service: "livraison", aller: { km: 60, minutes: 50 } }, T).total, null));
+test("livraison urgente = +15 ₪", () => egal(prix("livraison", 2.2, 5, { urgent: true }), 50));
+test("transport 2 km dans Netanya = 35 ₪ (avant 75)", () => egal(prix("transport", 2, 5), 35));
+test("restaurants A 30/40, B 25/35, en plus 15", () => egal([R.A.jusqua3, R.A.de3a6, R.B.jusqua3, R.B.de3a6, R.A.enPlus], [30, 40, 25, 35, 15]));

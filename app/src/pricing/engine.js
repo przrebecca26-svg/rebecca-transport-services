@@ -340,7 +340,14 @@ function calculerLivraison(d, t) {
   const directions = Object.values(loin).sort((x, y) => grille(y.zone) - grille(x.zone));
   const couverts = new Set();
   let base = Math.max(t.livraison.minimum, B);
-  if (directions.length) {
+  const paliers = Array.isArray(t.livraison.paliers) ? t.livraison.paliers : null;
+  if (paliers && paliers.length) {
+    // 25 nov. 2026 : grille par distance (le palier remplace la formule et le plancher des villes)
+    const p = paliers.find((x) => d.aller.km <= x.kmMax);
+    if (!p) return construire({ lignes: [], devis: true, aConfirmer: ["Livraison longue distance : sur devis."], details: { estimation: base } });
+    base = p.prix;
+    couverts.add(directions.length ? directions[0].i : 0);
+  } else if (directions.length) {
     base = Math.max(base, grille(directions[0].zone));
     couverts.add(directions[0].i);
   } else couverts.add(0);

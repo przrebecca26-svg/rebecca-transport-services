@@ -1,6 +1,8 @@
 // LANCE TOUS LES TESTS - Rebecca Services
 // Depuis le dossier app : node tests/lancer.mjs
 import { bilan } from "./outils.mjs";
+await import("./ancienneGrille.mjs");
+await import("./grilleNov2026.test.mjs");
 await import("./metier.test.mjs");
 await import("./avenantResto.test.mjs");
 await import("./etapesEnfants.test.mjs");

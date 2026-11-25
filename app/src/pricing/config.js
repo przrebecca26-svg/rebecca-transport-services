@@ -29,7 +29,7 @@ export const TARIFS = {
   arrondi: 5,
 
   // Attente pendant un trajet + mise a disposition
-  attente: { toleranceMinutes: 10, tarifHeure: 100, pasMinutes: 15, miseADispositionMinHeures: 1 },
+  attente: { toleranceMinutes: 10, tarifHeure: 90, pasMinutes: 15, miseADispositionMinHeures: 1 }, // 25 nov. 2026 : 100 -> 90 ₪/h (cahier des charges)
 
   // Supplements de nuit selon l'heure de prise en charge (heures locales Israel)
   nuit: [

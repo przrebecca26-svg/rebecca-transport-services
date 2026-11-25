@@ -3,6 +3,7 @@
 // Toutes les valeurs viennent de config.js (jamais de prix ecrit ailleurs).
 
 import { TARIFS, coutParKm, partRetourAVide } from "./config.js";
+import { dureeSelonHeure } from "./circulation.js";
 import { verifierDisponibilite, localVersUtc, ajouterJours as ajouterJoursLocal } from "./calendrier.js";
 import { partagerNote, partEnfant, personnesEnPlus, supplementParPersonne } from "./partage.js";
 import { aujourdhui, calculerRemise, etatCode, libelleActivitePromo, libelleRemise, normaliserCode, promoSapplique } from "./promos.js";
@@ -187,10 +188,16 @@ function attenteEnLigne(lignes, minutes, t) {
 // Gain net = prix - cout reel du vehicule sur TOUS les kilometres, retour a vide compris.
 export function analyserRentabilite(d, total, t = TARIFS) {
   const retour = d.allerRetour ? d.retour || d.aller : d.aller; // aller simple : retour a vide
-  const km = d.aller.km + retour.km;
+  // 25 nov. 2026 : + trajet d'approche (maison -> départ) s'il est connu
+  const approche = d.approche && d.approche.km > 0 ? d.approche : { km: 0, minutes: 0 };
+  const km = d.aller.km + retour.km + approche.km;
   // 25 nov. 2026 (Rebecca : « combien de l'heure, ce que je gagne vraiment ») : + temps sur place selon le service
   const surPlace = (t.rentabilite.surPlaceMinutes || {})[d.service] || 0;
-  const minutes = (d.aller.minutes || 0) + (retour.minutes || 0) + (d.attenteMinutes || 0) + surPlace;
+  // trafic : durées de route allongées aux heures de pointe (Réglages → Circulation)
+  const route = (m) => (d.date && d.heure ? dureeSelonHeure(m || 0, d.date, d.heure, t) : m || 0);
+  const minutesRoute = route(d.aller.minutes) + route(retour.minutes) + route(approche.minutes);
+  const traficMinutes = Math.max(0, Math.round(minutesRoute - ((d.aller.minutes || 0) + (retour.minutes || 0) + (approche.minutes || 0))));
+  const minutes = minutesRoute + (d.attenteMinutes || 0) + surPlace;
   const kmReel = t.rentabilite.coutKmReel || coutParKm(t);
   const cout = km * kmReel;
   const encaisse = total - (d.fraisAnnonces || 0);
@@ -205,6 +212,9 @@ export function analyserRentabilite(d, total, t = TARIFS) {
     coutParKm: Math.round(kmReel * 100) / 100,
     carburant: Math.round(km * ((t.carburant.consommationLitres100km / 100) * t.carburant.prixLitre)),
     minutesTotal: Math.round(minutes),
+    approcheKm: Math.round(approche.km * 10) / 10,
+    traficMinutes,
+    attenteMinutes: d.attenteMinutes || 0,
     surPlaceMinutes: surPlace,
     encaisse: Math.round(encaisse),
     gainNet: Math.round(gainNet),

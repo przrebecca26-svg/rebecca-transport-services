@@ -12,3 +12,10 @@ test("livraison 60 km = sur devis", () => egal(calculer({ ...base, service: "liv
 test("livraison urgente = +15 ₪", () => egal(prix("livraison", 2.2, 5, { urgent: true }), 50));
 test("transport 2 km dans Netanya = 35 ₪ (avant 75)", () => egal(prix("transport", 2, 5), 35));
 test("restaurants A 30/40, B 25/35, en plus 15", () => egal([R.A.jusqua3, R.A.de3a6, R.B.jusqua3, R.B.de3a6, R.A.enPlus], [30, 40, 25, 35, 15]));
+
+import { analyserRentabilite as _ar } from "../src/pricing/engine.js";
+section("Rentabilité : temps jamais NaN (bug 25 nov., livraison 5,6 km)");
+{
+  const r = _ar({ service: "livraison", date: "2026-11-26", heure: "11:00", aller: { km: 5.6, minutes: 10 }, approche: { km: 2, minutes: 5 } }, 50);
+  test("minutesTotal est un nombre", () => egal(Number.isFinite(r.minutesTotal) && r.minutesTotal >= 35, true));
+}

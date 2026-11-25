@@ -3,7 +3,10 @@ import { test, egal, vrai, section } from "./outils.mjs";
 import { calculer as calc } from "../src/pricing/engine.js";
 import { NOUVELLE_GRILLE as T } from "./ancienneGrille.mjs";
 const calculer = (d) => calc(d, T);
-import * as L from "../src/pricing/livraisonPartenaire.js";
+import * as L0 from "../src/pricing/livraisonPartenaire.js";
+// 26 nov. 2026 : ces tests gardent la règle du 25 nov. (prix fixes 30 / 35 ₪, minimum 30, 60 ₪/h)
+const P25 = { actif: true, formules: ["business", "packpro"], paliers: [{ kmMax: 3, prix: 30 }, { kmMax: 5, prix: 35 }], minimum: 30, seuilHeure: 60 };
+const L = { ...L0, appliquerLivraisonPartenaire: (r, d, o = {}) => L0.appliquerLivraisonPartenaire(r, d, { ...o, params: o.params || P25 }) };
 
 section("Livraison partenaire");
 const AUJ = "2026-11-25";
@@ -67,7 +70,7 @@ test("suppléments maintenus : seule la base baisse de 5 ₪ (urgence gardée)",
 });
 
 test("minimum 30 ₪ : un réglage plus bas ne descend jamais sous le minimum", () => {
-  const params = L.lireParams({ paliers: [{ kmMax: 3, prix: 20 }], minimum: 30 });
+  const params = L.lireParams({ version: 2, pourcentage: 0, paliers: [{ kmMax: 3, prix: 20 }], minimum: 30 });
   egal(appli(2, { params }).resultat.total, 30);
 });
 
@@ -87,7 +90,7 @@ test("cas réel 4,5 km et 9 min de route : sous 60 ₪/h avec 35 ₪, tarif norm
 });
 
 test("seuil modifiable : à 0 ₪/h la réduction passe toujours", () => {
-  egal(appli(2.5, { params: L.lireParams({ seuilHeure: 0 }) }, { attenteMinutes: 40 }).info.statut, "applique");
+  egal(appli(2.5, { params: L.lireParams({ version: 2, pourcentage: 0, paliers: P25.paliers, minimum: 30, seuilHeure: 0 }) }, { attenteMinutes: 40 }).info.statut, "applique");
 });
 
 test("formule désactivée : tarif public", () => {
@@ -139,4 +142,16 @@ test("type transport gardé avec l'adresse où je la prends ; « passer prendre 
   const k = TR.ajouterTache({}, "2026-11-29", { type: "autre", titre: "Gare", debut: "10:00", fin: "11:00", lieu: maison, prise: maison });
   egal(k["2026-11-29"].taches[0].prise.label, "Rue X, Netanya");
   egal(TR.iconeTache({ type: "inconnu" }), "📌");
+});
+
+// 26 nov. 2026, 00h51 : nouvelle règle (audit ChatGPT) - -10 % jusqu'à 20 km si la course reste à 40 ₪/h ou plus
+import { GRILLE_26NOV as G26 } from "./ancienneGrille.mjs";
+test("26 nov. : Business -10 % jusqu'à 20 km (livraison 3 km : 30 ₪ -> 27 ₪) ; anciens réglages remplacés", () => {
+  const d = dem(3, { aller: { km: 3, minutes: 6 } });
+  const a = L0.appliquerLivraisonPartenaire(calc(d, G26), d, { dossier: pro(), params: L0.PARAMS_DEFAUT, aujourdhui: AUJ, t: G26 });
+  egal([a.info.statut, a.resultat.total, a.info.reduction], ["applique", 27, 3]);
+  const vieux = L0.lireParams({ paliers: [{ kmMax: 3, prix: 30 }], minimum: 30, seuilHeure: 60, actif: true });
+  egal([vieux.version, vieux.pourcentage, vieux.kmMax, vieux.seuilHeure], [2, 0.1, 20, 40]);
+  const loin = dem(25, { aller: { km: 25, minutes: 30 } });
+  egal(L0.appliquerLivraisonPartenaire(calc(loin, G26), loin, { dossier: pro(), params: L0.PARAMS_DEFAUT, aujourdhui: AUJ, t: G26 }).info.statut, "hors_zone");
 });

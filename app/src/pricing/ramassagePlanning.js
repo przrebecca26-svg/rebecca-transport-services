@@ -20,7 +20,7 @@
 export { MODES_PARTAGE };
 
 import { TARIFS } from "./config.js";
-import { arrondiSup, analyserRentabilite, detecterZone, prixTrajetRamassage } from "./engine.js";
+import { arrondiSup, analyserRentabilite, apresReduction, detecterZone, prixTrajetRamassage, reductionRamassage } from "./engine.js";
 import { MODES_PARTAGE, maxFamilles, nomFamille, partagerNote, personnesEnPlus, prixFr, supplementParPersonne, lignesPartage, centimes } from "./partage.js";
 import { ajouterJours, nomsJourSacre, vacancesDuCalendrier, verifierDisponibilite } from "./calendrier.js";
 
@@ -153,9 +153,12 @@ export function reductionForfait(periode, enfants, t = TARIFS) {
 }
 
 // Reduction proposee selon la periode, le nombre de jours et le nombre d'enfants
-export function reductionProposee(plan, jours, t = TARIFS) {
+// 26 nov. 2026 : avec la grille 2026, la reduction depend aussi du nombre de trajets par jour (aller seul / aller-retour)
+export function reductionProposee(plan, jours, t = TARIFS, nbTrajets = 0) {
+  const parJour = jours > 0 && nbTrajets > 0 ? nbTrajets / jours : 1;
+  const g = reductionRamassage(plan.periode !== "jour", plan.enfants.length, parJour, t);
+  if (g != null) return plan.periode === "jour" && parJour < 1.5 ? 0 : g;
   if (plan.periode === "jour") return 0;
-  void jours;
   return reductionForfait(plan.periode, plan.enfants.length, t);
 }
 
@@ -337,14 +340,14 @@ export function calculerPlan(plan, routes, t = TARIFS, options = {}) {
     const leurs = trajets.filter((x) => x.enfants.some((i) => siens.has(i)));
     const brutF = leurs.reduce((n, x) => n + (prixDe(x) * x.enfants.filter((i) => siens.has(i)).length) / x.enfants.length, 0);
     const joursF = new Set(leurs.map((x) => x.date)).size;
-    const proposeeF = reductionProposee({ ...plan, enfants: [...siens].map((i) => plan.enfants[i]) }, joursF, t);
+    const proposeeF = reductionProposee({ ...plan, enfants: [...siens].map((i) => plan.enfants[i]) }, joursF, t, leurs.length);
     const pctF = saisie === null ? proposeeF : saisie;
-    const totalF = pctF > 0 ? arrondiSup(brutF * (1 - pctF), t.arrondi) : Math.ceil(brutF - 1e-9);
+    const totalF = pctF > 0 ? apresReduction(brutF, pctF, t) : Math.ceil(brutF - 1e-9);
     return { nom: noms[f], enfants: siens.size, trajets: leurs.length, brut: centimes(brutF), pourcentage: pctF, proposee: proposeeF, total: totalF };
   });
-  const proposee = nbFam === 1 ? reductionProposee(plan, jours, t) : Math.max(...familles.map((f) => f.proposee));
+  const proposee = nbFam === 1 ? reductionProposee(plan, jours, t, trajets.length) : Math.max(...familles.map((f) => f.proposee));
   const pourcentage = saisie === null ? proposee : saisie;
-  const total = nbFam === 1 ? (pourcentage > 0 ? arrondiSup(brut * (1 - pourcentage), t.arrondi) : brut) : familles.reduce((n, f) => n + f.total, 0);
+  const total = nbFam === 1 ? (pourcentage > 0 ? apresReduction(brut, pourcentage, t) : brut) : familles.reduce((n, f) => n + f.total, 0);
   const nomPeriode = plan.periode === "mois" ? "Forfait mois" : plan.periode === "semaine" ? "Forfait semaine" : "Ramassage";
   // Une ligne par prix de trajet (une seule si tous les enfants sont dans la meme ecole)
   const parPrix = new Map();

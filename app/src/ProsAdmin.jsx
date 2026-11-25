@@ -494,7 +494,6 @@ function LivraisonPartenaire({ dossiers, donnees }) {
   const auj = aujourdhuiIsrael();
   const bornes = periode === "mois" ? [`${auj.slice(0, 7)}-01`, `${auj.slice(0, 7)}-31`] : periode === "annee" ? [`${auj.slice(0, 4)}-01-01`, `${auj.slice(0, 4)}-12-31`] : ["", "9999-12-31"];
   const b = bilanLivraisonPartenaire({ dossiers, demandes: donnees.demandes, mouvements: donnees.mouvements, params: p, aujourdhui: auj, du: bornes[0], au: bornes[1], encaisseDe, bilan: bilanTrajet });
-  const majPalier = (i, k, val) => setP({ ...p, paliers: p.paliers.map((x, n) => (n === i ? { ...x, [k]: Number(val) } : x)) });
   const basculer = (f) => setP({ ...p, formules: p.formules.includes(f) ? p.formules.filter((x) => x !== f) : [...p.formules, f] });
   const sauver = async () => {
     try {
@@ -537,15 +536,11 @@ function LivraisonPartenaire({ dossiers, donnees }) {
         <div className="tb-actions">
           {FORMULES_PRO.map((f) => <label key={f.v} className="case"><input type="checkbox" checked={p.formules.includes(f.v)} onChange={() => basculer(f.v)} /><span>{f.l}</span></label>)}
         </div>
-        <p className="tb-note">Tarifs partenaires (le tarif public reste celui de la grille du site ; au-delà du dernier palier : grille normale) :</p>
-        {p.paliers.map((x, i) => (
-          <div key={i} className="tb-actions" style={{ alignItems: "flex-end" }}>
-            <label className="champ"><span>Jusqu'à (km)</span><input type="number" min="0.5" step="0.5" value={x.kmMax} onChange={(e) => majPalier(i, "kmMax", e.target.value)} /></label>
-            <label className="champ"><span>Prix partenaire (₪)</span><input type="number" min="0" value={x.prix} onChange={(e) => majPalier(i, "prix", e.target.value)} /></label>
-            <button type="button" className="bouton-secondaire" aria-label="Retirer" onClick={() => setP({ ...p, paliers: p.paliers.filter((_, n) => n !== i) })}>✕</button>
-          </div>
-        ))}
-        {p.paliers.length < 6 && <button type="button" className="bouton-secondaire" onClick={() => setP({ ...p, paliers: [...p.paliers, { kmMax: (p.paliers.length ? p.paliers[p.paliers.length - 1].kmMax : 0) + 2, prix: 40 }] })}>+ Palier</button>}
+        <p className="tb-note">Avantage partenaire (26 nov. 2026) : une réduction en % sur le tarif public de la livraison, jusqu'à une distance maximum ; au-delà : grille normale.</p>
+        <div className="tb-actions" style={{ alignItems: "flex-end" }}>
+          <label className="champ"><span>Réduction (%)</span><input type="number" min="0" max="50" value={Math.round((p.pourcentage || 0) * 100)} onChange={(e) => setP({ ...p, version: 2, pourcentage: Number(e.target.value) / 100 })} /></label>
+          <label className="champ"><span>Jusqu'à (km)</span><input type="number" min="0.5" step="0.5" value={p.kmMax || 20} onChange={(e) => setP({ ...p, version: 2, kmMax: Number(e.target.value) })} /></label>
+        </div>
         <div className="tb-actions">
           <label className="champ"><span>Tarif minimum (₪)</span><input type="number" min="0" value={p.minimum} onChange={(e) => setP({ ...p, minimum: Number(e.target.value) })} /></label>
           <label className="champ"><span>Rentabilité minimum (₪/h)</span><input type="number" min="0" value={p.seuilHeure} onChange={(e) => setP({ ...p, seuilHeure: Number(e.target.value) })} /></label>

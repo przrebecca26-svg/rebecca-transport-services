@@ -296,7 +296,7 @@ export const FORMULAIRES = {
       label: j,
       type: "case",
       si: (v) => v.frequence === "semaine",
-      ...(i === 0 ? { indice: "Cochez les jours souhaités. Forfait semaine : -10 % (1 enfant), -15 % (2 enfants ou plus)." } : {}),
+      ...(i === 0 ? { indice: "Cochez les jours souhaités. Tarif régulier : 25 ₪ le trajet ou 45 ₪ l'aller-retour par jour (2 enfants de la même famille : 30 ₪ ou 55 ₪)." } : {}),
     })),
     { name: "infos", label: "Informations utiles (code du portail, allergies à connaître…)", type: "texte-long" },
   ],

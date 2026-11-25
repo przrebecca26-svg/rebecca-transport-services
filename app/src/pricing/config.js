@@ -23,14 +23,14 @@ export const TARIFS = {
 
   // Alerte de rentabilite : en dessous de ce gain net par heure, Rebecca est prevenue
   // 25 nov. 2026 : coût réel du km (carburant ~0,70 + entretien/usure 0,50) et temps passé sur place par service
-  rentabilite: { seuilAlerteGainNetHeure: 40, coutKmReel: 1.3, // 26 nov. 2026 : 🟢 60 objectif, 🟡 55 acceptable, 🟠 40-55 petit gain, 🔴 moins de 40 a refuser ; 1,30 ₪/km
+  rentabilite: { seuilAlerteGainNetHeure: 40, coutKmReel: 1.3, // 26 nov. 2026 : objectif 55 ₪/h en moyenne ; 🟢 65+ / 55-65, 🟡 45-55, 🟠 40-45, 🔴 moins de 40 (alerte) ; 1,30 ₪/km
     surPlaceMinutes: { livraison: 10, courses: 30, demenagement: 45, transport: 5, aeroport: 10, hatan_kala: 15 } },
 
   // Tous les prix sont arrondis au multiple de 5 superieur
   arrondi: 5,
 
   // Attente pendant un trajet + mise a disposition
-  attente: { toleranceMinutes: 10, tarifHeure: 90, tarifHeureAttente: 60, pasMinutes: 15, miseADispositionMinHeures: 1 }, // 26 nov. 2026 : attente pendant un trajet 1 ₪/min apres 10 min offertes ; mise a disposition 90 ₪/h // 25 nov. 2026 : 100 -> 90 ₪/h (cahier des charges)
+  attente: { toleranceMinutes: 10, tarifHeure: 90, tarifHeureAttente: 60, pasAttenteMinutes: 1, pasMinutes: 15, miseADispositionMinHeures: 1 }, // 26 nov. 2026 : attente pendant un trajet 1 ₪/min apres 10 min offertes ; mise a disposition 90 ₪/h // 25 nov. 2026 : 100 -> 90 ₪/h (cahier des charges)
 
   // Supplements de nuit selon l'heure de prise en charge (heures locales Israel)
   nuit: [
@@ -180,8 +180,9 @@ export const TARIFS = {
   // 25 nov. 2026 (Rebecca : « je suis trop chère, on me refuse ») : grille par distance, comme les coursiers du marché.
   // Le prix suit la distance récupération -> livraison ; au-delà du dernier palier = sur devis.
   // 26 nov. 2026 : nouvelle grille (30 ₪ jusqu'a 3 km, puis paliers ; au-dela de 8 km, au moins 45 ₪/h retour a vide compris ; au-dela de 50 km = sur devis)
-  livraison: { minimum: 30, plafondAvantDevis: 250, urgence: 10, progressif: true,
-    paliers: [{ kmMax: 3, prix: 30 }, { kmMax: 5, prix: 35 }, { kmMax: 8, prix: 45 }, { kmMax: 10, prix: 55 }, { kmMax: 15, prix: 80 }, { kmMax: 20, prix: 100 }, { kmMax: 30, prix: 130 }, { kmMax: 40, prix: 165 }, { kmMax: 50, prix: 205 }] },
+  livraison: { minimum: 25, plafondAvantDevis: 250, urgence: 10, progressif: true,
+    // 26 nov. 2026, 00h52 (Rebecca : « on essaie ses paliers ») : grille de l'audit ChatGPT, progressive
+    paliers: [{ kmMax: 2, prix: 25 }, { kmMax: 3, prix: 30 }, { kmMax: 5, prix: 35 }, { kmMax: 8, prix: 45 }, { kmMax: 10, prix: 50 }, { kmMax: 15, prix: 75 }, { kmMax: 20, prix: 95 }, { kmMax: 30, prix: 125 }, { kmMax: 40, prix: 160 }, { kmMax: 50, prix: 200 }] },
 
   courses: {
     // nombre d'articles maximum -> prix de la prestation
@@ -216,7 +217,12 @@ export const TARIFS = {
   // 1 enfant : un jour = prix normal, semaine -10 %, mois -15 % ;
   // 2 enfants ou plus (de la meme famille) : semaine -15 %, mois -20 %.
   // « reductions » n'est plus utilise (garde pour les anciens reglages).
-  ramassage: { reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionSemaine: 0.1, reductionSemainePlusieurs: 0.15, reductionMois: 0.15, reductionPlusieursEnfants: 0.2,
+  ramassage: {
+    // 26 nov. 2026 (audit ChatGPT, valide par Rebecca a 00h51) : prix par JOUR et par trajet (reference 35 ₪ le trajet local).
+    // Occasionnel : 35 ₪ le trajet, 60 ₪ l'aller-retour. Regulier (semaine ou mois) : 1 enfant 25 ₪ le trajet, 45 ₪ l'aller-retour ;
+    // 2 enfants ou plus (meme famille) 30 ₪ le trajet, 55 ₪ l'aller-retour. Ex. 22 jours : 550 / 990 / 1 210 ₪.
+    grille2026: { reference: 35, occasionnelAllerRetour: 60, unEnfant: { trajet: 25, allerRetour: 45 }, plusieurs: { trajet: 30, allerRetour: 55 } },
+    reductions: [{ minJours: 5, pourcentage: 0.15 }, { minJours: 3, pourcentage: 0.1 }], reductionSemaine: 0.1, reductionSemainePlusieurs: 0.15, reductionMois: 0.15, reductionPlusieursEnfants: 0.2,
     // 15 nov. 2026 : deux enfants de la meme ecole a 10 min d'ecart au plus (meme sens) = un seul trajet
     regroupementMinutes: 10,
     // Vacances scolaires : la liste du calendrier (TARIFS.calendrier.vacancesScolaires) sert partout (12 nov. 2026)

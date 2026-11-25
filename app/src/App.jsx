@@ -33,6 +33,7 @@ import InstallerAppli from "./components/InstallerAppli.jsx";
 import { lireLienCarte } from "./pricing/cartesCadeaux.js";
 import { lireLienResto } from "./pricing/restos.js";
 const EspaceResto = lazy(() => import("./components/EspaceResto.jsx")); // 19 nov. 2026 (V2) : #/resto/CLE
+const RestosVitrine = lazy(() => import("./components/RestosVitrine.jsx")); // 25 nov. 2026 : #/restaurants
 const DevenirRestoPartenaire = lazy(() => import("./components/DevenirRestoPartenaire.jsx")); // 19 nov. 2026 : #/restaurant-partenaire
 const ContratRestoVue = lazy(() => import("./components/ContratRestoVue.jsx")); // 19 nov. 2026 : #/contrat-resto/ID
 const lireContratResto = (h) => { const m = /^#\/contrat-resto\/([A-Za-z0-9]{10,40})$/.exec(h || ""); return m ? m[1] : ""; };
@@ -468,6 +469,7 @@ export default function App() {
   const [lienResto, setLienResto] = useState(() => lireLienResto(window.location.hash));
   const [lienAssistance, setLienAssistance] = useState(() => lireLienAssistance(window.location.hash));
   const [lienInscriptionResto, setLienInscriptionResto] = useState(() => window.location.hash === "#/restaurant-partenaire");
+  const [lienVitrine, setLienVitrine] = useState(() => window.location.hash === "#/restaurants");
   const [lienContratResto, setLienContratResto] = useState(() => lireContratResto(window.location.hash));
   const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
   useEffect(() => {
@@ -484,6 +486,7 @@ export default function App() {
       setLienPositionVu(lireLienPosition(window.location.hash));
       setLienResto(lireLienResto(window.location.hash));
       setLienInscriptionResto(window.location.hash === "#/restaurant-partenaire");
+      setLienVitrine(window.location.hash === "#/restaurants");
       setLienAssistance(lireLienAssistance(window.location.hash));
       setLienContratResto(lireContratResto(window.location.hash));
     };
@@ -560,6 +563,16 @@ export default function App() {
         <main>
           <Suspense fallback={chargement}>
             <Assistance lien={lienAssistance} onAccueil={() => { window.location.hash = ""; setLienAssistance(null); aller({ nom: "accueil" }); }} />
+          </Suspense>
+        </main>
+      </div>
+    );
+  if (lienVitrine)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            <RestosVitrine onAccueil={() => { window.location.hash = ""; setLienVitrine(false); aller({ nom: "accueil" }); }} />
           </Suspense>
         </main>
       </div>

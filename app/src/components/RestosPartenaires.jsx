@@ -7,6 +7,7 @@ import { LIEN_INSCRIPTION, TARIFS_STANDARD, numeroContrat, tarifsConformes, tari
 import { contratLisible } from "./ContratRestoVue.jsx";
 import GrilleKmResto from "./GrilleKmResto.jsx";
 import { VitrineRestosAdmin } from "./RestosVitrine.jsx";
+import SimulateurVolume from "./SimulateurVolume.jsx";
 
 // RESTAURANTS PARTENAIRES (19 nov. 2026) - dans Partenaires, Rebecca seule.
 // Le lien d'inscription (le même pour tous), les contrats signés, et les prix standard des formules.
@@ -68,6 +69,7 @@ export default function RestosPartenaires({ aller }) {
       </div>
       <PrixStandard />
       <VitrineRestosAdmin />
+      <SimulateurVolume tarifsB={reglage ? tarifsStandard(reglage).B : TARIFS_STANDARD.B} />
       <p className="rp-type">Contrats ({liste ? liste.filter((x) => !retires.includes(x.id)).length : "…"})</p>
       {liste && !liste.length && <p className="tb-note">Aucun restaurant inscrit pour l'instant.</p>}
       {(liste || []).filter((x) => !retires.includes(x.id)).map((x) => {

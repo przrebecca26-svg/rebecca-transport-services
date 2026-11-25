@@ -1,13 +1,9 @@
 import { useState } from "react";
-import { arrayRemove, arrayUnion, deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "./firebase.js";
 import { useEquipeContexte } from "./equipeContexte.jsx";
 import { ADMIN_ID } from "./pricing/equipe.js";
-import { TARIFS } from "./pricing/config.js";
 import { vacancesDuJour, ajouterJours } from "./pricing/calendrier.js";
-import { lienWhatsApp } from "./pricing/navigation.js";
-import { JOURS, heureTrajet, missionDuTransfert, messageMission, nouvelId, trajetsDuJourDate, idsConfies } from "./pricing/tournee.js";
-import { enregistrerTournee } from "./tourneeBase.js";
+import { JOURS, heureTrajet, trajetsDuJourDate, idsConfies } from "./pricing/tournee.js";
+import { confierAuCoequipier, reprendreDuCoequipier } from "./confierBase.js";
 
 // CONFIER DES TRAJETS A JEREMY POUR UNE DATE (12 nov. 2026, 15h32)
 // Rebecca choisit une date et les trajets de ce jour-la. Ils deviennent une mission dans le planning de Jeremy
@@ -43,30 +39,21 @@ export default function ConfierTrajets({ donnees, tous, duree, dureesPretes, nom
 
   const confier = async () => {
     if (!coches.length || !qui) return;
-    const m = missionDuTransfert(tous, coches, date, duree, TARIFS, nomLieu);
-    if (!m) return setInfo({ texte: "Temps de route pas encore calculés : réessaie dans un instant." });
     setEnCours(true);
-    const id = nouvelId();
-    const noms = duJour.filter((r) => coches.includes(r.id)).map((r) => r.nom || "trajet");
     try {
-      await setDoc(doc(db, "missionsEquipe", id), { membre: qui.id, nomMembre: qui.nom || "", date, debut: m.debut, fin: m.fin, etapes: m.etapes, creeLe: serverTimestamp() });
-      await setDoc(doc(db, "disposEquipe", qui.id), { indispos: arrayUnion({ debut: `${date}T${m.debut}`, fin: `${date}T${m.fin}` }), majLe: serverTimestamp() }, { merge: true });
-      await enregistrerTournee({ ...donnees, transferts: [...transferts, { id, date, trajets: coches, membre: qui.id, nomMembre: qui.nom || "", debut: m.debut, fin: m.fin, noms }] });
-      setCoches([]);
-      setInfo({ texte: `C'est confié à ${qui.nom || "ton coéquipier"} : c'est dans son planning et ton Calendrier se libère ce jour-là.${m.statut === "impossible" ? ` Attention : ${m.probleme}` : ""}`, lien: qui.telephone ? lienWhatsApp(qui.telephone, messageMission(m, qui.nom)) : "" });
+      const r = await confierAuCoequipier({ donnees, tous, ids: coches, date, duree, nomLieu, membre: qui });
+      if (r.lien !== undefined) setCoches([]);
+      setInfo(r);
     } catch {
       setInfo({ texte: "Enregistrement impossible : vérifie ta connexion et que les nouvelles règles Firebase (v14) sont publiées." });
     }
     setEnCours(false);
-    return undefined;
   };
 
   const reprendre = async (x) => {
     setEnCours(true);
     try {
-      await deleteDoc(doc(db, "missionsEquipe", x.id));
-      if (x.debut && x.fin) await setDoc(doc(db, "disposEquipe", x.membre), { indispos: arrayRemove({ debut: `${x.date}T${x.debut}`, fin: `${x.date}T${x.fin}` }), majLe: serverTimestamp() }, { merge: true });
-      await enregistrerTournee({ ...donnees, transferts: transferts.filter((y) => y.id !== x.id) });
+      await reprendreDuCoequipier({ donnees, transfert: x });
       setInfo({ texte: "Tu as repris ces trajets : ils reviennent dans ton Calendrier." });
     } catch {
       setInfo({ texte: "Modification impossible pour l'instant." });

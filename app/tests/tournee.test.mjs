@@ -405,6 +405,22 @@ test("la mission du coequipier : etapes dans l'ordre, heures, debut et fin ; mes
   egal(To.missionDuTransfert(TOURNEE, [], LUNDI, duree, T), null);
 });
 
+test("25 nov. 2026 : trajet ajoute ce jour-la (Shyrel chez Deborah) confie a Jeremy depuis le Calendrier", () => {
+  const p = To.trajetPonctuel({ date: LUNDI, sens: "recuperer", heure: "14:00", de: GAN, a: AMIE, nom: "Shyrel (chez Deborah)" });
+  const jours = To.ajouterTrajetCeJour({}, LUNDI, [p]);
+  // sans les changements du jour, le trajet ajoute est introuvable ; avec, la mission le reprend
+  egal(To.missionDuTransfert(TOURNEE, [p.id], LUNDI, duree, T), null);
+  const m = To.missionDuTransfert(TOURNEE, [p.id], LUNDI, duree, T, null, jours);
+  egal(m.etapes.map((e) => e.texte), ["Prendre Shyrel (chez Deborah)", "Déposer Shyrel (chez Deborah)"]);
+  // l'heure changee ce jour est reprise dans la mission
+  const j2 = To.changerHeureCeJour(jours, LUNDI, [p.id], "14:30");
+  egal(To.missionDuTransfert(TOURNEE, [p.id], LUNDI, duree, T, null, j2).etapes[0].heure, "14h30");
+  // et il sort de ma journee
+  const avant = To.journeeDeLaDate(TOURNEE, LUNDI, [], duree, MAISON, T, jours).arrets.filter((x) => x.trajet && (x.trajet.ids || [x.trajet.id]).includes(p.id)).length;
+  const apres = To.journeeDeLaDate(TOURNEE, LUNDI, [{ id: "c", date: LUNDI, trajets: [p.id], membre: "jeremy" }], duree, MAISON, T, jours).arrets.filter((x) => x.trajet && (x.trajet.ids || [x.trajet.id]).includes(p.id)).length;
+  egal([avant, apres], [2, 0]);
+});
+
 test("un trajet hors de ses dates ne compte pas ; lecture des transferts", () => {
   const borne = To.trajetVide({ id: "b", nom: "B", de: GAN, a: AMIE, heure: "16:00", jours: tous(), du: "2026-12-01" });
   egal(To.trajetsDuJourDate([borne], LUNDI), []);

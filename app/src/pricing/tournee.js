@@ -768,8 +768,9 @@ export function creneauxParDate(trajets, transferts, duree, domicile = null, t =
 }
 
 // La mission du coequipier : les trajets confies seuls, dans le meilleur ordre, avec les heures
-export function missionDuTransfert(trajets, ids, date, duree, t = TARIFS, nomLieu = null) {
-  const choisis = trajetsDuJourDate(trajets, date).filter((r) => ids.includes(r.id));
+export function missionDuTransfert(trajets, ids, date, duree, t = TARIFS, nomLieu = null, jours = {}) {
+  // 25 nov. 2026 : avec les changements du jour (heure changee, trajet ajoute ce jour seulement)
+  const choisis = appliquerJour(trajetsDuJourDate(trajets, date), date, jours).filter((r) => ids.includes(r.id));
   const j = evaluerJour(choisis, jourDe(date), duree, t, { du: date, au: date });
   if (j.statut === "inconnu" || !choisis.length) return null;
   const arrets = j.arrets.filter((x) => x.trajet);

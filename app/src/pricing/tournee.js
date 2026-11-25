@@ -1020,15 +1020,22 @@ export const TYPES_TACHE = [
   { v: "course", l: "Course / Livraison", icone: "📦" },
   { v: "beaute", l: "Rendez-vous beauté", icone: "💅" },
   { v: "autre", l: "Autre (docteur…)", icone: "📌" },
+  // 25 nov. 2026, 21h51 (Rebecca : amener sa nièce à l'aéroport dimanche à 5h) : prendre quelqu'un et le déposer
+  { v: "transport", l: "Transport / aéroport", icone: "✈️" },
 ];
-export const iconeTache = (t) => (TYPES_TACHE.find((x) => x.v === (t && t.type)) || TYPES_TACHE[3]).icone;
+// Aéroport Ben Gourion (bouton rapide du formulaire ; trajet estimé à vol d'oiseau, comme les autres tâches)
+// approx : la position sert à estimer le trajet ; Waze cherche par le nom (il connaît le Terminal 3)
+export const AEROPORT_BEN_GOURION = { label: "Ben Gurion Airport Terminal 3", lat: 32.0055, lon: 34.8854, approx: true };
+export const iconeTache = (t) => (TYPES_TACHE.find((x) => x.v === (t && t.type)) || TYPES_TACHE.find((x) => x.v === "autre")).icone;
 function detailsTache(x) {
   const type = TYPES_TACHE.some((t) => t.v === x.type) ? x.type : "autre";
   const age = x.age === "adulte" || x.age === "enfant" ? x.age : type === "ramassage" ? "enfant" : "";
   const e = x.enfant && typeof x.enfant === "object" && x.enfant.enfant ? { famille: String(x.enfant.famille || "").slice(0, 40), enfant: String(x.enfant.enfant).slice(0, 40) } : null;
   // 13 nov. 2026 : une course pour un « compte entre nous » (gg...) : adresse de livraison en plus, prix note a la fin
   const plus = type === "course" ? { compte: String(x.compte || "").slice(0, 40), livraison: adresseLue(x.livraison) } : {};
-  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null, ...plus };
+  // 25 nov. 2026, 21h55 : l'adresse « d'abord passer prendre » (Autre) et « où je la prends » (Transport) est gardée
+  const prise = type === "autre" || type === "transport" ? { prise: adresseLue(x.prise) } : {};
+  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null, ...plus, ...prise };
 }
 export function ajouterTache(jours, date, tache) {
   const { titre, debut, fin, lieu = null } = tache || {};

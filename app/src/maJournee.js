@@ -44,9 +44,19 @@ export function useMaJournee(actif) {
       // 25 nov. 2026 : « d'abord passer prendre Maman » -> une étape avant la tâche (trajet estimé, 5 min sur place)
       if (!x.prise || !Number.isFinite(x.prise.lat) || !x.lieu || !Number.isFinite(x.lieu.lat)) return [t];
       const route = Math.max(5, Math.round(kmEntre(x.prise, x.lieu) * MIN_PAR_KM));
+      const hm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
+      const lieuPrise = nomLieu(x.prise) || String(x.prise.label || "").split(",")[0];
+      // 25 nov. 2026, 21h55 : Transport / aéroport -> l'heure de la tâche = l'heure où je prends la personne,
+      // puis l'arrivée (trajet estimé) jusqu'à l'heure de fin (retour compris)
+      if (x.type === "transport") {
+        const arrivee = t.min + route;
+        return [
+          { min: t.min, genre: "tache", heure: t.heure, jusqua: hm(arrivee), texte: `Prendre${x.pour ? " " + x.pour : ""}`, tache: x, cle: "prise@" + x.id, adresse: x.prise, lieu: lieuPrise },
+          { ...t, min: arrivee, heure: hm(arrivee), texte: `Déposer${x.pour ? " " + x.pour : ""} · ${x.titre}` },
+        ];
+      }
       const m = t.min - route - 5;
-      const hh = `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
-      return [{ min: m, genre: "tache", heure: hh, texte: `Passer prendre${x.pour ? " " + x.pour : ""}`, tache: x, cle: "prise@" + x.id, adresse: x.prise, lieu: nomLieu(x.prise) || String(x.prise.label || "").split(",")[0] }, t];
+      return [{ min: m, genre: "tache", heure: hm(m), jusqua: t.heure, texte: `Passer prendre${x.pour ? " " + x.pour : ""}`, tache: x, cle: "prise@" + x.id, adresse: x.prise, lieu: lieuPrise }, t];
     });
     if (vacancesDuJour(date) || !(tous.length || ((jours[date] || {}).ajouts || []).length)) return taches;
     const j = journeeDeLaDate(tous, date, d.transferts, durees.duree, d.domicile, TARIFS, jours);

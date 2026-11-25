@@ -78,7 +78,7 @@ export default function ProInscription({ onAccueil }) {
         <h2>{t.insTitre}</h2>
         <p>{t.insIntro}</p>
         <ul>
-          {FORMULES_PRO.map((x) => <li key={x.v}><b>{formule(x.v)[0]}</b> : {formule(x.v)[1]}{x.v === "referencement" ? "" : t.surDevisFormule}</li>)}
+          {FORMULES_PRO.map((x) => <li key={x.v}><b>{formule(x.v)[0]}</b>{langue === "he" ? ": " : " : "}{formule(x.v)[1]}{x.v === "referencement" ? "" : t.surDevisFormule}</li>)}
         </ul>
         <p className="tb-note">{t.insNote}</p>
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { categoriesVisibles, libelleFormule, lienContactPro, nomCategorie, rechercherPros, villesDesFiches } from "../pricing/pros.js";
 import { fermetureEnCours } from "../pricing/assistance.js";
 import { compterPro, demanderRdvPro, useAgendaPro, useAnnuairePros, useCategoriesPros, useCellulesPro, useImagesPro } from "../prosBase.js";
@@ -104,12 +104,12 @@ function Fiche({ f, categories, ouverte, onOuvrir, apercu, t, langue }) {
       <button type="button" onClick={onOuvrir} style={{ all: "unset", cursor: "pointer", display: "flex", gap: 12, alignItems: "center", width: "100%" }} aria-expanded={ouverte}>
         {img.logo ? <img src={img.logo} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 12 }} /> : <span style={{ fontSize: 40 }}>{(categories.find((c) => c.id === f.categorie) || {}).icone || "✨"}</span>}
         <span style={{ flex: 1 }}>
-          <strong style={{ fontSize: "1.1em" }}>{f.nomCommercial}</strong>
+          <strong style={{ fontSize: "1.1em" }}><bdi>{f.nomCommercial}</bdi></strong>
           {f.verifie && <span title={t.verifieTitre} style={{ marginInlineStart: 6 }}>{t.verifie}</span>}
           <br />
-          <small>{[nomMetier(categories.find((c) => c.id === f.categorie), langue) || nomCategorie(categories, f.categorie), f.metier].filter(Boolean).join(" · ")}</small>
+          <small>{[nomMetier(categories.find((c) => c.id === f.categorie), langue) || nomCategorie(categories, f.categorie), f.metier].filter(Boolean).map((x, i) => <Fragment key={i}>{i > 0 && " · "}<bdi>{x}</bdi></Fragment>)}</small>
           <br />
-          <small>📍 {f.villes}{f.zone ? ` · ${f.zone}` : ""}</small>
+          <small>📍 <bdi>{Array.isArray(f.villes) ? f.villes.join(", ") : f.villes}</bdi>{f.zone ? <> · <bdi>{f.zone}</bdi></> : ""}</small>
         </span>
       </button>
       {ouverte && (
@@ -119,11 +119,11 @@ function Fiche({ f, categories, ouverte, onOuvrir, apercu, t, langue }) {
               {img.photos.map((p, i) => <img key={i} src={p} alt="" style={{ height: 130, borderRadius: 10 }} />)}
             </div>
           )}
-          {f.description && <p style={{ whiteSpace: "pre-line" }}>{f.description}</p>}
-          {f.prestations && <p style={{ whiteSpace: "pre-line" }}><b>{t.prestations}</b> {f.prestations}</p>}
-          <p><b>{t.tarifs}</b> {f.tarifs === "Sur devis" ? t.surDevis : f.tarifs}</p>
-          {f.horaires && <p>🕒 {f.horaires}</p>}
-          {(f.langues || []).length > 0 && <p>🗣️ {f.langues.join(", ")}</p>}
+          {f.description && <p dir="auto" style={{ whiteSpace: "pre-line" }}>{f.description}</p>}
+          {f.prestations && <p style={{ whiteSpace: "pre-line" }}><b>{t.prestations}</b> <bdi style={{ whiteSpace: "pre-line" }}>{f.prestations}</bdi></p>}
+          <p><b>{t.tarifs}</b> {f.tarifs === "Sur devis" ? t.surDevis : <bdi>{f.tarifs}</bdi>}</p>
+          {f.horaires && <p>🕒 <bdi>{f.horaires}</bdi></p>}
+          {(f.langues || []).length > 0 && <p>🗣️ {f.langues.map((l) => (t.nomsLangues && t.nomsLangues[l]) || l).join(", ")}</p>}
           {f.siteDigital && <p><a className="lien" href={f.siteDigital} target="_blank" rel="noopener noreferrer">{t.voirPage} ({libelleFormule(f.formule)})</a></p>}
           <Contact fiche={f} t={t} onClic={() => !apercu && compterPro(f.id, "whatsapp")} />
           <ReserverPro f={f} apercu={apercu} t={t} langue={langue} />

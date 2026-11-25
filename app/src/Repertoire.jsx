@@ -61,7 +61,7 @@ function Lieu({ l, changer, supprimer, connues, ouvert, ouvrir }) {
 
 // Fiches clientes du site (comme la rubrique Clients) + categories des clientes sans famille (document prive)
 const COLLECTIONS = ["clients", "demandes", "clientsAdmin", "autorisations", "recharges", "mouvements"];
-function useFichesClientes() {
+export function useFichesClientes() {
   const [donnees, setDonnees] = useState({});
   useEffect(() => {
     const arrets = COLLECTIONS.map((nom) =>
@@ -80,15 +80,15 @@ function useFichesClientes() {
   const rep = useRepertoire();
   const categories = rep.categories || {};
   const changerCategorie = (cle, v) => enregistrerRepertoire(rep.lieux, rep.corrections, rep.familles, { ...categories, [cle]: v });
-  return { pret, fiches, categories, changerCategorie, demandes: donnees.demandes || [], mouvements: donnees.mouvements || [] };
+  return { pret, fiches, categories, familles: rep.familles || [], changerCategorie, demandes: donnees.demandes || [], mouvements: donnees.mouvements || [] };
 }
 
-export default function Repertoire({ aller = null }) {
+export default function Repertoire({ aller = null, cible = null }) {
   const rep = useRepertoire();
   const { moi } = useEquipeContexte();
   const estAdmin = moi === ADMIN_ID;
   const fc = useFichesClientes();
-  const [ficheOuverte, setFicheOuverte] = useState(null); // cle d'une entree, ou { nouvelle: famille }
+  const [ficheOuverte, setFicheOuverte] = useState(cible || null); // 25 nov. 2026 : ouverte directement (contrat à accepter) // cle d'une entree, ou { nouvelle: famille }
   const [categorie, setCategorie] = useState("tous");
   const [lieux, setLieux] = useState(null);
   const [corrections, setCorrections] = useState([]);

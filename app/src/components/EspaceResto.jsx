@@ -204,7 +204,10 @@ export default function EspaceResto({ cle, onAccueil }) {
         {erreur && <p className="erreur" role="alert">{erreur}</p>}
         <p>
           <button type="button" disabled={envoi || !possible.ok} onClick={envoyer}>{envoi ? "Envoi…" : "Envoyer la commande"}</button>{" "}
-          <a className="bouton-secondaire" href={lienWhatsApp(WHATSAPP, messageWhatsAppResto(resto.nom, f, infosWhatsApp))} target="_blank" rel="noopener noreferrer">💬 Par WhatsApp</a>
+          <a className="bouton-secondaire" href={lienWhatsApp(WHATSAPP, messageWhatsAppResto(resto.nom, f, infosWhatsApp))} target="_blank" rel="noopener noreferrer" onClick={(e) => {
+            // 25 nov. 2026 (Rebecca : message WhatsApp vide « Une livraison : ») : on n'envoie pas une commande vide
+            if (!(f.adresse && f.adresse.label) && !String(f.client || "").trim()) { e.preventDefault(); setErreur("Remplissez d'abord la commande (client, adresse, heure) : le message WhatsApp la reprend. Une commande déjà envoyée avec « Envoyer la commande » n'a pas besoin de WhatsApp."); }
+          }}>💬 Par WhatsApp</a>
         </p>
         <p className="tb-note">{programmee ? "Commande programmée : Rebecca vous répond dès qu'elle la voit (pas de refus automatique). Vous pouvez l'annuler tant qu'elle n'a pas répondu." : "Sans réponse en 5 minutes, la commande est refusée automatiquement : vous pouvez alors la confier à quelqu'un d'autre."}</p>
       </div>

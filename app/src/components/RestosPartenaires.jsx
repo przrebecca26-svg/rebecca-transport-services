@@ -75,7 +75,21 @@ export default function RestosPartenaires({ aller }) {
             <b>{c.nom}</b> <span className="tb-note">· {STATUTS[c.statut] || c.statut} · formule signée {c.formule === "AB" ? "A + B" : c.formule} (formule actuelle : fiche → « Formule et contrat »)</span>
             <p className="tdb-note">n° {numeroContrat(c.id, c.signeLe)} · {c.responsable} · {c.portable || c.telephone} · {c.email}</p>
             {reglage && !tarifsConformes(c, tarifsStandard(reglage)) && <p className="tdb-note">⚠️ Les prix signés ne sont plus les prix standard actuels (le contrat garde ceux du jour de la signature).</p>}
-            {c.statut === "signe" && <p className="tdb-note">Pour l'activer : Répertoire → Commerçants → {c.nom} → « Créer le lien du restaurant » (ça contresigne le contrat).</p>}
+            {c.statut === "signe" && (
+              // 25 nov. 2026 (Rebecca : « aucun endroit pour accepter ou refuser le contrat ») : décision en un geste
+              <div className="tb-actions">
+                {aller && <button type="button" className="tb-bouton" onClick={() => aller("repertoire", x.ficheId ? "fam:" + x.ficheId : null)}>✓ Accepter (créer son lien)</button>}
+                <button type="button" className="tb-bouton ag-danger" onClick={async () => {
+                  const motif = window.prompt(`Refuser le contrat de « ${c.nom} » ?\nMotif (facultatif, envoyé par WhatsApp) :`, "");
+                  if (motif === null) return;
+                  const tel = String(c.portable || c.telephone || "").replace(/\D/g, "").replace(/^0/, "972");
+                  const texte = `Bonjour ${c.responsable || ""}, merci pour votre inscription chez Rebecca Services. Je ne peux malheureusement pas donner suite pour le moment${motif ? ` (${motif})` : ""}. Bonne continuation, Rebecca`;
+                  if (tel) window.open(`https://wa.me/${tel}?text=${encodeURIComponent(texte)}`, "_blank");
+                  try { await deleteDoc(doc(db, "contratsRestos", c.id)); setRetires((r) => [...r, c.id]); } catch { window.alert("Suppression impossible pour l'instant."); }
+                }}>✗ Refuser</button>
+              </div>
+            )}
+            {c.statut === "signe" && <p className="tdb-note">« Accepter » ouvre sa fiche : touche « Créer le lien du restaurant » (ça contresigne le contrat et lui envoie son lien).</p>}
             <div className="tb-actions">
               <a
                 className="tb-bouton tb-clair"

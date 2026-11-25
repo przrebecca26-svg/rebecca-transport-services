@@ -1,3 +1,5 @@
+import CentreNotifs from "./components/CentreNotifs.jsx";
+import PrendreRdv from "./PrendreRdv.jsx";
 import { useEffect, useRef, useState } from "react";
 import { createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
@@ -123,6 +125,7 @@ const SECTIONS = [
 const RUBRIQUES = [
   { id: "agenda", label: "Calendrier", section: "jour" },
   { id: "tableau", label: "Tableau de bord", section: "jour" },
+  { id: "rdv", label: "Prendre un rendez-vous", adminOnly: true, section: "jour" }, // 25 nov. 2026 : RDV beauté pris par Rebecca
   { id: "demandes", label: "Demandes et missions", section: "rs" },
   { id: "transferts", label: "Courses à accepter (équipe)", section: "rs" }, // 12 nov. 2026 : courses proposees entre Rebecca et Jeremy
   { id: "devis", label: "Devis rapide", section: "rs" },
@@ -378,7 +381,8 @@ export default function Admin() {
     if (onglet === "tableau") contenu = <TableauDeBord {...props} membre={membre} />;
     else if (onglet === "devis") contenu = <SimulateurDevis {...props} />;
     else if (onglet === "ramassage" && estAdmin) contenu = <RamassageScolaire {...props} />;
-    else if (onglet === "repertoire") contenu = <Repertoire aller={aller} />;
+    else if (onglet === "rdv") contenu = <PrendreRdv />;
+    else if (onglet === "repertoire") contenu = <Repertoire key={"r" + (cibleDe("repertoire") || "")} aller={aller} cible={cibleDe("repertoire")} />;
     else if (onglet === "activites") contenu = <Activites key={"a" + (cibleDe("activites") || "")} {...props} cible={cibleDe("activites")} membre={membre} />;
     else if (onglet === "commandes-resto" && estAdmin) contenu = <CommandesResto aller={aller} />;
     else if (onglet === "assistance" && estAdmin) contenu = <AssistanceAdmin />;
@@ -409,7 +413,8 @@ export default function Admin() {
             <i /><i /><i />
             {totalATraiter > 0 && <span className="ts-pastille" aria-label={`${totalATraiter} à traiter`}>{totalATraiter > 99 ? "99+" : totalATraiter}</span>}
           </button>
-          <span className="ts-titre">{(rubriques.find((r) => r.id === onglet) || rubriques[0]).label}</span>
+          <span className="ts-titre" style={{ flex: 1 }}>{(rubriques.find((r) => r.id === onglet) || rubriques[0]).label}</span>
+          {role === "admin" && <CentreNotifs />}
         </header>
         <div className={"ts-voile" + (menu ? " ouvert" : "")} onClick={() => setMenu(false)} aria-hidden="true" />
         <nav className={"ts-menu" + (menu ? " ouvert" : "")} aria-label="Rubriques">

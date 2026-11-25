@@ -1,3 +1,4 @@
+import SimulateurWolt from "./SimulateurWolt.jsx";
 import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
@@ -135,6 +136,8 @@ export default function DevenirRestoPartenaire({ onAccueil }) {
               ))}
             </div>
           </section>
+
+          <SimulateurWolt tarifs={tarifs} />
 
           <section className="pp-bloc">
             <h3>Comment ça marche</h3>

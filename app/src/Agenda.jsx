@@ -683,7 +683,8 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
                 </div>
                 {e.sorte === "prise" && e.type !== "matin" && journee.ramenerMaison && (
                   <div className="ag-etape-actions">
-                    <p><strong>🏠 Sort à une autre heure → je {unSeul ? `ramène ${unSeul.nom || "l'enfant"}` : "le/la ramène"} à la maison</strong></p>
+                    <p><strong>🏫 Je {unSeul ? `récupère ${unSeul.nom || "l'enfant"}` : "la récupère"} À L'ÉCOLE à une autre heure et je la ramène à la maison</strong></p>
+                    <p className="tb-note">À utiliser quand elle ne t'attend pas chez quelqu'un ce jour-là (« Changer l'heure » plus haut garde le même lieu de prise en charge).</p>
                     <p className="tb-note">Un trajet école → maison est ajouté à cette heure ; {trajetsEtape.length > 1 ? "les autres enfants gardent leur trajet." : "le trajet habituel est retiré aujourd'hui."}</p>
                     {trajetsEtape.length > 1 && cibles.length !== 1 && <p className="tb-note">Coche un seul enfant au-dessus.</p>}
                     {(() => {
@@ -751,7 +752,7 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
   const choixInitial = initial && initial.enfant ? initial.enfant.famille + "|" + initial.enfant.enfant : "";
   const [f, setF] = useState(
     initial
-      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, enfant: choixInitial, compte: initial.compte || "", livraison: initial.livraison || null }
+      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, prise: initial.prise || null, enfant: choixInitial, compte: initial.compte || "", livraison: initial.livraison || null }
       : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null, heure2: "", retour: null, reste: false }
   );
   const [nouvel, setNouvel] = useState(NOUVEL_ENFANT);
@@ -837,7 +838,7 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
         tache = { type: "ramassage", titre: "Ramassage · " + prenom, pour: prenom, age: estNouvel ? nouvel.age : choisi ? choisi.age : "enfant", enfant: ref, debut: f.debut, fin: f.fin, lieu };
       } else {
         const cpt = f.type === "course" && f.compte ? (journee.comptes || []).find((c) => c.id === f.compte) : null;
-        tache = { type: f.type, titre: f.quoi, pour: cpt ? cpt.nom : f.pour, age: cpt ? "adulte" : f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu, compte: cpt ? cpt.id : "", livraison: f.type === "course" ? f.livraison || null : null };
+        tache = { type: f.type, titre: f.quoi, pour: cpt ? cpt.nom : f.pour, age: cpt ? "adulte" : f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu, compte: cpt ? cpt.id : "", livraison: f.type === "course" ? f.livraison || null : null, prise: f.type === "autre" ? f.prise || null : null };
       }
       if (initial) await journee.modifierTache(date, initial.id, tache);
       else await journee.ajouterTache(date, tache);
@@ -887,6 +888,7 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
             </button>
           ))}
         </div>
+        {f.type === "beaute" && <p className="tb-note">💡 Pour un rendez-vous de cliente avec prestation, prix et encaissement : menu ☰ → « Prendre un rendez-vous ». Ici, c'est seulement un créneau bloqué (ex. tes propres ongles).</p>}
       </fieldset>
 
       {f.type === "ramassage" && (
@@ -1029,6 +1031,13 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
               <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position onChange={(v) => set("lieu", v)} />
               {/* 19 nov. 2026, 15h05 : une tâche à la maison entre dans le trafic (rentrer, faire, repartir) */}
               {journee && journee.domicile && f.type !== "course" && <button type="button" className="ag-modifier" onClick={() => set("lieu", journee.domicile)}>🏠 À la maison</button>}
+            </div>
+          )}
+          {f.type === "autre" && !estNouvel && (
+            // 25 nov. 2026 (Rebecca : « je dois d'abord aller chercher Maman chez elle pour l'amener à la gare ») :
+            <div className="ag-champ">D'abord passer prendre quelqu'un (facultatif)
+              <AddressField id={"tache-prise-" + date + (initial ? initial.id : "")} valeur={f.prise || null} position={false} onChange={(v) => set("prise", v)} />
+              {f.prise && <button type="button" className="ag-modifier" onClick={() => set("prise", null)}>✗ Pas de passage</button>}
             </div>
           )}
           {f.type === "course" && (

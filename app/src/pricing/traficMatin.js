@@ -33,7 +33,10 @@ export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
         // 19 nov. 2026 (Rebecca : « Herzl → Maison, arrivée 13h56, quel rapport ? ») : on rentre JUSTE APRES l'etape
         // precedente (et pas a l'heure ou on repart de la maison)
         const route = Math.max(5, Math.round(kmEntre(precedent.adresse, domicile) * MIN_PAR_KM));
-        const arrivee = precedent.min != null ? Math.min(e.min, precedent.min + route) : e.min;
+        // 25 nov. 2026 (Rebecca : vétérinaire 16h-17h30, « ça me dit que je vais être en retard ») : on rentre après
+        // la FIN de la tâche (créneau réservé), pas après son début
+        const base = precedent.finMin != null ? precedent.finMin : precedent.min;
+        const arrivee = base != null ? Math.min(e.min, base + route) : e.min;
         // 19 nov. 2026, 14h33 : le retour est fait des que l'etape d'apres (ou la maison) est cochee
         sortie.push({ de: precedent.adresse, nomDe: precedent.nom, vers: domicile, nomVers: "Maison", arriveeMin: arrivee, quoi: "Retour à la maison", cle: "maison>" + (precedent.cle || ""), fait: !!e.fait, ...apres(precedent) });
       }
@@ -52,7 +55,8 @@ export function trajetsDuJour(fil = [], domicile = null, maintenantMin = 0) {
     // un retour a la maison deja passe se voit aussi a l'etape suivante cochee
     if (e.fait) for (const t of sortie) if (t.quoi === "Retour à la maison") t.fait = true;
     // 19 nov. 2026, 15h05 : une tache (« sortir le chien » a la maison) occupe le lieu jusqu'a sa fin
-    const finTache = e.genre === "tache" ? enMinutes(e.jusqua) : null;
+    // 25 nov. 2026 (Rebecca : « si je finis avant, je pars et ça doit recalculer ») : tâche cochée « Fait » = finie maintenant
+    const finTache = e.genre === "tache" ? (e.fait ? Math.max(e.min, maintenantMin) : enMinutes(e.jusqua)) : null;
     precedent = { adresse: a, nom: nomIci, min: e.min, cle: cleDe(e), ...(finTache != null && finTache > e.min ? { finMin: finTache, finQuoi: e.texte || "" } : {}) };
     // tache a la maison : la maison reste le point de depart, la tache garde sa fin
     if (e.genre === "tache" && aPosition(domicile) && memeLieu(a, domicile)) precedent.nom = "Maison";
@@ -104,7 +108,9 @@ export function departConseille(arriveeMin, secondesTrafic, marge = MARGE_MIN) {
 // On ne peut pas partir d'un endroit avant d'y être arrivée : le départ devient au plus tôt l'arrivée précédente
 // (la marge est simplement plus petite). Si même comme ça on arrive en retard, on le dit.
 export function enchainerDeparts(lignes) {
-  const l = [...(lignes || [])].sort((a, b) => a.arriveeMin - b.arriveeMin);
+  // 25 nov. 2026 : après une tâche qui a une fin (gare, vétérinaire), on part à sa fin, pas avant ; l'alerte
+  // « Tu dois partir avant la fin » ne sort que si, même en partant à la fin, on arrive en retard.
+  const l = [...(lignes || [])].map((x) => (x.apresMin != null && x.partir < x.apresMin ? { ...x, partir: x.apresMin, conflit: x.apresMin + (x.avec || 0) > x.arriveeMin } : x)).sort((a, b) => a.arriveeMin - b.arriveeMin);
   return l.map((x, i) => {
     const prec = l[i - 1];
     if (!prec || !(prec.arriveeMin > x.partir) || !(prec.arriveeMin < x.arriveeMin)) return x;

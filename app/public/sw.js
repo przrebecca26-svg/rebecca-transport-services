@@ -5,10 +5,31 @@
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
+// 25 nov. 2026 (Rebecca : « je veux retrouver l'historique des notifications, et le petit chiffre sur l'icône ») :
+// chaque notification est aussi gardée dans le téléphone (IndexedDB « rs-notifs ») et le nombre de non lues
+// s'affiche sur l'icône de l'écran d'accueil (iPhone : appli ajoutée à l'écran d'accueil, iOS 16.4 ou plus).
+function ouvrirBase() {
+  return new Promise((ok, ko) => {
+    const r = indexedDB.open("rs-notifs", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("notifs", { keyPath: "id", autoIncrement: true });
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => ko(r.error);
+  });
+}
+async function garder(n) {
+  try {
+    const db = await ouvrirBase();
+    await new Promise((ok) => { const t = db.transaction("notifs", "readwrite"); t.objectStore("notifs").add(n); t.oncomplete = ok; t.onerror = ok; });
+    const nonLues = await new Promise((ok) => { const t = db.transaction("notifs"); const q = t.objectStore("notifs").getAll(); q.onsuccess = () => ok((q.result || []).filter((x) => !x.lu).length); q.onerror = () => ok(0); });
+    if (self.navigator && self.navigator.setAppBadge) await self.navigator.setAppBadge(nonLues).catch(() => {});
+  } catch { /* pas de stockage : la notification s'affiche quand même */ }
+}
+
 self.addEventListener("push", (e) => {
   let m = {};
   try { m = e.data ? e.data.json() : {}; } catch { m = { corps: e.data ? e.data.text() : "" }; }
   const titre = m.titre || "Rebecca Services";
+  e.waitUntil(garder({ titre, corps: m.corps || "", lien: m.lien || "/admin#/admin", quand: Date.now(), lu: false }));
   e.waitUntil(self.registration.showNotification(titre, {
     body: m.corps || "Nouvelle demande sur le site",
     icon: "/apple-touch-icon.png",

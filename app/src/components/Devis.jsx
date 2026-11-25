@@ -74,7 +74,7 @@ export default function Devis({ resultat, trajet, pretPourCalcul, manque, quand 
       {notes.map((n, i) => (
         <p className="note" key={i}>• {n}</p>
       ))}
-      {trajet && trajet.statut === "ok" && trajet.km >= 1 && <p className="note">Trajet estimé : {trajet.km} km, {texteDuree(trajet.minutes, quand && quand.date, quand && quand.heure)}{quand && quand.heure ? ` en partant à ${quand.heure}` : ""}.</p>}
+      {trajet && trajet.statut === "ok" && trajet.km >= 1 && <p className="note">Trajet estimé : {String(trajet.km).replace(".", ",")} km, {texteDuree(trajet.minutes, quand && quand.date, quand && quand.heure)}{quand && quand.heure ? ` en partant à ${quand.heure}` : ""}.</p>}
       <p className="note">Prix estimatif : Rebecca confirme le prix définitif avec la réservation. Aucun supplément surprise.</p>
     </section>
   );

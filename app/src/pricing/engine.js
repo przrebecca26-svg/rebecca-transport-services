@@ -73,6 +73,19 @@ function prixAllerSimple(km, minutes, scenario, t) {
   return arrondiSup(prixFormule(km, minutes, t) * (1 + partRetourAVide(scenario, t)), t.arrondi);
 }
 
+const grilleDistance = (t) => !!(t.transport && Array.isArray(t.transport.paliers) && t.transport.paliers.length);
+
+// 26 nov. 2026 : prix d'un trajet de transport selon la distance (grille sous le taxi)
+export function prixTransportKm(km, t = TARIFS) {
+  const g = t.transport || {};
+  const paliers = Array.isArray(g.paliers) ? g.paliers : [];
+  if (!paliers.length) return 0;
+  const p = paliers.find((x) => km <= x.kmMax);
+  if (p) return p.prix;
+  const dernier = paliers[paliers.length - 1];
+  return arrondiSup(dernier.prix + (km - dernier.kmMax) * (g.auDelaParKm || 0), t.arrondi);
+}
+
 // Plancher de la grille : s'applique aux trajets depuis ou vers Netanya
 function plancherGrille(zoneDepart, zoneArrivee, t = TARIFS) {
   let zone = null;
@@ -175,7 +188,7 @@ function attenteEnLigne(lignes, minutes, t) {
   if (facturables === 0) return 0;
   const pas = t.attente.pasMinutes;
   const tranches = Math.ceil(facturables / pas);
-  const montant = (tranches * pas * t.attente.tarifHeure) / 60;
+  const montant = (tranches * pas * (t.attente.tarifHeureAttente || t.attente.tarifHeure)) / 60;
   lignes.push({
     libelle: `Attente : ${minutes} min (dont ${t.attente.toleranceMinutes} min offertes)`,
     montant,
@@ -241,22 +254,34 @@ function calculerTrajet(d, t) {
   const details = { scenario, plancher: plancher.prix, zonePlancher: plancher.zone };
 
   if (!d.allerRetour) {
-    // ALLER SIMPLE : formule + part du retour a vide (selon le scenario)
-    const A = prixFormule(d.aller.km, d.aller.minutes, t);
-    const avecRetour = prixAllerSimple(d.aller.km, d.aller.minutes, scenario, t);
-    const minSimple = minimumSimple(plancher, scenario); // grille B validée
-    const base = Math.min(Math.max(avecRetour, minSimple), plafond);
-    details.formuleSansRetour = Math.round(A * 100) / 100;
-    details.avecPartRetourAVide = avecRetour;
+    let base;
+    if (grilleDistance(t)) {
+      // ALLER SIMPLE (26 nov. 2026) : ville de la grille = prix fixe ; sinon (Netanya, hors grille) = prix selon la distance
+      const parKm = prixTransportKm(d.aller.km, t);
+      const ville = plancher.zone && plancher.zone !== "netanya" ? plancher.prixSimple : 0;
+      base = Math.min(ville || parKm || minimumSimple(plancher, scenario), plafond);
+      details.prixSelonDistance = parKm;
+    } else {
+      // Ancienne regle (grille sans paliers) : formule + part du retour a vide (selon le scenario)
+      const A = prixFormule(d.aller.km, d.aller.minutes, t);
+      const avecRetour = prixAllerSimple(d.aller.km, d.aller.minutes, scenario, t);
+      base = Math.min(Math.max(avecRetour, minimumSimple(plancher, scenario)), plafond);
+      details.formuleSansRetour = Math.round(A * 100) / 100;
+      details.avecPartRetourAVide = avecRetour;
+    }
     lignes.push({ libelle: "Trajet aller simple", montant: base, base: true });
     supplementNuit(lignes, "Aller", base, d.heure, t);
   } else {
     // ALLER-RETOUR : deux trajets reellement calcules, chacun avec son minimum
     const retour = d.retour || d.aller;
-    const A1 = prixFormule(d.aller.km, d.aller.minutes, t);
-    const A2 = prixFormule(retour.km, retour.minutes, t);
-    const base1 = Math.min(Math.max(arrondiSup(A1, t.arrondi), plancher.prixParTrajetAR), plafond);
-    const base2 = Math.min(Math.max(arrondiSup(A2, t.arrondi), plancher.prixParTrajetAR), plafond);
+    // 26 nov. 2026 : chaque trajet a -10 % (ville de la grille : son prix « par trajet en aller-retour »)
+    const remise = 1 - ((t.transport && t.transport.remiseAllerRetour) || 0);
+    const unTrajet = (x) =>
+      grilleDistance(t)
+        ? (plancher.zone && plancher.zone !== "netanya" ? plancher.prixParTrajetAR : arrondiSup(prixTransportKm(x.km, t) * remise, t.arrondi)) || plancher.prixParTrajetAR
+        : Math.max(arrondiSup(prixFormule(x.km, x.minutes, t), t.arrondi), plancher.prixParTrajetAR);
+    const base1 = Math.min(unTrajet(d.aller), plafond);
+    const base2 = Math.min(unTrajet(retour), plafond);
     lignes.push({ libelle: "Trajet aller", montant: base1, base: true });
     supplementNuit(lignes, "Aller", base1, d.heure, t);
     lignes.push({ libelle: "Trajet retour", montant: base2, base: true });
@@ -272,13 +297,13 @@ function calculerTrajet(d, t) {
 
   // Bagages du retour a part (16 nov. 2026) : sans bagage au retour, la ligne et le prix restent comme avant
   const soutesRetour = d.allerRetour && d.bagagesSouteRetour > 0 ? d.bagagesSouteRetour : 0;
-  if (d.bagagesSoute > 0) {
+  if (d.bagagesSoute > 0 && t.bagages.supplementParSoute > 0) {
     lignes.push({
       libelle: `Bagages en soute${soutesRetour ? " à l'aller" : ""} : ${d.bagagesSoute} x ${t.bagages.supplementParSoute} ₪`,
       montant: d.bagagesSoute * t.bagages.supplementParSoute,
     });
   }
-  if (soutesRetour) {
+  if (soutesRetour && t.bagages.supplementParSoute > 0) {
     lignes.push({
       libelle: `Bagages en soute au retour : ${soutesRetour} x ${t.bagages.supplementParSoute} ₪`,
       montant: soutesRetour * t.bagages.supplementParSoute,
@@ -401,7 +426,8 @@ function calculerCourses(d, t) {
   const grille = d.courseFaiteParRebecca ? t.courses.courseFaiteParRebecca : t.courses.achatsDejaPayes;
   const palier = grille.find((p) => d.articles <= p.max);
   if (!palier) {
-    return construire({ lignes: [], devis: true, aConfirmer: ["Plus de 10 articles : sur devis."] });
+    const maxi = grille.length ? grille[grille.length - 1].max : 10;
+    return construire({ lignes: [], devis: true, aConfirmer: [`Plus de ${maxi} articles : sur devis.`] });
   }
   const lignes = [
     {

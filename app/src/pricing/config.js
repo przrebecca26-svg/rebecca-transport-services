@@ -23,22 +23,24 @@ export const TARIFS = {
 
   // Alerte de rentabilite : en dessous de ce gain net par heure, Rebecca est prevenue
   // 25 nov. 2026 : coût réel du km (carburant ~0,70 + entretien/usure 0,50) et temps passé sur place par service
-  rentabilite: { seuilAlerteGainNetHeure: 60, coutKmReel: 1.2, surPlaceMinutes: { livraison: 10, courses: 30, demenagement: 45, transport: 5, aeroport: 10, hatan_kala: 15 } },
+  rentabilite: { seuilAlerteGainNetHeure: 40, coutKmReel: 1.3, // 26 nov. 2026 : 🟢 60 objectif, 🟡 55 acceptable, 🟠 40-55 petit gain, 🔴 moins de 40 a refuser ; 1,30 ₪/km
+    surPlaceMinutes: { livraison: 10, courses: 30, demenagement: 45, transport: 5, aeroport: 10, hatan_kala: 15 } },
 
   // Tous les prix sont arrondis au multiple de 5 superieur
   arrondi: 5,
 
   // Attente pendant un trajet + mise a disposition
-  attente: { toleranceMinutes: 10, tarifHeure: 90, pasMinutes: 15, miseADispositionMinHeures: 1 }, // 25 nov. 2026 : 100 -> 90 ₪/h (cahier des charges)
+  attente: { toleranceMinutes: 10, tarifHeure: 90, tarifHeureAttente: 60, pasMinutes: 15, miseADispositionMinHeures: 1 }, // 26 nov. 2026 : attente pendant un trajet 1 ₪/min apres 10 min offertes ; mise a disposition 90 ₪/h // 25 nov. 2026 : 100 -> 90 ₪/h (cahier des charges)
 
   // Supplements de nuit selon l'heure de prise en charge (heures locales Israel)
   nuit: [
-    { de: "22:00", a: "24:00", pourcentage: 0.15 },
-    { de: "00:00", a: "06:00", pourcentage: 0.2 },
+    // 26 nov. 2026 (nouvelle grille) : nuit +10 %
+    { de: "22:00", a: "24:00", pourcentage: 0.1 },
+    { de: "00:00", a: "06:00", pourcentage: 0.1 },
   ],
 
   // Urgence : +30 NIS, ou +50 NIS si la prise en charge est dans l'heure
-  urgence: { standard: 15, immediate: 20, seuilImmediatMinutes: 60 }, // 25 nov. 2026 : 30/50 -> 15/20 ₪
+  urgence: { standard: 5, immediate: 10, seuilImmediatMinutes: 60 }, // 26 nov. 2026 : +5 / +10 ₪ // 25 nov. 2026 : 30/50 -> 15/20 ₪
 
   // CALENDRIER JUIF : Chabbat et fetes (Yom Tov) bloques automatiquement.
   // Horaires calcules a partir du coucher du soleil a Netanya, fuseau Asia/Jerusalem.
@@ -123,26 +125,27 @@ export const TARIFS = {
       grilleB: { simple: 35, parTrajetAR: 35 },
       alias: ["netanya", "natanya", "netania", "nethanya", "natania", "נתניה"],
     },
-    hadera: { nom: "Hadera", minimum: 120, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 155, parTrajetAR: 120 }, alias: ["hadera", "hedera", "חדרה"] },
+    // 26 nov. 2026 (nouvelle grille, sous le taxi) : prix fixes au depart de Netanya ; aller-retour = 2 trajets a -10 %
+    hadera: { nom: "Hadera", minimum: 110, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 110, parTrajetAR: 100 }, alias: ["hadera", "hedera", "חדרה"] },
     herzliya_raanana: {
       nom: "Herzliya / Ra'anana",
-      minimum: 130,
+      minimum: 115,
       axe: { sens: "sud", rang: 1 },
-      grilleB: { simple: 150, parTrajetAR: 130 },
+      grilleB: { simple: 115, parTrajetAR: 105 },
       alias: ["herzliya", "herzlia", "hertzliya", "raanana", "ra anana", "הרצליה", "רעננה"],
     },
     tel_aviv: {
       nom: "Tel-Aviv",
-      minimum: 170,
+      minimum: 160,
       axe: { sens: "sud", rang: 2 },
-      grilleB: { simple: 235, parTrajetAR: 175 },
+      grilleB: { simple: 160, parTrajetAR: 145 },
       alias: ["tel aviv", "telaviv", "tel aviv yafo", "תל אביב"],
     },
     ben_gurion: {
       nom: "Aéroport Ben Gourion",
       minimum: 250,
       axe: { sens: "sud", rang: 3 },
-      grilleB: { simple: 290, parTrajetAR: 250 },
+      grilleB: { simple: 250, parTrajetAR: 230 },
       alias: [
         "ben gurion airport",
         "ben gourion airport",
@@ -156,39 +159,55 @@ export const TARIFS = {
         "נתב",
       ],
     },
-    haifa: { nom: "Haïfa", minimum: 280, axe: { sens: "nord", rang: 2 }, grilleB: { simple: 365, parTrajetAR: 280 }, alias: ["haifa", "חיפה"] },
-    jerusalem: { nom: "Jérusalem", minimum: 400, axe: { sens: "sud", rang: 4 }, grilleB: { simple: 540, parTrajetAR: 400 }, alias: ["jerusalem", "yerushalayim", "ירושלים"] },
+    haifa: { nom: "Haïfa", minimum: 260, axe: { sens: "nord", rang: 2 }, grilleB: { simple: 260, parTrajetAR: 235 }, alias: ["haifa", "חיפה"] },
+    jerusalem: { nom: "Jérusalem", minimum: 350, axe: { sens: "sud", rang: 4 }, grilleB: { simple: 350, parTrajetAR: 315 }, alias: ["jerusalem", "yerushalayim", "ירושלים"] },
   },
 
   // Courses a l'interieur de Netanya : plafond 100 NIS (si trajet court)
   netanyaPlafond: { prix: 100, kmMax: 15 },
 
+  // 26 nov. 2026 (Rebecca : « si un taxi est moins cher, je prends le taxi ») : TRANSPORT par distance, sous le compteur
+  // officiel. Sert dans Netanya et hors des villes de la grille ; au-dela de 50 km : 220 ₪ + auDelaParKm par km.
+  // Aller-retour : chaque trajet a -10 % (remiseAllerRetour). Les villes de la grille gardent leur prix fixe.
+  transport: {
+    // 26 nov. 2026, 00h30 (Rebecca : « une moyenne, sans être plus chère qu'un taxi ») : milieu entre la grille ChatGPT et le compteur
+    paliers: [{ kmMax: 2, prix: 35 }, { kmMax: 3, prix: 40 }, { kmMax: 5, prix: 50 }, { kmMax: 8, prix: 60 }, { kmMax: 10, prix: 70 }, { kmMax: 15, prix: 95 }, { kmMax: 20, prix: 120 }, { kmMax: 30, prix: 160 }, { kmMax: 40, prix: 205 }, { kmMax: 50, prix: 250 }],
+    auDelaParKm: 4.5,
+    remiseAllerRetour: 0.1,
+  },
+
   // 25 nov. 2026 (Rebecca : « je suis trop chère, on me refuse ») : grille par distance, comme les coursiers du marché.
   // Le prix suit la distance récupération -> livraison ; au-delà du dernier palier = sur devis.
-  livraison: { minimum: 35, plafondAvantDevis: 250, urgence: 15,
-    paliers: [{ kmMax: 3, prix: 35 }, { kmMax: 5, prix: 40 }, { kmMax: 7, prix: 50 }, { kmMax: 10, prix: 60 }, { kmMax: 15, prix: 80 }, { kmMax: 20, prix: 100 }, { kmMax: 30, prix: 140 }, { kmMax: 40, prix: 180 }, { kmMax: 50, prix: 230 }] },
+  // 26 nov. 2026 : nouvelle grille (30 ₪ jusqu'a 3 km, puis paliers ; au-dela de 8 km, au moins 45 ₪/h retour a vide compris ; au-dela de 50 km = sur devis)
+  livraison: { minimum: 30, plafondAvantDevis: 250, urgence: 10,
+    paliers: [{ kmMax: 3, prix: 30 }, { kmMax: 5, prix: 35 }, { kmMax: 8, prix: 45 }, { kmMax: 10, prix: 55 }, { kmMax: 15, prix: 80 }, { kmMax: 20, prix: 100 }, { kmMax: 30, prix: 130 }, { kmMax: 40, prix: 165 }, { kmMax: 50, prix: 205 }] },
 
   courses: {
     // nombre d'articles maximum -> prix de la prestation
     // 25 nov. 2026 (refonte) : récupérer des achats déjà payés dès 35 ₪ (avant 60/80) ; Rebecca fait les courses dès 60 ₪ (avant 100/120)
+    // 26 nov. 2026 : retrait 30 / 35 / 45 ₪ ; courses faites par Rebecca selon le temps (5 articles ~ 15 min = 40 ₪,
+    // 10 ~ 30 min = 60 ₪, 20 ~ 45 min = 75 ₪, 30 ~ 1 h = 90 ₪) ; au-dela = sur devis
     achatsDejaPayes: [
-      { max: 5, prix: 35 },
-      { max: 10, prix: 45 },
+      { max: 5, prix: 30 },
+      { max: 10, prix: 35 },
+      { max: 20, prix: 45 },
     ],
     courseFaiteParRebecca: [
-      { max: 5, prix: 60 },
-      { max: 10, prix: 75 },
+      { max: 5, prix: 40 },
+      { max: 10, prix: 60 },
+      { max: 20, prix: 75 },
+      { max: 30, prix: 90 },
     ],
     fraisAvanceAchats: 0.1, // 10 % du ticket si Rebecca avance l'argent
   },
 
   // Bagages : petit sac et valise cabine gratuits ; supplement par bagage en soute (grande valise)
-  bagages: { supplementParSoute: 10 },
+  bagages: { supplementParSoute: 0 }, // 26 nov. 2026 : bagages classiques inclus (0 = pas de ligne)
 
   // Arrets supplementaires (livraison, Hatan & Kala, mise a disposition) :
   // - dans Netanya ou SUR LA ROUTE (meme direction, pas plus loin que le point le plus eloigne deja atteint) = forfait
   // - plus loin = prix de la grille B de la ville
-  arretsSupplementaires: { netanya: 15, surLaRoute: 15 }, // 25 nov. 2026 : 20 -> 15 ₪
+  arretsSupplementaires: { netanya: 10, surLaRoute: 10 }, // 26 nov. 2026 : 10 ₪ // 25 nov. 2026 : 20 -> 15 ₪
 
   // Ramassage scolaire : prix d'un trajet = prix par trajet de la grille B ; forfait semaine = reduction selon le nombre de jours
   // (de la plus forte a la plus faible). Exemple : 3 jours = -10 %, 5 jours ou plus = -15 %.

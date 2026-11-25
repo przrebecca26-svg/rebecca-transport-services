@@ -27,6 +27,10 @@ body {
 }
 .appli { min-height: 100dvh; max-width: 640px; margin: 0 auto; padding: 0 16px calc(24px + env(safe-area-inset-bottom)); }
 main { padding-bottom: 24px; }
+/* 25 nov. 2026 : sur iPhone, le haut des pages (← Accueil) passait sous l'heure et la batterie.
+   Toutes les pages du site commencent sous la barre d'état ; l'accueil garde son bandeau noir jusqu'en haut. */
+.theme-site main { padding-top: env(safe-area-inset-top); }
+.theme-site main > .hero:first-child { margin-top: calc(-1 * env(safe-area-inset-top)); }
 h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

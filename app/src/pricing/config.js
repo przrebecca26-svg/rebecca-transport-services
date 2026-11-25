@@ -22,7 +22,8 @@ export const TARIFS = {
   scenarioActif: "B",
 
   // Alerte de rentabilite : en dessous de ce gain net par heure, Rebecca est prevenue
-  rentabilite: { seuilAlerteGainNetHeure: 60 },
+  // 25 nov. 2026 : coût réel du km (carburant ~0,70 + entretien/usure 0,50) et temps passé sur place par service
+  rentabilite: { seuilAlerteGainNetHeure: 60, coutKmReel: 1.2, surPlaceMinutes: { livraison: 10, courses: 30, demenagement: 45, transport: 5, aeroport: 10, hatan_kala: 15 } },
 
   // Tous les prix sont arrondis au multiple de 5 superieur
   arrondi: 5,

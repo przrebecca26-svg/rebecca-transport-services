@@ -21,8 +21,21 @@ export const auth = getAuth(app);
 // fermée) et envoyés au retour du réseau. Sans cela, un paiement noté sans réseau pouvait se perdre.
 // 24 nov. 2026 : si localStorage est refusé (certains navigateurs / modes privés / iframe), on tombe
 // automatiquement en mode mémoire pour éviter l'écran « Oups, un souci d'affichage ».
+// 25 nov. 2026 (écran « Oups » sur un autre téléphone : « Failed to read the 'localStorage' property ») : l'erreur
+// arrive APRES l'initialisation, le try/catch ne la voit pas. On teste donc le stockage AVANT de choisir le cache.
+function stockageOk() {
+  try {
+    const k = "__rs_test__";
+    window.localStorage.setItem(k, "1");
+    window.localStorage.removeItem(k);
+    return typeof indexedDB !== "undefined";
+  } catch {
+    return false;
+  }
+}
 let base;
-try {
+if (!stockageOk()) base = getFirestore(app);
+else try {
   // 22 nov. 2026, 12h31 (Rebecca : « ça reste bloqué sur chargement ») : avec le partage entre onglets, si l'appli est
   // aussi ouverte ailleurs (onglet Safari en veille, ancienne fenêtre), iOS endort cet onglet et TOUT reste bloqué en
   // attendant lui. Maintenant, la fenêtre ouverte en dernier prend la main ; les autres continuent sans mémoire hors ligne.

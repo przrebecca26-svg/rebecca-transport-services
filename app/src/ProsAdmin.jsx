@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FORMULES_PRO, LANGUES, LIBELLES_ETAT_JUSTIF, STATUTS_PRO, TYPES_JUSTIF, ajouterJournal, alertesJustificatifs, changerStatut, dossierVide,
   erreursDossier, etatJustif, fichePublique, importerCandidature, formuleAvecPage, justificatifsDemandes, libelleFormule, libelleStatutPro, manquePourBadge,
-  nomCategorie, normaliserDossier, nouvelIdPro, statutsPossibles,
+  nomCategorie, normaliserDossier, nouvelIdPro, statutsPossibles, annuairePublic, etatAbonnement, lireAbonnement, livraisonsDuPro, encaisseDe,
+  tableauReseau, nouveauCodeInvitation, lienEspacePro, messageInvitationPro, formuleAvecAgenda,
 } from "./pricing/pros.js";
+import { statsRdv } from "./pricing/prosAgenda.js";
+import { bilanEcheances } from "./pricing/digital.js";
 import { reduirePhoto } from "./photoReduite.js";
 import { lienWhatsApp } from "./pricing/navigation.js";
 import {
   aujourdhuiIsrael, enregistrerCategories, enregistrerDossiers, enregistrerImagesPro, enregistrerJustifPhoto, supprimerCandidature, supprimerImagesPro,
   supprimerJustifPhoto, useCandidaturesPros, useCategoriesPros, useDossiersPros, useImagesPro, useJustifPhoto, useStatsPros,
+  publierAnnuaire, enregistrerInvitation, supprimerInvitation, useComptesPros, changerStatutCompte, useTousRdvPros, useCollectionAdmin, rattacherLivraison,
 } from "./prosBase.js";
 import ProsAnnuaire from "./components/ProsAnnuaire.jsx";
 import ProInscription from "./components/ProInscription.jsx";
@@ -117,7 +121,115 @@ function PhotosPubliques({ id }) {
   );
 }
 
-function FicheDossier({ initial, categories, dossiers, stats, onFermer }) {
+const shek = (n) => `${(Math.round((Number(n) || 0) * 100) / 100).toLocaleString("fr-FR")} ₪`;
+const MOYENS = ["Espèces", "Bit", "Revolut", "PayPal", "Virement", "Carte bancaire"];
+
+// Espace pro (agenda) : invitation liée à l'e-mail du pro, comptes liés, suspension
+function EspaceProAdmin({ d, set, sauver, comptes, rdvs }) {
+  const [info, setInfo] = useState("");
+  const lies = comptes.filter((c) => c.proId === d.id);
+  const lien = d.codeInvitation ? lienEspacePro(d.codeInvitation) : "";
+  const tel = d.whatsapp || d.telephone;
+  const mois = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }).slice(0, 7);
+  const st = statsRdv(rdvs.filter((r) => r.proId === d.id), `${mois}-01`, `${mois}-31`);
+  const creer = async () => {
+    if (!d.compteEmail) return setInfo("Écris d'abord l'adresse e-mail avec laquelle il se connectera.");
+    const code = d.codeInvitation || nouveauCodeInvitation();
+    try {
+      await enregistrerInvitation(code, { proId: d.id, email: d.compteEmail, nom: d.nomCommercial });
+      await sauver(ajouterJournal({ ...d, codeInvitation: code }, "Lien de l'espace pro créé"), "✓ Lien créé");
+    } catch {
+      setInfo("Création impossible : les règles Firebase v37 doivent être publiées.");
+    }
+    return undefined;
+  };
+  const retirer = async () => {
+    try {
+      await supprimerInvitation(d.codeInvitation);
+      await sauver(ajouterJournal({ ...d, codeInvitation: "" }, "Lien de l'espace pro retiré"), "✓ Lien retiré");
+    } catch {
+      setInfo("Impossible pour l'instant.");
+    }
+  };
+  return (
+    <>
+      <h4>Espace pro et agenda</h4>
+      {!formuleAvecAgenda(d.formule, d.formule === "business" ? ["agenda"] : []) && <p className="tb-note">L'agenda en ligne est prévu pour Business (module agenda) et Pack Pro.</p>}
+      <label className="champ"><span>E-mail de connexion du pro</span><input type="email" value={d.compteEmail} onChange={(e) => set("compteEmail", e.target.value)} /></label>
+      <div className="tb-actions">
+        {!d.codeInvitation && <button type="button" className="bouton-secondaire" onClick={creer}>Créer son lien d'espace pro</button>}
+        {d.codeInvitation && tel && <a className="pp-bouton" href={lienWhatsApp(tel, messageInvitationPro(d, lien))} target="_blank" rel="noopener noreferrer">💬 Lui envoyer son lien</a>}
+        {d.codeInvitation && <button type="button" className="bouton-secondaire" onClick={retirer}>Retirer le lien</button>}
+      </div>
+      {lien && <p className="tb-note" style={{ wordBreak: "break-all" }}>{lien}</p>}
+      {lies.map((c) => (
+        <div key={c.uid} className="tb-actions" style={{ alignItems: "center" }}>
+          <span style={{ flex: 1 }}>👤 {c.email} · {c.statut === "actif" ? "actif" : "suspendu"}</span>
+          <button type="button" className="bouton-secondaire" onClick={() => changerStatutCompte(c.uid, c.statut === "actif" ? "suspendu" : "actif").catch(() => setInfo("Impossible pour l'instant."))}>{c.statut === "actif" ? "Suspendre l'accès" : "Réactiver"}</button>
+        </div>
+      ))}
+      {(st.total > 0 || lies.length > 0) && <p className="tb-note">Ce mois-ci : {st.total} rendez-vous · {st.enLigne} demandés en ligne · {st.termines} terminés · {st.annules} annulés ou refusés</p>}
+      {info && <p className="erreur">{info}</p>}
+    </>
+  );
+}
+
+// Abonnement mensuel : montant du devis accepté (recopié par Rebecca), paiements à part des livraisons
+function Abonnement({ d, setD }) {
+  const ab = lireAbonnement(d.abonnement);
+  const [p, setP] = useState({ date: new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }), montant: "", moyen: "Bit" });
+  const etat = etatAbonnement(ab, new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" }));
+  const maj = (x) => setD({ ...d, abonnement: { ...ab, ...x } });
+  return (
+    <>
+      <h4>Abonnement mensuel</h4>
+      <label className="case"><input type="checkbox" checked={ab.actif} onChange={() => maj({ actif: !ab.actif })} /><span>Abonnement en cours</span></label>
+      <div className="tb-actions">
+        <label className="champ"><span>Montant par mois (celui du devis)</span><input type="number" min="0" value={ab.mensuel || ""} onChange={(e) => maj({ mensuel: Number(e.target.value) })} /></label>
+        <label className="champ"><span>Depuis le</span><input type="date" value={ab.debut} onChange={(e) => maj({ debut: e.target.value })} /></label>
+      </div>
+      {etat.actif && <p className="tb-note">{etat.payes} mois payés sur {etat.dus} · encaissé {shek(etat.encaisse)}{etat.retard ? ` · ⚠️ ${etat.retard} mois en retard` : " · à jour"} · prochaine échéance {etat.prochaine.split("-").reverse().join("/")}</p>}
+      <div className="tb-actions" style={{ alignItems: "flex-end" }}>
+        <label className="champ"><span>Paiement reçu le</span><input type="date" value={p.date} onChange={(e) => setP({ ...p, date: e.target.value })} /></label>
+        <label className="champ"><span>Montant</span><input type="number" min="0" value={p.montant} onChange={(e) => setP({ ...p, montant: e.target.value })} /></label>
+        <label className="champ"><span>Moyen</span><select value={p.moyen} onChange={(e) => setP({ ...p, moyen: e.target.value })}>{MOYENS.map((m) => <option key={m}>{m}</option>)}</select></label>
+        <button type="button" className="bouton-secondaire" onClick={() => Number(p.montant) > 0 && (maj({ paiements: [{ ...p, montant: Number(p.montant) }, ...ab.paiements] }), setP({ ...p, montant: "" }))}>+ Noter</button>
+      </div>
+      {ab.paiements.map((x, i) => (
+        <p key={i} className="tb-note">{x.date.split("-").reverse().join("/")} · {shek(x.montant)} · {x.moyen} <button type="button" className="bouton-secondaire" onClick={() => maj({ paiements: ab.paiements.filter((_, n) => n !== i) })}>✕</button></p>
+      ))}
+      <p className="tb-note">Pense à « Enregistrer » en bas. Ces paiements restent séparés des livraisons et de la création du site.</p>
+    </>
+  );
+}
+
+// « Deux en un » : courses de Rebecca Services faites pour ce pro (grille du site), comptées à part
+function Livraisons({ d, demandes, mouvements }) {
+  const [choix, setChoix] = useState("");
+  const [info, setInfo] = useState("");
+  const miennes = livraisonsDuPro(demandes, d.id);
+  const total = miennes.reduce((s, x) => s + encaisseDe(x.id, mouvements), 0);
+  const candidates = demandes.filter((x) => !x.proPartenaire && ["livraison", "courses", "demenagement", "transport"].includes(x.service)).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 40);
+  return (
+    <>
+      <h4>📦 Livraisons Rebecca Services (deux en un)</h4>
+      <p className="tb-note">{miennes.length} course(s) · encaissé {shek(total)} · compté à part de son abonnement Digital. Prix : grille du site (aucun tarif spécial tant que tu n'as pas validé la formule « Livraison partenaire »).</p>
+      {miennes.slice(0, 10).map((x) => (
+        <p key={x.id} className="tb-note">{String(x.date || "").split("-").reverse().join("/")} · {x.serviceTitre || x.service} · {shek(encaisseDe(x.id, mouvements))} <button type="button" className="bouton-secondaire" onClick={() => rattacherLivraison(x.id, null).catch(() => setInfo("Impossible."))}>Détacher</button></p>
+      ))}
+      <div className="tb-actions">
+        <select value={choix} onChange={(e) => setChoix(e.target.value)} style={{ flex: 1 }}>
+          <option value="">Rattacher une course…</option>
+          {candidates.map((x) => <option key={x.id} value={x.id}>{String(x.date || "").split("-").reverse().join("/")} · {x.serviceTitre || x.service} · {x.nom}</option>)}
+        </select>
+        <button type="button" className="bouton-secondaire" disabled={!choix} onClick={() => rattacherLivraison(choix, d.id).then(() => setChoix("")).catch(() => setInfo("Impossible."))}>Rattacher</button>
+      </div>
+      {info && <p className="erreur">{info}</p>}
+    </>
+  );
+}
+
+function FicheDossier({ initial, categories, dossiers, stats, onFermer, donnees }) {
   const [d, setD] = useState(() => normaliserDossier(initial));
   const [motif, setMotif] = useState("");
   const [info, setInfo] = useState("");
@@ -237,6 +349,16 @@ function FicheDossier({ initial, categories, dossiers, stats, onFermer }) {
         <span className="aide">{FORMULES_PRO.find((f) => f.v === d.formule).detail}. Le devis et les paiements se font dans Projets Digital.</span>
       </label>
       {formuleAvecPage(d.formule) && champ("Lien de sa page (https://…)", "siteDigital", { aide: "affiché sur sa fiche" })}
+      <label className="champ">
+        <span>Son projet Digital (devis, création, échéances)</span>
+        <select value={d.projetDigital} onChange={(e) => set("projetDigital", e.target.value)}>
+          <option value="">Aucun</option>
+          {(donnees.projets || []).map((p) => <option key={p.id} value={p.id}>{p.nom || p.entreprise || p.id} {p.formule ? `· ${p.formule}` : ""}</option>)}
+        </select>
+      </label>
+      <Abonnement d={d} setD={setD} />
+      <EspaceProAdmin d={d} set={set} sauver={sauver} comptes={donnees.comptes} rdvs={donnees.rdvs} />
+      <Livraisons d={d} demandes={donnees.demandes || []} mouvements={donnees.mouvements || []} />
 
       <h4>Justificatifs (privés)</h4>
       <label className="case"><input type="checkbox" checked={d.qualificationNecessaire} onChange={() => set("qualificationNecessaire", !d.qualificationNecessaire)} /><span>Ce métier demande un diplôme ou une qualification</span></label>
@@ -325,15 +447,57 @@ function CandidaturesEnLigne({ dossiers, categories, onOuvrir }) {
   );
 }
 
+function TableauReseau({ dossiers, categories, stats, donnees }) {
+  const [periode, setPeriode] = useState("mois");
+  const auj = aujourdhuiIsrael();
+  const bornes = periode === "mois" ? [`${auj.slice(0, 7)}-01`, `${auj.slice(0, 7)}-31`] : periode === "annee" ? [`${auj.slice(0, 4)}-01-01`, `${auj.slice(0, 4)}-12-31`] : ["", "9999-12-31"];
+  const recuProjet = (id) => {
+    const p = (donnees.projets || []).find((x) => x.id === id);
+    return p ? bilanEcheances(p.echeances || [], donnees.mouvements || []).recu : 0;
+  };
+  const t = tableauReseau({ dossiers, categories, demandes: donnees.demandes || [], mouvements: donnees.mouvements || [], recuProjet, stats, aujourdhui: auj, du: bornes[0], au: bornes[1] });
+  return (
+    <div className="pp-bloc">
+      <div className="tb-actions">
+        {[["mois", "Ce mois"], ["annee", "Cette année"], ["tout", "Depuis le début"]].map(([v, l]) => <button key={v} type="button" className={periode === v ? "pp-bouton" : "bouton-secondaire"} onClick={() => setPeriode(v)}>{l}</button>)}
+      </div>
+      <p><b>Professionnels :</b> {t.actifs} actifs · {t.enAttente} en attente · {t.suspendus} suspendus · {t.refuses} refusés</p>
+      <p><b>Formules :</b> {FORMULES_PRO.map((f) => `${f.l} ${t.formules[f.v]}`).join(" · ")}</p>
+      <p><b>Abonnements :</b> {t.abonnementsActifs} en cours{t.abonnementsEnRetard.length ? ` · ⚠️ en retard : ${t.abonnementsEnRetard.map((x) => `${x.nom} (${x.retard} mois)`).join(", ")}` : " · tous à jour"}</p>
+      <p><b>Justificatifs à renouveler :</b> {t.aRenouveler.length ? t.aRenouveler.map((a) => `${a.nom} (${a.piece})`).join(", ") : "aucun"}</p>
+      <h4>Revenus du réseau ({periode === "mois" ? "ce mois" : periode === "annee" ? "cette année" : "depuis le début"})</h4>
+      <p>Création Digital : <b>{shek(t.revenusDigital)}</b> <small>(total encaissé sur les projets reliés)</small></p>
+      <p>Abonnements : <b>{shek(t.revenusAbonnements)}</b></p>
+      <p>Livraisons partenaires : <b>{shek(t.revenusLivraisons)}</b></p>
+      <p>Total : <b>{shek(t.total)}</b></p>
+      <p className="tb-note">Trois comptes séparés : la création Digital et les abonnements ne se mélangent jamais avec les livraisons. Les dépenses (essence…) des livraisons restent dans Finances et Statistiques.</p>
+      <h4>Par professionnel</h4>
+      {t.lignes.map((l) => <p key={l.id} className="tb-note"><b>{l.nom}</b> · {l.formule} · Digital {shek(l.digital)} · abonnement {shek(l.abonnementPeriode)} · livraisons {l.livraisons} ({shek(l.livraisonsEncaisse)}) · 👁 {l.visites} · 💬 {l.clics}</p>)}
+    </div>
+  );
+}
+
 export default function ProsAdmin() {
   const dossiers = useDossiersPros();
   const categories = useCategoriesPros();
   const stats = useStatsPros(true);
+  const comptes = useComptesPros(true);
+  const rdvs = useTousRdvPros(true);
+  const demandes = useCollectionAdmin("demandes", true);
+  const mouvements = useCollectionAdmin("mouvements", true);
+  const projets = useCollectionAdmin("projetsDigital", true);
+  const donnees = useMemo(() => ({ comptes, rdvs, demandes, mouvements, projets }), [comptes, rdvs, demandes, mouvements, projets]);
+  const [publie, setPublie] = useState(null);
+  // À chaque ouverture : l'annuaire public est remis à jour (badges expirés, métiers cachés) ou vidé si la page est cachée
+  const pret = !!(dossiers && categories);
+  useEffect(() => {
+    if (pret) publierAnnuaire(dossiers, categories).then(setPublie).catch(() => {});
+  }, [pret]); // eslint-disable-line react-hooks/exhaustive-deps
   const [vue, setVue] = useState("liste");
   const [ouvert, setOuvert] = useState(null);
   const [filtre, setFiltre] = useState("tous");
   if (!dossiers || !categories) return <p className="tb-note">Chargement…</p>;
-  if (ouvert) return <FicheDossier key={ouvert.id} initial={ouvert} categories={categories} dossiers={dossiers} stats={stats} onFermer={() => setOuvert(null)} />;
+  if (ouvert) return <FicheDossier key={ouvert.id} initial={ouvert} categories={categories} dossiers={dossiers} stats={stats} donnees={donnees} onFermer={() => setOuvert(null)} />;
   const auj = aujourdhuiIsrael();
   const alertes = alertesJustificatifs(dossiers, auj);
   const compte = (s) => dossiers.filter((d) => d.statut === s).length;
@@ -343,15 +507,16 @@ export default function ProsAdmin() {
     <section>
       <div className="pp-bloc">
         <h2>✨ Professionnels partenaires</h2>
-        <p className="tb-note">Annuaire <b>caché du public</b> tant que tu ne l'ouvres pas (Réglages → Pages du site → « Annuaire des professionnels partenaires »). Seules les fiches acceptées et actives y apparaissent.</p>
+        <p className="tb-note">{publie && publie.visible ? `Annuaire ouvert au public : ${publie.nombre} fiche(s) publiée(s).` : "Annuaire caché du public : aucune fiche n'est publiée (même dans les données). Tu le vois en aperçu ici. Pour l'ouvrir : Réglages → Pages du site → « Annuaire des professionnels partenaires », puis reviens ici."}</p>
         <div className="tb-actions">
-          {[["liste", "Dossiers"], ["metiers", "Métiers"], ["apercu", "👁 Aperçu annuaire"], ["inscription", "👁 Aperçu inscription"]].map(([v, l]) => (
+          {[["liste", "Dossiers"], ["reseau", "📊 Réseau"], ["metiers", "Métiers"], ["apercu", "👁 Aperçu annuaire"], ["inscription", "👁 Aperçu inscription"]].map(([v, l]) => (
             <button key={v} type="button" className={vue === v ? "pp-bouton" : "bouton-secondaire"} onClick={() => setVue(v)}>{l}</button>
           ))}
         </div>
       </div>
       {vue === "metiers" && <Metiers categories={categories} dossiers={dossiers} />}
-      {vue === "apercu" && <ProsAnnuaire apercu />}
+      {vue === "apercu" && <ProsAnnuaire apercu fichesApercu={annuairePublic(dossiers, categories, aujourdhuiIsrael())} />}
+      {vue === "reseau" && <TableauReseau dossiers={dossiers} categories={categories} stats={stats} donnees={donnees} />}
       {vue === "inscription" && <div className="pp-bloc"><p className="tb-note">Aperçu : ce que voit un professionnel sur rebeccaservices.com/#/pro (n'envoie rien d'ici).</p><ProInscription /></div>}
       {vue === "liste" && (
         <>

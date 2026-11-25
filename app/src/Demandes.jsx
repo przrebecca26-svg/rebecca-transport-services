@@ -1,4 +1,4 @@
-import RentabiliteDetail, { rentaDeLaDemande } from "./components/RentabiliteDetail.jsx";
+import RentabiliteDetail from "./components/RentabiliteDetail.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { texteDuree } from "./pricing/circulation.js";
 import InfoVol from "./components/InfoVol.jsx";
@@ -545,7 +545,7 @@ function Detail({ d, toutes, marge, aller, onFermer }) {
 
       <InfoVol d={d} />
       {d.details && d.details.typeTrajet === "ar" && d.details.numeroVolRetour && <InfoVol d={{ ...d, date: d.details.dateRetour, heure: d.details.heureRetour, estRetour: true }} />}
-      {moi === "rebecca" && !["nails", "hair", "slim", "regenx", "epoxy", "digital"].includes(d.service) && rentaDeLaDemande(d) && <RentabiliteDetail r={rentaDeLaDemande(d)} />}
+      {moi === "rebecca" && !["nails", "hair", "slim", "regenx", "epoxy", "digital"].includes(d.service) && d.kmEstime != null && <RentabiliteDetail d={d} />}
 
       {resto ? (
         <div className="tb-bloc">

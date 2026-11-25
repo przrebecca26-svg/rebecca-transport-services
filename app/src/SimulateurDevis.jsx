@@ -140,7 +140,7 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
         const a = alerteMinimum(renta, minParHeure, resultat.total);
         return a ? <p className="tdb-note dr-alerte-min" role="alert">⚠️ Sous ton minimum de {a.min} ₪/h.{a.conseille ? ` Prix conseillé : ${a.conseille} ₪.` : ""} (Réglages → Mon minimum)</p> : null;
       })()}
-      {calcule && renta && <RentabiliteDetail r={renta} />}
+      {calcule && renta && <RentabiliteDetail d={{ ...versDemande(service, v, null), details: v }} aller={distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null} prix={resultat.total} r={renta} />}
 
       {course && (
         <section className="tdb-bloc">

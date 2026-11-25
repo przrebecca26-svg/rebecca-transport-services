@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DigitalPro from "./DigitalPro.jsx";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 import { ecouterCatalogue, ecouterPhotos } from "../catalogueClient.js";
@@ -60,6 +61,8 @@ export default function CatalogueDigital({ onRetour, onDevis }) {
           Réserver ma consultation gratuite (30 min)
         </a>
       </div>
+
+      <DigitalPro />
 
       <h3>Formules</h3>
       {de("Formules").map((p) => {

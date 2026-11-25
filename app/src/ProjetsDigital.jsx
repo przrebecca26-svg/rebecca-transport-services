@@ -1,3 +1,4 @@
+import { DigitalProAdmin } from "./components/DigitalPro.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -50,6 +51,7 @@ export default function ProjetsDigital() {
   const gros = projets.filter((p) => ["devis_accepte", "en_cours", "a_valider"].includes(p.statut) && p.formule !== "Essentielle").length;
   return (
     <section className="tb-pad">
+      <DigitalProAdmin />
       <div className="tb-bloc">
         <h3>Projets Digital</h3>
         <p className="tb-note">Les demandes de devis du site arrivent ici. Chaque client a un lien de suivi personnel (statut, devis, paiements, cahier des charges).</p>

@@ -33,6 +33,7 @@ import InstallerAppli from "./components/InstallerAppli.jsx";
 import { lireLienCarte } from "./pricing/cartesCadeaux.js";
 import { lireLienResto } from "./pricing/restos.js";
 const EspaceResto = lazy(() => import("./components/EspaceResto.jsx")); // 19 nov. 2026 (V2) : #/resto/CLE
+import { useVitrineRestos } from "./vitrineRestosBase.js";
 const RestosVitrine = lazy(() => import("./components/RestosVitrine.jsx")); // 25 nov. 2026 : #/restaurants
 const DevenirRestoPartenaire = lazy(() => import("./components/DevenirRestoPartenaire.jsx")); // 19 nov. 2026 : #/restaurant-partenaire
 const ContratRestoVue = lazy(() => import("./components/ContratRestoVue.jsx")); // 19 nov. 2026 : #/contrat-resto/ID
@@ -199,6 +200,7 @@ function PageIndisponible({ onAccueil }) {
 }
 
 function Accueil({ client, acces, pages, onChoix, onCompte, onFavori, onNails, onRegenX, onEpoxy, onSlim, onHair, onDigital }) {
+  const restosVitrine = useVitrineRestos();
   const aujourdhui = utcVersLocal(Date.now()).date;
   const fermetures = prochainesFermetures(aujourdhui, 3);
   const dispo = etatDisponibilite();
@@ -373,6 +375,15 @@ function Accueil({ client, acces, pages, onChoix, onCompte, onFavori, onNails, o
       )}
 
 
+
+      {/* 25 nov. 2026 : nos restaurants partenaires (visible dès qu'un restaurant est ajouté dans l'admin) */}
+      {restosVitrine && restosVitrine.length > 0 && (
+        <section className="espace" style={ESPACE}>
+          <div style={ENTETE}><span className="espace-icone" aria-hidden="true" style={{ fontSize: 30 }}>🍽️</span><h2 style={TITRE}>Nos restaurants partenaires</h2></div>
+          <p className="consigne">Menus, horaires et contacts. Vous commandez au restaurant, je vous livre.</p>
+          <a className="bouton" href="#/restaurants">Voir les restaurants</a>
+        </section>
+      )}
 
       {/* 20 nov. 2026 : pages partenaires affichées en carte sur l'accueil (Réglages -> Pages du site) */}
       {[["restoPartenaire", "🍕", "Restaurants : devenez partenaire", "Je livre vos commandes à vos clients, à prix fixe, sans commission sur vos ventes.", "#/restaurant-partenaire"], ["coursierPartenaire", "🛵", "Devenez coursier partenaire", "Livraisons et courses à Netanya, avec votre véhicule.", "#/partenaire"]]

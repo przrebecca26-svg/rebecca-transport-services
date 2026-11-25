@@ -169,13 +169,14 @@ export const TARIFS = {
 
   courses: {
     // nombre d'articles maximum -> prix de la prestation
+    // 25 nov. 2026 (refonte) : récupérer des achats déjà payés dès 35 ₪ (avant 60/80) ; Rebecca fait les courses dès 60 ₪ (avant 100/120)
     achatsDejaPayes: [
-      { max: 5, prix: 60 },
-      { max: 10, prix: 80 },
+      { max: 5, prix: 35 },
+      { max: 10, prix: 45 },
     ],
     courseFaiteParRebecca: [
-      { max: 5, prix: 100 },
-      { max: 10, prix: 120 },
+      { max: 5, prix: 60 },
+      { max: 10, prix: 75 },
     ],
     fraisAvanceAchats: 0.1, // 10 % du ticket si Rebecca avance l'argent
   },

@@ -36,7 +36,7 @@ import { cleLieu } from "./pricing/tournee.js";
 import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
-import { TYPES_TACHE, cleEtape, etapeValidable, iconeTache, texteAvecMoi, messageMission } from "./pricing/tournee.js";
+import { AEROPORT_BEN_GOURION, TYPES_TACHE, cleEtape, etapeValidable, iconeTache, texteAvecMoi, messageMission } from "./pricing/tournee.js";
 import { supprimerCourseComplete } from "./suppression.js";
 import { aLaMaison, comprendreDateHeure, demandeCreneau, dureeDite, quoiDeTache, trouverCreneau } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
@@ -924,8 +924,8 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
 // - Ramassage scolaire : choisir l'enfant dans le Repertoire, ou « Nouvel enfant » (sa fiche se cree : parents,
 //   telephones, ecole, horaires) ;
 // - Course / Livraison, Rendez-vous beaute, Autre (docteur...) : quoi, pour qui, adulte ou enfant.
-const PLACEHOLDER_QUOI = { course: "Livraison Herzliya, courses Carrefour…", beaute: "Nails, coiffure, Slim & Lift…", autre: "Docteur, banque, réunion…" };
-const LIBELLE_QUOI = { course: "Quelle course ou livraison ?", beaute: "Quelle prestation ?", autre: "Quoi ?" };
+const PLACEHOLDER_QUOI = { course: "Livraison Herzliya, courses Carrefour…", beaute: "Nails, coiffure, Slim & Lift…", autre: "Docteur, banque, réunion…", transport: "Aéroport Ben Gourion, gare…" };
+const LIBELLE_QUOI = { course: "Quelle course ou livraison ?", beaute: "Quelle prestation ?", autre: "Quoi ?", transport: "Quel trajet ?" };
 const NOUVEL_ENFANT = { famille: "", parent: "", telephone: "", parent2: "", telephone2: "", prenom: "", age: "enfant", ecole: null, entree: "", sortie: "" };
 const decaler = (h, minutes) => {
   const m = /^(\d{2}):(\d{2})$/.exec(h || "");
@@ -1037,7 +1037,7 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
         tache = { type: "ramassage", titre: "Ramassage · " + prenom, pour: prenom, age: estNouvel ? nouvel.age : choisi ? choisi.age : "enfant", enfant: ref, debut: f.debut, fin: f.fin, lieu };
       } else {
         const cpt = f.type === "course" && f.compte ? (journee.comptes || []).find((c) => c.id === f.compte) : null;
-        tache = { type: f.type, titre: f.quoi, pour: cpt ? cpt.nom : f.pour, age: cpt ? "adulte" : f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu, compte: cpt ? cpt.id : "", livraison: f.type === "course" ? f.livraison || null : null, prise: f.type === "autre" ? f.prise || null : null };
+        tache = { type: f.type, titre: f.quoi, pour: cpt ? cpt.nom : f.pour, age: cpt ? "adulte" : f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu, compte: cpt ? cpt.id : "", livraison: f.type === "course" ? f.livraison || null : null, prise: f.type === "autre" || f.type === "transport" ? f.prise || null : null };
       }
       if (initial) await journee.modifierTache(date, initial.id, tache);
       else await journee.ajouterTache(date, tache);
@@ -1150,7 +1150,7 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
             <input type="text" maxLength={80} placeholder={PLACEHOLDER_QUOI[f.type]} value={f.quoi} onChange={(x) => set("quoi", x.target.value)} />
           </label>
           <label className="ag-champ">Pour qui ? (facultatif)
-            <input type="text" maxLength={60} placeholder={f.type === "autre" ? "Moi, Shyrel…" : "Prénom de la cliente ou du client"} value={f.pour} onChange={(x) => set("pour", x.target.value)} />
+            <input type="text" maxLength={60} placeholder={f.type === "autre" ? "Moi, Shyrel…" : f.type === "transport" ? "Ma nièce, Maman…" : "Prénom de la cliente ou du client"} value={f.pour} onChange={(x) => set("pour", x.target.value)} />
           </label>
           <ChoixAge valeur={f.age} changer={(v) => set("age", v)} />
           {f.type === "course" && (journee.comptes || []).length > 0 && (
@@ -1222,10 +1222,25 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
       {f.type && !ponctuel && (
         <>
           <div className="ag-heures">
-            <label className="ag-champ">De <input type="time" value={f.debut} onChange={(x) => set("debut", x.target.value)} /></label>
-            <label className="ag-champ">À <input type="time" value={f.fin} onChange={(x) => set("fin", x.target.value)} /></label>
+            <label className="ag-champ">{f.type === "transport" ? "Je la prends à" : "De"} <input type="time" value={f.debut} onChange={(x) => set("debut", x.target.value)} /></label>
+            <label className="ag-champ">{f.type === "transport" ? "De retour vers" : "À"} <input type="time" value={f.fin} onChange={(x) => set("fin", x.target.value)} /></label>
           </div>
-          {!estNouvel && (
+          {f.type === "transport" && !estNouvel && (
+            // 25 nov. 2026, 21h55 : prendre quelqu'un (chez elle) et le déposer (aéroport, gare…)
+            <>
+              <div className="ag-champ">Où je la prends
+                <ChoixLieu id={"cl-tr-de-" + date} connues={connues} valeur={f.prise || null} choisir={(v) => set("prise", v)} />
+                <AddressField id={"tache-tr-de-" + date + (initial ? initial.id : "")} valeur={f.prise || null} position={false} onChange={(v) => set("prise", v)} />
+              </div>
+              <div className="ag-champ">Où je la dépose
+                <ChoixLieu id={"cl-tr-a-" + date} connues={connues} valeur={f.lieu} choisir={(v) => set("lieu", v)} />
+                <AddressField id={"tache-tr-a-" + date + (initial ? initial.id : "")} valeur={f.lieu} position={false} onChange={(v) => set("lieu", v)} />
+                <button type="button" className="ag-modifier" onClick={() => setF((x) => ({ ...x, lieu: AEROPORT_BEN_GOURION, quoi: x.quoi || "Aéroport Ben Gourion" }))}>✈️ Aéroport Ben Gourion</button>
+              </div>
+              <p className="tb-note">Ton calendrier montre « Prendre » à l'heure choisie puis « Déposer » à l'arrivée estimée ; tout le créneau jusqu'à ton retour est bloqué. Pour une course payée par une cliente, passe plutôt par le Devis rapide (Aéroport).</p>
+            </>
+          )}
+          {!estNouvel && f.type !== "transport" && (
             <div className="ag-champ">{f.type === "course" ? "Adresse de récupération (facultatif)" : "Adresse (facultatif : vide = à la maison)"}
               <AddressField id={"tache-" + date + (initial ? initial.id : "")} valeur={f.lieu} position onChange={(v) => set("lieu", v)} />
               {/* 19 nov. 2026, 15h05 : une tâche à la maison entre dans le trafic (rentrer, faire, repartir) */}

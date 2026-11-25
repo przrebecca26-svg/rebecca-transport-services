@@ -128,3 +128,15 @@ test("rubrique admin : réductions accordées, livraisons, encaissé, rentabilit
   egal(b.alertes.length, 2);
   vrai(b.alertes.some((a) => a.texte.includes("Rentabilité insuffisante")) && b.alertes.some((a) => a.texte.includes("Prix ami")));
 });
+
+import * as TR from "../src/pricing/tournee.js";
+section("Tâche Transport / aéroport (25 nov. 2026)");
+test("type transport gardé avec l'adresse où je la prends ; « passer prendre » de Autre gardé aussi", () => {
+  const maison = { label: "Rue X, Netanya", lat: 32.32, lon: 34.85 };
+  const j = TR.ajouterTache({}, "2026-11-29", { type: "transport", titre: "Aéroport Ben Gourion", pour: "ma nièce", debut: "05:00", fin: "06:45", lieu: TR.AEROPORT_BEN_GOURION, prise: maison });
+  const t = j["2026-11-29"].taches[0];
+  egal([t.type, t.prise.label, t.lieu.approx, TR.iconeTache(t)], ["transport", "Rue X, Netanya", true, "✈️"]);
+  const k = TR.ajouterTache({}, "2026-11-29", { type: "autre", titre: "Gare", debut: "10:00", fin: "11:00", lieu: maison, prise: maison });
+  egal(k["2026-11-29"].taches[0].prise.label, "Rue X, Netanya");
+  egal(TR.iconeTache({ type: "inconnu" }), "📌");
+});

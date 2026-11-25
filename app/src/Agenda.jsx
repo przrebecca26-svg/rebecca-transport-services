@@ -35,7 +35,7 @@ import { cleLieu } from "./pricing/tournee.js";
 import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
 import { listeEnfants, ajouterEnfantDepuisTache, preRemplirRamassage } from "./pricing/familles.js";
-import { TYPES_TACHE, cleEtape, etapeValidable, iconeTache, texteAvecMoi } from "./pricing/tournee.js";
+import { TYPES_TACHE, cleEtape, etapeValidable, iconeTache, texteAvecMoi, messageMission } from "./pricing/tournee.js";
 import { supprimerCourseComplete } from "./suppression.js";
 import { aLaMaison, comprendreDateHeure, demandeCreneau, dureeDite, quoiDeTache, trouverCreneau } from "./pricing/saisieVocale.js";
 import Dicter from "./components/Dicter.jsx";
@@ -507,15 +507,69 @@ function EtapesEtModifier({ d }) {
 }
 
 // Mission confiee (trajets de la tournee scolaire donnes a un coequipier pour ce jour-la)
-function Mission({ m, pourTous }) {
+// 25 nov. 2026 : Rebecca voit la mission confiee dans sa journee, avec « Prévenir » et « Je le reprends »
+function Mission({ m, pourTous, journee = null }) {
+  const { membres } = useEquipeContexte();
+  const [erreur, setErreur] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const membre = (membres || []).find((x) => x && x.id === m.membre);
+  const wa = pourTous && membre && membre.telephone && m.date ? lienWhatsApp(membre.telephone, messageMission(m, m.nomMembre || membre.nom || "")) : "";
+  const peutReprendre = pourTous && journee && journee.confies && journee.confies(m.date).some((x) => x.id === m.id);
+  const reprendre = () => {
+    setErreur("");
+    setEnCours(true);
+    journee.reprendre(m.id).catch(() => setErreur("Modification impossible pour l'instant. Vérifie la connexion.")).finally(() => setEnCours(false));
+  };
   return (
     <div className="ag-mission">
-      <p><strong>🎒 {m.debut.replace(":", "h")} → {m.fin.replace(":", "h")} · Ramassage scolaire{pourTous && m.nomMembre ? ` (${m.nomMembre})` : ""}</strong></p>
+      <p><strong>🎒 {m.debut.replace(":", "h")} → {m.fin.replace(":", "h")} · Ramassage scolaire{pourTous && m.nomMembre ? ` · 🤝 confié à ${m.nomMembre}` : ""}</strong></p>
       <ul>
         {(m.etapes || []).map((e, i) => (
           <li key={i}>{e.heure} · {e.texte} <small>{e.lieu}</small></li>
         ))}
       </ul>
+      {(wa || peutReprendre) && (
+        <div className="tb-actions">
+          {wa && <a className="ag-waze" href={wa} target="_blank" rel="noopener noreferrer">💬 Prévenir {m.nomMembre || membre.nom || ""}</a>}
+          {peutReprendre && <button type="button" className="ag-modifier" disabled={enCours} onClick={reprendre}>Je le reprends</button>}
+        </div>
+      )}
+      {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
+    </div>
+  );
+}
+
+// 25 nov. 2026 (Rebecca : « je serai à Tel Aviv, c'est Jérémy qui récupère Shyrel ») : depuis l'étape, confier le
+// trajet de ce jour à un coéquipier. Le trajet entier (prendre + déposer) passe dans son planning ; ma tournée des
+// autres semaines ne change pas.
+function ConfierEtape({ journee, date, ids, noms }) {
+  const { membres } = useEquipeContexte();
+  const [erreur, setErreur] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const equipiers = (membres || []).filter((m) => m && m.id !== ADMIN_ID);
+  if (!journee || !journee.confier || !equipiers.length) return null;
+  const qui = noms.length ? noms.join(", ") : "ce trajet";
+  const confier = async (m) => {
+    setErreur("");
+    setEnCours(true);
+    try {
+      const r = await journee.confier(date, ids, m);
+      if (r && r.lien === undefined) setErreur(r.texte);
+    } catch {
+      setErreur("Enregistrement impossible. Vérifie la connexion.");
+    }
+    setEnCours(false);
+  };
+  return (
+    <div className="ag-etape-actions">
+      <p><strong>🤝 Confier ce trajet aujourd'hui</strong></p>
+      <p className="tb-note">Le trajet entier de {qui} (prendre et déposer) passe dans son planning et sort de ta journée, ce jour seulement.</p>
+      <div className="tb-actions">
+        {equipiers.map((m) => (
+          <button key={m.id} type="button" className="tb-bouton" disabled={enCours || !ids.length} onClick={() => confier(m)}>{enCours ? "Enregistrement…" : `Confier à ${m.nom || "mon coéquipier"}`}</button>
+        ))}
+      </div>
+      {erreur && <p className="fm-erreur" role="alert">{erreur}</p>}
     </div>
   );
 }
@@ -756,6 +810,7 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
                     })()}
                   </div>
                 )}
+                <ConfierEtape journee={journee} date={date} ids={cibles} noms={trajetsEtape.filter((r) => cibles.includes(r.id)).map((r) => r.nom || "Enfant")} />
               </>
             );
           })()}
@@ -1163,7 +1218,7 @@ function JourListe({ jour, creneaux, evenements, aujourdhui, titre, missions = [
     ...fil.map((e, i) => ({ min: e.min, cle: "t" + i + e.heure + e.texte, rendu: <Etape e={e} date={jour} journee={journee} valide={valide} familles={rep.familles || []} suivante={e.sorte === "prise" ? fil.slice(i + 1).find((x) => x.genre === "arret" && x.sorte === "depose" && x.adresse) || null : null} />, etape: true })),
     ...seules.map((d) => ({ min: enMinutes(d.heure), cle: "d" + d.id + (d.estRetour ? "-r" : ""), rendu: <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} /> })),
     ...tournees.map((t) => ({ min: enMinutes(t[0].heure), cle: "tr" + t[0].id, rendu: <TourneeResto tournee={t} domicile={domicile} aujourdhui={aujourdhui} seule={(d) => <Evenement d={d} aujourdhui={aujourdhui} admin={pourTous} journee={journee} />} /> })),
-    ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} /> })),
+    ...missions.map((m) => ({ min: enMinutes(m.debut), cle: "m" + m.id, rendu: <Mission m={m} pourTous={pourTous} journee={journee} /> })),
   ].sort((a, b) => a.min - b.min);
   // 19 nov. 2026 : ce qui occupe deja la journee (en minutes), pour « trouve-moi un créneau » dans la dictée
   const occupe = [

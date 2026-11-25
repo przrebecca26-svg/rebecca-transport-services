@@ -12,6 +12,7 @@ import { lireChoix, trajetsDesChoix } from "./pricing/familles.js";
 import { fusionnerLieux } from "./pricing/repertoire.js";
 import { enregistrerJours, useDurees, useJoursTournee, useTournee } from "./tourneeBase.js";
 import { useRepertoire } from "./repertoireBase.js";
+import { confierAuCoequipier, reprendreDuCoequipier } from "./confierBase.js";
 
 // MA JOURNEE DANS MON CALENDRIER (12 nov. 2026) - espace de Rebecca seulement.
 // Lit sa tournee privee (admin/tournee) et renvoie, pour chaque date, les vraies etapes de sa journee
@@ -199,6 +200,14 @@ export function useMaJournee(actif) {
       if (!p) return Promise.reject(new Error("incomplet"));
       const suite = estPonctuel(id) ? retirerAjout(jours, date, [id]) : retirerCeJour(jours, date, [id]);
       return sauver(ajouterTrajetCeJour(suite, date, [p]));
+    },
+    // 25 nov. 2026 : depuis le Calendrier, confier des trajets de CE jour a Jeremy (ou un autre coequipier)
+    confier: (date, ids, membre) => confierAuCoequipier({ donnees: d, tous, ids, date, duree: durees.duree, nomLieu, membre, jours }),
+    // Trajets confies ce jour-la (pour « Je le reprends ») ; l'id du transfert = l'id de la mission du coequipier
+    confies: (date) => (d.transferts || []).filter((x) => x.date === date),
+    reprendre: (id) => {
+      const x = (d.transferts || []).find((y) => y.id === id);
+      return x ? reprendreDuCoequipier({ donnees: d, transfert: x }) : Promise.resolve();
     },
     // 19 nov. 2026, 14h10 : « avec ou sans Shyrel » dans la voiture (enfants de ma fiche « Moi » du Repertoire)
     enfantsMoi: [...new Set(repertoire.familles.filter((f) => f.categorie === "moi").flatMap((f) => (f.enfants || []).map((e) => String(e.prenom || "").trim())).filter(Boolean))],

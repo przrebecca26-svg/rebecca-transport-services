@@ -413,7 +413,7 @@ function Evenement({ d, aujourdhui, admin = false, journee = null }) {
         <span className="ag-heure">{d.heure}</span>
         <span className="ag-corps">
           <strong><Pastille d={d} /> {d.serviceTitre}</strong>
-          <small>{d.nom} · {textePrix(d)}{admin && badgeAvecMoi(journee, d.date, cleAvec)}</small>
+          <small>{d.nom} · {textePrix(d)}{admin && d.prixAmi ? " 💛" : ""}{admin && badgeAvecMoi(journee, d.date, cleAvec)}</small>
           {typeof d.kmEstime === "number" && typeof d.minutesEstimees === "number" && <small>🚗 Trajet {texteDuree(d.minutesEstimees, d.date, d.heure)}</small>}
           <InfoVol d={d} compact />
         </span>
@@ -463,14 +463,14 @@ function EtapesEtModifier({ d }) {
   const [a, b] = t ? (d.estRetour ? [t.arrivee, t.depart] : [t.depart, t.arrivee]) : [null, null];
   const verbe = d.service === "livraison" || d.service === "courses" ? ["📦 Récupérer", "🏁 Livrer"] : ["🚗 Prendre en charge", "🏁 Déposer"];
   const [ouvert, setOuvert] = useState(false);
-  const [f, setF] = useState({ date: d.date || "", heure: heure || "", note: d.noteAdmin || "" });
+  const [f, setF] = useState({ date: d.date || "", heure: heure || "", note: d.noteAdmin || "", ami: d.prixAmi === true });
   const [msg, setMsg] = useState("");
   const sauver = async () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date) || !/^\d{2}:\d{2}$/.test(f.heure)) return setMsg("Choisis une date et une heure.");
     setMsg("Enregistrement…");
     const maj = d.estRetour ? { "details.heureRetour": f.heure, "details.dateRetour": f.date } : { date: f.date, heure: f.heure };
     try {
-      await updateDoc(doc(db, "demandes", d.id), { ...maj, noteAdmin: f.note.trim() });
+      await updateDoc(doc(db, "demandes", d.id), { ...maj, noteAdmin: f.note.trim(), prixAmi: f.ami === true });
       setMsg("✅ Enregistré : ta journée se recalcule.");
       setOuvert(false);
     } catch {
@@ -486,13 +486,15 @@ function EtapesEtModifier({ d }) {
         </ul>
       )}
       {!a && d.noteAdmin && <p className="tb-note">📝 {d.noteAdmin}</p>}
+      {d.prixAmi && <p className="tb-note">💛 Prix ami : faveur, pas une course mal tarifée.</p>}
       {!ouvert ? (
-        <button type="button" className="ag-modifier" onClick={() => { setF({ date: (d.estRetour ? v.dateRetour : d.date) || "", heure: heure || "", note: d.noteAdmin || "" }); setOuvert(true); setMsg(""); }}>✏️ Modifier l'heure, la date ou la note</button>
+        <button type="button" className="ag-modifier" onClick={() => { setF({ date: (d.estRetour ? v.dateRetour : d.date) || "", heure: heure || "", note: d.noteAdmin || "", ami: d.prixAmi === true }); setOuvert(true); setMsg(""); }}>✏️ Modifier l'heure, la date ou la note</button>
       ) : (
         <div className="tb-bloc">
           <label className="tb-note">Date<input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></label>
           <label className="tb-note">Heure de départ (1re étape)<input type="time" value={f.heure} onChange={(e) => setF({ ...f, heure: e.target.value })} /></label>
           <label className="tb-note">Note pour moi (ex. « chez Deborah »)<input type="text" value={f.note} maxLength={120} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
+          <label className="tb-note" style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={f.ami} onChange={(e) => setF({ ...f, ami: e.target.checked })} style={{ width: "auto" }} /> 💛 Prix ami (faveur : ne compte pas comme une course mal tarifée)</label>
           <div className="tb-actions">
             <button type="button" className="tb-bouton" onClick={sauver}>Enregistrer</button>
             <button type="button" className="ag-modifier" onClick={() => setOuvert(false)}>Annuler</button>

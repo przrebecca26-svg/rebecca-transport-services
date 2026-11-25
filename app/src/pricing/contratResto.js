@@ -8,7 +8,8 @@ import { A4, couper, fabriquerPdfPages } from "./pdfSimple.js";
 import { MIN_HEURES, erreursCreneaux, lireCreneaux, minimumCreneau, tableauMinimums } from "./creneauxResto.js";
 import { KM_MAX_GRILLE, avecCreneaux, grilleKm } from "./commercants.js";
 
-export const VERSION_CONTRAT = "2026-11-20-3"; // 20 nov. 11h : formule A + B (Rebecca) ; // 20 nov. 9h33 : décisions de Rebecca après la 3e relecture ChatGPT (demi-heures, créneaux joints, > 6 km, commande en plus, essai, créneau non assuré) ; 20 nov. : créneaux, minimum garanti, clients, moyens de paiement (relecture ChatGPT)
+export const VERSION_CONTRAT = "2026-11-25-1"; // 25 nov. : palier volume en formule B (validé par Rebecca) ; 20 nov. 11h : formule A + B (Rebecca) ; // 20 nov. 9h33 : décisions de Rebecca après la 3e relecture ChatGPT (demi-heures, créneaux joints, > 6 km, commande en plus, essai, créneau non assuré) ; 20 nov. : créneaux, minimum garanti, clients, moyens de paiement (relecture ChatGPT)
+import { PALIER_VOLUME } from "./restos.js";
 export const EMAIL_REBECCA = "rebecca.services.transport@gmail.com";
 export const LIEN_INSCRIPTION = "#/restaurant-partenaire";
 
@@ -206,6 +207,7 @@ export function articlesContrat(c) {
         `Prix en dehors des créneaux réservés (formule A) : livraison ${grilleKm(c.tarifsA || TARIFS_STANDARD.A).map((x) => `${x.de ? `de ${x.de} à ${x.a} km` : `jusqu'à ${x.a} km`} : ${shek(x.prix)}`).join(" · ")} · au-delà de ${KM_MAX_GRILLE} km : sur devis · commande en plus : ${shek((c.tarifsA || TARIFS_STANDARD.A).enPlus)} · article très lourd : ${shek((c.tarifsA || TARIFS_STANDARD.A).tresLourd ?? 5)}.`,
         `Créneaux réservés (jours, heures de début et de fin) : ${c.creneaux}.`,
         ...lireCreneaux(c.creneaux).filter((x) => x.heures).map((x) => `• ${x.texte} : ${String(x.heures).replace(".", ",")} h, minimum ${shek(minimumCreneau(x.heures, parHeureDe(t)))} par créneau.`),
+        ...(String(c.version || VERSION_CONTRAT) >= "2026-11-25" ? [`Palier volume (créneaux réservés) : dans un même créneau, le même jour, à partir de la ${PALIER_VOLUME.aPartirDe}e livraison acceptée, chaque livraison est facturée ${shek(PALIER_VOLUME.jusqua3)} jusqu'à 3 km et ${shek(PALIER_VOLUME.de3a6)} de 3 à 6 km (au-delà de 6 km : prix de la grille). Ce palier s'applique uniquement quand les livraisons sont regroupables en tournées (adresses compatibles, commandes prêtes à des heures proches) ; il ne s'ajoute à aucune autre remise et n'est jamais plus cher que le prix de la grille.`] : []),
         `Minimum garanti : ${shek(parHeureDe(t))} par heure de créneau, ${MIN_HEURES} heures au moins (${tableauMinimums(parHeureDe(t), t.jusqua3).map((l) => `${l.heures} h = ${shek(l.minimum)}`).join(" · ")}). Les livraisons réellement faites pendant le créneau comptent dans ce minimum, à leur tarif réel (par exemple ${shek(t.de3a6)} pour 3 à 6 km) ; si leur total est inférieur au minimum, seule la différence est facturée, jamais en plus des livraisons. Le minimum s'applique dès le premier créneau, y compris pendant le mois d'essai. Un créneau annulé moins de 24 h à l'avance reste dû au minimum ; annulé au moins 24 h avant, rien n'est dû.`,
       ] : []),
       `Moyen de paiement choisi : ${c.moyen}.`,

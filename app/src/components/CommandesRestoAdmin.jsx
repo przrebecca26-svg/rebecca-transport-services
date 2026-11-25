@@ -11,7 +11,7 @@ import { useEquipeContexte } from "../equipeContexte.jsx";
 import { jouerSon, useStylesNotif } from "../sons.js";
 import {
   commandePropre, compteARebours, coursesProches, demandeDepuisCommande, enLigneActif, etatCommande, heurePlus, majSuivi,
-  prixCommande, secondesRestantes, tarifsResto, validerCommande, numeroCommande,
+  prixCommandeResto, secondesRestantes, validerCommande, numeroCommande,
 } from "../pricing/restos.js";
 import { kmEntre } from "../pricing/coursesGroupees.js";
 import { chronoDe } from "../pricing/finCourse.js";
@@ -125,7 +125,7 @@ export default function CommandesRestoAdmin({ aller, barre = true, carte = true 
   // 20 nov. 2026 : une commande programmée (autre jour) s'affiche même « Hors ligne », sans délai
   const actuelle = enAttente.find((c) => enLigne || c.programmee) || null;
 
-  if (!barre) return carte && actuelle ? <CarteCommande key={actuelle.id} c={actuelle} resto={restos.find((r) => r.cle === actuelle.cle)} maintenant={maintenant} reste={enAttente.length - 1} membres={membres} aller={aller} /> : null;
+  if (!barre) return carte && actuelle ? <CarteCommande key={actuelle.id} c={actuelle} resto={restos.find((r) => r.cle === actuelle.cle)} maintenant={maintenant} reste={enAttente.length - 1} membres={membres} aller={aller} commandes={commandes} /> : null;
   return (
     <>
       <div className="tb-actions" style={{ margin: "8px 0" }}>
@@ -138,7 +138,7 @@ export default function CommandesRestoAdmin({ aller, barre = true, carte = true 
       {!enLigne && enAttente.filter((c) => !c.programmee).length > 0 && <p className="tdb-note">🍕 {enAttente.filter((c) => !c.programmee).length} commande(s) en attente : passe « En ligne » pour répondre.</p>}
       {info && <p className="tdb-note" role="status">{info}</p>}
       {saisie && <SaisieWhatsApp restos={restos} jour={jour} heure={utcVersLocal(maintenant).heure} fermer={() => setSaisie(false)} />}
-      {carte && actuelle && <CarteCommande key={actuelle.id} c={actuelle} resto={restos.find((r) => r.cle === actuelle.cle)} maintenant={maintenant} reste={enAttente.length - 1} membres={membres} aller={aller} />}
+      {carte && actuelle && <CarteCommande key={actuelle.id} c={actuelle} resto={restos.find((r) => r.cle === actuelle.cle)} maintenant={maintenant} reste={enAttente.length - 1} membres={membres} aller={aller} commandes={commandes} />}
     </>
   );
 }
@@ -154,7 +154,7 @@ async function accepterCommande(resto, c, { prix, km, minutes, par = "Rebecca" }
   return { id: refD.id, ...demande };
 }
 
-function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
+function CarteCommande({ c, resto, maintenant, reste, membres, aller, commandes = [] }) {
   const [trajet, setTrajet] = useState(null);
   const [prix, setPrix] = useState("");
   const [demandes, setDemandes] = useState([]);
@@ -167,7 +167,7 @@ function CarteCommande({ c, resto, maintenant, reste, membres, aller }) {
       calculerTrajet(resto.adresse, c.adresse).then((t) => {
         if (fini) return;
         setTrajet(t);
-        const p = prixCommande(tarifsResto(resto, c.jour, c.pretA), t.km, c.tresLourds);
+        const p = prixCommandeResto(resto, c.jour, c.pretA, t.km, c.tresLourds, commandes, c.id);
         if (p != null) setPrix((x) => x || String(p));
       }).catch(() => {});
     }
@@ -263,6 +263,7 @@ export function SaisieWhatsApp({ restos, jour, heure, fermer, cleDepart = "" }) 
   const [info, setInfo] = useState("");
   const [enCours, setEnCours] = useState(false);
   const resto = restos.find((r) => r.cle === cle);
+  const cmds = useCommandes(restos);
   const maj = (k, v) => setF({ ...f, [k]: v });
   useEffect(() => {
     let fini = false;
@@ -271,7 +272,7 @@ export function SaisieWhatsApp({ restos, jour, heure, fermer, cleDepart = "" }) 
       calculerTrajet(resto.adresse, f.adresse).then((t) => {
         if (fini) return;
         setTrajet(t);
-        const p = prixCommande(tarifsResto(resto, jour, f.pretA || heurePlus(heure, 0)), t.km, f.tresLourds);
+        const p = prixCommandeResto(resto, jour, f.pretA || heurePlus(heure, 0), t.km, f.tresLourds, cmds);
         if (p != null) setPrix(String(p));
       }).catch(() => {});
     }

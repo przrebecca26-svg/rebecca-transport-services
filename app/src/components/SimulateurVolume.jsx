@@ -34,7 +34,7 @@ export default function SimulateurVolume({ tarifsB = { jusqua3: 25, de3a6: 35 } 
   return (
     <div className="tb-bloc">
       <h3>🧮 Simulation du palier volume (formule B)</h3>
-      <p className="tb-note">À valider avant de l'ajouter au contrat. Rien ne change pour les restaurants tant que tu n'as pas validé.</p>
+      <p className="tb-note">✅ Validé le 25 nov. 2026 : dans le contrat (version 2026-11-25) et appliqué automatiquement à partir de la 10e livraison d'un créneau (20 ₪ ≤ 3 km, 30 ₪ de 3 à 6 km).</p>
       {curseur("Durée du créneau (h)", heures, setHeures, 2, 5, 0.5)}
       {curseur("Livraisons dans le créneau", nb, setNb, 1, 25)}
       {curseur("Distance moyenne restaurant → client (km)", km, setKm, 1, 6, 0.5)}

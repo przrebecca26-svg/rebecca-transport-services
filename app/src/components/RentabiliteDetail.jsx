@@ -33,7 +33,8 @@ export default function RentabiliteDetail({ r: r0 = null, d = null, aller = null
   if (!r) return null;
   const net = r.gainNet - commission;
   const heure = Math.round((net / Math.max(r.minutesTotal, 1)) * 60);
-  const n = niveauHeure(heure);
+  const ami = !!(d && d.prixAmi);
+  const n = ami ? { pastille: "💛", texte: "Prix ami : faveur, pas comptée comme une course mal tarifée", couleur: "#e8a0b4" } : niveauHeure(heure);
   const ligne = (a, b) => <p style={{ margin: "2px 0", display: "flex", justifyContent: "space-between", gap: 8 }}><span>{a}</span><strong>{b}</strong></p>;
   return (
     <div className="tb-bloc" style={{ borderColor: n.couleur }}>
@@ -45,7 +46,7 @@ export default function RentabiliteDetail({ r: r0 = null, d = null, aller = null
       {ligne(`Temps : route${r.traficMinutes ? ` (dont ${r.traficMinutes} min de trafic)` : ""}${r.attenteMinutes ? ` + ${r.attenteMinutes} min d'attente` : ""}${r.surPlaceMinutes ? ` + ${r.surPlaceMinutes} min sur place` : ""}`, `${r.minutesTotal} min`)}
       {ligne("Gain net", `${net} ₪`)}
       {ligne("Soit de l'heure", `${n.pastille} ${heure} ₪/h`)}
-      <p style={{ color: n.couleur, margin: "4px 0" }}><strong>{n.texte}</strong>{heure < 60 ? " : propose un créneau flexible, regroupe avec une autre course, ou ajuste le prix." : ""}</p>
+      <p style={{ color: n.couleur, margin: "4px 0" }}><strong>{n.texte}</strong>{!ami && heure < 60 ? " : propose un créneau flexible, regroupe avec une autre course, ou ajuste le prix." : ""}</p>
       <p className="tb-note">Avant impôts et charges fixes. {r.approcheKm ? "Approche comptée depuis ta maison." : "Approche non comptée (départ = chez toi ou adresse inconnue)."}</p>
     </div>
   );

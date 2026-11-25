@@ -12,7 +12,7 @@ import GrilleKmResto from "./GrilleKmResto.jsx";
 import FormuleResto from "./FormuleResto.jsx";
 import "../espace-resto.css"; // 22 nov. 2026 : boutons et champs au style du site (ils étaient gris, par défaut)
 import {
-  JOURS_PROGRAMMATION, LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, peutProgrammer, prixCommande, releveResto,
+  JOURS_PROGRAMMATION, LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, peutProgrammer, prixCommandeResto, releveResto,
   secondesRestantes, semaineResto, tarifsResto, validerCommande, numeroCommande,
 } from "../pricing/restos.js";
 
@@ -129,7 +129,7 @@ export default function EspaceResto({ cle, onAccueil }) {
   const annuler = (c) => updateDoc(doc(db, "restos", cle, "commandesResto", c.id), { statut: "annulee" }).catch(() => setErreur("Annulation impossible pour l'instant."));
 
   const avecB = resto.formule === "B" || resto.formule === "AB";
-  const prixAffiche = trajet && typeof trajet.km === "number" ? prixCommande(tarifsResto(resto, jourCmd, f.pretA || heure), trajet.km, f.tresLourds) : null;
+  const prixAffiche = trajet && typeof trajet.km === "number" ? prixCommandeResto({ ...resto, cle }, jourCmd, f.pretA || heure, trajet.km, f.tresLourds, commandes) : null;
   const infosWhatsApp = {
     jour: programmee && jourChoisi ? jourChoisi : "",
     prix: prixAffiche != null ? prixAffiche : undefined,
@@ -190,7 +190,7 @@ export default function EspaceResto({ cle, onAccueil }) {
         {f.adresse && (() => {
           if (!trajet) return <p className="tb-note">Calcul du prix…</p>;
           if (trajet.erreur || typeof trajet.km !== "number") return <p className="tb-note">Prix : Rebecca vous le confirme (distance impossible à calculer).</p>;
-          const p = prixCommande(tarifsResto(resto, jourCmd, f.pretA || heure), trajet.km, f.tresLourds);
+          const p = prixCommandeResto({ ...resto, cle }, jourCmd, f.pretA || heure, trajet.km, f.tresLourds, commandes);
           return (
             <p><strong>💰 Prix de la livraison : {p != null ? `${p} ₪` : "sur devis (longue distance)"}</strong>
               <span className="tb-note"> · {trajet.km} km{(resto.formule === "B" || resto.formule === "AB") ? (dansSonCreneau(resto, jourCmd, f.pretA || heure) ? " · prix B (créneau)" : " · prix A (hors créneau)") : ""}</span></p>

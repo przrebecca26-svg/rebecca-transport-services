@@ -1,5 +1,10 @@
 rules_version = '2';
-// Regles Rebecca Services v36 (22 novembre 2026, numero de commande et commande prioritaire) = v35 +
+// Regles Rebecca Services v37 (25 novembre 2026, reseau de professionnels partenaires) = v36 +
+//   - prosCandidatures : inscription en ligne d'un professionnel (#/pro), un seul texte (20 Ko max), lue par
+//     Rebecca seule ; elle n'est jamais publiee telle quelle (Rebecca l'examine, elle repart au statut « soumis »).
+//   - prosStats : compteurs d'une fiche de l'annuaire (visites, clics WhatsApp), +1 seulement ; Rebecca lit.
+//   Rien d'autre ne change : les dossiers prives sont dans admin/ (Rebecca seule) et l'annuaire public dans reglages/.
+// v36 (22 novembre 2026, numero de commande et commande prioritaire) = v35 +
 //   - commandesResto : le restaurant (ou Rebecca) peut ecrire le numero de sa commande (20 caracteres au plus)
 //     et la marquer « prioritaire » (a livrer en premier) ; Rebecca peut les corriger.
 // v35 (22 novembre 2026, commandes restaurant modifiables) = v34 +
@@ -1425,6 +1430,25 @@ service cloud.firestore {
                 && getAfter(/databases/$(database)/documents/assistance/$(id)).data.statut != "resolue")
             || (request.resource.data.de == "rebecca" && estAdmin()));
       }
+    }
+
+    // ---------- v37 (25 nov. 2026) : reseau de professionnels partenaires ----------
+    match /prosCandidatures/{id} {
+      allow create: if request.resource.data.keys().hasOnly(["json", "creeLe"])
+        && request.resource.data.json is string
+        && request.resource.data.json.size() >= 50 && request.resource.data.json.size() <= 20000
+        && request.resource.data.creeLe == request.time;
+      allow read, delete: if estAdmin();
+    }
+    match /prosStats/{id} {
+      allow read, delete: if estAdmin();
+      allow create: if request.resource.data.keys().hasOnly(["visites", "whatsapp"])
+        && request.resource.data.get("visites", 0) in [0, 1]
+        && request.resource.data.get("whatsapp", 0) in [0, 1];
+      allow update: if request.resource.data.keys().hasOnly(["visites", "whatsapp"])
+        && request.resource.data.diff(resource.data).affectedKeys().size() == 1
+        && request.resource.data.get("visites", 0) - resource.data.get("visites", 0) in [0, 1]
+        && request.resource.data.get("whatsapp", 0) - resource.data.get("whatsapp", 0) in [0, 1];
     }
 
     // Tout le reste : Rebecca peut lire, mais rien d'autre n'est ecrit sans regle precise

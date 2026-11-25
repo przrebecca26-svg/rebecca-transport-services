@@ -19,6 +19,7 @@ import Transferts, { useTransfertsATraiter } from "./Transferts.jsx";
 import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
 import ProjetsDigital from "./ProjetsDigital.jsx";
 import Partenaires from "./Partenaires.jsx";
+import ProsAdmin from "./ProsAdmin.jsx";
 import EspaceCoursier from "./EspaceCoursier.jsx";
 import { lireAccesCoursier } from "./pricing/coursiers.js";
 import { definirLienAvisGoogle } from "./pricing/finCourse.js";
@@ -118,6 +119,7 @@ const SECTIONS = [
   { id: "jour", label: "Ma journée" },
   { id: "rs", label: "Rebecca Services" },
   { id: "restos", label: "Restaurants partenaires" },
+  { id: "pros", label: "Professionnels partenaires" },
   { id: "boutique", label: "Boutique et Digital" },
   { id: "carnet", label: "Carnet" },
   { id: "argent", label: "Chiffres et argent" },
@@ -135,6 +137,7 @@ const RUBRIQUES = [
   { id: "clients", label: "Clients et codes promo", section: "rs" },
   { id: "commandes-resto", label: "Commandes restaurants", adminOnly: true, section: "restos" }, // 19 nov. 2026 : toutes les commandes des restaurants partenaires
   { id: "partenaires", label: "Partenaires (restos, coursiers)", adminOnly: true, section: "restos" }, // 17 nov. 2026 : inscriptions des futurs coursiers
+  { id: "pros", label: "Annuaire des professionnels", adminOnly: true, section: "pros" }, // 25 nov. 2026 : réseau de professionnels partenaires
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true, section: "boutique" },
   { id: "projets-digital", label: "Projets Digital", adminOnly: true, section: "boutique" }, // 17 nov. 2026 : devis, paiements 40/30/30, cahier des charges
   { id: "repertoire", label: "Répertoire", section: "carnet" }, // 12 nov. 2026 : mes lieux et les adresses des clientes (Rebecca et son equipe)
@@ -390,6 +393,7 @@ export default function Admin() {
     else if (onglet === "commandes-epoxy" && estAdmin) contenu = <CommandesEpoxy onRetour={() => setOnglet("demandes")} />;
     else if (onglet === "projets-digital" && estAdmin) contenu = <ProjetsDigital />;
     else if (onglet === "partenaires" && estAdmin) contenu = <Partenaires aller={aller} />;
+    else if (onglet === "pros" && estAdmin) contenu = <ProsAdmin />;
     else if (onglet === "transferts") contenu = <Transferts {...props} />;
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;
     else if (onglet === "agenda") contenu = <Agenda {...props} />;

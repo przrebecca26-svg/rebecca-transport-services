@@ -35,6 +35,8 @@ import { lireLienResto } from "./pricing/restos.js";
 const EspaceResto = lazy(() => import("./components/EspaceResto.jsx")); // 19 nov. 2026 (V2) : #/resto/CLE
 import { useVitrineRestos } from "./vitrineRestosBase.js";
 const RestosVitrine = lazy(() => import("./components/RestosVitrine.jsx")); // 25 nov. 2026 : #/restaurants
+const ProsAnnuaire = lazy(() => import("./components/ProsAnnuaire.jsx")); // 25 nov. 2026 : #/pros (caché jusqu'à l'accord de Rebecca)
+const ProInscription = lazy(() => import("./components/ProInscription.jsx")); // 25 nov. 2026 : #/pro
 const DevenirRestoPartenaire = lazy(() => import("./components/DevenirRestoPartenaire.jsx")); // 19 nov. 2026 : #/restaurant-partenaire
 const ContratRestoVue = lazy(() => import("./components/ContratRestoVue.jsx")); // 19 nov. 2026 : #/contrat-resto/ID
 const lireContratResto = (h) => { const m = /^#\/contrat-resto\/([A-Za-z0-9]{10,40})$/.exec(h || ""); return m ? m[1] : ""; };
@@ -481,6 +483,8 @@ export default function App() {
   const [lienAssistance, setLienAssistance] = useState(() => lireLienAssistance(window.location.hash));
   const [lienInscriptionResto, setLienInscriptionResto] = useState(() => window.location.hash === "#/restaurant-partenaire");
   const [lienVitrine, setLienVitrine] = useState(() => window.location.hash === "#/restaurants");
+  const lirePros = (h) => (/^#\/pros(\/[A-Za-z0-9_-]{2,30})?$/.test(h) ? "annuaire" : h === "#/pro" ? "inscription" : "");
+  const [lienPros, setLienPros] = useState(() => lirePros(window.location.hash));
   const [lienContratResto, setLienContratResto] = useState(() => lireContratResto(window.location.hash));
   const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
   useEffect(() => {
@@ -498,6 +502,7 @@ export default function App() {
       setLienResto(lireLienResto(window.location.hash));
       setLienInscriptionResto(window.location.hash === "#/restaurant-partenaire");
       setLienVitrine(window.location.hash === "#/restaurants");
+      setLienPros(lirePros(window.location.hash));
       setLienAssistance(lireLienAssistance(window.location.hash));
       setLienContratResto(lireContratResto(window.location.hash));
     };
@@ -588,6 +593,19 @@ export default function App() {
         </main>
       </div>
     );
+  if (lienPros) {
+    const quitterPros = () => { window.location.hash = ""; setLienPros(""); aller({ nom: "accueil" }); };
+    const idPage = lienPros === "annuaire" ? "pros" : "proInscription";
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            {!pages.charge ? chargement : !pages.lienOk(idPage) ? <PageIndisponible onAccueil={quitterPros} /> : lienPros === "annuaire" ? <ProsAnnuaire onAccueil={quitterPros} /> : <ProInscription onAccueil={quitterPros} />}
+          </Suspense>
+        </main>
+      </div>
+    );
+  }
   if (lienInscriptionResto || lienContratResto)
     return (
       <div className="appli theme-site">
@@ -765,7 +783,7 @@ export default function App() {
           Confidentialité et conditions
         </button>
         {/* 20 nov. 2026 : liens « Devenir partenaire » en bas de page (Réglages -> Pages du site) */}
-        {[["restoPartenaire", "Restaurants : devenez partenaire livraison", "#/restaurant-partenaire"], ["coursierPartenaire", "Devenir coursier partenaire de Rebecca Services", "#/partenaire"]]
+        {[["restoPartenaire", "Restaurants : devenez partenaire livraison", "#/restaurant-partenaire"], ["coursierPartenaire", "Devenir coursier partenaire de Rebecca Services", "#/partenaire"], ["pros", "Professionnels partenaires (annuaire)", "#/pros"], ["proInscription", "Vous êtes professionnel ? Rejoignez l'annuaire", "#/pro"]]
           .filter(([id]) => pages.reglage(id).ou === "pied" && pages.etat(id) === "ouverte")
           .map(([id, texte, lien]) => <span key={id}><br /><a className="lien" href={lien}>{texte}</a></span>)}
       </footer>

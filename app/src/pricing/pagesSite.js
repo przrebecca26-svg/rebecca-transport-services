@@ -16,6 +16,9 @@ export const PAGES = [
   { id: "digital", titre: "Digital & Applications", type: "activite" },
   { id: "restoPartenaire", titre: "Devenir restaurant partenaire", type: "partenaire", lien: "#/restaurant-partenaire" },
   { id: "coursierPartenaire", titre: "Devenir coursier partenaire", type: "partenaire", lien: "#/partenaire" },
+  // 25 nov. 2026 : reseau de professionnels partenaires, CACHE (meme par lien direct) jusqu'a l'accord de Rebecca
+  { id: "pros", titre: "Annuaire des professionnels partenaires", type: "partenaire", lien: "#/pros" },
+  { id: "proInscription", titre: "Professionnels : rejoindre l'annuaire", type: "partenaire", lien: "#/pro" },
 ];
 
 // Ce qui marche aujourd'hui (rien ne change tant que Rebecca ne touche à rien)
@@ -23,6 +26,8 @@ const DEFAUTS = {
   transport: { visible: true, pour: "autorisees" }, // « sur autorisation », comme décidé
   restoPartenaire: { visible: false },
   coursierPartenaire: { visible: false },
+  pros: { visible: false, lienDirect: false },
+  proInscription: { visible: false, lienDirect: false },
 };
 export const POUR = [
   { v: "tous", l: "Tout le monde" },
@@ -49,7 +54,7 @@ export function reglagePage(reglages, id) {
     bientot: r.bientot === true,
     pour: choix(r.pour, POUR, d.pour || "tous"),
     ou: page.type === "partenaire" ? choix(r.ou, OU, "pied") : "accueil",
-    lienDirect: r.lienDirect !== false,
+    lienDirect: typeof r.lienDirect === "boolean" ? r.lienDirect : d.lienDirect !== false,
     ouvertureLe: DATE_OK.test(r.ouvertureLe || "") ? r.ouvertureLe : "",
     bloques: Array.isArray(r.bloques) ? r.bloques.filter((b) => b && empreinteOk(b.e)).slice(0, 100).map((b) => ({ e: b.e, nom: String(b.nom || "").slice(0, 60) })) : [],
   };

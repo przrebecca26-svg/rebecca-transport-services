@@ -126,7 +126,7 @@ export const TARIFS = {
       alias: ["netanya", "natanya", "netania", "nethanya", "natania", "נתניה"],
     },
     // 26 nov. 2026 (nouvelle grille, sous le taxi) : prix fixes au depart de Netanya ; aller-retour = 2 trajets a -10 %
-    hadera: { nom: "Hadera", minimum: 90, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 90, parTrajetAR: 85 }, alias: ["hadera", "hedera", "חדרה"] },
+    hadera: { nom: "Hadera", minimum: 100, axe: { sens: "nord", rang: 1 }, grilleB: { simple: 100, parTrajetAR: 90 }, alias: ["hadera", "hedera", "חדרה"] },
     herzliya_raanana: {
       nom: "Herzliya / Ra'anana",
       minimum: 115,
@@ -143,9 +143,9 @@ export const TARIFS = {
     },
     ben_gurion: {
       nom: "Aéroport Ben Gourion",
-      minimum: 220,
+      minimum: 250,
       axe: { sens: "sud", rang: 3 },
-      grilleB: { simple: 220, parTrajetAR: 200 },
+      grilleB: { simple: 250, parTrajetAR: 220 },
       alias: [
         "ben gurion airport",
         "ben gourion airport",
@@ -170,16 +170,17 @@ export const TARIFS = {
   // officiel. Sert dans Netanya et hors des villes de la grille ; au-dela de 50 km : 220 ₪ + auDelaParKm par km.
   // Aller-retour : chaque trajet a -10 % (remiseAllerRetour). Les villes de la grille gardent leur prix fixe.
   transport: {
-    paliers: [{ kmMax: 2, prix: 30 }, { kmMax: 3, prix: 35 }, { kmMax: 5, prix: 45 }, { kmMax: 8, prix: 55 }, { kmMax: 10, prix: 65 }, { kmMax: 15, prix: 85 }, { kmMax: 20, prix: 110 }, { kmMax: 30, prix: 145 }, { kmMax: 40, prix: 180 }, { kmMax: 50, prix: 220 }],
-    auDelaParKm: 4,
+    // 26 nov. 2026, 00h30 (Rebecca : « une moyenne, sans être plus chère qu'un taxi ») : milieu entre la grille ChatGPT et le compteur
+    paliers: [{ kmMax: 2, prix: 35 }, { kmMax: 3, prix: 40 }, { kmMax: 5, prix: 50 }, { kmMax: 8, prix: 60 }, { kmMax: 10, prix: 70 }, { kmMax: 15, prix: 95 }, { kmMax: 20, prix: 120 }, { kmMax: 30, prix: 160 }, { kmMax: 40, prix: 205 }, { kmMax: 50, prix: 250 }],
+    auDelaParKm: 4.5,
     remiseAllerRetour: 0.1,
   },
 
   // 25 nov. 2026 (Rebecca : « je suis trop chère, on me refuse ») : grille par distance, comme les coursiers du marché.
   // Le prix suit la distance récupération -> livraison ; au-delà du dernier palier = sur devis.
-  // 26 nov. 2026 : nouvelle grille (30 ₪ jusqu'a 3 km, puis paliers ; au-dela de 50 km = sur devis)
+  // 26 nov. 2026 : nouvelle grille (30 ₪ jusqu'a 3 km, puis paliers ; au-dela de 8 km, au moins 45 ₪/h retour a vide compris ; au-dela de 50 km = sur devis)
   livraison: { minimum: 30, plafondAvantDevis: 250, urgence: 10,
-    paliers: [{ kmMax: 3, prix: 30 }, { kmMax: 5, prix: 35 }, { kmMax: 8, prix: 45 }, { kmMax: 10, prix: 50 }, { kmMax: 15, prix: 65 }, { kmMax: 20, prix: 80 }, { kmMax: 30, prix: 110 }, { kmMax: 40, prix: 140 }, { kmMax: 50, prix: 175 }] },
+    paliers: [{ kmMax: 3, prix: 30 }, { kmMax: 5, prix: 35 }, { kmMax: 8, prix: 45 }, { kmMax: 10, prix: 55 }, { kmMax: 15, prix: 80 }, { kmMax: 20, prix: 100 }, { kmMax: 30, prix: 130 }, { kmMax: 40, prix: 165 }, { kmMax: 50, prix: 205 }] },
 
   courses: {
     // nombre d'articles maximum -> prix de la prestation

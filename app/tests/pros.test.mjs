@@ -85,3 +85,18 @@ test("une inscription piégée (statut accepté, badge) n'est jamais publiée à
   egal([d.statut, d.actif, d.badge, Object.keys(d.justificatifs).length, d.id === "existant"], ["soumis", false, false, 0, false]);
   egal(P.fichePublique(d, CATS, AUJ), null);
 });
+
+import * as T from "../src/pricing/prosTextes.js";
+test("textes : français et hébreu ont les mêmes clés, toutes les conditions et formules traduites", () => {
+  egal(Object.keys(T.TEXTES.he).sort(), Object.keys(T.TEXTES.fr).sort());
+  egal(T.TEXTES.he.conditions.length, P.CONDITIONS_ANNUAIRE.length);
+  egal(Object.keys(T.TEXTES.he.formules).sort(), P.FORMULES_PRO.map((f) => f.v).sort());
+  egal(Object.keys(T.TEXTES.he.nomsLangues).sort(), [...P.LANGUES].sort());
+  // chaque message d'erreur possible de l'inscription a sa traduction
+  const f = { ...P.inscriptionVide(), email: "faux", osek: "12" };
+  for (const m of Object.values(P.erreursInscription(f))) vrai(!!T.TEXTES.he.erreurs[m], m);
+  vrai(!!T.TEXTES.he.erreurs["Numéro d'osek : 6 à 10 chiffres."]);
+  egal(T.sens("he"), "rtl");
+  egal(P.lireCategories(null).find((c) => c.id === "menage").nomHe, "ניקיון ותחזוקה");
+  egal(T.erreursTraduites({ nom: "Votre nom." }, T.TEXTES.he).nom, "השם שלכם.");
+});

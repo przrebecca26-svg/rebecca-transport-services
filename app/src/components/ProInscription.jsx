@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { CONDITIONS_ANNUAIRE, FORMULES_PRO, LANGUES, categoriesVisibles, erreursInscription, inscriptionVide, messageInscriptionWhatsApp } from "../pricing/pros.js";
+import { LANGUES_SITE, langueDepart, memoriserLangue, nomMetier, sens, traduction } from "../pricing/prosTextes.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 import { envoyerCandidature, useCategoriesPros } from "../prosBase.js";
 
-// « VOUS ÊTES PROFESSIONNEL EN ISRAËL ? » (25 nov. 2026) - #/pro
+// « VOUS ÊTES PROFESSIONNEL EN ISRAËL ? » (25 nov. 2026) - #/pro, en français et en hébreu (RTL)
 // Page de recrutement + inscription. Aucune promesse de clients ni de revenus. Le dossier est « soumis » : il n'est
-// JAMAIS publié sans la décision de Rebecca. Si l'enregistrement en ligne n'est pas encore possible (règles v37 pas
-// publiées), le dossier complet part à Rebecca par WhatsApp : rien n'est perdu.
+// JAMAIS publié sans la décision de Rebecca. Si l'enregistrement en ligne échoue, le dossier complet part à Rebecca
+// par WhatsApp (toujours en français, pour elle) : rien n'est perdu.
 
 function Champ({ label, k, f, setF, e, type = "text", aide, multi, requis }) {
   return (
@@ -23,9 +24,19 @@ function Champ({ label, k, f, setF, e, type = "text", aide, multi, requis }) {
 export default function ProInscription({ onAccueil }) {
   const categories = useCategoriesPros();
   const cats = categoriesVisibles(categories || []);
+  const [langue, setLangue] = useState(langueDepart);
+  const t = traduction(langue);
   const [f, setF] = useState(inscriptionVide);
-  const [e, setE] = useState({});
+  const [eBrut, setE] = useState({});
   const [etat, setEtat] = useState({ fait: false, lien: "", enCours: false });
+  // erreurs (écrites en français dans la logique) traduites à l'affichage
+  const e = Object.fromEntries(Object.entries(eBrut).map(([k, v]) => [k, (t.erreurs && t.erreurs[v]) || v]));
+  const conditions = t.conditions || CONDITIONS_ANNUAIRE;
+  const formule = (v) => (t.formules && t.formules[v]) || [FORMULES_PRO.find((x) => x.v === v).l, FORMULES_PRO.find((x) => x.v === v).detail];
+  const changerLangue = (l) => {
+    setLangue(l);
+    memoriserLangue(l);
+  };
   const envoyer = async () => {
     const err = erreursInscription(f);
     setE(err);
@@ -36,87 +47,91 @@ export default function ProInscription({ onAccueil }) {
       await envoyerCandidature(f);
       setEtat({ fait: true, lien, enLigne: true, enCours: false });
     } catch {
-      // enregistrement en ligne pas encore ouvert : le dossier part par WhatsApp
+      // enregistrement en ligne impossible : le dossier part par WhatsApp
       setEtat({ fait: true, lien, enLigne: false, enCours: false });
     }
   };
+  const choixLangue = (
+    <div className="tb-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
+      {onAccueil ? <button type="button" className="tdb-retour" onClick={onAccueil}>{t.accueil}</button> : <span />}
+      <span className="tb-actions">
+        {LANGUES_SITE.map((l) => <button key={l.v} type="button" className={langue === l.v ? "pp-bouton" : "bouton-secondaire"} onClick={() => changerLangue(l.v)}>{l.l}</button>)}
+      </span>
+    </div>
+  );
   if (etat.fait)
     return (
-      <section className="pp-bloc">
-        <h2>Merci !</h2>
-        {etat.enLigne ? (
-          <p>Votre dossier est bien enregistré. Rebecca Services l'examine : votre fiche ne sera publiée qu'après validation. Envoyez vos justificatifs (identité, osek, assurance) en photo sur WhatsApp.</p>
-        ) : (
-          <p>Dernière étape : envoyez votre dossier à Rebecca Services sur WhatsApp, avec vos justificatifs (identité, osek, assurance) en photo. Votre fiche ne sera publiée qu'après validation.</p>
-        )}
+      <section className="pp-bloc" dir={sens(langue)} lang={langue}>
+        <h2>{t.merci}</h2>
+        <p>{etat.enLigne ? t.merciEnLigne : t.merciWhatsApp}</p>
         <div className="tb-actions">
-          <a className="pp-bouton" href={etat.lien} target="_blank" rel="noopener noreferrer">💬 {etat.enLigne ? "Envoyer mes justificatifs" : "Envoyer mon dossier"}</a>
-          {onAccueil && <button type="button" className="bouton-secondaire" onClick={onAccueil}>Accueil</button>}
+          <a className="pp-bouton" href={etat.lien} target="_blank" rel="noopener noreferrer">{etat.enLigne ? t.envoyerJustifs : t.envoyerDossier}</a>
+          {onAccueil && <button type="button" className="bouton-secondaire" onClick={onAccueil}>{t.accueilBouton}</button>}
         </div>
       </section>
     );
   const cocher = (k) => setF({ ...f, [k]: !f[k] });
   return (
-    <section>
+    <section dir={sens(langue)} lang={langue}>
       <div className="pp-bloc">
-        {onAccueil && <button type="button" className="tdb-retour" onClick={onAccueil}>← Accueil</button>}
-        <h2>Vous êtes professionnel en Israël ?</h2>
-        <p>Développez votre activité avec Rebecca Services : apparaissez dans notre annuaire de professionnels indépendants et, si vous le souhaitez, obtenez votre propre page et vos outils de gestion.</p>
+        {choixLangue}
+        <h2>{t.insTitre}</h2>
+        <p>{t.insIntro}</p>
         <ul>
-          {FORMULES_PRO.map((x) => <li key={x.v}><b>{x.l}</b> : {x.detail}{x.v === "referencement" ? "" : " — sur devis"}</li>)}
+          {FORMULES_PRO.map((x) => <li key={x.v}><b>{formule(x.v)[0]}</b> : {formule(x.v)[1]}{x.v === "referencement" ? "" : t.surDevisFormule}</li>)}
         </ul>
-        <p className="tb-note">Chaque fiche est vérifiée avant publication. Nous ne promettons pas de volume de clients ni de revenus. Vous restez seul responsable de vos prestations et de leur paiement.</p>
+        <p className="tb-note">{t.insNote}</p>
       </div>
       <div className="pp-bloc">
-        <h3>Votre inscription</h3>
-        <Champ label="Nom commercial" k="nomCommercial" f={f} setF={setF} e={e} requis />
-        <Champ label="Prénom" k="prenom" f={f} setF={setF} e={e} requis />
-        <Champ label="Nom" k="nom" f={f} setF={setF} e={e} requis />
+        <h3>{t.insVotre}</h3>
+        <Champ label={t.nomCommercial} k="nomCommercial" f={f} setF={setF} e={e} requis />
+        <Champ label={t.prenom} k="prenom" f={f} setF={setF} e={e} requis />
+        <Champ label={t.nom} k="nom" f={f} setF={setF} e={e} requis />
         <label className="champ">
-          <span>Métier *</span>
+          <span>{t.metier} *</span>
           <select value={f.categorie} onChange={(x) => setF({ ...f, categorie: x.target.value })}>
-            <option value="">Choisir…</option>
-            {cats.map((c) => <option key={c.id} value={c.id}>{c.icone} {c.nom}</option>)}
+            <option value="">{t.choisir}</option>
+            {cats.map((c) => <option key={c.id} value={c.id}>{c.icone} {nomMetier(c, langue)}</option>)}
           </select>
           {e.categorie && <span className="erreur" role="alert">{e.categorie}</span>}
         </label>
-        <Champ label="Votre spécialité" k="metier" f={f} setF={setF} e={e} aide="ex. prothésiste ongulaire, plombier, pâtissière" />
-        <Champ label="Présentation de votre activité" k="description" f={f} setF={setF} e={e} multi requis />
-        <Champ label="Prestations proposées" k="prestations" f={f} setF={setF} e={e} multi />
-        <Champ label="Tarifs indicatifs" k="tarifs" f={f} setF={setF} e={e} aide="ou laissez vide : « sur devis »" />
-        <Champ label="Villes" k="villes" f={f} setF={setF} e={e} aide="ex. Netanya, Hadera" requis />
-        <Champ label="Zone d'intervention" k="zone" f={f} setF={setF} e={e} aide="ex. 20 km autour de Netanya, toute Israël" />
+        <Champ label={t.specialite} k="metier" f={f} setF={setF} e={e} aide={t.exSpecialite} />
+        <Champ label={t.presentation} k="description" f={f} setF={setF} e={e} multi requis />
+        <Champ label={t.prestationsProposees} k="prestations" f={f} setF={setF} e={e} multi />
+        <Champ label={t.tarifsIndicatifs} k="tarifs" f={f} setF={setF} e={e} aide={t.aideTarifs} />
+        <Champ label={t.villes} k="villes" f={f} setF={setF} e={e} aide={t.aideVilles} requis />
+        <Champ label={t.zone} k="zone" f={f} setF={setF} e={e} aide={t.aideZone} />
         <fieldset className="champ">
-          <legend>Langues parlées</legend>
+          <legend>{t.langues}</legend>
           {LANGUES.map((l) => (
             <label key={l} className="case">
               <input type="checkbox" checked={f.langues.includes(l)} onChange={() => setF({ ...f, langues: f.langues.includes(l) ? f.langues.filter((x) => x !== l) : [...f.langues, l] })} />
-              <span>{l}</span>
+              <span>{(t.nomsLangues && t.nomsLangues[l]) || l}</span>
             </label>
           ))}
         </fieldset>
-        <Champ label="Horaires" k="horaires" f={f} setF={setF} e={e} />
-        <Champ label="Téléphone" k="telephone" f={f} setF={setF} e={e} type="tel" />
-        <Champ label="WhatsApp" k="whatsapp" f={f} setF={setF} e={e} type="tel" />
-        <label className="case"><input type="checkbox" checked={f.whatsappPublic} onChange={() => cocher("whatsappPublic")} /><span>Afficher mon numéro sur ma fiche</span></label>
-        <Champ label="E-mail" k="email" f={f} setF={setF} e={e} type="email" />
-        <Champ label="Numéro d'osek" k="osek" f={f} setF={setF} e={e} requis />
+        <Champ label={t.horaires} k="horaires" f={f} setF={setF} e={e} />
+        <Champ label={t.telephone} k="telephone" f={f} setF={setF} e={e} type="tel" />
+        <Champ label={t.whatsapp} k="whatsapp" f={f} setF={setF} e={e} type="tel" />
+        <label className="case"><input type="checkbox" checked={f.whatsappPublic} onChange={() => cocher("whatsappPublic")} /><span>{t.afficherNumero}</span></label>
+        <Champ label={t.email} k="email" f={f} setF={setF} e={e} type="email" />
+        <Champ label={t.osek} k="osek" f={f} setF={setF} e={e} requis />
         <fieldset className="champ">
-          <legend>Formule souhaitée</legend>
+          <legend>{t.formuleSouhaitee}</legend>
           {FORMULES_PRO.map((x) => (
-            <label key={x.v} className="case"><input type="radio" checked={f.formule === x.v} onChange={() => setF({ ...f, formule: x.v })} /><span>{x.l}</span></label>
+            <label key={x.v} className="case"><input type="radio" checked={f.formule === x.v} onChange={() => setF({ ...f, formule: x.v })} /><span>{formule(x.v)[0]}</span></label>
           ))}
         </fieldset>
         <div className="champ">
-          <span>Conditions de l'annuaire</span>
-          <ul className="tb-note">{CONDITIONS_ANNUAIRE.map((c) => <li key={c}>{c}</li>)}</ul>
+          <span>{t.conditionsTitre}</span>
+          <ul className="tb-note">{conditions.map((c) => <li key={c}>{c}</li>)}</ul>
         </div>
-        <label className="case"><input type="checkbox" checked={f.independant} onChange={() => cocher("independant")} /><span>Je suis un professionnel indépendant et je réalise moi-même mes prestations *</span></label>
+        <label className="case"><input type="checkbox" checked={f.independant} onChange={() => cocher("independant")} /><span>{t.jeSuisIndependant} *</span></label>
         {e.independant && <span className="erreur" role="alert">{e.independant}</span>}
-        <label className="case"><input type="checkbox" checked={f.conditions} onChange={() => cocher("conditions")} /><span>J'accepte les conditions de l'annuaire *</span></label>
+        <label className="case"><input type="checkbox" checked={f.conditions} onChange={() => cocher("conditions")} /><span>{t.jAccepte} *</span></label>
         {e.conditions && <span className="erreur" role="alert">{e.conditions}</span>}
-        {Object.keys(e).length > 0 && <p className="erreur" role="alert">Vérifiez les champs signalés.</p>}
-        <button type="button" className="pp-bouton" disabled={etat.enCours} onClick={envoyer}>{etat.enCours ? "Envoi…" : "Envoyer mon inscription"}</button>
+        {Object.keys(e).length > 0 && <p className="erreur" role="alert">{t.verifiez}</p>}
+        <button type="button" className="pp-bouton" disabled={etat.enCours} onClick={envoyer}>{etat.enCours ? t.envoi : t.envoyerInscription}</button>
       </div>
     </section>
   );

@@ -44,7 +44,7 @@ export default function PrendreRdv() {
     const duree = Number(f.duree) || 60;
     if (!client || !String(client.nom || "").trim()) return setEtat({ msg: "Choisis la fiche de la cliente (ou crée-la)." });
     if (!f.prestation) return setEtat({ msg: "Choisis la prestation." });
-    if (!(prix >= 0)) return setEtat({ msg: "Prix invalide (0 = gratuit)." });
+    if (!(prix > 0)) return setEtat({ msg: "Indique un prix (au moins 1 ₪). Pour un soin offert, mets le prix et écris « offert » dans la note." });
     const act = ACTIVITES.find((a) => a.id === f.activite);
     const cellules = cellulesDe(f.heure, duree, 0);
     const demande = {
@@ -53,7 +53,7 @@ export default function PrendreRdv() {
       date: f.date,
       heure: f.heure,
       nom: String(client.nom).trim().slice(0, 100),
-      telephone: String(client.telephone || "").trim().slice(0, 30),
+      telephone: (String(client.telephone || "").trim() || "non renseigné").slice(0, 30), // 25 nov. 2026 : téléphone facultatif (Eden)
       moyenPaiement: f.moyen,
       prixEstime: null,
       prixFinal: prix,
@@ -71,7 +71,7 @@ export default function PrendreRdv() {
       setEtat({ ok: true, msg: `✓ Rendez-vous enregistré : il est dans le Calendrier du ${f.date.split("-").reverse().join("/")} à ${f.heure.replace(":", "h")}.` });
     } catch (e) {
       if (e && e.code === "creneau-pris") return setEtat({ msg: "Ce créneau est déjà pris sur le site.", conflit: true });
-      setEtat({ msg: "Enregistrement impossible (connexion ?)." });
+      setEtat({ msg: `Enregistrement impossible : ${(e && e.code) || ""} ${(e && e.message) || "connexion ?"}`.trim() });
     }
   };
 
@@ -106,7 +106,7 @@ export default function PrendreRdv() {
         {client && client.nouvelle && (
           <>
             <label className="champ">Nom et prénom<input value={client.nom} onChange={(e) => setClient({ ...client, nom: e.target.value })} /></label>
-            <label className="champ">Téléphone<input inputMode="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} /></label>
+            <label className="champ">Téléphone (facultatif)<input inputMode="tel" value={client.telephone} onChange={(e) => setClient({ ...client, telephone: e.target.value })} /></label>
             <ChoixAge valeur={client.age || ""} changer={(v) => setClient({ ...client, age: v })} />
             <p className="tb-note">Sa fiche se crée toute seule avec ce rendez-vous.</p>
           </>
@@ -123,7 +123,7 @@ export default function PrendreRdv() {
             {liste.map((p) => <option key={p.id || p.nom} value={p.nom}>{p.nom}{p.prix != null ? ` · ${p.prix} ₪` : ""}</option>)}
           </select>
         </label>
-        <label className="champ">Prix (₪, modifiable, 0 = offert)<input inputMode="decimal" value={f.prix} onChange={(e) => maj("prix", e.target.value)} /></label>
+        <label className="champ">Prix (₪, modifiable)<input inputMode="decimal" value={f.prix} onChange={(e) => maj("prix", e.target.value)} /></label>
         <label className="champ">Durée (minutes)<input inputMode="numeric" value={f.duree} onChange={(e) => maj("duree", e.target.value.replace(/\D/g, ""))} /></label>
         <label className="champ">Date<input type="date" value={f.date} onChange={(e) => maj("date", e.target.value)} /></label>
         <label className="champ">Heure<input type="time" value={f.heure} onChange={(e) => maj("heure", e.target.value)} /></label>

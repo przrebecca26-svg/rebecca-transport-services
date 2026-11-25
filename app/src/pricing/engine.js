@@ -188,17 +188,25 @@ function attenteEnLigne(lignes, minutes, t) {
 export function analyserRentabilite(d, total, t = TARIFS) {
   const retour = d.allerRetour ? d.retour || d.aller : d.aller; // aller simple : retour a vide
   const km = d.aller.km + retour.km;
-  const minutes = d.aller.minutes + retour.minutes + (d.attenteMinutes || 0);
-  const cout = km * coutParKm(t);
+  // 25 nov. 2026 (Rebecca : « combien de l'heure, ce que je gagne vraiment ») : + temps sur place selon le service
+  const surPlace = (t.rentabilite.surPlaceMinutes || {})[d.service] || 0;
+  const minutes = (d.aller.minutes || 0) + (retour.minutes || 0) + (d.attenteMinutes || 0) + surPlace;
+  const kmReel = t.rentabilite.coutKmReel || coutParKm(t);
+  const cout = km * kmReel;
   const encaisse = total - (d.fraisAnnonces || 0);
   const gainNet = encaisse - cout;
-  const heures = minutes / 60;
+  const heures = Math.max(minutes, 1) / 60;
   const gainNetHeure = gainNet / heures;
   return {
     kmTotal: km,
     heuresTotal: Math.round(heures * 100) / 100,
     retourAVide: !d.allerRetour,
     coutVehicule: Math.round(cout),
+    coutParKm: Math.round(kmReel * 100) / 100,
+    carburant: Math.round(km * ((t.carburant.consommationLitres100km / 100) * t.carburant.prixLitre)),
+    minutesTotal: Math.round(minutes),
+    surPlaceMinutes: surPlace,
+    encaisse: Math.round(encaisse),
     gainNet: Math.round(gainNet),
     gainNetHeure: Math.round(gainNetHeure),
     alerte: gainNetHeure < t.rentabilite.seuilAlerteGainNetHeure,
@@ -701,6 +709,10 @@ export function calculer(demande, t = TARIFS) {
       break;
     default:
       return erreur(`Service inconnu : ${d.service}`);
+  }
+  // 25 nov. 2026 : rentabilité détaillée pour TOUS les devis avec un trajet (livraison, courses, déménagement…)
+  if (r && r.ok && !r.devis && typeof r.total === "number" && r.details && !r.details.rentabilite && d.aller && d.aller.km >= 0 && d.service !== "ramassage") {
+    r.details.rentabilite = analyserRentabilite({ ...d, aller: { km: d.aller.km, minutes: d.aller.minutes || (d.aller.km / 40) * 60 } }, r.total, t);
   }
   return appliquerPartage(appliquerPromo(r, d, t), d);
 }

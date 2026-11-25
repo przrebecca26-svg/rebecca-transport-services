@@ -1,3 +1,4 @@
+import RentabiliteDetail from "./components/RentabiliteDetail.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot } from "firebase/firestore";
 import { alerteMinimum } from "./pricing/finCourse.js";
@@ -139,9 +140,7 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
         const a = alerteMinimum(renta, minParHeure, resultat.total);
         return a ? <p className="tdb-note dr-alerte-min" role="alert">⚠️ Sous ton minimum de {a.min} ₪/h.{a.conseille ? ` Prix conseillé : ${a.conseille} ₪.` : ""} (Réglages → Mon minimum)</p> : null;
       })()}
-      {calcule && renta && (
-        <p className="tdb-note">Pour toi seulement : gain net estimé {renta.gainNet} ₪ ({renta.gainNetHeure} ₪ / heure, retour à vide compris).</p>
-      )}
+      {calcule && renta && <RentabiliteDetail r={renta} />}
 
       {course && (
         <section className="tdb-bloc">

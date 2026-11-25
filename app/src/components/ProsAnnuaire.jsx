@@ -10,14 +10,10 @@ import { ajouterJoursDate, creneauxLibres, erreursDemandeClient } from "../prici
 // pendant Chabbat et les fêtes ; Rebecca Services ne réalise pas ces prestations et n'en encaisse pas le prix.
 const idDansLien = (h) => (/^#\/pros\/([A-Za-z0-9_-]{2,30})$/.exec(h || "") || [])[1] || "";
 
+// 25 nov. 2026, 20h23 (Rebecca) : pas de blocage Chabbat pour les pros (seul l'agenda de Rebecca Services est fermé)
 function Contact({ fiche, onClic }) {
-  const [ferme, setFerme] = useState(() => fermetureEnCours());
-  useEffect(() => {
-    const t = setInterval(() => setFerme(fermetureEnCours()), 60000);
-    return () => clearInterval(t);
-  }, []);
-  const c = lienContactPro(fiche, ferme);
-  const r = lienContactPro(fiche, ferme, { rdv: true });
+  const c = lienContactPro(fiche, null);
+  const r = lienContactPro(fiche, null, { rdv: true });
   if (!c.lien) return <p className="tb-note" role="status">{c.message}</p>;
   return (
     <div className="tb-actions">
@@ -28,7 +24,7 @@ function Contact({ fiche, onClic }) {
 }
 
 // Réservation en ligne (agenda Business ou Pack Pro) : la cliente DEMANDE, le professionnel confirme par WhatsApp.
-// Aucune demande pendant Chabbat et les fêtes ; aucun créneau proposé pendant ces périodes ; jamais deux fois le même.
+// Jamais deux fois le même créneau. Chabbat et fêtes : seulement si le pro a choisi de fermer.
 function ReserverPro({ f, apercu }) {
   const agenda = useAgendaPro(f.id);
   const [ouvert, setOuvert] = useState(false);
@@ -43,7 +39,8 @@ function ReserverPro({ f, apercu }) {
   const auj = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jerusalem" });
   const jours = Array.from({ length: Math.min(agenda.joursMax, 30) }, (_, i) => ajouterJoursDate(auj, i));
   const heures = p && form.date && cellules ? creneauxLibres(agenda, form.date, p.duree, { cellules, enLigne: true }) : [];
-  const ferme = fermetureEnCours();
+  // le pro qui a choisi de fermer pendant Chabbat et les fêtes : aucune demande envoyée à ce moment-là
+  const ferme = agenda.fermeChabbat ? fermetureEnCours() : null;
   const envoyer = async () => {
     const err = erreursDemandeClient(form);
     setE(err);

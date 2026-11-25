@@ -370,7 +370,9 @@ export function villesDesFiches(fiches) {
   return [...s.values()].sort((a, b) => a.localeCompare(b, "fr"));
 }
 
-/* ---------- Contact (WhatsApp) : bloque pendant Chabbat et les fetes (decision 4) ---------- */
+/* ---------- Contact (WhatsApp) ----------
+   25 nov. 2026, 20h23 (Rebecca) : Chabbat et fetes ne bloquent que Rebecca Services ; un pro independant fait comme il
+   veut. lienContactPro garde le parametre « fermeture » pour un pro qui choisirait de fermer (non utilise par defaut). */
 const versInternational = (t) => String(t || "").replace(/\D/g, "").replace(/^0/, "972");
 export function messageContactPro(fiche, { rdv = false } = {}) {
   return `Bonjour ${fiche.nomCommercial}, je vous contacte depuis l'annuaire Rebecca Services.${rdv ? "\nJe souhaite prendre rendez-vous pour : " : "\nMa demande : "}`;

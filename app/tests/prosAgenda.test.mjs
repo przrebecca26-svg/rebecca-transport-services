@@ -34,8 +34,9 @@ test("congés et absences partielles", () => {
   egal(A.creneauxLibres({ ...agenda, conges: [{ du: "2026-12-01", au: "2026-12-05" }] }, MERCREDI, 60, { maintenantMs: AVANT }), []);
 });
 
-test("en ligne : rien pendant Chabbat (vendredi après-midi), délai minimum, horizon", () => {
-  const vendredi = A.creneauxLibres(agenda, VENDREDI, 60, { maintenantMs: AVANT, enLigne: true });
+test("Chabbat : pas bloqué pour un pro (sauf s'il le choisit) ; délai minimum, horizon", () => {
+  vrai(A.creneauxLibres(agenda, VENDREDI, 60, { maintenantMs: AVANT, enLigne: true }).includes("17:00"));
+  const vendredi = A.creneauxLibres({ ...agenda, fermeChabbat: true }, VENDREDI, 60, { maintenantMs: AVANT, enLigne: true });
   vrai(vendredi.includes("09:00") && !vendredi.includes("17:00"), vendredi.join(" "));
   // le pro lui-même (hors ligne) n'est pas bloqué : il est indépendant
   vrai(A.creneauxLibres(agenda, VENDREDI, 60, { maintenantMs: AVANT }).includes("17:00"));

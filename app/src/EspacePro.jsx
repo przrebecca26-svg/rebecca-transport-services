@@ -158,7 +158,8 @@ function Reglages({ agenda, proId, nom }) {
       <label className="champ"><span>Délai minimum avant un rendez-vous (heures)</span><input type="number" min="0" value={a.delaiHeures} onChange={(e) => setA({ ...a, delaiHeures: e.target.value })} /></label>
       <label className="champ"><span>Réservation possible jusqu'à (jours)</span><input type="number" min="1" value={a.joursMax} onChange={(e) => setA({ ...a, joursMax: e.target.value })} /></label>
       <label className="champ"><span>Phrase ajoutée à la confirmation (adresse, consignes…)</span><input value={a.messageConfirmation} onChange={(e) => setA({ ...a, messageConfirmation: e.target.value })} /></label>
-      <p className="tb-note">Les demandes en ligne ne sont ni envoyées ni proposées pendant Chabbat et les fêtes (règle de Rebecca Services). Tes rendez-vous ajoutés toi-même ne sont pas bloqués.</p>
+      <label className="case"><input type="checkbox" checked={a.fermeChabbat} onChange={() => setA({ ...a, fermeChabbat: !a.fermeChabbat })} /><span>Fermer ma réservation en ligne pendant Chabbat et les fêtes (heures officielles d'Israël)</span></label>
+      <p className="tb-note">C'est toi qui décides : sans cette case, tes horaires et tes congés suffisent. Tes rendez-vous ajoutés toi-même ne sont jamais bloqués.</p>
       <button type="button" className="pp-bouton" onClick={sauver}>Enregistrer</button>
       {info && <p className="tb-note" role="status">{info}</p>}
     </div>

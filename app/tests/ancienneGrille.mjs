@@ -14,3 +14,4 @@ Object.assign(TARIFS_STANDARD.A, { jusqua3: 35, de3a6: 45, enPlus: 20 });
 Object.assign(TARIFS_STANDARD.B, { jusqua3: 30, de3a6: 40, enPlus: 20 });
 TARIFS.courses.achatsDejaPayes = [{ max: 5, prix: 60 }, { max: 10, prix: 80 }];
 TARIFS.courses.courseFaiteParRebecca = [{ max: 5, prix: 100 }, { max: 10, prix: 120 }];
+TARIFS.attente = { ...TARIFS.attente, tarifHeure: 100 };

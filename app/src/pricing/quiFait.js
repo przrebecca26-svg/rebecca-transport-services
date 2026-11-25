@@ -160,6 +160,18 @@ export function accepterProposition(d, moi, quandMs) {
   };
 }
 
+// 25 nov. 2026 (Rebecca : « pas obligé qu'il accepte ») : Rebecca confie directement, sans acceptation
+export function confierDirect(d, versId, quandMs) {
+  if (!d) return { erreur: "Course introuvable." };
+  if (!ouverte(d)) return { erreur: "Course terminée ou fermée : elle ne change plus de main." };
+  if (!versId || versId === attribueA(d)) return { erreur: "", maj: null };
+  return {
+    erreur: "",
+    maj: { attribueA: versId, vehicule: null, proposeA: null, proposePar: null, proposeLeMs: null, dernierRefus: null },
+    trace: { de: attribueA(d), vers: versId, leMs: quandMs || 0 },
+  };
+}
+
 // Refuser : la course reste chez celui qui l'a proposee, il le voit dans « A accepter »
 export function refuserProposition(d, moi, quandMs) {
   if (!d || d.proposeA !== moi) return { erreur: "Cette course ne t'est pas proposée." };

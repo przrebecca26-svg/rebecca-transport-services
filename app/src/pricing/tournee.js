@@ -787,7 +787,8 @@ export function missionDuTransfert(trajets, ids, date, duree, t = TARIFS, nomLie
 export function messageMission(m, nomMembre = "") {
   const [a, mo, jj] = m.date.split("-").map(Number);
   const jour = new Date(Date.UTC(a, mo - 1, jj, 12)).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
-  return [`Bonjour${nomMembre ? " " + nomMembre : ""} 😊 Peux-tu faire ces trajets d'école ${jour} ?`, "", ...m.etapes.map((e) => `${e.heure} : ${e.texte} (${e.adresse})`), "", "Merci ! Rebecca"].join("\n");
+  const ecole = (m.etapes || []).length > 0 && m.etapes.every((e) => /^(Prendre|Déposer) /.test(e.texte || ""));
+  return [`Bonjour${nomMembre ? " " + nomMembre : ""} 😊 Peux-tu faire ${ecole ? "ces trajets d'école" : "ceci"} ${jour} ?`, "", ...m.etapes.map((e) => `${e.heure} : ${e.texte}${e.adresse ? ` (${e.adresse})` : ""}`), "", "Merci ! Rebecca"].join("\n");
 }
 
 /* ---------- Ma journee dans mon Calendrier (12 nov. 2026, 16h07) ----------
@@ -884,16 +885,21 @@ export function lireJours(json) {
       const noms = (Array.isArray(l) ? l : []).map((x) => String(x || "").trim().slice(0, 30)).filter(Boolean).slice(0, 6);
       if (noms.length) avec[String(cle).slice(0, 200)] = noms;
     }
-    if (retires.length || Object.keys(heures).length || taches.length || Object.keys(faits).length || ajouts.length || Object.keys(avec).length) sortie[date] = { retires, heures, taches, faits, ajouts, ...(Object.keys(avec).length ? { avec } : {}) };
+    // 25 nov. 2026 : taches confiees a un coequipier ce jour-la { idTache: { mission, membre, nom } }
+    const confiees = {};
+    for (const [id, c] of Object.entries(v.confiees && typeof v.confiees === "object" ? v.confiees : {}).slice(0, 30)) {
+      if (c && typeof c === "object" && c.mission && c.membre) confiees[String(id).slice(0, 40)] = { mission: String(c.mission).slice(0, 40), membre: String(c.membre).slice(0, 128), nom: String(c.nom || "").slice(0, 60) };
+    }
+    if (retires.length || Object.keys(heures).length || taches.length || Object.keys(faits).length || ajouts.length || Object.keys(avec).length || Object.keys(confiees).length) sortie[date] = { retires, heures, taches, faits, ajouts, ...(Object.keys(avec).length ? { avec } : {}), ...(Object.keys(confiees).length ? { confiees } : {}) };
   }
   return sortie;
 }
 
-const jourVide = () => ({ retires: [], heures: {}, taches: [], faits: {}, ajouts: [], avec: {} });
+const jourVide = () => ({ retires: [], heures: {}, taches: [], faits: {}, ajouts: [], avec: {}, confiees: {} });
 const propre = (jours, date, j) => {
   const suite = { ...jours };
   j = { ...jourVide(), ...j };
-  if (j.retires.length || Object.keys(j.heures).length || j.taches.length || Object.keys(j.faits).length || j.ajouts.length || Object.keys(j.avec || {}).length) suite[date] = j;
+  if (j.retires.length || Object.keys(j.heures).length || j.taches.length || Object.keys(j.faits).length || j.ajouts.length || Object.keys(j.avec || {}).length || Object.keys(j.confiees || {}).length) suite[date] = j;
   else delete suite[date];
   return suite;
 };
@@ -932,7 +938,7 @@ export function changerHeureCeJour(jours, date, ids, heure) {
 // « Remettre la journee normale » : les trajets reviennent comme chaque semaine ; mes taches du jour restent
 export const journeeNormale = (jours, date) => {
   const j = (jours || {})[date] || {};
-  return propre(jours, date, { ...jourVide(), taches: j.taches || [], faits: j.faits || {}, ajouts: j.ajouts || [], avec: j.avec || {} });
+  return propre(jours, date, { ...jourVide(), taches: j.taches || [], faits: j.faits || {}, ajouts: j.ajouts || [], avec: j.avec || {}, confiees: j.confiees || {} });
 };
 
 /* ---------- Ramassage ponctuel (13 nov. 2026, 08h30) ----------
@@ -1038,9 +1044,46 @@ export function modifierTache(jours, date, id, tache) {
 }
 export function retirerTache(jours, date, id) {
   const j = { ...jourVide(), ...(jours[date] || {}) };
-  return propre(jours, date, { ...j, taches: j.taches.filter((x) => x.id !== id) });
+  const confiees = { ...(j.confiees || {}) };
+  delete confiees[id];
+  return propre(jours, date, { ...j, taches: j.taches.filter((x) => x.id !== id), confiees });
 }
-export const tachesDuJour = (jours, date) => ((jours || {})[date] || {}).taches || [];
+// Mes taches du jour, SANS celles confiees a un coequipier (25 nov. 2026)
+export const tachesDuJour = (jours, date) => {
+  const j = (jours || {})[date] || {};
+  const c = j.confiees || {};
+  return (j.taches || []).filter((x) => !c[x.id]);
+};
+/* ---------- Confier une tache a un coequipier (25 nov. 2026) ----------
+   Rebecca : « confié à Jérémy, sur toutes mes tâches, peu importe la tâche ; ça apparaît sur son agenda et ça
+   s'enlève du mien ; pas besoin qu'il accepte ». La tache reste enregistree chez Rebecca (pour « Je le reprends »)
+   mais sort de sa journee ; la mission (missionsEquipe) apparait dans le planning du coequipier. */
+export const tachesConfiees = (jours, date) => {
+  const j = (jours || {})[date] || {};
+  const c = j.confiees || {};
+  return (j.taches || []).filter((x) => c[x.id]).map((x) => ({ tache: x, ...c[x.id] }));
+};
+export function confierTacheCeJour(jours, date, idTache, info) {
+  const j = { ...jourVide(), ...((jours || {})[date] || {}) };
+  if (!j.taches.some((x) => x.id === idTache) || !info || !info.mission || !info.membre) return jours;
+  return propre(jours, date, { ...j, confiees: { ...(j.confiees || {}), [idTache]: { mission: info.mission, membre: info.membre, nom: info.nom || "" } } });
+}
+export function reprendreTacheCeJour(jours, date, idTache) {
+  const j = { ...jourVide(), ...((jours || {})[date] || {}) };
+  const confiees = { ...(j.confiees || {}) };
+  delete confiees[idTache];
+  return propre(jours, date, { ...j, confiees });
+}
+// Les etapes de la mission d'une tache : « Passer prendre … » si besoin, puis la tache (heure, quoi, ou)
+export function missionDeLaTache(x, nomLieu = null) {
+  if (!x || !HEURE_OK.test(x.debut || "") || !HEURE_OK.test(x.fin || "")) return null;
+  const lieu = (a) => (a && a.label ? (nomLieu && nomLieu(a)) || String(a.label).split(",")[0] : "");
+  const etapes = [];
+  if (x.prise && x.prise.label) etapes.push({ heure: "avant", texte: `Passer prendre${x.pour ? " " + x.pour : ""}`, lieu: lieu(x.prise), adresse: x.prise.label });
+  etapes.push({ heure: x.debut.replace(":", "h"), texte: `${x.titre}${x.pour && !x.prise ? " · " + x.pour : ""} (jusqu'à ${x.fin.replace(":", "h")})`, lieu: lieu(x.lieu), adresse: x.lieu && x.lieu.label ? x.lieu.label : "" });
+  if (x.livraison && x.livraison.label) etapes.push({ heure: "ensuite", texte: "Livrer", lieu: lieu(x.livraison), adresse: x.livraison.label });
+  return { debut: x.debut, fin: x.fin, etapes };
+}
 // Garde seulement les dates a partir d'hier (le document ne grossit pas)
 /* ---------- Avec ou sans moi dans la voiture (19 nov. 2026, 14h10) ----------
    Rebecca : « avec ou sans Shyrel » sur n'importe quelle course, livraison, tache ou etape de ma journee, pour savoir

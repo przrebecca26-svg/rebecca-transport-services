@@ -3,7 +3,7 @@ import { arrayUnion } from "firebase/firestore";
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 import { ADMIN_ID, peutFaire } from "../pricing/equipe.js";
-import { accepterProposition, annulerProposition, attribueA, conseilPour, libelleType, messageProposition, nomDe, proposer, refuserProposition } from "../pricing/quiFait.js";
+import { accepterProposition, annulerProposition, attribueA, confierDirect, conseilPour, libelleType, messageProposition, messageTransfert, nomDe, proposer, refuserProposition } from "../pricing/quiFait.js";
 import { useEquipeContexte } from "../equipeContexte.jsx";
 
 // Bloc « Qui fait la course » de la fiche d'une demande (Lot J, seance J3, 9 nov. 2026)
@@ -24,6 +24,16 @@ export default function QuiFait({ d, toutes, marge, executer, enCours }) {
 
   // Proposer la course a l'autre (elle reste chez moi jusqu'a sa reponse)
   const changerPersonne = async (versId) => {
+    // 25 nov. 2026 : Rebecca confie directement (pas d'acceptation) ; un coequipier propose toujours
+    if (moi === ADMIN_ID) {
+      const r = confierDirect(d, versId, Date.now());
+      if (r.erreur || !r.maj) return;
+      const ok = await executer(r.trace ? { ...r.maj, historiqueAttribution: arrayUnion(r.trace) } : r.maj);
+      const vers = membres.find((m) => m.id === versId);
+      if (ok && versId !== ADMIN_ID) setPrevenir({ direct: true, nom: nomDe(membres, versId), lien: lienWhatsApp(vers && vers.telephone, messageTransfert(d, nomDe(membres, moi), nomDe(membres, versId))) });
+      else setPrevenir(null);
+      return;
+    }
     const r = proposer(d, versId, moi, Date.now());
     if (r.erreur || !r.maj) return;
     const ok = await executer(r.maj);
@@ -79,12 +89,12 @@ export default function QuiFait({ d, toutes, marge, executer, enCours }) {
           )}
           {!proposeeA && (
             <p className="tb-note">
-              {!modifiable ? "Course terminée ou fermée : elle ne change plus de main." : peutProposer ? "Toucher l'autre nom lui propose la course : elle reste chez toi tant qu'il n'a pas accepté." : `Cette course est chez ${nomDe(membres, qui)}.`}
+              {!modifiable ? "Course terminée ou fermée : elle ne change plus de main." : moi === ADMIN_ID ? "Toucher un nom lui confie la course tout de suite : elle passe dans son agenda, sans qu'il ait besoin d'accepter." : peutProposer ? "Toucher l'autre nom lui propose la course : elle reste chez toi tant qu'il n'a pas accepté." : `Cette course est chez ${nomDe(membres, qui)}.`}
             </p>
           )}
           {prevenir && (
             <p className="dm-verif dm-ok">
-              Course proposée à {prevenir.nom}.{" "}
+              Course {prevenir.direct ? "confiée" : "proposée"} à {prevenir.nom}.{" "}
               {prevenir.lien ? <a className="tb-bouton" href={prevenir.lien} target="_blank" rel="noopener noreferrer">Prévenir {prevenir.nom} sur WhatsApp</a> : "Ajoute son téléphone dans sa fiche pour le prévenir sur WhatsApp."}
             </p>
           )}

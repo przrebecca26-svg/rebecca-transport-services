@@ -7,7 +7,7 @@ import { avancementDe } from "./suiteClient.js";
 //  - « En ligne » : Accepter (la livraison va dans le Calendrier) / Refuser / Passer a Jeremy ou a un coursier.
 // Les courses du site restent prioritaires : la carte previent quand une course est deja prevue a cette heure-la.
 import { avecCreneaux, contratDe, grilleA, prixPro, semaineDe } from "./commercants.js";
-import { dansCreneau } from "./creneauxResto.js";
+import { creneauDe, dansCreneau } from "./creneauxResto.js";
 import { duDe, encaisseDe } from "./finCourse.js";
 import { telNormalise } from "./clients.js";
 
@@ -191,6 +191,23 @@ export function prixCommande(tarifs, km, tresLourds = 0) {
   const p = prixPro(c, km);
   const n = Math.max(0, Math.round(Number(tresLourds) || 0));
   return p == null ? null : cents(p + n * (Number(c.tresLourd) || 0));
+}
+
+// PALIER VOLUME (validé par Rebecca le 25 nov. 2026) : formule B / A + B, dans un même créneau réservé le même jour,
+// à partir de la 10e livraison, chaque livraison passe à 20 ₪ (≤ 3 km) ou 30 ₪ (3 à 6 km). Au-delà de 6 km : prix normal.
+// Jamais plus cher que le prix normal. Seules comptent les commandes acceptées ou livrées.
+export const PALIER_VOLUME = { aPartirDe: 10, jusqua3: 20, de3a6: 30 };
+export function rangDansCreneau(resto, commandes = [], jour, heure, sauf = null) {
+  const cr = resto && avecCreneaux(resto.formule) ? creneauDe(resto.creneaux, jour, heure) : null;
+  if (!cr) return 0;
+  const deja = (commandes || []).filter((c) => c && c.id !== sauf && (!resto.cle || !c.cle || c.cle === resto.cle) && c.jour === jour && ["acceptee", "livree"].includes(c.statut) && HEURE_OK.test(c.pretA || "") && c.pretA >= cr.debut && c.pretA < cr.fin).length;
+  return deja + 1;
+}
+export function prixCommandeResto(resto, jour, heure, km, tresLourds = 0, commandes = [], sauf = null) {
+  const base = prixCommande(tarifsResto(resto, jour, heure), km, tresLourds);
+  if (base == null || !(Number(km) <= 6) || rangDansCreneau(resto, commandes, jour, heure, sauf) < PALIER_VOLUME.aPartirDe) return base;
+  const tl = Math.max(0, Math.round(Number(tresLourds) || 0)) * (Number((resto.tarifs || {}).tresLourd) || 0);
+  return cents(Math.min(base, (Number(km) <= 3 ? PALIER_VOLUME.jusqua3 : PALIER_VOLUME.de3a6) + tl));
 }
 
 // La livraison qui entre dans le Calendrier (meme forme qu'une course ajoutee a la main, source « manuel »).

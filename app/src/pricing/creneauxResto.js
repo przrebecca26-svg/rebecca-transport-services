@@ -57,6 +57,15 @@ export function dansCreneau(texte, jour, heure) {
   return lireCreneaux(texte).some((x) => x.debut && x.fin && x.jours.includes(j) && m >= enMinutes(x.debut) && m < enMinutes(x.fin));
 }
 
+// 25 nov. 2026 : le créneau réservé qui contient cette heure ce jour-là ({ debut, fin }) ou null
+export function creneauDe(texte, jour, heure) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(jour || "") || !/^\d{2}:\d{2}$/.test(heure || "")) return null;
+  const j = new Date(jour + "T12:00:00Z").getUTCDay();
+  const m = enMinutes(heure);
+  const x = lireCreneaux(texte).find((c) => c.debut && c.fin && c.jours.includes(j) && m >= enMinutes(c.debut) && m < enMinutes(c.fin));
+  return x ? { debut: x.debut, fin: x.fin } : null;
+}
+
 // 20 nov. 2026 (Rebecca) : choisir les créneaux et les horaires avec des listes déroulantes (jour de… à…, de telle
 // heure à telle heure). Les lignes deviennent le même texte qu'avant (« jeudi 19h-21h, dim-jeu 19h30-22h »).
 export const HEURES_LISTE = Array.from({ length: 37 }, (_, i) => {

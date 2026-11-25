@@ -1,3 +1,4 @@
+import { kmEntre, MIN_PAR_KM } from "./pricing/coursesGroupees.js";
 import { useEffect, useMemo, useRef } from "react";
 import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { db } from "./firebase.js";
@@ -37,7 +38,15 @@ export function useMaJournee(actif) {
   // Etapes de la tournee + mes taches du jour, dans l'ordre des heures
   const fil = (date) => {
     if (etat !== "ok") return [];
-    const taches = tachesDuJour(jours, date).map((x) => ({ min: enMin(x.debut), genre: "tache", heure: x.debut.replace(":", "h"), jusqua: x.fin.replace(":", "h"), texte: x.titre, tache: x, adresse: x.lieu, lieu: x.lieu ? nomLieu(x.lieu) || String(x.lieu.label).split(",")[0] : "" }));
+    const taches = tachesDuJour(jours, date).flatMap((x) => {
+      const t = { min: enMin(x.debut), genre: "tache", heure: x.debut.replace(":", "h"), jusqua: x.fin.replace(":", "h"), texte: x.titre, tache: x, adresse: x.lieu, lieu: x.lieu ? nomLieu(x.lieu) || String(x.lieu.label).split(",")[0] : "" };
+      // 25 nov. 2026 : « d'abord passer prendre Maman » -> une étape avant la tâche (trajet estimé, 5 min sur place)
+      if (!x.prise || !Number.isFinite(x.prise.lat) || !x.lieu || !Number.isFinite(x.lieu.lat)) return [t];
+      const route = Math.max(5, Math.round(kmEntre(x.prise, x.lieu) * MIN_PAR_KM));
+      const m = t.min - route - 5;
+      const hh = `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;
+      return [{ min: m, genre: "tache", heure: hh, texte: `Passer prendre${x.pour ? " " + x.pour : ""}`, tache: x, cle: "prise@" + x.id, adresse: x.prise, lieu: nomLieu(x.prise) || String(x.prise.label || "").split(",")[0] }, t];
+    });
     if (vacancesDuJour(date) || !(tous.length || ((jours[date] || {}).ajouts || []).length)) return taches;
     const j = journeeDeLaDate(tous, date, d.transferts, durees.duree, d.domicile, TARIFS, jours);
     if (!j || j.statut === "inconnu") return taches;

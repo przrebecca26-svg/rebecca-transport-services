@@ -182,6 +182,7 @@ export default function CodesPromo() {
         <div className="tb-bloc">
           <h3>Codes promo</h3>
           <p className="tb-note">Choisis l'activité : chaque activité a ses propres codes, sans mélange. Le code de bienvenue reste valable partout, avec sa règle habituelle.</p>
+          <p className="tb-note"><strong>Pour créer, modifier ou supprimer un code :</strong> touche l'activité ci-dessous, puis « Nouveau code » (ou « Modifier » sur un code ; « Supprimer » est dans Modifier).</p>
         </div>
         {codes.length === 0 && (
           <div className="tb-bloc">
@@ -194,12 +195,15 @@ export default function CodesPromo() {
           const n = codes.filter((c) => activiteDe(c) === r.id);
           const actifs = n.filter((c) => etatCode(c, jour) === "actif").length;
           return (
-            <button key={r.id} className="tb-carte" onClick={() => setActiviteVue(r.id)}>
-              <span className="tb-ligne">
-                <strong>{r.label}</strong>
-                <span>{n.length ? `${actifs} actif${actifs > 1 ? "s" : ""} / ${n.length}` : "aucun code"}</span>
-              </span>
-            </button>
+            <div key={r.id} className="tb-actions">
+              <button className="tb-carte" style={{ flex: 1 }} onClick={() => setActiviteVue(r.id)}>
+                <span className="tb-ligne">
+                  <strong>{r.label}</strong>
+                  <span>{n.length ? `${actifs} actif${actifs > 1 ? "s" : ""} / ${n.length}` : "aucun code"}</span>
+                </span>
+              </button>
+              <button className="tb-bouton tb-clair" aria-label={`Nouveau code ${r.label}`} onClick={() => { setActiviteVue(r.id); setF({ ...VIDE, activite: r.id }); setMode("nouveau"); }}>＋</button>
+            </div>
           );
         })}
         {erreur && <p className="admin-erreur" role="alert">{erreur}</p>}

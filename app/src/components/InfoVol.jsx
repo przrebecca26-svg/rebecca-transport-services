@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { trajetACalculer } from "../services.js";
+import { kmEntre, MIN_PAR_KM } from "../pricing/coursesGroupees.js";
 import { TABLEAU_AEROPORT, adresseRecherche, choisirVol, etatDuVol, iconeVol, lieuDuVol, villeDuVol, volConsultable, volDeLaCourse } from "../pricing/vols.js";
 
 // Suivi du vol d'une course aeroport (17 nov. 2026) : terminal, a deposer ou a recuperer, a l'heure ou en retard.
@@ -77,6 +79,20 @@ export default function InfoVol({ d, compact = false }) {
       </small>
     );
   }
+  // 25 nov. 2026 (Rebecca) : à titre d'information, l'heure de départ au plus tard pour être à l'aéroport 3 h avant
+  // le décollage, même si la cliente a réservé une autre heure (trajet estimé depuis l'adresse de prise en charge)
+  let conseil = "";
+  const hm = /(\d{1,2})[:h](\d{2})/.exec(info && decale ? info.nouvelle || "" : heureVol || "");
+  if (vol.sens === "depart" && hm) {
+    const t = trajetACalculer(d.service, v);
+    const de = t && (d.estRetour ? t.arrivee : t.depart);
+    const vers = t && (d.estRetour ? t.depart : t.arrivee);
+    const route = de && vers && Number.isFinite(de.lat) && Number.isFinite(vers.lat) ? Math.round(kmEntre(de, vers) * MIN_PAR_KM * 1.15) + 10 : null;
+    const aeroport = Number(hm[1]) * 60 + Number(hm[2]) - 180;
+    const fmt = (m) => `${String(Math.floor(((m % 1440) + 1440) % 1440 / 60)).padStart(2, "0")}h${String(((m % 60) + 60) % 60).padStart(2, "0")}`;
+    if (route) conseil = `À l'aéroport 3 h avant le décollage (${fmt(aeroport)}) : partir au plus tard vers ${fmt(aeroport - route)} (environ ${route} min de route + stationnement).`;
+    else conseil = `À l'aéroport 3 h avant le décollage : ${fmt(aeroport)}.`;
+  }
   const ligne = (titre, valeur, st) => (valeur ? <p style={st}><strong>{titre} :</strong> {valeur}</p> : null);
   return (
     <div className="tb-bloc">
@@ -88,6 +104,7 @@ export default function InfoVol({ d, compact = false }) {
       {ligne("Terminal", info ? info.terminal || (!d.estRetour && v.terminal) : !d.estRetour && v.terminal)}
       {ligne("État", info ? [info.etat, info.suite].filter(Boolean).join(" · ") : suite, style)}
       {ligne("Enregistrement", info && info.comptoirs)}
+      {conseil && <p><strong>🕒 Info :</strong> {conseil}</p>}
       <p className="tb-note">
         {s.statut === "ok" ? `Tableau de l'aéroport Ben Gourion, lu à ${s.a}, relu toutes les 5 minutes. ` : ""}
         <a href={TABLEAU_AEROPORT} target="_blank" rel="noopener noreferrer">Voir le tableau de l'aéroport</a>

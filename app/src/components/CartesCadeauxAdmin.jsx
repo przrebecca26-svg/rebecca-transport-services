@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
-import { MOYENS_CADEAU, STATUTS_CADEAU, champsActivation, dateFrCadeau, finValidite, lienCarte, statutAffiche, utiliserCarte } from "../pricing/cartesCadeaux.js";
+import { MOYENS_CADEAU, STATUTS_CADEAU, champsActivation, genererCode, normaliserCode, dateFrCadeau, finValidite, lienCarte, statutAffiche, utiliserCarte } from "../pricing/cartesCadeaux.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 
 // CARTES CADEAUX - espace de Rebecca (18 nov. 2026) : confirmer le paiement, envoyer la carte, voir le solde.
@@ -16,6 +16,31 @@ export default function CartesCadeauxAdmin() {
   const [usage, setUsage] = useState({});
   const [moyens, setMoyens] = useState({}); // 19 nov. 2026 (test C5) : Rebecca corrige le moyen reellement recu
   const [info, setInfo] = useState("");
+  // 25 nov. 2026 (Rebecca : carte offerte pour une tombola, code RS100GAGNANT déjà imprimé) : créer / modifier une carte
+  const [form, setForm] = useState(null); // null | { id?, montant, pourNom, pourTel, code, raison }
+  const enregistrerForm = async () => {
+    const montant = Number(String(form.montant || "").replace(",", "."));
+    const code = normaliserCode(form.code || "") || genererCode();
+    if (!(montant >= 1 && montant <= 5000)) return setInfo("Montant entre 1 et 5000 ₪.");
+    if (!/^[A-Z0-9-]{4,20}$/.test(code)) return setInfo("Code : 4 à 20 lettres ou chiffres.");
+    if (cartes.some((c) => c.code === code && c.id !== form.id)) return setInfo(`Le code ${code} existe déjà.`);
+    const pourNom = String(form.pourNom || "").trim().slice(0, 60) || "Gagnant(e)";
+    try {
+      if (form.id) {
+        const c = cartes.find((x) => x.id === form.id) || {};
+        const deja = (Number(c.montant) || 0) - (Number(c.solde) || 0);
+        await maj(form.id, { code, montant, solde: Math.max(0, montant - deja), pourNom, pourTel: String(form.pourTel || "").slice(0, 30), message: String(form.raison || "").slice(0, 300) });
+      } else {
+        // les règles v26 exigent une création « à payer » au format RS-XXXX-XXXX : on crée puis on active tout de suite
+        const ref = await addDoc(collection(db, "cartesCadeaux"), { statut: "a_payer", code: genererCode(), montant: Math.max(20, montant), solde: Math.max(20, montant), idee: "Au choix", acheteurNom: "Rebecca Services", acheteurTel: "0547380193", pourNom, pourTel: String(form.pourTel || "").slice(0, 30), message: String(form.raison || "").slice(0, 300), moyen: "Espèces", creeLe: serverTimestamp() });
+        await updateDoc(ref, { ...champsActivation(aujourdhui()), code, montant, solde: montant, moyen: "Offerte", offerte: true, majLe: serverTimestamp() });
+      }
+      setForm(null);
+      setInfo(`✓ Carte ${code} enregistrée.`);
+    } catch {
+      setInfo("Enregistrement impossible (connexion ou règles Firebase).");
+    }
+  };
   useEffect(() => onSnapshot(collection(db, "cartesCadeaux"), (s) => setCartes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setCartes([])), []);
   if (!cartes) return <p className="admin-texte tb-pad">Chargement…</p>;
   const maj = (id, champs) => updateDoc(doc(db, "cartesCadeaux", id), { ...champs, majLe: serverTimestamp() }).catch(() => setInfo("Enregistrement impossible (règles Firebase v26 ?)."));
@@ -32,6 +57,23 @@ export default function CartesCadeauxAdmin() {
   return (
     <section className="tb-liste">
       <p className="tb-note">🎁 Les clientes offrent une carte depuis l'accueil du site (lien direct : rebeccaservices.com/#/cadeau). Soldes encore à utiliser : {Math.round(encours)} ₪. Toutes les activités, valable 1 an, non remboursable.</p>
+      {!form && <div className="tb-actions"><button className="tb-bouton" onClick={() => setForm({ montant: "100", pourNom: "", pourTel: "", code: "", raison: "" })}>＋ Créer une carte cadeau (offerte, tombola…)</button></div>}
+      {form && (
+        <div className="tb-bloc">
+          <h3>{form.id ? "Modifier la carte" : "Nouvelle carte cadeau"}</h3>
+          <label className="champ">Montant (₪)<input inputMode="decimal" value={form.montant} onChange={(e) => setForm({ ...form, montant: e.target.value })} /></label>
+          <label className="champ">Code (vide = code automatique)<input value={form.code} autoCapitalize="characters" placeholder="Ex : RS100GAGNANT" onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} /></label>
+          <label className="champ">Pour qui (facultatif)<input value={form.pourNom} placeholder="Gagnant(e) de la tombola" onChange={(e) => setForm({ ...form, pourNom: e.target.value })} /></label>
+          <label className="champ">Téléphone (facultatif)<input inputMode="tel" value={form.pourTel} onChange={(e) => setForm({ ...form, pourTel: e.target.value })} /></label>
+          <label className="champ">Note (facultatif)<input value={form.raison} placeholder="Tombola solidaire" onChange={(e) => setForm({ ...form, raison: e.target.value })} /></label>
+          <div className="tb-actions">
+            <button className="tb-bouton" onClick={enregistrerForm}>Enregistrer</button>
+            <button className="tb-bouton tb-clair" onClick={() => setForm(null)}>Fermer</button>
+          </div>
+          <p className="tb-note">La carte est active tout de suite, valable 1 an. À l'encaissement : « 💰 Encaissé » → Carte cadeau → ce code.</p>
+        </div>
+      )}
+      {info && <p className="tb-note" role="status">{info}</p>}
       {tri.length === 0 && <p className="admin-texte tb-pad">Aucune carte cadeau pour l'instant.</p>}
       {tri.map((c) => {
         const msgAcheteur = `Bonjour ${c.acheteurNom}, merci pour votre paiement ! 🎁 La carte cadeau pour ${c.pourNom} est active : ${lienCarte(c.id)}\nValable jusqu'au ${dateFrCadeau(finValidite(c) || champsActivation(aujourdhui()).expireLe)}, sur toutes les activités (non remboursable).\nVous pouvez l'envoyer depuis ce lien. Rebecca`;
@@ -63,6 +105,7 @@ export default function CartesCadeauxAdmin() {
                   <button className="tb-bouton tb-clair" onClick={() => setSuppr("")}>Non</button>
                 </>
               ) : <button className="tb-bouton tb-clair" onClick={() => setSuppr(c.id)}>Supprimer</button>}
+              <button className="tb-bouton tb-clair" onClick={() => setForm({ id: c.id, montant: String(c.montant), pourNom: c.pourNom || "", pourTel: c.pourTel || "", code: c.code || "", raison: c.message || "" })}>Modifier</button>
               {c.statut !== "annulee" && c.statut !== "utilisee" && <button className="tb-bouton tb-clair" onClick={() => window.confirm(c.statut === "active" ? "Annuler cette carte cadeau ? (Elle n'est pas remboursable : à faire seulement en cas d'erreur.)" : "Annuler cette carte cadeau ?") && maj(c.id, { statut: "annulee" })}>Annuler</button>}
             </div>
             {statutAffiche(c, jour) === "active" && (
@@ -74,7 +117,6 @@ export default function CartesCadeauxAdmin() {
           </div>
         );
       })}
-      {info && <p className="tb-note">{info}</p>}
     </section>
   );
 }

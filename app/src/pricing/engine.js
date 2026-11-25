@@ -194,7 +194,7 @@ export function analyserRentabilite(d, total, t = TARIFS) {
   // 25 nov. 2026 (Rebecca : « combien de l'heure, ce que je gagne vraiment ») : + temps sur place selon le service
   const surPlace = (t.rentabilite.surPlaceMinutes || {})[d.service] || 0;
   // trafic : durées de route allongées aux heures de pointe (Réglages → Circulation)
-  const route = (m) => (d.date && d.heure ? dureeSelonHeure(m || 0, d.date, d.heure, t) : m || 0);
+  const route = (m) => { const r = d.date && d.heure ? dureeSelonHeure(m || 0, d.date, d.heure, t) : null; return r ? r.minutes : Number(m) || 0; };
   const minutesRoute = route(d.aller.minutes) + route(retour.minutes) + route(approche.minutes);
   const traficMinutes = Math.max(0, Math.round(minutesRoute - ((d.aller.minutes || 0) + (retour.minutes || 0) + (approche.minutes || 0))));
   const minutes = minutesRoute + (d.attenteMinutes || 0) + surPlace;

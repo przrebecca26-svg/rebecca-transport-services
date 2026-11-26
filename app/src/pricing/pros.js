@@ -484,6 +484,7 @@ export function messageInvitationPro(d, lien) {
     lien,
     `Connectez-vous avec l'adresse ${d.compteEmail} (Google ou e-mail et mot de passe), puis touchez « Lier mon espace pro ».`,
     "Astuce : sur iPhone, Partager → « Sur l'écran d'accueil » pour l'avoir comme une application.",
+    "🎨 Dans votre espace, l'onglet « Mes visuels » crée vos publications et stories avec le QR code de votre fiche : vos clientes scannent et réservent directement.",
   ].join("\n");
 }
 

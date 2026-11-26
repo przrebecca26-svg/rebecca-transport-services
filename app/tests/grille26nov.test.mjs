@@ -32,14 +32,16 @@ test("attente : 10 min offertes puis 1 ₪ par minute réelle (17 min = 7 ₪)",
 // 26 nov. 2026, 7h08 : « je vais déjà à Tel-Aviv, ça ne devrait pas refuser l'aéroport »
 section("Sur ma route (26 nov. 2026)");
 import { creneauxDeLaDate } from "../src/pricing/tournee.js";
-test("une de mes courses vers Tel-Aviv : un aéroport au même moment = devis + « Rebecca confirme » ; Haïfa ou une livraison = refusé", () => {
+test("une de mes courses vers Tel-Aviv : un aéroport au même moment = devis + « Rebecca confirme » (livraison vers Tel-Aviv aussi) ; Haïfa ou une livraison dans Netanya = refusé", () => {
   const avant = T.calendrier.creneauxDates;
   T.calendrier.creneauxDates = { "2026-12-01": [{ debut: "11:00", fin: "14:30", motif: "Créneau déjà réservé", sens: "sud" }] };
   try {
     const aero = calculer(d(48.3, 50, "ben_gurion", { heure: "11:30" }), T);
     vrai(!aero.bloque && aero.total === 250 && aero.details.surLaRoute && aero.aConfirmer.some((x) => /passe déjà dans cette direction/.test(x)), "aéroport");
     vrai(calculer(d(60, 50, "haifa", { heure: "11:30" }), T).bloque, "Haïfa");
-    vrai(calculer({ ...d(5, 10, "netanya", { heure: "11:30" }), service: "livraison" }, T).bloque, "livraison");
+    vrai(calculer({ ...d(5, 10, "netanya", { heure: "11:30" }), service: "livraison" }, T).bloque, "livraison dans Netanya");
+    const colis = calculer({ ...d(32, 35, "tel_aviv", { heure: "11:30" }), service: "livraison" }, T);
+    vrai(!colis.bloque && colis.details.surLaRoute, "livraison vers Tel-Aviv sur ma route");
   } finally {
     T.calendrier.creneauxDates = avant;
   }

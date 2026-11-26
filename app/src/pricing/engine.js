@@ -703,7 +703,7 @@ export function trouverConflits(demande, reservations = [], t = TARIFS) {
 // courses vers une ville (sens nord ou sud depuis Netanya) n'empeche pas un transport dans le MEME sens : le devis
 // s'affiche, et Rebecca confirme l'horaire selon son planning (trajet partage / enchaine).
 export function sensDuTrajet(d, t = TARIFS) {
-  if (!d || !["transport", "aeroport"].includes(d.service)) return null;
+  if (!d || !["transport", "aeroport", "livraison"].includes(d.service)) return null; // 26 nov. 2026, 7h25 : livraisons aussi
   const z = (k) => (k && t.zones[k] && t.zones[k].axe ? t.zones[k].axe.sens : null);
   const dep = d.zoneDepart || "netanya";
   if (dep === "netanya" && z(d.zoneArrivee)) return z(d.zoneArrivee);

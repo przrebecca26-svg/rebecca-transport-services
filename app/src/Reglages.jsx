@@ -1,3 +1,4 @@
+import { minimumDuReglage } from "./pricing/finCourse.js";
 import { useEffect, useState } from "react";
 import RechercheGoogle from "./components/RechercheGoogle.jsx"; // 19 nov. 2026 : venue du Répertoire
 import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
@@ -342,10 +343,13 @@ function Minimum() {
   const [valeur, setValeur] = useState("");
   const [enBase, setEnBase] = useState(null);
   const [message, setMessage] = useState(null);
+  const [ancien, setAncien] = useState(null);
   useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => {
-    const n = x.exists() ? Number(x.data().minParHeure) || 0 : 0;
-    setEnBase(n);
-    setValeur((v) => v || (n ? String(n) : ""));
+    // 26 nov. 2026 : un minimum enregistré avant la nouvelle grille est remplacé par le seuil d'alerte (40 ₪/h)
+    const m = minimumDuReglage(x.exists() ? x.data() : null);
+    setEnBase(m.ancien != null ? -1 : m.min);
+    setAncien(m.ancien);
+    setValeur((v) => v || (m.min ? String(m.min) : ""));
   }, () => setEnBase(0)), []);
   const enregistrer = async () => {
     const n = lireNombre(valeur);
@@ -361,7 +365,8 @@ function Minimum() {
     <div className="tb-bloc">
       <h3>Mon minimum par heure</h3>
       <p className="tb-note">Dans le Devis rapide, une alerte s'affiche quand une course te rapporterait moins que ce montant par heure (après essence, retour à vide compris), avec un prix conseillé. 0 = pas d'alerte.</p>
-      <label className="pm-champ">₪ par heure<input inputMode="numeric" value={valeur} onChange={(e) => { setValeur(e.target.value); setMessage(null); }} placeholder="ex. 80" /></label>
+      {ancien != null && <p className="tb-note">Ton ancien minimum ({ancien} ₪/h, enregistré avant la grille du 26 nov.) ne s'applique plus : l'alerte suit ta règle du 26 nov. (objectif 55 ₪/h en moyenne, alerte sous {valeur || 40} ₪/h). Touche « Enregistrer » pour garder cette valeur, ou mets-en une autre.</p>}
+      <label className="pm-champ">₪ par heure<input inputMode="numeric" value={valeur} onChange={(e) => { setValeur(e.target.value); setMessage(null); }} placeholder="ex. 40" /></label>
       <div className="tb-actions"><button className="tb-bouton" disabled={String(enBase || "") === valeur.trim()} onClick={enregistrer}>Enregistrer</button></div>
       <Message m={message} />
     </div>

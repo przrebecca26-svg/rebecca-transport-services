@@ -141,3 +141,12 @@ test("courses faites par Rebecca : 45 min au magasin comptées avant la livraiso
   vrai(!verifierInsertion(req("courses", "11:00", MAISON, KIKAR, { faitesParRebecca: true }), j).possible, "11h + 45 min : trop juste avant 11h40");
   vrai(verifierInsertion(req("courses", "11:00", MAISON, KIKAR), j).possible, "achats déjà payés (20 min) : oui");
 });
+
+section("Minimum par heure après la grille du 26 nov.");
+import { minimumEffectif, alerteMinimum } from "../src/pricing/finCourse.js";
+test("ancien minimum de 80 ₪/h (17 nov.) remplacé par 40 : plus d'alerte sur un aéroport à 71 ₪/h", () => {
+  const m = minimumEffectif(80, Date.parse("2026-11-17T10:00:00Z"), { rentabilite: { seuilAlerteGainNetHeure: 40 } });
+  egal([m.min, m.ancien], [40, 80]);
+  egal(alerteMinimum({ gainNet: 125, gainNetHeure: 71 }, m.min, 250), null);
+  egal(minimumEffectif(60, Date.parse("2026-11-26T09:00:00Z")).min, 60); // enregistré après : gardé
+});

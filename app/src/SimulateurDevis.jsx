@@ -1,7 +1,7 @@
 import RentabiliteDetail from "./components/RentabiliteDetail.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot } from "firebase/firestore";
-import { alerteMinimum } from "./pricing/finCourse.js";
+import { alerteMinimum, minimumDuReglage } from "./pricing/finCourse.js";
 import { db } from "./firebase.js";
 import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import Champ from "./components/Champ.jsx";
@@ -46,7 +46,7 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
   const reglages = useFermetures();
   // 17 nov. 2026 : mon minimum de gain par heure (Reglages) -> alerte et prix conseille
   const [minParHeure, setMinParHeure] = useState(0);
-  useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => setMinParHeure(x.exists() ? Number(x.data().minParHeure) || 0 : 0), () => {}), []);
+  useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => setMinParHeure(minimumDuReglage(x.exists() ? x.data() : null).min), () => {}), []);
   const changer = (nom, valeur) => setV((o) => ({ ...o, [nom]: valeur }));
   // 25 nov. 2026 (21h42) : livraison pour un professionnel partenaire (Business, Pack Pro) -> avantage partenaire
   const dejaPart = course && course.livraisonPartenaire ? course.livraisonPartenaire : null;

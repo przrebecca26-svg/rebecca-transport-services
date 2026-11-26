@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase.js";
 import { useEssence } from "./EssenceVue.jsx";
-import { coutKm, texteMinutes } from "./pricing/finCourse.js";
+import { coutKm, minimumDuReglage, texteMinutes } from "./pricing/finCourse.js";
 import { GROUPES, groupeDe } from "./pricing/monMois.js";
 import { SERVICES } from "./services.js";
 import { TRANCHES, aVide, evolutionMois, previsionMois, regrouper, sousLeMinimum, trajetsTermines, trancheDe } from "./pricing/rentabilite.js";
@@ -39,7 +39,7 @@ function Tableau({ titre, lignes, nom }) {
 export default function RentabiliteAvancee({ demandes = [], mouvements = [], debut, fin, ref }) {
   const essence = useEssence();
   const [minParHeure, setMin] = useState(0);
-  useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => setMin(x.exists() ? Number(x.data().minParHeure) || 0 : 0), () => {}), []);
+  useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => setMin(minimumDuReglage(x.exists() ? x.data() : null).min), () => {}), []);
   const parKm = coutKm(essence ? essence.pleins : []).parKm;
   const r = useMemo(() => {
     const trajets = trajetsTermines(demandes, debut, fin, parKm);

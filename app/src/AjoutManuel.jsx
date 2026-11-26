@@ -8,6 +8,7 @@ import AddressField from "./components/AddressField.jsx";
 import { SERVICES } from "./services.js";
 import { TARIFS } from "./pricing/config.js";
 import { calculerTrajet } from "./routing.js";
+import { AvisJournee } from "./components/InsertionJournee.jsx";
 import { construireFiches, estSansCompte, filtrer, telNormalise } from "./pricing/clients.js";
 import { MARGE_DEFAUT, clePaire, datesDe, extremites, phrase, trajetsACalculer, verifier, voisins } from "./pricing/enchainement.js";
 import {
@@ -253,7 +254,7 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
         if (d.statut === "acceptee" && !forcer) {
           const res = await verifierJournee({ ...d, id: "__nouvelle" });
           if (!res.ok) {
-            setVerif(res);
+            setVerif({ ...res, demande: d });
             setEnCours(false);
             return;
           }
@@ -407,6 +408,7 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
           <p><strong>Attention à l'enchaînement</strong></p>
           {verif.problemes.map((x, i) => <p key={i}>{phrase(x)}</p>)}
           <p className="tb-note">Calcul sans circulation en temps réel.</p>
+          {verif.demande && <AvisJournee d={verif.demande} />}
           <div className="tb-actions">
             <button className="tb-bouton" disabled={enCours} onClick={() => enregistrer(true)}>Enregistrer quand même</button>
             <button className="tb-bouton tb-clair" onClick={() => setVerif(null)}>Modifier l'heure</button>

@@ -2,7 +2,7 @@ import RentabiliteDetail from "./components/RentabiliteDetail.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { texteDuree } from "./pricing/circulation.js";
 import InfoVol from "./components/InfoVol.jsx";
-import InsertionJournee from "./components/InsertionJournee.jsx";
+import InsertionJournee, { AvisJournee } from "./components/InsertionJournee.jsx";
 import NettoyageTests from "./components/NettoyageTests.jsx";
 import ProposerCoursier from "./components/ProposerCoursier.jsx";
 import RecuCourse from "./components/RecuCourse.jsx";
@@ -227,6 +227,7 @@ function Verification({ verif, d, enCours, onForcer, onFermer }) {
       ))}
       {estimees.length > 0 && <p className="tb-note">Durée estimée à 45 min pour : {estimees.join(", ")}.</p>}
       <p className="tb-note">Calcul sans circulation en temps réel.</p>
+      <AvisJournee d={d} />
       <div className="tb-actions">
         <button className="tb-bouton" disabled={enCours} onClick={onForcer}>Accepter quand même</button>
         {whatsapp && <a className="tb-bouton tb-clair" href={whatsapp} target="_blank" rel="noopener noreferrer">Proposer un autre horaire</a>}

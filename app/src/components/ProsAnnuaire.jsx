@@ -73,7 +73,7 @@ function ReserverPro({ f, apercu, t, langue }) {
       <label className="champ"><span>{t.jour}</span>
         <select value={form.date} onChange={(x) => setForm({ ...form, date: x.target.value, heure: "" })}>
           <option value="">Choisir…</option>
-          {jours.map((d) => <option key={d} value={d}>{new Date(`${d}T12:00:00Z`).toLocaleDateString(locale(langueVue), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</option>)}
+          {jours.map((d) => <option key={d} value={d}>{new Date(`${d}T12:00:00Z`).toLocaleDateString(locale(langue), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</option>)}
         </select>
       </label>
       {p && form.date && (

@@ -183,3 +183,8 @@ footer { text-align: center; color: var(--gris); padding-top: 8px; }
     white-space: normal;
   }
 }
+
+/* 26 nov. 2026 : style de base des boutons secondaires (arrondis, rose), partout ; les styles propres à une page
+   (Digital, espace restaurant) restent prioritaires */
+.bouton-secondaire { display: inline-block; border-radius: 999px; padding: 9px 16px; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; background: transparent; border: 1px solid #f1aeb7; color: #f1aeb7; text-decoration: none; line-height: 1.25; }
+.bouton-secondaire:disabled { opacity: 0.5; }

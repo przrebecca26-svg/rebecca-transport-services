@@ -36,7 +36,8 @@ const EspaceResto = lazy(() => import("./components/EspaceResto.jsx")); // 19 no
 import { useVitrineRestos } from "./vitrineRestosBase.js";
 const RestosVitrine = lazy(() => import("./components/RestosVitrine.jsx")); // 25 nov. 2026 : #/restaurants
 const ProsAnnuaire = lazy(() => import("./components/ProsAnnuaire.jsx")); // 25 nov. 2026 : #/pros (caché jusqu'à l'accord de Rebecca)
-const ProInscription = lazy(() => import("./components/ProInscription.jsx")); // 25 nov. 2026 : #/pro
+const ProInscription = lazy(() => import("./components/ProInscription.jsx"));
+const LaisserAvis = lazy(() => import("./components/LaisserAvis.jsx")); // 26 nov. 2026 : #/avis (QR dans la voiture) // 25 nov. 2026 : #/pro
 const DevenirRestoPartenaire = lazy(() => import("./components/DevenirRestoPartenaire.jsx")); // 19 nov. 2026 : #/restaurant-partenaire
 const ContratRestoVue = lazy(() => import("./components/ContratRestoVue.jsx")); // 19 nov. 2026 : #/contrat-resto/ID
 const lireContratResto = (h) => { const m = /^#\/contrat-resto\/([A-Za-z0-9]{10,40})$/.exec(h || ""); return m ? m[1] : ""; };
@@ -481,6 +482,7 @@ export default function App() {
   const [lienPositionVu, setLienPositionVu] = useState(() => lireLienPosition(window.location.hash));
   const [lienResto, setLienResto] = useState(() => lireLienResto(window.location.hash));
   const [lienAssistance, setLienAssistance] = useState(() => lireLienAssistance(window.location.hash));
+  const [lienAvis, setLienAvis] = useState(() => window.location.hash === "#/avis");
   const [lienInscriptionResto, setLienInscriptionResto] = useState(() => window.location.hash === "#/restaurant-partenaire");
   const [lienVitrine, setLienVitrine] = useState(() => window.location.hash === "#/restaurants");
   const lirePros = (h) => (/^#\/pros(\/[A-Za-z0-9_-]{2,30})?$/.test(h) ? "annuaire" : h === "#/pro" ? "inscription" : "");
@@ -504,6 +506,7 @@ export default function App() {
       setLienVitrine(window.location.hash === "#/restaurants");
       setLienPros(lirePros(window.location.hash));
       setLienAssistance(lireLienAssistance(window.location.hash));
+      setLienAvis(window.location.hash === "#/avis");
       setLienContratResto(lireContratResto(window.location.hash));
     };
     window.addEventListener("hashchange", suivre);
@@ -573,6 +576,16 @@ export default function App() {
       </div>
     );
   const quitterResto = () => { window.location.hash = ""; setLienInscriptionResto(false); setLienContratResto(""); aller({ nom: "accueil" }); };
+  if (lienAvis)
+    return (
+      <div className="appli theme-site">
+        <main>
+          <Suspense fallback={chargement}>
+            <LaisserAvis onAccueil={() => { window.location.hash = ""; setLienAvis(false); aller({ nom: "accueil" }); }} onCompte={() => { window.location.hash = ""; setLienAvis(false); versCompte("historique"); }} />
+          </Suspense>
+        </main>
+      </div>
+    );
   if (lienAssistance)
     return (
       <div className="appli theme-site">

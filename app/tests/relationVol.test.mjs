@@ -36,3 +36,8 @@ test("tableau de l'aéroport : le bon vol, le bon jour, le bon sens", () => {
   egal(volDuJour(lignes, "TO3450", "2026-11-29", "vers"), { heure: "08:30", terminal: "3", ville: "PARIS" });
   egal(volDuJour(lignes, "TO3450", "2026-11-29", "depuis"), null);
 });
+import { avisADemander } from "../src/pricing/finCourse.js";
+test("pas de demande d'avis pour une course Famille", () => {
+  const d = { statut: "terminee", service: "aeroport", date: "2026-11-25" };
+  egal([avisADemander([d], "2026-11-26").length, avisADemander([{ ...d, prixFamille: true }], "2026-11-26").length], [1, 0]);
+});

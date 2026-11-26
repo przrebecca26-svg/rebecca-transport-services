@@ -78,6 +78,7 @@ const recueLe = (d) => {
 const prixActuel = (d) => (typeof d.prixFinal === "number" ? d.prixFinal : d.prixEstime);
 const textePrix = (d) => {
   const p = prixActuel(d);
+  if (p === 0 && d.prixFamille) return "offert"; // 26 nov. 2026 : course Famille offerte
   if (typeof p === "number") return p + " ₪";
   return d.surDevis ? "Sur devis" : "À fixer";
 };

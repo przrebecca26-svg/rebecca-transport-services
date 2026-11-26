@@ -329,7 +329,7 @@ function Accueil({ client, acces, pages, onChoix, onCompte, onFavori, onNails, o
             <button className="carte-service" onClick={onRegenX}>
               <span className="icone"><Logo src="/brand/logo-regenx.png" /></span>
               <span className="corps"><strong>RegenX</strong><small>Reconstruction du cheveu et du poil</small></span>
-              <span className="prix">Voir</span>
+              <span className="prix">Réserver</span>
             </button>
           )}
           {bientot("hair") && <Bientot id="hair" />}
@@ -337,7 +337,7 @@ function Accueil({ client, acces, pages, onChoix, onCompte, onFavori, onNails, o
             <button className="carte-service" onClick={onHair}>
               <span className="icone"><Logo src="/brand/logo-prestige-hair.png" /></span>
               <span className="corps"><strong>Prestige Hair</strong><small>Coupe, couleur, brushing, soirée…</small></span>
-              <span className="prix">Voir</span>
+              <span className="prix">Réserver</span>
             </button>
           )}
           {bientot("slim") && <Bientot id="slim" />}
@@ -345,7 +345,7 @@ function Accueil({ client, acces, pages, onChoix, onCompte, onFavori, onNails, o
             <button className="carte-service" onClick={onSlim}>
               <span className="icone"><Logo src="/brand/logo-prestige-slim-lift.png" /></span>
               <span className="corps"><strong>Prestige Slim & Lift</strong><small>Soins minceur et raffermissement</small></span>
-              <span className="prix">Voir</span>
+              <span className="prix">Réserver</span>
             </button>
           )}
         </div>

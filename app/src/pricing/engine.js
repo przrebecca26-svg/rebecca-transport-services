@@ -4,7 +4,7 @@
 
 import { TARIFS, coutParKm, partRetourAVide } from "./config.js";
 import { dureeSelonHeure } from "./circulation.js";
-import { verifierDisponibilite, localVersUtc, ajouterJours as ajouterJoursLocal } from "./calendrier.js";
+import { verifierDisponibilite, periodesTouchees, localVersUtc, ajouterJours as ajouterJoursLocal } from "./calendrier.js";
 import { partagerNote, partEnfant, personnesEnPlus, supplementParPersonne } from "./partage.js";
 import { aujourdhui, calculerRemise, etatCode, libelleActivitePromo, libelleRemise, normaliserCode, promoSapplique } from "./promos.js";
 
@@ -699,9 +699,26 @@ export function trouverConflits(demande, reservations = [], t = TARIFS) {
   return conflits;
 }
 
+// 26 nov. 2026 (Rebecca : « je vais déjà à Tel-Aviv, ça ne devrait pas refuser ») : un moment pris par une de MES
+// courses vers une ville (sens nord ou sud depuis Netanya) n'empeche pas un transport dans le MEME sens : le devis
+// s'affiche, et Rebecca confirme l'horaire selon son planning (trajet partage / enchaine).
+export function sensDuTrajet(d, t = TARIFS) {
+  if (!d || !["transport", "aeroport"].includes(d.service)) return null;
+  const z = (k) => (k && t.zones[k] && t.zones[k].axe ? t.zones[k].axe.sens : null);
+  const dep = d.zoneDepart || "netanya";
+  if (dep === "netanya" && z(d.zoneArrivee)) return z(d.zoneArrivee);
+  if (d.zoneArrivee === "netanya" && z(dep)) return z(dep);
+  return null;
+}
+
 function verifierFermetures(d, t) {
+  const sens = sensDuTrajet(d, t);
   for (const c of creneauxOccupes(d, t)) {
     const p = verifierDisponibilite(c.date, c.heure, c.minutes, t, d.service); // J4b : « si l'un de nous est libre »
+    if (p && sens && periodesTouchees(c.date, c.heure, c.minutes, t).every((x) => x.type === "personnel" && x.sens === sens)) {
+      d._surLaRoute = { debut: p.debut, fin: p.fin, sens };
+      continue;
+    }
     if (p) {
       return {
         ok: true,
@@ -754,8 +771,11 @@ export function calculer(demande, t = TARIFS) {
   if (!d || !d.service) return erreur("Service manquant.");
   if (!d.date || !d.heure) return erreur("Date et heure manquantes.");
 
+  delete d._surLaRoute;
   const ferme = verifierFermetures(d, t);
   if (ferme) return ferme;
+  const surLaRoute = d._surLaRoute;
+  delete d._surLaRoute;
 
   let r;
   switch (d.service) {
@@ -787,6 +807,10 @@ export function calculer(demande, t = TARIFS) {
   // 25 nov. 2026 : rentabilité détaillée pour TOUS les devis avec un trajet (livraison, courses, déménagement…)
   if (r && r.ok && !r.devis && typeof r.total === "number" && r.details && !r.details.rentabilite && d.aller && d.aller.km >= 0 && d.service !== "ramassage") {
     r.details.rentabilite = analyserRentabilite({ ...d, aller: { km: d.aller.km, minutes: d.aller.minutes || (d.aller.km / 40) * 60 } }, r.total, t);
+  }
+  if (surLaRoute && r && r.ok) {
+    r.aConfirmer = [...(r.aConfirmer || []), "Rebecca passe déjà dans cette direction à ce moment-là : votre demande est possible, elle vous confirme l'horaire selon son planning (trajet partagé ou enchaîné)."];
+    r.details = { ...(r.details || {}), surLaRoute };
   }
   return appliquerPartage(appliquerPromo(r, d, t), d);
 }

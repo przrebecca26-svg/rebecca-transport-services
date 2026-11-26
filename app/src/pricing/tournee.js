@@ -18,6 +18,7 @@ import { TARIFS } from "./config.js";
 import { routeSelonHeure } from "./circulation.js";
 import { ajouterJours, vacancesDuJour } from "./calendrier.js";
 import { JOURS, finDuMois, nomEnfant, ecoleDe, heureDuJour } from "./ramassagePlanning.js";
+import { detecterZone } from "./engine.js";
 
 export { JOURS };
 const HEURE_OK = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -749,7 +750,14 @@ export function creneauxDeLaDate(trajets, date, transferts, duree, domicile = nu
   if (j.statut === "inconnu") return null;
   return [
     ...momentsDuJour(j).map((m) => ({ debut: hhmm(auCinq(m.debut, false)), fin: hhmm(auCinq(m.fin, true)) })),
-    ...tachesDuJour(jours, date).map((x) => ({ debut: x.debut, fin: x.fin })),
+    // 26 nov. 2026 : une tache avec une adresse dans une ville au nord / au sud de Netanya publie son sens
+    // (seulement « nord » ou « sud », jamais l'adresse) : le site accepte alors un transport dans le meme sens
+    ...tachesDuJour(jours, date).map((x) => {
+      const z = x.lieu && x.lieu.label ? detecterZone(x.lieu.label, t) : null;
+      const s0 = z && t.zones[z] && t.zones[z].axe ? t.zones[z].axe.sens : null;
+      const sens = s0 === "nord" || s0 === "sud" ? s0 : null;
+      return { debut: x.debut, fin: x.fin, ...(sens ? { sens } : {}) };
+    }),
   ]
     .filter((c) => c.fin > c.debut)
     .sort((a, b) => (a.debut < b.debut ? -1 : 1));

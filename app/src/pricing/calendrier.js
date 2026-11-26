@@ -219,14 +219,20 @@ export function periodesFermees(depuis, nbJours = 14, t = TARIFS) {
     const enVacances = vacancesDuCalendrier(t).some((v) => jour >= v.du && jour <= v.au);
     // Vacances : la tournee est levee, mais mes taches du jour (creneaux par date) bloquent quand meme
     if (enVacances && cal.creneauxDates && Array.isArray(cal.creneauxDates[jour])) {
-      for (const c of cal.creneauxDates[jour]) resultat.push(periode(localVersUtc(jour, c.debut), localVersUtc(jour, c.fin), c.motif || "Créneau déjà réservé", "personnel"));
+      for (const c of cal.creneauxDates[jour]) {
+        const p = periode(localVersUtc(jour, c.debut), localVersUtc(jour, c.fin), c.motif || "Créneau déjà réservé", "personnel");
+        if (c.sens === "nord" || c.sens === "sud") p.sens = c.sens;
+        resultat.push(p);
+      }
     }
     if (!(cal.joursLibres || []).includes(jour) && !enVacances) {
       // Une date ou j'ai confie des trajets a Jeremy : ses creneaux a elle remplacent ceux de la semaine
       const parDate = cal.creneauxDates && Array.isArray(cal.creneauxDates[jour]) ? cal.creneauxDates[jour].map((c) => ({ ...c, jours: [jourSemaine] })) : null;
       for (const c of parDate || cal.creneauxPersonnels || []) {
         if (!c.jours.includes(jourSemaine)) continue;
-        resultat.push(periode(localVersUtc(jour, c.debut), localVersUtc(jour, c.fin), c.motif || "Créneau déjà réservé", "personnel"));
+        const p = periode(localVersUtc(jour, c.debut), localVersUtc(jour, c.fin), c.motif || "Créneau déjà réservé", "personnel");
+        if (c.sens === "nord" || c.sens === "sud") p.sens = c.sens; // 26 nov. 2026 : une de mes courses vers le nord / le sud
+        resultat.push(p);
       }
     }
     for (const c of cal.creneauxPonctuels || []) {
@@ -274,6 +280,13 @@ export function verifierDisponibilite(date, heure, dureeMinutes = 0, t = TARIFS,
   if (pourTous) return pourTous;
   if (touchees.length === 0) return null;
   return autreMembreLibre(service, debut, fin, t) ? null : touchees[0];
+}
+
+// 26 nov. 2026 : toutes les periodes fermees touchees par un moment (pour savoir si elles sont toutes « sur la route »)
+export function periodesTouchees(date, heure, dureeMinutes = 0, t = TARIFS) {
+  const debut = localVersUtc(date, heure);
+  const fin = Math.max(debut + dureeMinutes * 60000, debut + 1);
+  return periodesFermees(date, 1, t).filter((p) => p.debutUtc < fin && p.finUtc > debut);
 }
 
 // "Prochaines periodes d'indisponibilite" a afficher au client et a Rebecca

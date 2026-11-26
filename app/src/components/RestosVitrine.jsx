@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { reduirePhoto } from "../photoReduite.js";
+import { OFFRE_LANCEMENT_MENU, enregistrerLiensVitrine, marquerMenuPublie, useLiensVitrine, useMenuPropose, useRestosEtContrats } from "../menusRestosBase.js";
 import { ecrireCarte, erreursPanier, importerCarte, lireCarte, messagePanier, totalPanier } from "../pricing/carteResto.js";
 
 // RESTAURANTS SUR LE SITE (25 nov. 2026) - #/restaurants
@@ -146,7 +147,7 @@ export default function RestosVitrine({ onAccueil }) {
 
 // 26 nov. 2026, 9h07 : onglet « Menu » de la fiche : plat par plat (nom, descriptif, prix, épuisé), catégories,
 // ajouter / supprimer, et import d'une liste collée (WhatsApp, Excel, Google Sheets)
-function EditeurCarte({ texte, onChange }) {
+export function EditeurCarte({ texte, onChange }) {
   const carte = lireCarte(texte);
   const [importer, setImporter] = useState("");
   const [ouvrirImport, setOuvrirImport] = useState(false);
@@ -207,6 +208,11 @@ export function VitrineRestosAdmin() {
   const [carteTexte, setCarteTexte] = useState(null);
   useEffect(() => setCarteTexte(null), [f && f.id]);
   const texteCarte = carteTexte != null ? carteTexte : img.carteTexte || "";
+  // 26 nov. 2026 : espace restaurant lié à la fiche (menu proposé par le restaurant), offre de lancement
+  const liens = useLiensVitrine();
+  const { restos, signes } = useRestosEtContrats();
+  const cleLiee = f ? liens[f.id] || "" : "";
+  const propose = useMenuPropose(cleLiee);
   if (!liste) return <p className="tb-note">Chargement…</p>;
   const sauver = async (l) => { try { await setDoc(doc(db, "reglages", "vitrineRestos"), { json: JSON.stringify(l.slice(0, 50)), majLe: serverTimestamp() }); setInfo("✓ Enregistré : visible sur rebeccaservices.com/#/restaurants"); } catch { setInfo("Enregistrement impossible."); } };
   const champ = (k, label, ph = "") => <label className="champ">{label}<input value={f[k] || ""} placeholder={ph} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></label>;
@@ -221,7 +227,10 @@ export function VitrineRestosAdmin() {
     const l = liste.some((x) => x.id === f.id) ? liste.map((x) => (x.id === f.id ? f : x)) : [...liste, f];
     await sauver(l);
     if (carteTexte != null) {
-      try { await setDoc(doc(db, "reglages", "vitrineCarte_" + f.id), { texte: carteTexte.slice(0, 20000), majLe: serverTimestamp() }); }
+      try {
+        await setDoc(doc(db, "reglages", "vitrineCarte_" + f.id), { texte: carteTexte.slice(0, 20000), majLe: serverTimestamp() });
+        if (cleLiee) await marquerMenuPublie(cleLiee, carteTexte).catch(() => {}); // le restaurant voit son menu « publié »
+      }
       catch { setInfo("Textes enregistrés, mais la carte n'a pas pu l'être : réessaie."); return; }
     }
     if (imgs) {
@@ -242,6 +251,7 @@ export function VitrineRestosAdmin() {
   return (
     <div className="tb-bloc">
       <h3>🍽️ Restaurants visibles sur le site</h3>
+      <p className="tb-note">🎁 Offre de lancement : menu en ligne offert aux {OFFRE_LANCEMENT_MENU} premiers restaurants qui signent le contrat ({Math.min(signes, OFFRE_LANCEMENT_MENU)}/{OFFRE_LANCEMENT_MENU} déjà pris).</p>
       <p className="tb-note">Page publique : rebeccaservices.com/#/restaurants. Le client commande au restaurant ; tu livres. Mets seulement les restaurants qui ont dit oui.</p>
       {liste.map((r) => (
         <div key={r.id} className="tb-actions" style={{ alignItems: "center" }}>
@@ -264,6 +274,19 @@ export function VitrineRestosAdmin() {
           {champ("zone", "Zone de livraison", "Netanya et alentours")}{champ("menu", "Menu PDF (lien, facultatif)", "https://…")}
           <label className="champ">Ou photos du menu (4 pages au plus) <input type="file" accept="image/*" multiple onChange={(e) => ajouterPhoto("menu", e.target.files, 4)} /></label>
           <div>{vignettes("menu")}</div>
+          <label className="champ">Espace restaurant lié (pour qu'il puisse proposer son menu)
+            <select value={cleLiee} onChange={(e) => enregistrerLiensVitrine({ ...liens, [f.id]: e.target.value }).catch(() => setInfo("Enregistrement impossible."))}>
+              <option value="">— aucun —</option>
+              {restos.map((r) => <option key={r.cle} value={r.cle}>{r.nom}</option>)}
+            </select>
+          </label>
+          {propose && propose.statut === "a_valider" && (
+            <div className="tb-bloc" style={{ borderColor: "#B97870" }}>
+              <p><b>📥 Menu proposé par le restaurant</b> : {lireCarte(propose.texte).map((c) => `${c.nom} (${c.plats.length})`).join(" · ") || "vide"}</p>
+              <button type="button" className="tb-bouton" onClick={() => setCarteTexte(propose.texte || "")}>Reprendre dans le menu</button>
+              <p className="tb-note">Vérifie, corrige si besoin, puis « Enregistrer » : il apparaît sur le site et le restaurant voit « publié ».</p>
+            </div>
+          )}
           <EditeurCarte texte={texteCarte} onChange={setCarteTexte} />
           {champ("telephone", "Téléphone")}{champ("whatsapp", "WhatsApp (commandes)", "05…")}{champ("adresse", "Adresse")}{champ("icone", "Emoji (si pas de logo)", "🍣")}
           <div className="tb-actions">

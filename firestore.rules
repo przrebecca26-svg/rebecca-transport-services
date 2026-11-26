@@ -1,5 +1,8 @@
 rules_version = '2';
-// Regles Rebecca Services v37 (25 novembre 2026, reseau de professionnels partenaires) = v36 +
+// Regles Rebecca Services v38 (26 novembre 2026, menu en ligne propose par le restaurant) = v37 +
+//   - menusRestos/{cle} : le restaurant (son lien secret #/resto/CLE, espace actif) envoie son menu « a valider » ;
+//     il ne peut jamais le marquer « publie » : seule Rebecca publie. Rien d'autre ne change.
+// v37 (25 novembre 2026, reseau de professionnels partenaires) = v36 +
 //   - le public ne lit ni n'ecrit rien du reseau tant que la page « Annuaire » est cachee (pagePros) ;
 //   - prosCandidatures : inscription en ligne (#/pro), lue par Rebecca seule, jamais publiee telle quelle ;
 //   - prosStats : compteurs visites et clics WhatsApp, +1 seulement ;
@@ -1557,6 +1560,21 @@ service cloud.firestore {
       allow delete: if estAdmin() || (request.auth != null && proActif(resource.data.proId));
       allow create: if verrouClientValide(cle);
       allow update: if verrouClientValide(cle) && resource.data.proId == request.resource.data.proId && cellulesAjoutees();
+    }
+
+    // ---------- v38 (26 nov. 2026) : menu en ligne propose par le restaurant ----------
+    match /menusRestos/{cle} {
+      allow get: if true;
+      allow list: if estAdmin() || estRobot();
+      allow delete: if estAdmin();
+      allow create, update: if estAdmin()
+        || (cle.matches("^[A-Za-z0-9]{20,40}$")
+            && exists(/databases/$(database)/documents/restos/$(cle))
+            && get(/databases/$(database)/documents/restos/$(cle)).data.actif == true
+            && request.resource.data.keys().hasOnly(["texte", "statut", "majLe"])
+            && request.resource.data.texte is string && request.resource.data.texte.size() <= 20000
+            && request.resource.data.statut == "a_valider"
+            && request.resource.data.majLe == request.time);
     }
 
     // Tout le reste : Rebecca peut lire, mais rien d'autre n'est ecrit sans regle precise

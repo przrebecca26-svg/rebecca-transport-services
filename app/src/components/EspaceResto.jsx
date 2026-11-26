@@ -10,6 +10,37 @@ import { etatDisponibilite } from "../pricing/disponibilite.js";
 import { semaineDecalee } from "../pricing/commercants.js";
 import GrilleKmResto from "./GrilleKmResto.jsx";
 import FormuleResto from "./FormuleResto.jsx";
+import { EditeurCarte } from "./RestosVitrine.jsx";
+import { proposerMenu, useMenuPropose } from "../menusRestosBase.js";
+
+// 26 nov. 2026 : « Mon menu en ligne » : le restaurant tape son menu et l'envoie à Rebecca, qui le valide
+function MonMenu({ cle }) {
+  const propose = useMenuPropose(cle);
+  const [texte, setTexte] = useState(null);
+  const [info, setInfo] = useState("");
+  const vu = texte != null ? texte : (propose && propose.texte) || "";
+  const envoyer = async () => {
+    setInfo("Envoi…");
+    try {
+      await proposerMenu(cle, vu);
+      setInfo("✅ Envoyé : Rebecca le vérifie, puis il apparaît sur le site.");
+      setTexte(null);
+    } catch {
+      setInfo("Envoi impossible pour l'instant : envoyez votre menu à Rebecca sur WhatsApp (photo ou liste).");
+    }
+  };
+  return (
+    <details style={{ marginTop: 10 }}>
+      <summary><b>📋 Mon menu en ligne</b>{propose ? (propose.statut === "publie" ? " · ✅ publié sur le site" : " · ⏳ en attente de validation") : ""}</summary>
+      <p className="tb-note">Vos plats avec leur nom, un descriptif et le prix. Les clients commandent sur rebeccaservices.com/#/restaurants ; la commande vous arrive par WhatsApp, le client vous paie le repas et Rebecca Services livre.</p>
+      <EditeurCarte texte={vu} onChange={setTexte} />
+      <div className="tb-actions">
+        <button type="button" className="pp-bouton" disabled={!vu.trim()} onClick={envoyer}>Envoyer mon menu à Rebecca</button>
+      </div>
+      {info && <p className="tb-note">{info}</p>}
+    </details>
+  );
+}
 import "../espace-resto.css"; // 22 nov. 2026 : boutons et champs au style du site (ils étaient gris, par défaut)
 import {
   JOURS_PROGRAMMATION, LIBELLES, commandePropre, compteARebours, dansSonCreneau, etatCommande, heurePlus, messageWhatsAppResto, peutCommander, peutProgrammer, prixCommandeResto, releveResto,
@@ -264,6 +295,7 @@ export default function EspaceResto({ cle, onAccueil }) {
         {resto.moyen && r.reste > 0 && <p className="tb-note">À régler par {resto.moyen}, le dimanche {dfr(r.paiementLe)}.</p>}
       </div>
 
+      <MonMenu cle={cle} />
       <p><a className="bouton-secondaire" href={`#/assistance/resto/${cle}`}>💬 Assistance partenaires</a></p>
       <p><button type="button" className="bouton-secondaire" onClick={onAccueil}>Accueil Rebecca Services</button></p>
     </section>

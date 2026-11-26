@@ -1,0 +1,33 @@
+// TESTS DES REGLES v38 (menu propose par le restaurant) - 26 nov. 2026
+import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
+import { readFileSync } from "fs";
+import { doc, getDoc, setDoc, collection, getDocs, serverTimestamp, updateDoc, deleteDoc } from "firebase/firestore";
+const env = await initializeTestEnvironment({ projectId: "demo-test", firestore: { rules: readFileSync("firestore.rules", "utf8"), host: "127.0.0.1", port: 8080 } });
+let ok = 0, ko = 0;
+const t = async (nom, p) => { try { await p; ok++; console.log("✓", nom); } catch (e) { ko++; console.log("✗", nom, e.message.slice(0, 200)); } };
+const admin = env.authenticatedContext("adm", { email: "przrebecca26@gmail.com", email_verified: true }).firestore();
+const pub = env.unauthenticatedContext().firestore();
+const CLE = "AbCdEfGhIjKlMnOpQrStUv12", OFF = "ZzCdEfGhIjKlMnOpQrStUv99", FAUX = "FauxFauxFauxFauxFauxFaux";
+await env.withSecurityRulesDisabled(async (c) => {
+  await setDoc(doc(c.firestore(), "restos", CLE), { nom: "Ohi", actif: true });
+  await setDoc(doc(c.firestore(), "restos", OFF), { nom: "Off", actif: false });
+});
+const m = (x = {}) => ({ texte: "# Sushis\nMaki ; 30 ; saumon", statut: "a_valider", majLe: serverTimestamp(), ...x });
+await t("le restaurant envoie son menu", assertSucceeds(setDoc(doc(pub, "menusRestos", CLE), m())));
+await t("le restaurant le renvoie corrigé", assertSucceeds(setDoc(doc(pub, "menusRestos", CLE), m({ texte: "Maki ; 32" }))));
+await t("le restaurant ne peut pas se publier lui-même", assertFails(setDoc(doc(pub, "menusRestos", CLE), m({ statut: "publie" }))));
+await t("pas de champ en plus", assertFails(setDoc(doc(pub, "menusRestos", CLE), m({ prix: 0 }))));
+await t("pas de menu trop long", assertFails(setDoc(doc(pub, "menusRestos", CLE), m({ texte: "x".repeat(20001) }))));
+await t("date imposée par le serveur", assertFails(setDoc(doc(pub, "menusRestos", CLE), m({ majLe: new Date(2020, 1, 1) }))));
+await t("clé inventée refusée", assertFails(setDoc(doc(pub, "menusRestos", FAUX), m())));
+await t("espace désactivé refusé", assertFails(setDoc(doc(pub, "menusRestos", OFF), m())));
+await t("le restaurant relit son menu", assertSucceeds(getDoc(doc(pub, "menusRestos", CLE))));
+await t("le public ne liste pas les menus", assertFails(getDocs(collection(pub, "menusRestos"))));
+await t("le restaurant ne supprime pas", assertFails(deleteDoc(doc(pub, "menusRestos", CLE))));
+await t("Rebecca liste les menus", assertSucceeds(getDocs(collection(admin, "menusRestos"))));
+await t("Rebecca publie", assertSucceeds(setDoc(doc(admin, "menusRestos", CLE), m({ statut: "publie" }))));
+await t("Rebecca écrit les liens fiche/restaurant", assertSucceeds(setDoc(doc(admin, "admin", "vitrineLiens"), { json: "{}" })));
+await t("le public ne lit pas les liens", assertFails(getDoc(doc(pub, "admin", "vitrineLiens"))));
+await t("le public ne lit toujours pas restos en liste", assertFails(getDocs(collection(pub, "restos"))));
+console.log(`\n${ok} réussis, ${ko} échoués`);
+await env.cleanup(); process.exit(ko ? 1 : 0);

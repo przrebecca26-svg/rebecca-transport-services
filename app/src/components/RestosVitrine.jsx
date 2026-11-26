@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { reduirePhoto } from "../photoReduite.js";
-import { erreursPanier, lireCarte, messagePanier, totalPanier } from "../pricing/carteResto.js";
+import { ecrireCarte, erreursPanier, importerCarte, lireCarte, messagePanier, totalPanier } from "../pricing/carteResto.js";
 
 // RESTAURANTS SUR LE SITE (25 nov. 2026) - #/restaurants
 // Fiche complète (décision de Rebecca) : logo, photos, présentation, spécialités, cacherout, horaires, menu (lien PDF
@@ -65,6 +65,18 @@ function Panier({ r, carte, onFermer }) {
           ))}
         </div>
       ))}
+      {t.lignes.length > 0 && (
+        <div className="pp-bloc" style={{ padding: 8 }}>
+          <b>Votre commande</b>
+          {t.lignes.map((l) => (
+            <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <span style={{ flex: 1 }}>{l.quantite} × {l.nom}</span>
+              <span>{String(l.sousTotal).replace(".", ",")} ₪</span>
+              <button type="button" className="bouton-secondaire" aria-label={`Supprimer ${l.nom}`} onClick={() => setPanier((x) => ({ ...x, [l.id]: 0 }))}>🗑️</button>
+            </div>
+          ))}
+        </div>
+      )}
       <p><b>🛒 {t.articles} article{t.articles > 1 ? "s" : ""} · {String(t.total).replace(".", ",")} ₪</b> <small>(payé au restaurant ; frais de livraison indiqués par le restaurant)</small></p>
       {erreurs.panier && <p className="erreur">{erreurs.panier}</p>}
       {champ("nom", "Votre nom")}{champ("telephone", "Votre téléphone", "tel")}{champ("adresse", "Adresse de livraison")}{champ("note", "Note (facultatif)")}
@@ -129,6 +141,57 @@ export default function RestosVitrine({ onAccueil }) {
       {visibles.map((r) => <FicheResto key={r.id} r={r} />)}
       <p className="tb-note" style={{ padding: "0 16px" }}>Vous payez votre repas au restaurant ; les frais de livraison sont indiqués par le restaurant.</p>
     </section>
+  );
+}
+
+// 26 nov. 2026, 9h07 : onglet « Menu » de la fiche : plat par plat (nom, descriptif, prix, épuisé), catégories,
+// ajouter / supprimer, et import d'une liste collée (WhatsApp, Excel, Google Sheets)
+function EditeurCarte({ texte, onChange }) {
+  const carte = lireCarte(texte);
+  const [importer, setImporter] = useState("");
+  const [ouvrirImport, setOuvrirImport] = useState(false);
+  const maj = (c) => onChange(ecrireCarte(c));
+  const copie = () => carte.map((c) => ({ ...c, plats: c.plats.map((p) => ({ ...p })) }));
+  const changer = (ci, pi, k, v) => { const c = copie(); c[ci].plats[pi][k] = v; maj(c); };
+  const style = { padding: 6, borderRadius: 8 };
+  return (
+    <div className="tb-bloc">
+      <h4 style={{ margin: "4px 0" }}>🛒 Menu en ligne (panier des clientes)</h4>
+      {carte.length === 0 && <p className="tb-note">Aucun plat. Ajoute une catégorie, ou colle la liste du restaurant avec « Importer une liste ».</p>}
+      {carte.map((c, ci) => (
+        <div key={ci} style={{ marginBottom: 10 }}>
+          <div className="tb-actions" style={{ alignItems: "center" }}>
+            <input key={`c${ci}-${c.nom}`} defaultValue={c.nom} aria-label="Catégorie" onBlur={(e) => { const x = copie(); x[ci].nom = e.target.value.trim() || "Menu"; maj(x); }} style={{ ...style, flex: 1, fontWeight: 600 }} />
+            <button type="button" className="tb-bouton tb-clair" onClick={() => { const x = copie(); x[ci].plats.push({ nom: "Nouveau plat", prix: 0, description: "" }); maj(x); }}>＋ Plat</button>
+          </div>
+          {c.plats.map((p, pi) => (
+            <div key={pi} style={{ display: "grid", gridTemplateColumns: "1fr 70px auto", gap: 6, margin: "6px 0", alignItems: "center" }}>
+              <input key={`n${ci}-${pi}-${p.nom}`} defaultValue={p.nom} aria-label="Nom du plat" onBlur={(e) => e.target.value.trim() && changer(ci, pi, "nom", e.target.value)} style={style} />
+              <input key={`${ci}-${pi}-${p.prix}`} defaultValue={String(p.prix).replace(".", ",")} inputMode="decimal" aria-label="Prix en shekels" onBlur={(e) => changer(ci, pi, "prix", Number(e.target.value.replace(",", ".")) || 0)} style={style} />
+              <button type="button" className="tb-bouton ag-danger" aria-label={`Supprimer ${p.nom}`} onClick={() => { const x = copie(); x[ci].plats.splice(pi, 1); if (!x[ci].plats.length) x.splice(ci, 1); maj(x); }}>🗑️</button>
+              <input key={`d${ci}-${pi}-${p.description}`} defaultValue={p.description} placeholder="Descriptif (facultatif)" aria-label="Descriptif" onBlur={(e) => changer(ci, pi, "description", e.target.value)} style={{ ...style, gridColumn: "1 / 3" }} />
+              <label className="tb-note" style={{ display: "flex", gap: 4, alignItems: "center" }}><input type="checkbox" checked={!!p.epuise} onChange={(e) => changer(ci, pi, "epuise", e.target.checked)} /> épuisé</label>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="tb-actions">
+        <button type="button" className="tb-bouton tb-clair" onClick={() => maj([...copie(), { nom: "Nouvelle catégorie", plats: [{ nom: "Nouveau plat", prix: 0, description: "" }] }])}>＋ Catégorie</button>
+        <button type="button" className="tb-bouton tb-clair" onClick={() => setOuvrirImport(!ouvrirImport)}>📥 Importer une liste</button>
+      </div>
+      {ouvrirImport && (
+        <div>
+          <p className="tb-note">Colle la liste du restaurant (message WhatsApp, colonnes copiées d'Excel ou de Google Sheets) : une ligne par plat « Nom ; prix ; descriptif », « Nom - 42 ₪ » ou « Nom [tab] prix [tab] descriptif ». Une ligne sans prix devient une catégorie.</p>
+          <textarea rows={6} value={importer} onChange={(e) => setImporter(e.target.value)} />
+          {importer.trim() && <p className="tb-note">Lu : {importerCarte(importer).map((c) => `${c.nom} (${c.plats.length})`).join(" · ") || "rien de lisible"}</p>}
+          <div className="tb-actions">
+            <button type="button" className="tb-bouton" disabled={!importerCarte(importer).length} onClick={() => { maj([...copie(), ...importerCarte(importer)]); setImporter(""); setOuvrirImport(false); }}>Ajouter au menu</button>
+            <button type="button" className="tb-bouton tb-clair" disabled={!importerCarte(importer).length} onClick={() => { if (window.confirm("Remplacer tout le menu par cette liste ?")) { maj(importerCarte(importer)); setImporter(""); setOuvrirImport(false); } }}>Remplacer le menu</button>
+          </div>
+        </div>
+      )}
+      <p className="tb-note">Le menu est enregistré avec la fiche (bouton « Enregistrer » en bas). Tu peux aussi m'envoyer la photo du menu : je te prépare la liste à coller.</p>
+    </div>
   );
 }
 
@@ -201,10 +264,7 @@ export function VitrineRestosAdmin() {
           {champ("zone", "Zone de livraison", "Netanya et alentours")}{champ("menu", "Menu PDF (lien, facultatif)", "https://…")}
           <label className="champ">Ou photos du menu (4 pages au plus) <input type="file" accept="image/*" multiple onChange={(e) => ajouterPhoto("menu", e.target.files, 4)} /></label>
           <div>{vignettes("menu")}</div>
-          <label className="champ">🛒 Carte en ligne (panier) : une ligne par plat « Nom ; prix ; description », une catégorie avec « # »
-            <textarea rows={8} value={texteCarte} placeholder={"# Sushis\nCalifornia saumon ; 42 ; 8 pièces\nPoké thon ; 58\n# Boissons\nCoca ; 10"} onChange={(e) => setCarteTexte(e.target.value)} />
-          </label>
-          {texteCarte.trim() && <p className="tb-note">Aperçu : {lireCarte(texteCarte).map((c) => `${c.nom} (${c.plats.length})`).join(" · ") || "aucune ligne lisible (vérifie « Nom ; prix »)"}. Mets « épuisé » dans la description pour bloquer un plat.</p>}
+          <EditeurCarte texte={texteCarte} onChange={setCarteTexte} />
           {champ("telephone", "Téléphone")}{champ("whatsapp", "WhatsApp (commandes)", "05…")}{champ("adresse", "Adresse")}{champ("icone", "Emoji (si pas de logo)", "🍣")}
           <div className="tb-actions">
             <button type="button" className="tb-bouton" disabled={!String(f.nom || "").trim()} onClick={enregistrer}>Enregistrer</button>

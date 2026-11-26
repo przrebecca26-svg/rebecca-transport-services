@@ -16,3 +16,12 @@ test("panier : total, plat épuisé jamais compté, message au restaurant comple
   vrai(/2 × California saumon — 84 ₪/.test(m) && /Total des plats : 172,5 ₪ \(payé au restaurant\)/.test(m) && /Rebecca Services/.test(m));
   egal(Object.keys(erreursPanier(totalPanier(c, {}), {})).sort(), ["adresse", "nom", "panier", "telephone"]);
 });
+import { ecrireCarte, importerCarte } from "../src/pricing/carteResto.js";
+test("carte modifiée plat par plat : réécrite au même format, relue à l'identique", () => {
+  const c = lireCarte(texte);
+  egal(lireCarte(ecrireCarte(c)).map((x) => x.plats.map((p) => [p.nom, p.prix, p.epuise])), c.map((x) => x.plats.map((p) => [p.nom, p.prix, p.epuise])));
+});
+test("import d'une liste collée : tableur (tabulations), « Nom - 42 ₪ », titres de catégorie", () => {
+  const c = importerCarte("Sushis\nCalifornia\t42\t8 pièces\nMaki concombre - 24 ₪\nBoissons\nCoca : 10");
+  egal(c.map((x) => [x.nom, x.plats.map((p) => [p.nom, p.prix])]), [["Sushis", [["California", 42], ["Maki concombre", 24]]], ["Boissons", [["Coca", 10]]]]);
+});

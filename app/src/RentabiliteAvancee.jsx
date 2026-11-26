@@ -5,7 +5,7 @@ import { useEssence } from "./EssenceVue.jsx";
 import { coutKm, minimumDuReglage, texteMinutes } from "./pricing/finCourse.js";
 import { GROUPES, groupeDe } from "./pricing/monMois.js";
 import { SERVICES } from "./services.js";
-import { TRANCHES, aVide, evolutionMois, previsionMois, regrouper, sousLeMinimum, trajetsTermines, trancheDe } from "./pricing/rentabilite.js";
+import { TRANCHES, aVide, evolutionMois, previsionMois, regrouper, separerPrixAmi, sousLeMinimum, trajetsTermines, trancheDe } from "./pricing/rentabilite.js";
 
 // RENTABILITÉ AVANCÉE (19 nov. 2026, V2) — Rebecca seule. Réutilise le bilan de chaque trajet (étapes, compteur,
 // pleins) ; ajoute types de prestation, distances, temps et km à vide, 6 derniers mois, trajets sous le minimum
@@ -42,9 +42,13 @@ export default function RentabiliteAvancee({ demandes = [], mouvements = [], deb
   useEffect(() => onSnapshot(doc(db, "reglages", "rentabilite"), (x) => setMin(minimumDuReglage(x.exists() ? x.data() : null).min), () => {}), []);
   const parKm = coutKm(essence ? essence.pleins : []).parKm;
   const r = useMemo(() => {
-    const trajets = trajetsTermines(demandes, debut, fin, parKm);
+    const tous = trajetsTermines(demandes, debut, fin, parKm);
+    const ami = separerPrixAmi(tous);
+    const trajets = ami.normaux; // 26 nov. 2026 : les 💛 Prix ami à part
     return {
       trajets,
+      tous,
+      ami,
       parGroupe: regrouper(trajets, (t) => groupeDe(t.service)),
       parType: regrouper(trajets, (t) => t.service),
       parDistance: regrouper(trajets, (t) => (trancheDe(t.kmCourse) || {}).id),
@@ -58,8 +62,14 @@ export default function RentabiliteAvancee({ demandes = [], mouvements = [], deb
   return (
     <section className="tb-liste fi">
       <h2 className="tb-pad">📈 Rentabilité avancée</h2>
-      <p className="tb-note tb-pad">Trajets terminés de la période choisie au-dessus ({r.trajets.length}). Gain net = prix − essence (compteur et pleins, sinon estimation). Les ₪/h ne comptent que les trajets dont les heures sont notées.</p>
-      {r.trajets.length === 0 && <p className="tb-note tb-pad">Aucun trajet terminé sur cette période.</p>}
+      <p className="tb-note tb-pad">Trajets terminés de la période choisie au-dessus ({r.tous.length}{r.ami.amis.length ? `, dont ${r.ami.amis.length} 💛 Prix ami comptés à part` : ""}). Gain net = prix − essence (compteur et pleins, sinon estimation). Les ₪/h ne comptent que les trajets dont les heures sont notées.</p>
+      {r.tous.length === 0 && <p className="tb-note tb-pad">Aucun trajet terminé sur cette période.</p>}
+      {r.ami.amis.length > 0 && (
+        <div className="tb-bloc">
+          <h3>💛 Prix ami (à part)</h3>
+          <p className="tb-note">{r.ami.amis.length} trajet{r.ami.amis.length > 1 ? "s" : ""} · {sh(r.ami.resume.prix)} encaissés · gain net {sh(r.ami.resume.gain)}{r.ami.resume.gainParHeure != null ? ` · ${r.ami.resume.gainParHeure} ₪/h` : ""}. Des faveurs : ils ne comptent pas dans les ₪/h ci-dessous ni dans « sous ton minimum ».</p>
+        </div>
+      )}
       <Tableau titre="Par activité" lignes={r.parGroupe} nom={nomGroupe} />
       <Tableau titre="Par type de prestation" lignes={r.parType} nom={nomService} />
       <Tableau titre="Par distance de la course" lignes={r.parDistance} nom={(k) => (TRANCHES.find((t) => t.id === k) || {}).l || k} />

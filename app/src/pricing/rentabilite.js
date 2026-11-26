@@ -62,6 +62,17 @@ export function regrouper(trajets, cle) {
   return Object.fromEntries(Object.entries(m).map(([k, r]) => [k, finir(r)]));
 }
 
+// 26 nov. 2026 (cahier, reste à faire 6) : les courses 💛 Prix ami (faveurs, ex. Kelly 40 ₪) sont mises à part
+// des chiffres de rentabilité (₪/h par activité, distance, sous le minimum) : ce ne sont pas des courses mal tarifées.
+// L'argent reste compté partout ailleurs (Finances, 6 derniers mois, prévision).
+export function separerPrixAmi(trajets = []) {
+  const amis = trajets.filter((t) => t.demande && t.demande.prixAmi === true);
+  const normaux = trajets.filter((t) => !(t.demande && t.demande.prixAmi === true));
+  const r = vide();
+  for (const t of amis) ajouter(r, t);
+  return { normaux, amis, resume: finir(r) };
+}
+
 // Temps et km a vide sur la periode
 export function aVide(trajets) {
   const avec = trajets.filter((t) => t.total > 0);

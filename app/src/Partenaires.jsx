@@ -324,6 +324,9 @@ export default function Partenaires({ aller }) {
   const [ouvert, setOuvert] = useState(false);
   const [info, setInfo] = useState("");
   const [filtre, setFiltre] = useState("traiter");
+  // 26 nov. 2026 (Rebecca) : deux onglets, restaurants et coursiers
+  const [onglet, setOnglet] = useState(() => { try { return window.localStorage.getItem("rs-onglet-partenaires") || "restos"; } catch { return "restos"; } });
+  const choisir = (o) => { setOnglet(o); try { window.localStorage.setItem("rs-onglet-partenaires", o); } catch { /* sans importance */ } };
   useEffect(() => onSnapshot(query(collection(db, "candidaturesPartenaires"), orderBy("creeLe", "desc")), (s) => setListe(s.docs.map((d) => ({ id: d.id, ...d.data() }))), () => { setListe([]); setInfo("Lecture impossible : as-tu collé les règles Firebase v20 ?"); }), []);
   useEffect(() => onSnapshot(collection(db, "suiviPartenaires"), (s) => setSuivis(Object.fromEntries(s.docs.map((d) => [d.id, d.data()]))), () => {}), []);
   useEffect(() => onSnapshot(doc(db, "reglages", "partenaires"), (s) => setOuvert(s.exists() && s.data().ouvert === true), () => {}), []);
@@ -342,30 +345,42 @@ export default function Partenaires({ aller }) {
   const vues = liste.filter((c) => ftr[2](statutDe(c)));
   return (
     <section className="tb-pad">
-      {/* 20 nov. 2026 (Rebecca) : les demandes de changement de formule en premier, avec la pastille du menu */}
-      <AvenantsRestoAdmin />
-      <div className="tb-bloc">
-        <h3>Devenir coursier partenaire</h3>
-        <p className="tb-note">Page d'inscription : <a href="#/partenaire" target="_blank" rel="noopener noreferrer">ouvrir la page</a> (lien direct : {SITE.replace("https://", "")}/#/partenaire). Seulement livraisons et courses.</p>
-        <label className="rg-case">
-          <input type="checkbox" checked={ouvert} onChange={basculer} />
-          <span>{ouvert ? "Visible sur le site (lien en bas de page)" : "Cachée : aucun lien sur le site (tu peux la tester avec le lien direct)"}</span>
-        </label>
+      <div className="tb-filtres" style={{ marginBottom: 12 }}>
+        <button type="button" className={"tb-filtre" + (onglet === "restos" ? " actif" : "")} onClick={() => choisir("restos")}>🍽️ Restaurants</button>
+        <button type="button" className={"tb-filtre" + (onglet === "coursiers" ? " actif" : "")} onClick={() => choisir("coursiers")}>🛵 Coursiers <span>{compter((x) => A_TRAITER.includes(x))}</span></button>
       </div>
-      <RestosPartenaires aller={aller} />
-      <Coursiers candidatures={liste} setInfo={setInfo} />
-      <div className="tb-bloc">
-        <h3>Candidatures ({liste.length})</h3>
-        <div className="tb-filtres" style={{ flexWrap: "wrap" }}>
-          {FILTRES.map(([v, l, f]) => (
-            <button key={v} className={"tb-filtre" + (filtre === v ? " actif" : "")} onClick={() => setFiltre(v)}>{l} <span>{compter(f)}</span></button>
-          ))}
-        </div>
-        {vues.length === 0 && <p className="tb-note">Aucune candidature ici.</p>}
-        {vues.map((c) => <Candidature key={c.id} c={c} suivi={suivis[c.id]} setInfo={setInfo} />)}
-        {info && <p className="tb-note" role="alert">{info}</p>}
-        <p className="tb-note">Statuts : {STATUTS_CANDIDATURE.map((s) => s.l).join(" · ")}. Chaque décision est datée dans l'historique.</p>
-      </div>
+      {onglet === "restos" && (
+        <>
+          {/* 20 nov. 2026 (Rebecca) : les demandes de changement de formule en premier, avec la pastille du menu */}
+          <AvenantsRestoAdmin />
+          <RestosPartenaires aller={aller} />
+        </>
+      )}
+      {onglet === "coursiers" && (
+        <>
+          <div className="tb-bloc">
+            <h3>Devenir coursier partenaire</h3>
+            <p className="tb-note">Page d'inscription : <a href="#/partenaire" target="_blank" rel="noopener noreferrer">ouvrir la page</a> (lien direct : {SITE.replace("https://", "")}/#/partenaire). Seulement livraisons et courses.</p>
+            <label className="rg-case">
+              <input type="checkbox" checked={ouvert} onChange={basculer} />
+              <span>{ouvert ? "Visible sur le site (lien en bas de page)" : "Cachée : aucun lien sur le site (tu peux la tester avec le lien direct)"}</span>
+            </label>
+          </div>
+          <Coursiers candidatures={liste} setInfo={setInfo} />
+          <div className="tb-bloc">
+            <h3>Candidatures ({liste.length})</h3>
+            <div className="tb-filtres" style={{ flexWrap: "wrap" }}>
+              {FILTRES.map(([v, l, f]) => (
+                <button key={v} className={"tb-filtre" + (filtre === v ? " actif" : "")} onClick={() => setFiltre(v)}>{l} <span>{compter(f)}</span></button>
+              ))}
+            </div>
+            {vues.length === 0 && <p className="tb-note">Aucune candidature ici.</p>}
+            {vues.map((c) => <Candidature key={c.id} c={c} suivi={suivis[c.id]} setInfo={setInfo} />)}
+            <p className="tb-note">Statuts : {STATUTS_CANDIDATURE.map((s) => s.l).join(" · ")}. Chaque décision est datée dans l'historique.</p>
+          </div>
+        </>
+      )}
+      {info && <p className="tb-note" role="alert">{info}</p>}
     </section>
   );
 }

@@ -601,7 +601,7 @@ export default function ProsAdmin() {
     <section>
       <div className="pp-bloc">
         <h2>✨ Professionnels partenaires</h2>
-        <p className="tb-note">{publie && publie.visible ? `Annuaire ouvert au public : ${publie.nombre} fiche(s) publiée(s).` : "Annuaire caché du public : aucune fiche n'est publiée (même dans les données). Tu le vois en aperçu ici. Pour l'ouvrir : Réglages → Pages du site → « Annuaire des professionnels partenaires », puis reviens ici."}</p>
+        <p className="tb-note">{publie && publie.visible ? `Annuaire ouvert au public : ${annuairePublic(dossiers, categories, aujourdhuiIsrael()).length} fiche(s) publiée(s).` : "Annuaire caché du public : aucune fiche n'est publiée (même dans les données). Tu le vois en aperçu ici. Pour l'ouvrir : Réglages → Pages du site → « Annuaire des professionnels partenaires », puis reviens ici."}</p>
         <div className="tb-actions">
           {[["liste", "Dossiers"], ["reseau", "📊 Réseau"], ["livraison", "🤝 Livraison partenaire"], ["metiers", "Métiers"], ["apercu", "👁 Aperçu annuaire"], ["inscription", "👁 Aperçu inscription"]].map(([v, l]) => (
             <button key={v} type="button" className={vue === v ? "pp-bouton" : "bouton-secondaire"} onClick={() => setVue(v)}>{l}</button>

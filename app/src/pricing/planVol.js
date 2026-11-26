@@ -66,3 +66,51 @@ export function volDuJour(lignes, texteNumero, date, direction) {
   const h = /[T ](\d{2}):(\d{2})/.exec(String(l.CHSTOL));
   return h ? { heure: `${h[1]}:${h[2]}`, terminal: String(l.CHTERM ?? "").trim(), ville: String(l.CHLOC1T || l.CHLOC1D || "").trim() } : null;
 }
+
+// TÂCHE « TRANSPORT / AÉROPORT » DU CALENDRIER (26 nov. 2026, 18h27, Rebecca) : je ne marque pas de créneau,
+// je donne le vol et l'heure où je la prends ; le site calcule l'heure de départ de la maison, l'arrivée et le retour.
+// v = { sens: "vers" | "depuis", date, heure (vers : je la prends chez elle ; depuis : je la récupère à l'aéroport), heureVol }
+// d = temps de route normaux en minutes : maisonAdresse (maison -> chez elle), adresseAeroport (chez elle <-> aéroport),
+//     maisonAeroport (maison <-> aéroport). Les heures de pointe sont ajoutées selon l'heure.
+// -> { partir, prise, depose, retour, avance, ecart, alerte, conseil } (heures « HH:MM ») ou null
+export function planTacheVol(v, d, t = TARIFS) {
+  const h = enMin(v && v.heure);
+  if (h == null || !d) return null;
+  const route = (min, heure) => {
+    const n = Number(min);
+    if (!Number.isFinite(n) || n < 0) return null;
+    if (n === 0) return 0;
+    const r = dureeSelonHeure(n, v.date, heure, t);
+    return r ? r.minutes : null;
+  };
+  const { avance, apres } = reglagesVol(t);
+  const vol = enMin(v.heureVol);
+  if (v.sens === "vers") {
+    const versElle = route(d.maisonAdresse, v.heure);
+    const versAero = route(d.adresseAeroport, v.heure);
+    if (versElle == null || versAero == null) return null;
+    const depose = h + versAero;
+    const retourAero = route(d.maisonAeroport, enHeure(depose));
+    if (retourAero == null) return null;
+    let avanceMin = vol == null ? null : vol - depose;
+    if (avanceMin != null && avanceMin < -720) avanceMin += 1440;
+    return {
+      sens: "vers", partir: enHeure(h - versElle), prise: enHeure(h), depose: enHeure(depose), retour: enHeure(depose + retourAero),
+      avance: avanceMin, alerte: avanceMin == null ? "" : avanceMin < 0 ? "rate" : avanceMin < avance ? "court" : "",
+      conseil: vol == null ? "" : enHeure(vol - avance - versAero),
+    };
+  }
+  const versAero = route(d.maisonAeroport, v.heure);
+  const versElle = route(d.adresseAeroport, v.heure);
+  if (versAero == null || versElle == null) return null;
+  const depose = h + 15 + versElle; // 15 min pour la retrouver et charger les bagages
+  const retour = route(d.maisonAdresse, enHeure(depose));
+  if (retour == null) return null;
+  let ecart = vol == null ? null : h - vol;
+  if (ecart != null && ecart < -720) ecart += 1440;
+  return {
+    sens: "depuis", partir: enHeure(h - versAero), prise: enHeure(h), depose: enHeure(depose), retour: enHeure(depose + retour),
+    ecart, alerte: ecart == null ? "" : ecart < 0 ? "avant" : ecart < apres ? "court" : "",
+    conseil: vol == null ? "" : enHeure(vol + apres),
+  };
+}

@@ -1001,7 +1001,7 @@ export function retirerAjout(jours, date, ids) {
 export function cleEtape(e) {
   if (!e) return "";
   // 25 nov. 2026, 22h30 : une tâche à plusieurs étapes (prendre, arrêts, déposer) -> une clé par étape
-  if (e.genre === "tache" && e.tache && e.tache.id) return "t:" + e.tache.id + (typeof e.cle === "string" && /^(prise|depose|arret\d)@/.test(e.cle) ? ":" + e.cle.split("@")[0] : "");
+  if (e.genre === "tache" && e.tache && e.tache.id) return "t:" + e.tache.id + (typeof e.cle === "string" && /^(partir|prise|depose|retour|arret\d)@/.test(e.cle) ? ":" + e.cle.split("@")[0] : "");
   if (e.genre === "arret" && Array.isArray(e.ids) && e.ids.length) return "a:" + [...e.ids].sort().join("+") + ":" + (e.sorte || "");
   return "";
 }
@@ -1048,7 +1048,39 @@ function detailsTache(x) {
   // 25 nov. 2026, 21h55 : l'adresse « d'abord passer prendre » (Autre) et « où je la prends » (Transport) est gardée
   const prise = type === "autre" || type === "transport" || type === "perso" ? { prise: adresseLue(x.prise) } : {};
   const arrets = type === "perso" ? { arrets: lireArretsPerso(x.arrets) } : {};
-  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null, ...plus, ...prise, ...arrets };
+  // 26 nov. 2026 (18h27) : Transport / aéroport avec un vol (je l'amène ou je la récupère) : la fiche du vol et les heures
+  const vol = type === "transport" ? { vol: lireVolTache(x.vol) } : {};
+  return { type, pour: String(x.pour || "").trim().slice(0, 60), age, enfant: type === "ramassage" ? e : null, ...plus, ...prise, ...arrets, ...vol };
+}
+// Fiche du vol d'une tâche « Transport / aéroport » (26 nov. 2026, 18h27, Rebecca : « je mets son numéro de vol et
+// l'heure où je la récupère : ça me dit à quelle heure partir, ça bloque l'aller et le retour »).
+// sens : "vers" (je la prends chez elle et je l'amène à l'aéroport) ou "depuis" (je la récupère à l'aéroport).
+// partir, prise, depose, retour : les heures calculées des 4 étapes (partir de la maison ... de retour à la maison)
+export function lireVolTache(v) {
+  if (!v || typeof v !== "object" || (v.sens !== "vers" && v.sens !== "depuis")) return null;
+  const h = (x) => (HEURE_OK.test(x || "") ? x : "");
+  const r = { sens: v.sens, numero: String(v.numero || "").trim().toUpperCase().slice(0, 12), heureVol: h(v.heureVol), terminal: String(v.terminal || "").trim().slice(0, 4), partir: h(v.partir), prise: h(v.prise), depose: h(v.depose), retour: h(v.retour) };
+  return r.partir && r.prise && r.depose && r.retour ? r : null;
+}
+// Les 4 étapes d'un transport aéroport : partir de la maison, prendre, déposer, de retour à la maison
+export function etapesVol(x) {
+  const v = x && x.type === "transport" ? lireVolTache(x.vol) : null;
+  if (!v) return [];
+  const qui = x.pour ? ` ${x.pour}` : "";
+  const vol = `${v.numero ? "vol " + v.numero : "vol"}${v.heureVol ? (v.sens === "vers" ? " · décolle " : " · atterrit ") + v.heureVol.replace(":", "h") : ""}${v.terminal ? " · T" + v.terminal : ""}`;
+  const aeroport = { label: AEROPORT_BEN_GOURION.label, lat: AEROPORT_BEN_GOURION.lat, lon: AEROPORT_BEN_GOURION.lon };
+  const chezElle = v.sens === "vers" ? x.prise || null : x.lieu || null;
+  const etape = (heure, texte, adresse, cle, duree = 5) => ({ min: enMin(heure), heure: hm(enMin(heure)), jusqua: hm(enMin(heure) + duree), texte, adresse, cle: cle + "@" + x.id });
+  const sortie = [etape(v.partir, `🚗 Partir de la maison${v.sens === "vers" ? " (prendre" + qui + ")" : " pour l'aéroport"}`, null, "partir")];
+  if (v.sens === "vers") {
+    sortie.push(etape(v.prise, `Prendre${qui}`, chezElle, "prise"));
+    sortie.push(etape(v.depose, `Déposer${qui} à l'aéroport · ${vol}`, aeroport, "depose"));
+  } else {
+    sortie.push(etape(v.prise, `🛬 Récupérer${qui} à l'aéroport · ${vol}`, aeroport, "prise", 15));
+    sortie.push(etape(v.depose, `Déposer${qui}`, chezElle, "depose"));
+  }
+  sortie.push(etape(v.retour, "🏠 De retour à la maison", null, "retour", 0));
+  return sortie;
 }
 // Trajet personnel : arrêts entre la prise et la dépose (déjeuner, hôtel…), chacun avec ses heures (3 au plus)
 export function lireArretsPerso(l) {

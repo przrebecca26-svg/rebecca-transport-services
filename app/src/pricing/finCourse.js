@@ -289,7 +289,8 @@ export function messageAvis(d) {
       ? "Si vous avez un instant, votre avis m'aiderait beaucoup : laissez-moi quelques étoiles dans votre espace, rubrique « Mon historique »."
       : "Si vous avez un instant, votre avis m'aiderait beaucoup : répondez simplement à ce message avec quelques mots.",
     ...ligneAvisGoogle(),
-    ...lignesSite(d),
+    // 26 nov. 2026 (18h51, Rebecca) : le merci contient déjà le site et le code BIENVENUE10 -> pas deux fois
+    ...(d.merciEnvoyeLe ? [] : lignesSite(d)),
     "Au plaisir de vous revoir, Rebecca",
   ].join("\n");
 }

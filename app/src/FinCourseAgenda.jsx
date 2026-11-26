@@ -267,7 +267,7 @@ export default function FinCourseAgenda({ d, aujourdhui }) {
       {resto && <p className="tb-note">📦 Commande <strong>{numeroLivraison(d)}</strong>{d.details && d.details.prioritaire ? " · ⚡ prioritaire" : ""} · 📋 payée avec le relevé de la semaine de {d.nom} (le dimanche).</p>}
       {(resto ? fait : merci || (fait && reste === 0 && !caisse)) && lienMerci && (
         <div className="tb-actions">
-          <a className="tb-bouton" href={lienMerci} target="_blank" rel="noopener noreferrer" onClick={() => setMerci(false)}>💬 Envoyer le merci{resto ? " au restaurant" : ""} (WhatsApp)</a>
+          <a className="tb-bouton" href={lienMerci} target="_blank" rel="noopener noreferrer" onClick={() => { setMerci(false); if (!resto) noter({ merciEnvoyeLe: aujourdhui }); }}>💬 Envoyer le merci{resto ? " au restaurant" : ""} (WhatsApp)</a>
         </div>
       )}
       {resto && fait && <PhotoPreuve d={d} telResto={d.telephone && d.telephone !== "000" ? d.telephone : ""} />}

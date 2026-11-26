@@ -703,7 +703,7 @@ export function trouverConflits(demande, reservations = [], t = TARIFS) {
 // courses vers une ville (sens nord ou sud depuis Netanya) n'empeche pas un transport dans le MEME sens : le devis
 // s'affiche, et Rebecca confirme l'horaire selon son planning (trajet partage / enchaine).
 export function sensDuTrajet(d, t = TARIFS) {
-  if (!d || !["transport", "aeroport"].includes(d.service)) return null;
+  if (!d || !["transport", "aeroport", "livraison"].includes(d.service)) return null; // 26 nov. 2026, 7h25 : livraisons aussi
   const z = (k) => (k && t.zones[k] && t.zones[k].axe ? t.zones[k].axe.sens : null);
   const dep = d.zoneDepart || "netanya";
   if (dep === "netanya" && z(d.zoneArrivee)) return z(d.zoneArrivee);
@@ -717,6 +717,12 @@ function verifierFermetures(d, t) {
     const p = verifierDisponibilite(c.date, c.heure, c.minutes, t, d.service); // J4b : « si l'un de nous est libre »
     if (p && sens && periodesTouchees(c.date, c.heure, c.minutes, t).every((x) => x.type === "personnel" && x.sens === sens)) {
       d._surLaRoute = { debut: p.debut, fin: p.fin, sens };
+      continue;
+    }
+    // 26 nov. 2026 (étape 2) : le serveur a vérifié que la course s'insère dans la journée de Rebecca (marge tenue
+    // avant et après chaque rendez-vous). Seuls ses moments personnels sont levés : jamais Chabbat, fêtes, fermetures.
+    if (p && d.insertionPossible === true && periodesTouchees(c.date, c.heure, c.minutes, t).every((x) => x.type === "personnel")) {
+      d._insertion = true;
       continue;
     }
     if (p) {
@@ -772,10 +778,13 @@ export function calculer(demande, t = TARIFS) {
   if (!d.date || !d.heure) return erreur("Date et heure manquantes.");
 
   delete d._surLaRoute;
+  delete d._insertion;
   const ferme = verifierFermetures(d, t);
   if (ferme) return ferme;
   const surLaRoute = d._surLaRoute;
+  const insere = d._insertion === true && !surLaRoute;
   delete d._surLaRoute;
+  delete d._insertion;
 
   let r;
   switch (d.service) {
@@ -811,6 +820,10 @@ export function calculer(demande, t = TARIFS) {
   if (surLaRoute && r && r.ok) {
     r.aConfirmer = [...(r.aConfirmer || []), "Rebecca passe déjà dans cette direction à ce moment-là : votre demande est possible, elle vous confirme l'horaire selon son planning (trajet partagé ou enchaîné)."];
     r.details = { ...(r.details || {}), surLaRoute };
+  }
+  if (insere && r && r.ok) {
+    r.aConfirmer = [...(r.aConfirmer || []), "Possible : Rebecca peut organiser sa journée pour être là à cette heure-là. Elle vous confirme l'horaire."];
+    r.details = { ...(r.details || {}), insertion: true };
   }
   return appliquerPartage(appliquerPromo(r, d, t), d);
 }

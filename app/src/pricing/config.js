@@ -242,9 +242,10 @@ export const TARIFS = {
   circulation: { matinDebut: 7, matinFin: 9.5, matin: 0.5, soirDebut: 15.5, soirFin: 18.5, soir: 0.4, vendrediDebut: 11, vendrediFin: 14.5, vendredi: 0.2 },
   // 26 nov. 2026 (étape 2, insertion des courses) : marge gardée avant ET après chaque rendez-vous déjà prévu
   insertion: { marge: 10 },
-  // 26 nov. 2026 (9h23, Rebecca) : menu en ligne des restaurants partenaires = abonnement mensuel ;
-  // offert aux 10 premiers restaurants qui signent le contrat, puis tarif normal (29 ₪/mois, sans frais de création)
-  menuEnLigne: { prixMensuel: 29, offertsLancement: 10 },
+  // 26 nov. 2026 (9h30, Rebecca) : menu en ligne des restaurants partenaires
+  // - offre de lancement (10 premiers qui signent) : création offerte + abonnement 29 ₪/mois la première année ;
+  // - à partir du 11e : frais de création + abonnement normal. Montants normaux proposés par Claude, à valider.
+  menuEnLigne: { offertsLancement: 10, prixLancement: 29, moisLancement: 12, fraisCreation: 150, prixMensuel: 39 },
   tournee: { margeRouteMinutes: 0, arretMinutes: 5, retardMaxMinutes: 10, places: 4, retourMaisonMinutes: 30, libreMinutes: 20 },
   // libreMinutes (12 nov. 2026, 16h07) : pendant une activite (basket...), si j'attends au moins 20 min entre la depose
   // et la recuperation, ce temps est LIBRE (pas bloque) : je peux prendre une petite course aux alentours.

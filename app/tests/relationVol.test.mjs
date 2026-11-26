@@ -74,3 +74,9 @@ test("4 étapes dans ma journée : partir, prendre, déposer à l'aéroport, de 
 test("fiche du vol incomplète ou mauvais sens : ignorée", () => {
   egal([lireVolTache({ sens: "vers", partir: "05:00" }), lireVolTache({ sens: "x", partir: "05:00", prise: "05:10", depose: "06:00", retour: "07:00" }), etapesVol({ type: "transport" }).length], [null, null, 0]);
 });
+import { messageAvis } from "../src/pricing/finCourse.js";
+test("demande d'avis : le site et BIENVENUE10 ne sont pas répétés si le merci est déjà parti", () => {
+  const d = { prenom: "Kelly", telephone: "0539535481" };
+  vrai(messageAvis(d).includes("BIENVENUE10"));
+  vrai(!messageAvis({ ...d, merciEnvoyeLe: "2026-11-26" }).includes("BIENVENUE10"));
+});

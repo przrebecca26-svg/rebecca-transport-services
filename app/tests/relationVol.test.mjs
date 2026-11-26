@@ -87,3 +87,14 @@ test("bilan Ma journée : une course terminée garde ses km (le trafic, lui, l'i
   const bilan = etapesCourses([d], { terminees: true }).length;
   egal([sansOption, bilan], [0, 2]);
 });
+import { carteVersCredit } from "../src/pricing/cartesCadeaux.js";
+section("Carte cadeau passée en crédit par la cliente (26 nov. 2026)");
+test("carte active : acceptée ; utilisée, à payer, expirée, vide : refusées avec un message", () => {
+  const c = { statut: "active", solde: 100, expireLe: "2027-11-25" };
+  egal(carteVersCredit(c, "2026-11-26"), "");
+  vrai(carteVersCredit(null, "2026-11-26").includes("inconnu"));
+  vrai(carteVersCredit({ ...c, statut: "utilisee" }, "2026-11-26").includes("déjà"));
+  vrai(carteVersCredit({ ...c, statut: "a_payer" }, "2026-11-26").includes("pas encore active"));
+  vrai(carteVersCredit({ ...c, expireLe: "2026-01-01" }, "2026-11-26").includes("expiré"));
+  vrai(carteVersCredit({ ...c, solde: 0 }, "2026-11-26").includes("plus de solde"));
+});

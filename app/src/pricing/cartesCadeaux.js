@@ -103,3 +103,15 @@ export function messageOffrir(carte, id) {
 
 // Champs enregistrés quand Rebecca confirme le paiement
 export const champsActivation = (jour) => ({ statut: "active", payeeLe: jour, expireLe: dateExpiration(jour) });
+
+// 26 nov. 2026 (20h05, Rebecca) : la cliente crée son compte, tape le code de sa carte cadeau dans « Mon crédit »
+// et le solde de la carte passe sur son crédit (une seule fois ; la carte est alors entièrement utilisée).
+// -> "" si la carte peut passer en crédit, sinon le message à afficher
+export function carteVersCredit(carte, jour) {
+  if (!carte) return "Code inconnu. Vérifiez les lettres et les chiffres.";
+  if (carte.statut === "utilisee" || carte.reclamePar) return "Ce code a déjà été utilisé.";
+  if (carte.statut !== "active") return "Cette carte cadeau n'est pas encore active : contactez Rebecca.";
+  if (estExpiree(carte, jour)) return `Cette carte cadeau a expiré le ${dateFrCadeau(finValidite(carte))}.`;
+  if (!(Number(carte.solde) > 0)) return "Cette carte cadeau n'a plus de solde.";
+  return "";
+}

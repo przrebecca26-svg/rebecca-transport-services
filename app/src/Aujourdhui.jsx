@@ -18,6 +18,8 @@ import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { lienAppel, lienWaze, lienWhatsApp } from "./pricing/navigation.js";
 import { ajouterJours } from "./pricing/calendrier.js";
 import { situationCourse } from "./pricing/comptes.js";
+import { coursesDuCompte } from "./pricing/comptesEntreNous.js";
+import { useComptes } from "./comptesBase.js";
 import InfoVol from "./components/InfoVol.jsx";
 import { texteDuree } from "./pricing/circulation.js";
 
@@ -383,12 +385,13 @@ export default function Aujourdhui({ aller }) {
   // 12 nov. 2026 : un coequipier ne voit que SES courses (et les nouvelles demandes a prendre, et ses propositions)
   const { moi } = useEquipeContexte();
   const equipier = !!moi && moi !== ADMIN_ID;
+  const comptes = useComptes();
   const vue = useMemo(() => {
     if (!demandes || !mouvements) return null;
     const visibles = equipier ? demandes.filter((d) => attribueA(d) === moi || d.proposeA === moi || (d.statut === "en attente" && !d.attribueA)) : demandes;
     const avecSit = visibles.map((d) => ({
       d,
-      sit: situationCourse({ id: d.id, date: d.date, prixConvenu: prixDe(d), statut: d.statut }, mouvements),
+      sit: situationCourse({ id: d.id, date: d.date, prixConvenu: prixDe(d), statut: d.statut, sansAcompte: d.prixAmi === true }, mouvements),
     }));
     const parHeure = (a, b) => String(a.d.heure || "").localeCompare(String(b.d.heure || ""));
     const parDate = (a, b) => (String(a.d.date) + String(a.d.heure || "")).localeCompare(String(b.d.date) + String(b.d.heure || ""));
@@ -404,11 +407,16 @@ export default function Aujourdhui({ aller }) {
     // 19 nov. 2026 (test C4) : un aller-retour dont le retour est aujourd'hui ou plus tard n'est pas « à clôturer »
     const retourAVenir = (d) => !!(d.details && d.details.typeTrajet === "ar" && String(d.details.dateRetour || "") >= jour);
     const aCloturer = avecSit.filter((x) => x.d.statut === "acceptee" && String(x.d.date) < jour && !retourAVenir(x.d)).sort(parDate);
-    const aEncaisser = avecSit.filter((x) => x.d.statut === "terminee" && x.sit.resteAPayer > 0).sort(parDate);
+    // 26 nov. 2026 (Rebecca : « Alexia c'est dans Comptes entre nous, je fais du troc ») : les courses d'un compte
+    // entre nous se règlent dans ce compte, pas dans « Paiements restants »
+    const dansUnCompte = new Set((comptes.comptes || []).flatMap((c) => coursesDuCompte(c, visibles).map((d) => d.id)));
+    const aEncaisser = avecSit.filter((x) => x.d.statut === "terminee" && x.sit.resteAPayer > 0 && !dansUnCompte.has(x.d.id)).sort(parDate);
+    const enCompte = avecSit.filter((x) => x.d.statut === "terminee" && x.sit.resteAPayer > 0 && dansUnCompte.has(x.d.id));
     const acomptes = avecSit.filter((x) => x.d.statut === "acceptee" && String(x.d.date) >= jour && x.sit.acompte != null && !x.sit.acompteRecu).sort(parDate);
     const totalAEncaisser = aEncaisser.reduce((s, x) => s + x.sit.resteAPayer, 0);
-    return { duJour, deDemain, enAttente, aCloturer, aEncaisser, acomptes, totalAEncaisser };
-  }, [demandes, mouvements, jour, demain]);
+    const totalEnCompte = enCompte.reduce((s, x) => s + x.sit.resteAPayer, 0);
+    return { duJour, deDemain, enAttente, aCloturer, aEncaisser, acomptes, totalAEncaisser, enCompte, totalEnCompte };
+  }, [demandes, mouvements, jour, demain, comptes.comptes]);
 
   if (lectureImpossible) return <p className="admin-erreur tb-pad" role="alert">Lecture impossible. Vérifie la connexion et les règles Firebase.</p>;
   if (!vue) return <p className="admin-texte tb-pad">Chargement de ta journée…</p>;
@@ -496,6 +504,7 @@ export default function Aujourdhui({ aller }) {
         {vue.aEncaisser.map((x) => (
           <Ligne key={x.d.id} d={x.d} sous={`${jourCourt(x.d.date)} · ${x.d.heure}`} droite={"reste " + shekels(x.sit.resteAPayer)} onOuvrir={ouvrir} />
         ))}
+        {vue.enCompte.length > 0 && <p className="tb-note">🤝 {vue.enCompte.length} course{vue.enCompte.length > 1 ? "s" : ""} ({shekels(vue.totalEnCompte)}) dans « Comptes entre nous » : elles se règlent là-bas (troc, paiement groupé).</p>}
         {vue.acomptes.length > 0 && <p className="aj-sous-titre">Acomptes à recevoir</p>}
         {vue.acomptes.map((x) => (
           <Ligne key={x.d.id} d={x.d} sous={`${jourCourt(x.d.date)} · ${x.d.heure}`} droite={"acompte " + shekels(x.sit.acompte)} onOuvrir={ouvrir} />

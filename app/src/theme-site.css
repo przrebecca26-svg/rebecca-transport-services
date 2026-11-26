@@ -174,3 +174,15 @@ html, body { background: #080709; }
 /* 20 nov. 2026 (Rebecca) : les boutons ronds (Instagram, WhatsApp) et « ← Mon espace » cachaient les liens du pied de page.
    On laisse de la place sous le pied pour pouvoir faire défiler les liens au-dessus des boutons. */
 .theme-site footer { padding-bottom: calc(170px + env(safe-area-inset-bottom, 0px)); }
+
+/* 26 nov. 2026 (Rebecca) : sur ordinateur (écran large), le site n'est plus une colonne de téléphone.
+   Fond sombre sur tout l'écran ; l'accueil s'élargit et les activités se rangent sur 2 colonnes.
+   Les formulaires gardent leur largeur confortable. Téléphone et tablette : aucun changement. */
+@media (min-width: 1024px) {
+  body:has(.theme-site) { background: #080709; }
+  .appli.theme-site:has(> main > .hero) { max-width: 1180px; padding-left: 32px; padding-right: 32px; }
+  .appli.theme-site > main:has(> .hero) { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
+  .appli.theme-site > main:has(> .hero) > * { grid-column: 1 / -1; min-width: 0; }
+  .appli.theme-site > main:has(> .hero) > .espace { grid-column: auto; }
+  .appli.theme-site > main:has(> .hero) > .hero { max-width: 760px; justify-self: center; width: 100%; }
+}

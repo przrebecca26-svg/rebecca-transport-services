@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
+const ProVisuels = lazy(() => import("./components/ProVisuels.jsx")); // 26 nov. 2026 : kit marketing
 import {
   JOURS_SEMAINE, agendaVide, ajouterJoursDate, changerStatutRdv, conflitRdv, erreursAgenda, libelleStatutRdv, lienWhatsAppClient, lireAgenda,
   messageRdv, rappelsDeDemain, rdvDuJour, rdvVide, statsRdv, statutsRdvPossibles,
@@ -188,13 +189,14 @@ export default function EspacePro({ compte, deconnecter }) {
           <h2>✨ {nom}</h2>
           <p className="tb-note">Espace professionnel · Rebecca Services</p>
           <div className="tb-actions">
-            {[["agenda", `📅 Agenda${aConfirmer.length ? ` (${aConfirmer.length})` : ""}`], ["reglages", "⚙️ Horaires et prestations"], ["livraison", "📦 Livraison"]].map(([v, l]) => (
+            {[["agenda", `📅 Agenda${aConfirmer.length ? ` (${aConfirmer.length})` : ""}`], ["reglages", "⚙️ Horaires et prestations"], ["livraison", "📦 Livraison"], ["visuels", "🎨 Mes visuels"]].map(([v, l]) => (
               <button key={v} type="button" className={vue === v ? "pp-bouton" : "bouton-secondaire"} onClick={() => { setVue(v); setEdition(null); }}>{l}</button>
             ))}
           </div>
           {!agenda && vue === "agenda" && <p className="tb-note">Commence par « Horaires et prestations » pour créer ton agenda.</p>}
           {lien && <p><a className="pp-bouton" href={lien} target="_blank" rel="noopener noreferrer" onClick={() => setLien("")}>💬 Prévenir la cliente sur WhatsApp</a></p>}
         </div>
+        {vue === "visuels" && <Suspense fallback={<p className="tb-note">Chargement…</p>}><ProVisuels proId={proId} nom={nom} metier={(agenda && agenda.metier) || ""} /></Suspense>}
         {vue === "reglages" && <Reglages agenda={agenda} proId={proId} nom={nom} />}
         {vue === "livraison" && (
           <div className="pp-bloc">

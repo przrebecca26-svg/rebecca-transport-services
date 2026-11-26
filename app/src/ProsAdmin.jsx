@@ -12,7 +12,7 @@ import { lienWhatsApp } from "./pricing/navigation.js";
 import {
   aujourdhuiIsrael, enregistrerCategories, enregistrerDossiers, enregistrerImagesPro, enregistrerJustifPhoto, supprimerCandidature, supprimerImagesPro,
   supprimerJustifPhoto, useCandidaturesPros, useCategoriesPros, useDossiersPros, useImagesPro, useJustifPhoto, useStatsPros,
-  publierAnnuaire, enregistrerInvitation, supprimerInvitation, useComptesPros, changerStatutCompte, useTousRdvPros, useCollectionAdmin, rattacherLivraison,
+  publierAnnuaire, supprimerEspacePro, enregistrerInvitation, supprimerInvitation, useComptesPros, changerStatutCompte, useTousRdvPros, useCollectionAdmin, rattacherLivraison,
 } from "./prosBase.js";
 import { PARAMS_DEFAUT, bilanLivraisonPartenaire, eligibilitePro } from "./pricing/livraisonPartenaire.js";
 import { bilanTrajet } from "./pricing/finCourse.js";
@@ -274,6 +274,7 @@ function FicheDossier({ initial, categories, dossiers, stats, onFermer, donnees 
   const supprimer = async () => {
     try {
       await enregistrerDossiers(dossiers.filter((x) => x.id !== d.id), categories);
+      await supprimerEspacePro(d.id, d.codeInvitation).catch(() => {});
       await supprimerImagesPro(d.id).catch(() => {});
       for (const t of TYPES_JUSTIF) if ((d.justificatifs[t.v] || {}).photo) await supprimerJustifPhoto(d.id, t.v).catch(() => {});
       onFermer();
@@ -384,7 +385,7 @@ function FicheDossier({ initial, categories, dossiers, stats, onFermer, donnees 
       {d.journal.length ? <ul className="tb-note">{d.journal.map((j, i) => <li key={i}>{fmtDate(j.leMs)} — {j.texte}</li>)}</ul> : <p className="tb-note">Rien pour l'instant.</p>}
 
       {confirmSuppr ? (
-        <div className="tb-actions"><span>Supprimer ce dossier, ses photos et ses justificatifs ?</span><button type="button" className="bouton-secondaire" onClick={supprimer}>Oui, supprimer</button><button type="button" className="bouton-secondaire" onClick={() => setConfirmSuppr(false)}>Non</button></div>
+        <div className="tb-actions"><span>Supprimer ce dossier, ses photos, ses justificatifs et son espace pro (agenda, rendez-vous, accès) ?</span><button type="button" className="bouton-secondaire" onClick={supprimer}>Oui, supprimer</button><button type="button" className="bouton-secondaire" onClick={() => setConfirmSuppr(false)}>Non</button></div>
       ) : (
         <button type="button" className="bouton-secondaire" onClick={() => setConfirmSuppr(true)}>🗑 Supprimer le dossier</button>
       )}

@@ -218,3 +218,22 @@ export function useHebreuPros() {
   return actif;
 }
 export const enregistrerHebreuPros = (v) => setDoc(doc(db, "reglages", "langues"), { hebreuPros: v === true, majLe: serverTimestamp() }, { merge: true });
+
+// 26 nov. 2026 (Rebecca : « si je supprime le dossier, il n'a plus accès à rien ») :
+// supprimer un dossier coupe aussi l'espace pro (compte lié, invitation) et efface son agenda, ses rendez-vous,
+// ses créneaux et ses statistiques. Tout est permis à Rebecca par les règles actuelles (aucune règle modifiée).
+export async function supprimerEspacePro(proId, codeInvitation) {
+  if (!proId) return;
+  const { getDocs } = await import("firebase/firestore");
+  const parProId = async (nom) => {
+    const s = await getDocs(query(collection(db, nom), where("proId", "==", proId)));
+    await Promise.all(s.docs.map((x) => deleteDoc(x.ref).catch(() => {})));
+  };
+  await parProId("prosComptes");
+  await parProId("prosInvitations");
+  if (codeInvitation) await deleteDoc(doc(db, "prosInvitations", codeInvitation)).catch(() => {});
+  await parProId("prosRdv");
+  await parProId("prosCreneaux");
+  await deleteDoc(doc(db, "prosAgenda", proId)).catch(() => {});
+  await deleteDoc(doc(db, "prosStats", proId)).catch(() => {});
+}

@@ -3,6 +3,7 @@ import { categoriesVisibles, libelleFormule, lienContactPro, nomCategorie, reche
 import { fermetureEnCours } from "../pricing/assistance.js";
 import { compterPro, demanderRdvPro, useAgendaPro, useAnnuairePros, useCategoriesPros, useCellulesPro, useImagesPro } from "../prosBase.js";
 import { useHebreuPros } from "../prosBase.js";
+import "../partenariat.css";
 import { ajouterJoursDate, creneauxLibres, erreursDemandeClient } from "../pricing/prosAgenda.js";
 import { LANGUES_SITE, erreursTraduites, langueDepart, locale, memoriserLangue, nomMetier, sens, traduction } from "../pricing/prosTextes.js";
 

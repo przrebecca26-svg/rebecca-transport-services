@@ -98,3 +98,18 @@ test("carte active : acceptée ; utilisée, à payer, expirée, vide : refusées
   vrai(carteVersCredit({ ...c, expireLe: "2026-01-01" }, "2026-11-26").includes("expiré"));
   vrai(carteVersCredit({ ...c, solde: 0 }, "2026-11-26").includes("plus de solde"));
 });
+import { lienReseau, activitesRSManquantes, ACTIVITES_RS_FICHES, fichePublique, normaliserDossier } from "../src/pricing/pros.js";
+section("Annuaire : réseaux et activités Rebecca Services (26 nov. 2026)");
+test("liens Instagram, Facebook, site", () => {
+  egal([lienReseau("instagram", "@rebecca_services"), lienReseau("facebook", "RebeccaServices"), lienReseau("site", "rebeccaservices.com"), lienReseau("instagram", "pas valide !!")], ["https://www.instagram.com/rebecca_services", "https://www.facebook.com/RebeccaServices", "https://rebeccaservices.com", ""]);
+});
+test("activités : 5 fiches prêtes, RegenX non comprise, celles déjà créées ne reviennent pas", () => {
+  egal(ACTIVITES_RS_FICHES.length, 5);
+  vrai(!ACTIVITES_RS_FICHES.some((a) => /regenx/i.test(a.nomCommercial)));
+  egal(activitesRSManquantes([{ nomCommercial: "Nails Prestige" }]).length, 4);
+});
+test("fiche publique d'une activité : mention, réseaux, jamais l'osek", () => {
+  const cats = [{ id: "beaute", nom: "Beauté", visible: true }];
+  const f = fichePublique(normaliserDossier({ ...ACTIVITES_RS_FICHES[0], id: "x1", statut: "accepte", actif: true }), cats, "2026-11-26");
+  vrai(f.activiteRS === true && f.instagram.includes("instagram.com") && f.siteWeb === "https://rebeccaservices.com" && !("osek" in f));
+});

@@ -3,8 +3,7 @@ import {
   FORMULES_PRO, LANGUES, LIBELLES_ETAT_JUSTIF, STATUTS_PRO, TYPES_JUSTIF, ajouterJournal, alertesJustificatifs, changerStatut, dossierVide,
   erreursDossier, etatJustif, fichePublique, importerCandidature, formuleAvecPage, justificatifsDemandes, libelleFormule, libelleStatutPro, manquePourBadge,
   nomCategorie, normaliserDossier, nouvelIdPro, statutsPossibles, annuairePublic, etatAbonnement, lireAbonnement, livraisonsDuPro, encaisseDe,
-  tableauReseau, nouveauCodeInvitation, lienEspacePro, messageInvitationPro, formuleAvecAgenda,
-} from "./pricing/pros.js";
+  tableauReseau, nouveauCodeInvitation, lienEspacePro, messageInvitationPro, formuleAvecAgenda, activitesRSManquantes } from "./pricing/pros.js";
 import { statsRdv } from "./pricing/prosAgenda.js";
 import { bilanEcheances } from "./pricing/digital.js";
 import { reduirePhoto } from "./photoReduite.js";
@@ -344,6 +343,10 @@ function FicheDossier({ initial, categories, dossiers, stats, onFermer, donnees 
       <label className="case"><input type="checkbox" checked={d.whatsappPublic} onChange={() => set("whatsappPublic", !d.whatsappPublic)} /><span>Numéro affiché sur la fiche (son accord)</span></label>
       {champ("E-mail (privé)", "email", { type: "email" })}
       {champ("Numéro d'osek (privé)", "osek")}
+      {champ("Instagram", "instagram", { aide: "@compte ou adresse complète" })}
+      {champ("Facebook", "facebook", { aide: "nom de la page ou adresse complète" })}
+      {champ("Site internet", "siteWeb", { aide: "https://…" })}
+      <label className="case"><input type="checkbox" checked={d.activiteRS} onChange={() => set("activiteRS", !d.activiteRS)} /><span>✨ C'est une de mes activités (« Activité Rebecca Services » sur la fiche, à la place de « Prestataire indépendant »)</span></label>
       <PhotosPubliques id={d.id} />
 
       <h4>Formule</h4>
@@ -573,12 +576,26 @@ export default function ProsAdmin() {
   const [vue, setVue] = useState("liste");
   const [ouvert, setOuvert] = useState(null);
   const [filtre, setFiltre] = useState("tous");
+  const [ajoutRS, setAjoutRS] = useState("");
   if (!dossiers || !categories) return <p className="tb-note">Chargement…</p>;
   if (ouvert) return <FicheDossier key={ouvert.id} initial={ouvert} categories={categories} dossiers={dossiers} stats={stats} donnees={donnees} onFermer={() => setOuvert(null)} />;
   const auj = aujourdhuiIsrael();
   const alertes = alertesJustificatifs(dossiers, auj);
   const compte = (s) => dossiers.filter((d) => d.statut === s).length;
   const liste = dossiers.filter((d) => filtre === "tous" || d.statut === filtre || (filtre === "a_traiter" && ["soumis", "en_examen"].includes(d.statut)));
+  // 26 nov. 2026 (Rebecca) : ses propres activités ajoutées d'un coup, déjà acceptées, mention « Activité Rebecca Services »
+  const manquantes = activitesRSManquantes(dossiers || []);
+  const ajouterActivitesRS = async () => {
+    setAjoutRS("…");
+    const maintenant = Date.now();
+    const nouvelles = manquantes.map((a, i) => ({ ...dossierVide(), ...a, id: nouvelIdPro() + i, statut: "accepte", actif: true, creeLeMs: maintenant, majLeMs: maintenant, journal: [{ leMs: maintenant, texte: "Activité Rebecca Services ajoutée" }] }));
+    try {
+      await enregistrerDossiers([...nouvelles, ...dossiers], categories);
+      setAjoutRS(`✓ ${nouvelles.length} fiches ajoutées : ${nouvelles.map((n) => n.nomCommercial).join(", ")}. Ajoute leurs photos et leur logo dans chaque fiche.`);
+    } catch {
+      setAjoutRS("Enregistrement impossible. Vérifie la connexion.");
+    }
+  };
   const nouveau = () => setOuvert({ ...dossierVide(), id: nouvelIdPro(), statut: "en_examen", creeLeMs: Date.now(), journal: [{ leMs: Date.now(), texte: "Dossier créé par Rebecca" }] });
   return (
     <section>
@@ -608,7 +625,9 @@ export default function ProsAdmin() {
           <div className="pp-bloc">
             <div className="tb-actions">
               <button type="button" className="pp-bouton" onClick={nouveau}>+ Ajouter un professionnel</button>
+              {manquantes.length > 0 && <button type="button" className="bouton-secondaire" onClick={ajouterActivitesRS}>✨ Ajouter mes activités ({manquantes.map((a) => a.nomCommercial).join(", ")})</button>}
             </div>
+            {ajoutRS && <p className="tb-note" role="status">{ajoutRS}</p>}
             <label className="champ">
               <span>Afficher</span>
               <select value={filtre} onChange={(e) => setFiltre(e.target.value)}>

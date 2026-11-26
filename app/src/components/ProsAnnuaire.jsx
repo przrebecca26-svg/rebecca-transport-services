@@ -108,6 +108,7 @@ function Fiche({ f, categories, ouverte, onOuvrir, apercu, t, langue }) {
         <span style={{ flex: 1 }}>
           <strong style={{ fontSize: "1.1em" }}><bdi>{f.nomCommercial}</bdi></strong>
           {f.verifie && <span title={t.verifieTitre} style={{ marginInlineStart: 6 }}>{t.verifie}</span>}
+          {f.activiteRS && <small style={{ marginInlineStart: 6, color: "#e8a9b4", fontWeight: 600 }}>{t.activiteRS}</small>}
           <br />
           <small>{[nomMetier(categories.find((c) => c.id === f.categorie), langue) || nomCategorie(categories, f.categorie), f.metier].filter(Boolean).map((x, i) => <Fragment key={i}>{i > 0 && " · "}<bdi>{x}</bdi></Fragment>)}</small>
           <br />
@@ -127,10 +128,16 @@ function Fiche({ f, categories, ouverte, onOuvrir, apercu, t, langue }) {
           {f.horaires && <p>🕒 <bdi>{f.horaires}</bdi></p>}
           {(f.langues || []).length > 0 && <p>🗣️ {f.langues.map((l) => (t.nomsLangues && t.nomsLangues[l]) || l).join(", ")}</p>}
           {f.siteDigital && <p><a className="lien" href={f.siteDigital} target="_blank" rel="noopener noreferrer">{t.voirPage} ({libelleFormule(f.formule)})</a></p>}
+          {(f.instagram || f.facebook || f.siteWeb) && (
+            <p>{t.reseaux}{" "}
+              {[["instagram", t.instagram], ["facebook", t.facebook], ["siteWeb", t.siteWeb]].filter(([k]) => f[k]).map(([k, l], i) => <Fragment key={k}>{i > 0 && " · "}<a className="lien" href={f[k]} target="_blank" rel="noopener noreferrer">{l}</a></Fragment>)}
+            </p>
+          )}
+          {f.activiteRS && <p><a className="bouton-secondaire" href="https://rebeccaservices.com">{t.voirSiteRS}</a></p>}
           <Contact fiche={f} t={t} onClic={() => !apercu && compterPro(f.id, "whatsapp")} />
           <ReserverPro f={f} apercu={apercu} t={t} langue={langue} />
           <p className="tb-note" style={{ marginTop: 8 }}>
-            <b>{t.independant}</b> {t.independantTexte}
+            {f.activiteRS ? <><b>{t.activiteRS}.</b> {t.activiteRSTexte}</> : <><b>{t.independant}</b> {t.independantTexte}</>}
             {f.verifie ? ` ${t.verifieTexte}` : ""}
           </p>
         </div>

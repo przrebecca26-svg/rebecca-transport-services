@@ -1344,7 +1344,7 @@ function BilanDeplacements({ jour, fil, evenements, domicile, persos }) {
   const [ouvert, setOuvert] = useState(false);
   const courses = evenements.filter((d) => d.statut === "acceptee" || d.statut === "terminee");
   if (!courses.length && !persos.length) return null;
-  const etapes = [...fil, ...etapesAvecTournees(courses, domicile)];
+  const etapes = [...fil, ...etapesAvecTournees(courses, domicile, true)];
   const ca = courses.reduce((s, d) => s + (prixTrajet(d) || 0), 0);
   const b = bilanJournee(etapes, domicile, { ca, t: TARIFS });
   const alertes = alertesPerso(etapes, jour, TARIFS);
@@ -1400,9 +1400,9 @@ function ChangementsDuJour({ date, journee }) {
 }
 
 // 22 nov. 2026 : trafic et « Prochaine » : une tournee restaurant = une recuperation puis les livraisons dans l'ordre
-const etapesAvecTournees = (courses, domicile) => {
+const etapesAvecTournees = (courses, domicile, bilan = false) => {
   const { tournees, seules } = tourneesResto(courses);
-  return [...etapesCourses(seules), ...tournees.flatMap((t) => etapesTournee(t, domicile))].sort((a, b) => a.min - b.min);
+  return [...etapesCourses(seules, { terminees: bilan }), ...tournees.flatMap((t) => etapesTournee(t, domicile))].sort((a, b) => a.min - b.min);
 };
 
 const enMinutes = (h) => {

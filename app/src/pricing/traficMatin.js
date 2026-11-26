@@ -73,11 +73,12 @@ const enMin = (h) => {
 };
 const nomCourt = (a) => String((a && a.label) || "").split(",")[0];
 const estAR = (d) => ((d && d.details) || {}).typeTrajet === "ar";
-export function etapesCourses(courses = []) {
+// options.terminees (26 nov. 2026, 19h06) : le bilan « 🧮 Ma journée » garde les courses terminées (leurs km comptent)
+export function etapesCourses(courses = [], options = {}) {
   const sortie = [];
   for (const d of courses) {
     // 19 nov. 2026 : une course deja terminee ne compte plus dans le trafic
-    if (!d || d.statut === "en attente" || d.statut === "refusee" || d.statut === "annulee" || d.statut === "terminee") continue;
+    if (!d || d.statut === "en attente" || d.statut === "refusee" || d.statut === "annulee" || (d.statut === "terminee" && !options.terminees)) continue;
     if (d.service === "ramassage") continue; // deja dans la tournee
     const t = trajetACalculer(d.service, d.details || {});
     const debut = enMin(d.heure);

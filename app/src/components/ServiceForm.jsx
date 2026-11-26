@@ -23,6 +23,7 @@ import {
 } from "../services.js";
 import { calculerTrajet } from "../routing.js";
 import { calculer } from "../pricing/engine.js";
+import { SERVICES_INSERABLES } from "../pricing/insertion.js";
 import { TARIFS } from "../pricing/config.js";
 import { soldeCredit, utiliserCredit } from "../pricing/credit.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
@@ -129,13 +130,46 @@ export default function ServiceForm({ service, depart, onRetour, onEnvoye, onCom
   const tarifs = useMemo(() => (promo.promo ? { ...TARIFS, codesPromo: { [promo.code]: promo.promo } } : TARIFS), [promo]);
 
   const distanceOk = trajet && trajet.statut === "ok";
-  const resultat = useMemo(() => {
+  const resultatBrut = useMemo(() => {
     if (!pretPourCalcul) return null;
     if (besoinDistance(service, v) && service !== "hatan_kala" && service !== "demenagement" && !distanceOk) return null;
     const route = distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null;
     return calculer(versDemande(service, v, route), tarifs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service, v, trajet, pretPourCalcul, distanceOk, reglages, tarifs]);
+
+  // 26 nov. 2026 (étape 2) : l'heure tombe dans un moment pris par Rebecca (tournée, tâche, course) -> le serveur
+  // regarde si la course s'insère dans sa journée (sa journée reste privée : réponse « possible » ou « pas possible »)
+  const demandeInsertion = useMemo(() => {
+    if (!resultatBrut || !resultatBrut.bloque || !resultatBrut.periode || resultatBrut.periode.type !== "personnel" || !SERVICES_INSERABLES.includes(service) || !t) return null;
+    const dm = versDemande(service, v, distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null);
+    return { service, date: dm.date, heure: dm.heure, depart: { lat: t.depart.lat, lon: t.depart.lon }, arrivee: { lat: t.arrivee.lat, lon: t.arrivee.lon }, allerRetour: !!dm.allerRetour, heureRetour: dm.heureRetour || "", dateRetour: dm.dateRetour || "", attenteMinutes: dm.attenteMinutes || 0 };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultatBrut, service, cle]);
+  const cleInsertion = demandeInsertion ? JSON.stringify(demandeInsertion) : "";
+  const [insertion, setInsertion] = useState({ cle: "", statut: "" }); // statut : calcul | possible | non | erreur
+  useEffect(() => {
+    if (!cleInsertion) return undefined;
+    const ctrl = new AbortController();
+    setInsertion({ cle: cleInsertion, statut: "calcul" });
+    const minuteur = setTimeout(() => {
+      fetch("/.netlify/functions/insertion", { method: "POST", headers: { "Content-Type": "application/json" }, body: cleInsertion, signal: ctrl.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((o) => setInsertion({ cle: cleInsertion, statut: o && o.possible === true ? "possible" : o && o.possible === false ? "non" : "erreur", proposition: (o && o.proposition) || "" }))
+        .catch((e) => e.name !== "AbortError" && setInsertion({ cle: cleInsertion, statut: "erreur" }));
+    }, 500);
+    return () => {
+      clearTimeout(minuteur);
+      ctrl.abort();
+    };
+  }, [cleInsertion]);
+  const etatInsertion = insertion.cle === cleInsertion && cleInsertion ? insertion : { statut: "" };
+  const resultat = useMemo(() => {
+    if (etatInsertion.statut !== "possible" || !resultatBrut || !resultatBrut.bloque) return resultatBrut;
+    const route = distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null;
+    return calculer({ ...versDemande(service, v, route), insertionPossible: true }, tarifs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultatBrut, etatInsertion.statut]);
 
   const bloque = !!(resultat && resultat.bloque);
   const prixConnu = resultat && resultat.ok && !resultat.devis && resultat.total != null;
@@ -268,7 +302,7 @@ export default function ServiceForm({ service, depart, onRetour, onEnvoye, onCom
         />
       </div>
 
-      <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pretPourCalcul} manque={manque} quand={{ date: v.date, heure: v.heure }} />
+      <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pretPourCalcul} manque={manque} quand={{ date: v.date, heure: v.heure }} insertion={etatInsertion} onHeure={(h) => changer("heure", h)} />
 
       {credit && (
         <section className="devis attente" aria-live="polite">

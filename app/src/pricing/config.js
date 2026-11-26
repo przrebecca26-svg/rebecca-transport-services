@@ -240,6 +240,8 @@ export const TARIFS = {
   // 17 nov. 2026 : duree du trajet aux heures de pointe (affichage seulement, le prix ne change pas).
   // Heures en nombre (9.5 = 9h30) ; dimanche a jeudi pour le matin et le soir ; pourcentages ajoutes a la duree.
   circulation: { matinDebut: 7, matinFin: 9.5, matin: 0.5, soirDebut: 15.5, soirFin: 18.5, soir: 0.4, vendrediDebut: 11, vendrediFin: 14.5, vendredi: 0.2 },
+  // 26 nov. 2026 (étape 2, insertion des courses) : marge gardée avant ET après chaque rendez-vous déjà prévu
+  insertion: { marge: 10 },
   tournee: { margeRouteMinutes: 0, arretMinutes: 5, retardMaxMinutes: 10, places: 4, retourMaisonMinutes: 30, libreMinutes: 20 },
   // libreMinutes (12 nov. 2026, 16h07) : pendant une activite (basket...), si j'attends au moins 20 min entre la depose
   // et la recuperation, ce temps est LIBRE (pas bloque) : je peux prendre une petite course aux alentours.

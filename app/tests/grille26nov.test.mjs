@@ -28,3 +28,24 @@ test("ramassage sur le site : 1 trajet 35 ₪, aller-retour occasionnel 60 ₪, 
   egal([r({ trajets: 1 }), r({ trajets: 2 }), r({ trajets: 2, frequence: "semaine", joursSemaine: [0, 1, 2, 3, 4] })], [35, 60, 225]);
 });
 test("attente : 10 min offertes puis 1 ₪ par minute réelle (17 min = 7 ₪)", () => egal(calculer(d(48.3, 50, "ben_gurion", { attenteMinutes: 17 }), T).total, 257));
+
+// 26 nov. 2026, 7h08 : « je vais déjà à Tel-Aviv, ça ne devrait pas refuser l'aéroport »
+section("Sur ma route (26 nov. 2026)");
+import { creneauxDeLaDate } from "../src/pricing/tournee.js";
+test("une de mes courses vers Tel-Aviv : un aéroport au même moment = devis + « Rebecca confirme » ; Haïfa ou une livraison = refusé", () => {
+  const avant = T.calendrier.creneauxDates;
+  T.calendrier.creneauxDates = { "2026-12-01": [{ debut: "11:00", fin: "14:30", motif: "Créneau déjà réservé", sens: "sud" }] };
+  try {
+    const aero = calculer(d(48.3, 50, "ben_gurion", { heure: "11:30" }), T);
+    vrai(!aero.bloque && aero.total === 250 && aero.details.surLaRoute && aero.aConfirmer.some((x) => /passe déjà dans cette direction/.test(x)), "aéroport");
+    vrai(calculer(d(60, 50, "haifa", { heure: "11:30" }), T).bloque, "Haïfa");
+    vrai(calculer({ ...d(5, 10, "netanya", { heure: "11:30" }), service: "livraison" }, T).bloque, "livraison");
+  } finally {
+    T.calendrier.creneauxDates = avant;
+  }
+});
+test("ma tâche avec une adresse à Tel-Aviv publie seulement son sens (sud)", () => {
+  const jours = { "2026-12-01": { taches: [{ id: "a", titre: "Course", debut: "12:00", fin: "13:30", lieu: { label: "Dizengoff, Tel Aviv" } }, { id: "b", titre: "Kelly", debut: "11:00", fin: "11:30", lieu: { label: "Herzl, Netanya" } }] } };
+  const c = creneauxDeLaDate([], "2026-12-01", [], {}, null, T, jours);
+  egal(c, [{ debut: "11:00", fin: "11:30" }, { debut: "12:00", fin: "13:30", sens: "sud" }]);
+});

@@ -95,7 +95,7 @@ export default function SyncTournee() {
   useEffect(() => {
     if (!parDate) return undefined;
     const minuteur = setTimeout(async () => {
-      const actuel = datesPubliques.current && JSON.stringify(Object.fromEntries(Object.entries(datesPubliques.current).filter(([d]) => d >= aujourdhui()).map(([d, l]) => [d, l.map((c) => ({ debut: c.debut, fin: c.fin }))])));
+      const actuel = datesPubliques.current && JSON.stringify(Object.fromEntries(Object.entries(datesPubliques.current).filter(([d]) => d >= aujourdhui()).map(([d, l]) => [d, l.map((c) => ({ debut: c.debut, fin: c.fin, ...(c.sens ? { sens: c.sens } : {}) }))])));
       if (!datesPubliques.current || actuel === cleDates) return;
       try {
         await setDoc(doc(db, "reglages", "creneauxDates"), { json: cleDates, majLe: serverTimestamp() });

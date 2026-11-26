@@ -107,12 +107,13 @@ export function donneesPreFiche(c, origine) {
 /* ---------- Course ---------- */
 
 // f : { service, date, heure, prix, etat ("afaire"|"faite"), recu, moyen }
-export function validerCourse(f, aujourdhui) {
+export function validerCourse(f, aujourdhui, { famille = false } = {}) {
   if (!SERVICES.some((s) => s.id === f.service)) return "Choisis le service.";
   if (!DATE_OK.test(f.date || "")) return "Indique la date de la course.";
   if (!HEURE_OK.test(f.heure || "")) return "Indique l'heure de la course.";
   const prix = lireMontant(f.prix);
-  if (prix == null || prix <= 0 || prix > 20000) return "Indique le prix convenu, en shekels.";
+  // 26 nov. 2026 : une course Famille peut être offerte (0 ₪, règles v39)
+  if (prix == null || prix < 0 || prix > 20000 || (prix === 0 && !famille)) return famille ? "Indique le prix (0 = offert)." : "Indique le prix convenu, en shekels.";
   if (f.etat === "faite" && f.date > aujourdhui) return "Une course déjà faite ne peut pas être à une date future.";
   if (f.etat === "afaire" && f.date < aujourdhui) return "Cette date est passée : choisis « Déjà faite ».";
   const recu = lireMontant(f.recu);

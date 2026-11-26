@@ -1,0 +1,23 @@
+// TESTS DES REGLES v39 (courses Cliente / Ami / Famille ajoutees depuis le Calendrier) - 26 nov. 2026
+import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
+import { readFileSync } from "fs";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+const env = await initializeTestEnvironment({ projectId: "demo-test", firestore: { rules: readFileSync("firestore.rules", "utf8"), host: "127.0.0.1", port: 8080 } });
+let ok = 0, ko = 0;
+const t = async (nom, p) => { try { await p; ok++; console.log("✓", nom); } catch (e) { ko++; console.log("✗", nom, e.message.slice(0, 160)); } };
+const admin = env.authenticatedContext("adm", { email: "przrebecca26@gmail.com", email_verified: true }).firestore();
+const pub = env.unauthenticatedContext().firestore();
+const c = (x = {}) => ({ service: "aeroport", serviceTitre: "Aéroport", date: "2026-11-29", heure: "05:00", nom: "Eden", telephone: "0501234567", prixFinal: 255, statut: "acceptee", source: "manuel", details: {}, creeLe: serverTimestamp(), ...x });
+let n = 0; const id = () => "c" + n++;
+await t("cliente au prix du devis (comme avant)", assertSucceeds(setDoc(doc(admin, "demandes", id()), c())));
+await t("ami avec réduction", assertSucceeds(setDoc(doc(admin, "demandes", id()), c({ prixFinal: 204, relation: "ami", prixAmi: true }))));
+await t("famille offerte 0 ₪", assertSucceeds(setDoc(doc(admin, "demandes", id()), c({ prixFinal: 0, relation: "famille", prixAmi: true, prixFamille: true }))));
+await t("famille à 50 ₪", assertSucceeds(setDoc(doc(admin, "demandes", id()), c({ prixFinal: 50, relation: "famille", prixAmi: true, prixFamille: true }))));
+await t("0 ₪ refusé pour une cliente", assertFails(setDoc(doc(admin, "demandes", id()), c({ prixFinal: 0 }))));
+await t("0 ₪ refusé pour un ami", assertFails(setDoc(doc(admin, "demandes", id()), c({ prixFinal: 0, relation: "ami", prixAmi: true }))));
+await t("prixFamille sans relation famille refusé", assertFails(setDoc(doc(admin, "demandes", id()), c({ prixFinal: 0, prixFamille: true }))));
+await t("prix négatif refusé", assertFails(setDoc(doc(admin, "demandes", id()), c({ prixFinal: -5, relation: "famille", prixFamille: true }))));
+await t("relation inconnue refusée", assertFails(setDoc(doc(admin, "demandes", id()), c({ relation: "voisin" }))));
+await t("un visiteur ne crée jamais de course manuelle", assertFails(setDoc(doc(pub, "demandes", id()), c({ prixFinal: 0, relation: "famille", prixFamille: true }))));
+console.log(`\n${ok} réussis, ${ko} échoués`);
+await env.cleanup(); process.exit(ko ? 1 : 0);

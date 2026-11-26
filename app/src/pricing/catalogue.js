@@ -425,6 +425,8 @@ export const TARIFS_EDITABLES = [
   { chemin: "menuEnLigne.moisLancement", label: "Menu en ligne : durée du prix de lancement", unite: "mois", groupe: "Restaurants partenaires" },
   { chemin: "menuEnLigne.fraisCreation", label: "Menu en ligne : frais de création (une fois, à partir du 11e restaurant)", unite: "₪", groupe: "Restaurants partenaires" },
   { chemin: "menuEnLigne.prixMensuel", label: "Menu en ligne : abonnement normal par mois", unite: "₪", groupe: "Restaurants partenaires" },
+  { chemin: "planVol.avanceConseillee", label: "Aéroport : avance conseillée à l'aéroport avant un vol", unite: "min", groupe: "Circulation (durée des trajets)" },
+  { chemin: "planVol.apresAtterrissage", label: "Aéroport : être là combien de minutes après l'atterrissage", unite: "min", groupe: "Circulation (durée des trajets)" },
   { chemin: "insertion.marge", label: "Nouvelle course dans ma journée : marge gardée avant ET après chaque rendez-vous (10 à 15 min)", unite: "min", groupe: "Circulation (durée des trajets)" },
   { chemin: "calendrier.margeAvantMinutes", label: "Chabbat et fêtes : je ferme avant l'entrée (allumage des bougies)", unite: "min", groupe: "Chabbat et fêtes" },
   { chemin: "calendrier.margeApresMinutes", label: "Chabbat et fêtes : je rouvre après la sortie", unite: "min", groupe: "Chabbat et fêtes" },

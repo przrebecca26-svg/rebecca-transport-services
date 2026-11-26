@@ -23,6 +23,7 @@ import { refDemandes, trierDemandes } from "./accesDemandes.js";
 import { retourAutreJour } from "./pricing/enchainement.js";
 import { appliquerCreneaux, appliquerFermetures, CRENEAUX_PAR_DEFAUT, creneauValide, lireCreneaux } from "./fermetures.js";
 import "./agenda.css";
+import { CourseAvecPrix } from "./SimulateurDevis.jsx";
 import { lienAppel, lienWhatsApp, lienWazePoint } from "./pricing/navigation.js";
 import { useMaJournee } from "./maJournee.js";
 import TraficDuMatin from "./components/TraficDuMatin.jsx";
@@ -1341,7 +1342,14 @@ function BilanDeplacements({ jour, fil, evenements, domicile, persos }) {
 // « + Ajouter une tâche » : une course perso, un rendez-vous... qui bloque ce creneau
 function AjoutTache({ date, journee, occupe = [], aujourdhui = "" }) {
   const [ouvert, setOuvert] = useState(false);
-  if (!ouvert) return <button type="button" className="tb-bouton tb-clair ag-ajout" onClick={() => setOuvert(true)}>+ Ajouter une tâche</button>;
+  // 26 nov. 2026 : « + Ajouter une course avec prix » (livraison, courses, transport, aéroport…) directement ici
+  if (ouvert === "course") return <CourseAvecPrix date={date} onFin={() => setOuvert(false)} />;
+  if (!ouvert) return (
+    <div className="tb-actions">
+      <button type="button" className="tb-bouton ag-ajout" onClick={() => setOuvert("course")}>+ Ajouter une course avec prix</button>
+      <button type="button" className="tb-bouton tb-clair ag-ajout" onClick={() => setOuvert(true)}>+ Ajouter une tâche</button>
+    </div>
+  );
   return <FormTache date={date} journee={journee} occupe={occupe} aujourdhui={aujourdhui} onFin={() => setOuvert(false)} />;
 }
 

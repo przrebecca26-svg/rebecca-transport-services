@@ -186,3 +186,12 @@ html, body { background: #080709; }
   .appli.theme-site > main:has(> .hero) > .espace { grid-column: auto; }
   .appli.theme-site > main:has(> .hero) > .hero { max-width: 760px; justify-self: center; width: 100%; }
 }
+
+/* 26 nov. 2026 (suite) : pages d'activité (Nails, Hair, RegenX, Slim, Epoxy…) sur ordinateur :
+   page plus large, prestations sur 2 colonnes par rubrique. Formulaires : largeur confortable conservée. */
+@media (min-width: 1024px) {
+  .appli.theme-site:has(> main > .catalogue-nails) { max-width: 1180px; padding-left: 32px; padding-right: 32px; }
+  .appli.theme-site > main > .catalogue-nails > div:has(> .carte-service) { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; align-items: stretch; }
+  .appli.theme-site > main > .catalogue-nails > div:has(> .carte-service) > :not(.carte-service) { grid-column: 1 / -1; }
+  .appli.theme-site > main > .catalogue-nails > div:has(> .carte-service) > .carte-service { margin-top: 0; margin-bottom: 12px; }
+}

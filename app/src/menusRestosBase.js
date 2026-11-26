@@ -6,10 +6,14 @@ import { db } from "./firebase.js";
 // - menusRestos/{cle} : le restaurant (lien #/resto/CLE) tape son menu et l'envoie « à valider » ;
 // - Rebecca le reprend dans la fiche du site, le publie (reglages/vitrineCarte_ID) et le marque « publié ».
 // - admin/vitrineLiens : quelle fiche du site correspond à quel espace restaurant (privé : la clé n'est jamais publique).
-// - Offre de lancement : menu en ligne offert aux 10 premiers restaurants qui signent le contrat.
+// - Offre de lancement (10 premiers qui signent) : création offerte + abonnement réduit la 1re année ; ensuite frais de création + abonnement normal.
 import { TARIFS } from "./pricing/config.js";
 export const offreLancementMenu = () => (TARIFS.menuEnLigne && TARIFS.menuEnLigne.offertsLancement) || 10;
-export const prixMenuMensuel = () => (TARIFS.menuEnLigne && TARIFS.menuEnLigne.prixMensuel) || 29;
+const m = () => TARIFS.menuEnLigne || {};
+export const prixMenuMensuel = () => m().prixMensuel ?? 39;
+export const prixMenuLancement = () => m().prixLancement ?? 29;
+export const moisMenuLancement = () => m().moisLancement ?? 12;
+export const fraisCreationMenu = () => m().fraisCreation ?? 150;
 
 export function useMenuPropose(cle) {
   const [m, setM] = useState(undefined);

@@ -3,7 +3,8 @@
 // au site public. Calcul automatique à l'ouverture d'une demande en attente (transport, aéroport, livraison).
 import { useEffect, useState } from "react";
 import { auth } from "../firebase.js";
-import { SERVICES_INSERABLES } from "../pricing/insertion.js";
+import { SERVICES_INSERABLES, messageCliente } from "../pricing/insertion.js";
+import { lienWhatsApp } from "../pricing/navigation.js";
 
 export default function InsertionJournee({ d }) {
   const concerne = !!d && SERVICES_INSERABLES.includes(d.service) && ["en attente", "acceptee"].includes(d.statut) && !!d.date;
@@ -63,6 +64,21 @@ export default function InsertionJournee({ d }) {
               ))}
             </>
           )}
+          {(() => {
+            // Étape 4 : message WhatsApp prêt pour la cliente (oui à son heure, ou l'heure que je peux proposer)
+            const texte = messageCliente(d, etat);
+            const lien = texte && d.telephone ? lienWhatsApp(d.telephone, texte) : null;
+            if (!texte) return null;
+            return (
+              <>
+                <p className="tb-note" style={{ whiteSpace: "pre-wrap" }}>💬 {texte}</p>
+                <div className="tb-actions">
+                  {lien && <a className="tb-bouton" href={lien} target="_blank" rel="noopener noreferrer">Envoyer sur WhatsApp</a>}
+                  <button type="button" className="tb-bouton tb-clair" onClick={() => navigator.clipboard && navigator.clipboard.writeText(texte).catch(() => {})}>Copier le message</button>
+                </div>
+              </>
+            );
+          })()}
           <button type="button" className="tb-bouton tb-clair" onClick={lancer}>Recalculer</button>
         </>
       )}

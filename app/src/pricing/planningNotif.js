@@ -155,7 +155,7 @@ export function messageSite(collection, d, cle = "") {
 
 /* ---------- 18 nov. 2026 (22h25) : les 4 suggestions validées (« Toutes ») ---------- */
 import { resteDe } from "./finCourse.js";
-import { volDeLaCourse, choisirVol, etatDuVol, volConsultable } from "./vols.js";
+import { volDeLaCourse, choisirVol, etatDuVol, volConsultable, arriveeConseillee } from "./vols.js";
 import { indicateursPeriode } from "./statistiques.js";
 
 const jj = (date) => String(date || "").split("-").reverse().slice(0, 2).join("/");
@@ -217,7 +217,10 @@ export function signalVol(ligne, vol) {
   return null;
 }
 export function messageVol(x, s) {
-  return { titre: s.cle === "annule" ? "✈️ Vol annulé" : `✈️ Vol en retard · ${s.e.etat.replace("Retard de ", "+")}`, corps: `${court(x.d.nom, 30)} · ${x.vol.texte.toUpperCase()} · ${s.e.texte}`.slice(0, 300), tag: `vol-${x.cle}`, lien: "/admin#/admin" };
+  // Étape 3 (26 nov. 2026) : pour une arrivée, ma nouvelle heure conseillée (même écart qu'avec l'heure prévue)
+  const a = s.cle === "annule" ? null : arriveeConseillee(x.d, s.e);
+  const plus = a ? ` · 🕒 sois là vers ${a.conseillee.replace(":", "h")} au lieu de ${a.prevue.replace(":", "h")}` : "";
+  return { titre: s.cle === "annule" ? "✈️ Vol annulé" : `✈️ Vol en retard · ${s.e.etat.replace("Retard de ", "+")}`, corps: `${court(x.d.nom, 30)} · ${x.vol.texte.toUpperCase()} · ${s.e.texte}${plus}`.slice(0, 300), tag: `vol-${x.cle}`, lien: "/admin#/admin" };
 }
 export { choisirVol };
 

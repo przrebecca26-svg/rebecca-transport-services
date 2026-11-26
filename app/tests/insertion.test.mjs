@@ -107,3 +107,37 @@ test("site : « possible » du serveur → devis affiché + « Rebecca confirme 
     T.calendrier.creneauxDates = avant;
   }
 });
+
+section("Étape 3 : l'heure conseillée suit le vol (26 nov. 2026)");
+import { arriveeConseillee, etatDuVol, volDeLaCourse } from "../src/pricing/vols.js";
+import { messageVol } from "../src/pricing/planningNotif.js";
+const arrivee = { id: "v1", service: "aeroport", statut: "acceptee", nom: "Sarah", date: DATE, heure: "15:00", details: { direction: "depuis", numeroVol: "LY 316", heureVol: "14:20", adresse: HERZL } };
+const ligne = (maj) => ({ CHAORD: "A", CHFLTN: "316", CHOPER: "LY", CHSTOL: `${DATE}T14:20:00`, CHPTOL: `${DATE}T${maj}:00`, CHRMINE: "DELAYED", CHTERM: "3" });
+test("atterrissage 14h20 → 14h45 : je suis là à 15h25 au lieu de 15h00 (même écart de 40 min)", () => {
+  const a = arriveeConseillee(arrivee, etatDuVol(ligne("14:45"), volDeLaCourse(arrivee)));
+  egal([a.prevue, a.conseillee, a.ecartVol, a.marge], ["15:00", "15:25", 25, 40]);
+});
+test("vol à l'heure ou départ (vers l'aéroport) : pas de nouvelle heure", () => {
+  egal(arriveeConseillee(arrivee, etatDuVol(ligne("14:22"), volDeLaCourse(arrivee))), null);
+  const depart = { ...arrivee, details: { ...arrivee.details, direction: "vers" } };
+  egal(arriveeConseillee(depart, etatDuVol({ ...ligne("15:30"), CHAORD: "D" }, volDeLaCourse(depart))), null);
+});
+test("la notification de retard donne l'heure où être là", () => {
+  const vol = volDeLaCourse(arrivee);
+  const e = etatDuVol(ligne("14:50"), vol);
+  vrai(/sois là vers 15h30 au lieu de 15h00/.test(messageVol({ d: arrivee, vol, cle: "v1" }, { cle: "r30", e }).corps));
+});
+
+section("Étape 4 : message prêt pour la cliente, courses et achats");
+import { messageCliente } from "../src/pricing/insertion.js";
+test("message WhatsApp : oui à son heure, ou l'heure proposée (rien sur mes autres rendez-vous)", () => {
+  const d = { nom: "Kelly Cohen", date: DATE, heure: "11:20", serviceTitre: "Livraison", prixEstime: 40 };
+  vrai(/Bonjour Kelly.*C'est bon pour livraison le 01\/12 à 11h20 \(40 ₪\)/s.test(messageCliente(d, { possible: true })));
+  vrai(/je peux à 11h45 \(même prix : 40 ₪\)/.test(messageCliente(d, { possible: false, proposition: "11:45" })));
+  egal(messageCliente(d, { possible: false, proposition: null }), "");
+});
+test("courses faites par Rebecca : 45 min au magasin comptées avant la livraison", () => {
+  const j = journee([course("c1", "11:40", HERZL, AGAMIM, 8)]);
+  vrai(!verifierInsertion(req("courses", "11:00", MAISON, KIKAR, { faitesParRebecca: true }), j).possible, "11h + 45 min : trop juste avant 11h40");
+  vrai(verifierInsertion(req("courses", "11:00", MAISON, KIKAR), j).possible, "achats déjà payés (20 min) : oui");
+});

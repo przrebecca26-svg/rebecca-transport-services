@@ -94,6 +94,10 @@ export default async function insertion(req) {
     if (!ID_OK.test(String(corps.demandeId))) return json({ erreur: "demande illisible" }, 400);
     demande = await lireDoc(entetes, `demandes/${corps.demandeId}`);
     r = demande ? requeteDepuisDemande({ ...demande, id: corps.demandeId }) : null;
+    // Étape 3 : « et si j'y vais à l'heure conseillée par le vol ? » (heure ou heure du retour remplacée)
+    const H = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (r && H.test(String(corps.heure || ""))) r.heure = corps.heure;
+    if (r && r.allerRetour && H.test(String(corps.heureRetour || ""))) r.heureRetour = corps.heureRetour;
   } else r = requeteValide(corps);
   if (!r) return json({ possible: null, erreur: "service ou adresses non pris en charge" });
 

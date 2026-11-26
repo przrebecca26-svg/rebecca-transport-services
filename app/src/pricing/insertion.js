@@ -27,7 +27,9 @@ export const MARGE_DEFAUT = 10; // minutes, avant ET après chaque rendez-vous (
 export const SUR_PLACE_NOUVEAU = 5; // prendre la personne / le colis, déposer
 export const COLIS_MAX_MINUTES = 180; // un colis récupéré est livré au plus tard 3 h après
 export const ROUTE_INCONNUE = 15; // minutes comptées quand une adresse de ma journée n'est pas connue
-export const SERVICES_INSERABLES = ["transport", "aeroport", "livraison"];
+export const SERVICES_INSERABLES = ["transport", "aeroport", "livraison", "courses"];
+// Courses et achats : le magasin n'a pas d'adresse précise -> point de départ de l'activité (Netanya), comme le devis
+const MAGASIN = { label: "Magasin (Netanya)", lat: 32.3215, lon: 34.8532 };
 const BEAUTE = ["nails", "hair", "slim", "regenx"];
 const HEURE_OK = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
@@ -205,6 +207,10 @@ export function legsDeLaDemande(req) {
   const h = enMin(req.heure);
   const P = req.depart;
   const D = req.arrivee;
+  if (req.service === "courses") {
+    // Achats déjà payés : 20 min au magasin ; courses faites par Rebecca : 45 min (comme le calendrier)
+    return [{ date: req.date, h, points: [{ lieu: P, auPlusTot: h, surPlace: req.faitesParRebecca ? 45 : 20, texte: req.faitesParRebecca ? "🛍️ Faire les courses" : "🛍️ Récupérer les achats" }, { lieu: D, texte: "🏁 Livrer les courses" }], separable: true }];
+  }
   if (req.service === "livraison") return [{ date: req.date, h, points: [{ lieu: P, auPlusTot: h, texte: "📦 Récupérer le colis" }, { lieu: D, texte: "🏁 Livrer le colis" }], separable: true }];
   const legs = [];
   if (req.allerRetour && enMin(req.heureRetour) != null) {
@@ -379,9 +385,10 @@ export function requeteDepuisDemande(d) {
   const v = d.details || {};
   let x = {};
   try { x = extremites(d) || {}; } catch { x = {}; }
+  if (d.service === "courses" && !ok(x.debut)) x = { ...x, debut: MAGASIN };
   if (!ok(x.debut) || !ok(x.fin)) return null;
   const ar = estAllerRetour(d) || v.allerRetour === true;
-  return { service: d.service, date: d.date, heure: d.heure, depart: x.debut, arrivee: x.fin, allerRetour: ar, heureRetour: ar ? v.heureRetour || "" : "", dateRetour: ar ? v.dateRetour || d.date : "", attenteMinutes: Number(v.attenteMinutes || v.attente) || 0 };
+  return { service: d.service, date: d.date, heure: d.heure, depart: x.debut, arrivee: x.fin, allerRetour: ar, heureRetour: ar ? v.heureRetour || "" : "", dateRetour: ar ? v.dateRetour || d.date : "", attenteMinutes: Number(v.attenteMinutes || v.attente) || 0, faitesParRebecca: v.typePrestation === "courses" };
 }
 
 // Contrôle d'une requête venue du site (public) : coordonnées en Israël, date et heure valides
@@ -402,5 +409,20 @@ export function requeteValide(r) {
     heureRetour: ar && HEURE_OK.test(r.heureRetour || "") ? r.heureRetour : "",
     dateRetour: ar && DATE_OK.test(r.dateRetour || "") ? r.dateRetour : ar ? r.date : "",
     attenteMinutes: Math.max(0, Math.min(600, Math.round(Number(r.attenteMinutes) || 0))),
+    faitesParRebecca: r.faitesParRebecca === true,
   };
+}
+
+// Étape 4 (26 nov. 2026) : message prêt pour la cliente. resume = réponse admin de la fonction (possible, proposition).
+// Oui à son heure, ou l'heure que je peux proposer ; jamais rien sur mes autres rendez-vous.
+export function messageCliente(d, resume) {
+  if (!d || !resume || (!resume.possible && !resume.proposition)) return "";
+  const prenom = String(d.nom || "").trim().split(" ")[0];
+  const jour = DATE_OK.test(d.date || "") ? d.date.split("-").reverse().slice(0, 2).join("/") : "";
+  const quoi = String(d.serviceTitre || d.service || "votre demande").toLowerCase();
+  const prix = [d.prixFinal, d.prixEstime].find((x) => typeof x === "number");
+  const h = (x) => String(x || "").replace(":", "h");
+  const debut = `Bonjour${prenom ? " " + prenom : ""}, c'est Rebecca 😊`;
+  if (resume.possible) return `${debut}\nC'est bon pour ${quoi} le ${jour} à ${h(d.heure)}${typeof prix === "number" ? ` (${prix} ₪)` : ""}. Je vous confirme et je vous préviens quand je pars.`;
+  return `${debut}\nPour ${quoi} le ${jour}, je ne peux pas être là à ${h(d.heure)}, mais je peux à ${h(resume.proposition)}${typeof prix === "number" ? ` (même prix : ${prix} ₪)` : ""}. Est-ce que ça vous convient ?`;
 }

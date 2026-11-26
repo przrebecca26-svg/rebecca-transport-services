@@ -113,3 +113,7 @@ test("fiche publique d'une activité : mention, réseaux, jamais l'osek", () => 
   const f = fichePublique(normaliserDossier({ ...ACTIVITES_RS_FICHES[0], id: "x1", statut: "accepte", actif: true }), cats, "2026-11-26");
   vrai(f.activiteRS === true && f.instagram.includes("instagram.com") && f.siteWeb === "https://rebeccaservices.com" && !("osek" in f));
 });
+test("message d'avis : lien vers la page #/avis", () => {
+  vrai(messageAvis({ nom: "Kelly", telephone: "050" }).includes("rebeccaservices.com/#/avis"));
+  vrai(messageAvis({ nom: "Kelly", uid: "u" }).includes("Mon historique"));
+});

@@ -3,7 +3,7 @@
 // une notification 15 minutes avant chaque course de l'agenda (aéroport, livraison, ramassage, RDV beauté...),
 // et dès qu'il y a un truc sur le site une alerte qui dit ce que c'est (devis, acompte payé, rendez-vous pris...). »
 // Tout est calcule ici (sans Google) : le robot Netlify lit les donnees et envoie les notifications.
-import { lireTournee, lireJours, appliquerJour, trajetsDuJourDate, tachesDuJour, etapesPerso } from "./tournee.js";
+import { lireTournee, lireJours, appliquerJour, trajetsDuJourDate, tachesDuJour, etapesPerso, etapesVol } from "./tournee.js";
 import { extremites } from "./enchainement.js";
 import { departsEstimes } from "./deplacementsJour.js";
 import { lireFamilles, lireChoix, trajetsDesChoix } from "./familles.js";
@@ -68,6 +68,11 @@ export function evenementsDuJour(date, { demandes = [], tourneeJson = "", joursJ
       // 25 nov. 2026, 22h30 : trajet personnel -> chaque étape (prendre, arrêts, déposer) a sa notification
       if (x.type === "perso") {
         for (const e of etapesPerso(x)) liste.push({ min: e.min, heure: e.heure.replace("h", ":"), sorte: "tache", texte: `🚗 ${court(e.texte, 50)}`, id: `k-${x.id}-${e.cle.split("@")[0]}`, adresse: e.adresse, jusqua: e.jusqua });
+        continue;
+      }
+      // 26 nov. 2026 (18h27) : transport aéroport avec un vol -> partir, prendre, déposer (une notification chacune)
+      if (x.type === "transport" && x.vol && etapesVol(x).length) {
+        for (const e of etapesVol(x).filter((y) => !y.cle.startsWith("retour"))) liste.push({ min: e.min, heure: e.heure.replace("h", ":"), sorte: "tache", texte: court(e.texte, 50), id: `k-${x.id}-${e.cle.split("@")[0]}`, adresse: e.adresse, jusqua: e.jusqua });
         continue;
       }
       liste.push({ min: enMin(x.debut), heure: x.debut, sorte: "tache", texte: `📝 ${court(x.titre, 50)}`, id: `k-${x.id}`, adresse: x.prise || x.lieu || null, jusqua: x.fin ? x.fin.replace(":", "h") : "" });

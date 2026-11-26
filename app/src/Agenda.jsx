@@ -35,6 +35,7 @@ import PartagerPosition from "./components/PartagerPosition.jsx";
 import { etapesCourses } from "./pricing/traficMatin.js";
 import AddressField from "./components/AddressField.jsx";
 import ChoixLieu from "./components/MesLieux.jsx";
+import FicheVolTache from "./components/FicheVolTache.jsx";
 import { cleLieu } from "./pricing/tournee.js";
 import ChoixAge, { libelleAge } from "./components/ChoixAge.jsx";
 import { useRepertoire, enregistrerRepertoire } from "./repertoireBase.js";
@@ -940,6 +941,9 @@ const decaler = (h, minutes) => {
   return deuxChiffres(Math.floor(t / 60)) + ":" + deuxChiffres(t % 60);
 };
 
+// Champs du formulaire pour la fiche du vol (tâche Transport / aéroport)
+const volDuFormulaire = (v) => ({ volSens: v ? v.sens : "", volNumero: v ? v.numero || "" : "", volHeure: v ? v.heureVol || "" : "", volTerminal: v ? v.terminal || "3" : "3", volMoi: v ? v.prise || "" : "" });
+
 function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdhui = "" }) {
   const rep = useRepertoire();
   const enfants = listeEnfants(rep.familles);
@@ -957,9 +961,12 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
   const choixInitial = initial && initial.enfant ? initial.enfant.famille + "|" + initial.enfant.enfant : "";
   const [f, setF] = useState(
     initial
-      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, prise: initial.prise || null, enfant: choixInitial, compte: initial.compte || "", livraison: initial.livraison || null, arrets: initial.arrets || [] }
-      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null, heure2: "", retour: null, reste: false, arrets: [] }
+      ? { type: initial.type || "autre", quoi: initial.type === "ramassage" ? "" : initial.titre, pour: initial.pour || "", age: initial.age || "", debut: initial.debut, fin: initial.fin, lieu: initial.lieu || null, prise: initial.prise || null, enfant: choixInitial, compte: initial.compte || "", livraison: initial.livraison || null, arrets: initial.arrets || [], ...volDuFormulaire(initial.vol) }
+      : { type: "", quoi: "", pour: "", age: "", debut: "", fin: "", lieu: null, enfant: "", sens: "recuperer", heure: "", de: null, a: null, heure2: "", retour: null, reste: false, arrets: [], ...volDuFormulaire(null) }
   );
+  // 26 nov. 2026 (18h27) : Transport / aéroport avec un vol -> les heures sont calculées (départ de la maison -> retour)
+  const [planAero, setPlanAero] = useState(null);
+  const aero = f.type === "transport" && (f.volSens === "vers" || f.volSens === "depuis");
   const [nouvel, setNouvel] = useState(NOUVEL_ENFANT);
   const [message, setMessage] = useState("");
   const [enCours, setEnCours] = useState(false);
@@ -1004,7 +1011,7 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
   const adresseOk = (x) => !!(x && typeof x.lat === "number" && typeof x.lon === "number");
   const allerRetour = f.sens === "allerretour";
   const ponctuelOk = /^\d{2}:\d{2}$/.test(f.heure || "") && adresseOk(f.de) && adresseOk(f.a) && (!allerRetour || (/^\d{2}:\d{2}$/.test(f.heure2 || "") && f.heure2 > f.heure));
-  const ok = !!f.type && (ponctuel ? ponctuelOk : heuresOk) && quiOk && !enCours;
+  const ok = aero ? !!planAero && !enCours : !!f.type && (ponctuel ? ponctuelOk : heuresOk) && quiOk && !enCours;
 
   const valider = async () => {
     setMessage("");
@@ -1043,6 +1050,11 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
           return;
         }
         tache = { type: "ramassage", titre: "Ramassage · " + prenom, pour: prenom, age: estNouvel ? nouvel.age : choisi ? choisi.age : "enfant", enfant: ref, debut: f.debut, fin: f.fin, lieu };
+      } else if (aero) {
+        const p = planAero;
+        const vol = { sens: f.volSens, numero: f.volNumero, heureVol: f.volHeure, terminal: f.volTerminal, partir: p.partir, prise: p.prise, depose: p.depose, retour: p.retour };
+        const titre = `${f.volSens === "vers" ? "Aéroport (départ)" : "Aéroport (arrivée)"}${f.volNumero ? " · " + f.volNumero : ""}`;
+        tache = { type: "transport", titre, pour: f.pour, age: f.age, enfant: null, debut: p.partir, fin: p.retour, lieu: f.volSens === "vers" ? AEROPORT_BEN_GOURION : f.lieu, prise: f.volSens === "vers" ? f.prise : AEROPORT_BEN_GOURION, vol };
       } else {
         const cpt = f.type === "course" && f.compte ? (journee.comptes || []).find((c) => c.id === f.compte) : null;
         tache = { type: f.type, titre: f.type === "perso" ? f.quoi.trim() || `Trajet avec ${f.pour.trim()}` : f.quoi, pour: cpt ? cpt.nom : f.pour, arrets: f.type === "perso" ? f.arrets || [] : undefined, age: cpt ? "adulte" : f.age, enfant: null, debut: f.debut, fin: f.fin, lieu: f.lieu, compte: cpt ? cpt.id : "", livraison: f.type === "course" ? f.livraison || null : null, prise: ["autre", "transport", "perso"].includes(f.type) ? f.prise || null : null };
@@ -1154,9 +1166,21 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
 
       {f.type && f.type !== "ramassage" && (
         <>
-          <label className="ag-champ">2. {LIBELLE_QUOI[f.type]}
-            <input type="text" maxLength={80} placeholder={PLACEHOLDER_QUOI[f.type]} value={f.quoi} onChange={(x) => set("quoi", x.target.value)} />
-          </label>
+          {f.type === "transport" && (
+        // 26 nov. 2026 (18h27) : d'abord le sens ; avec un vol, la fiche calcule tout
+        <div className="ag-champ">C'est pour l'aéroport ?
+          <div>
+            {[["vers", "🛫 Je l'amène à l'aéroport"], ["depuis", "🛬 Je la récupère à l'aéroport"], ["", "🚗 Autre trajet"]].map(([v, l]) => (
+              <button key={v || "autre"} type="button" className={f.volSens === v ? "tb-bouton" : "ag-modifier"} style={{ margin: 4 }} aria-pressed={f.volSens === v} onClick={() => setF((x) => ({ ...x, volSens: v, quoi: v ? x.quoi || "Aéroport Ben Gourion" : x.quoi }))}>{l}</button>
+            ))}
+          </div>
+        </div>
+          )}
+          {!aero && (
+            <label className="ag-champ">2. {LIBELLE_QUOI[f.type]}
+              <input type="text" maxLength={80} placeholder={PLACEHOLDER_QUOI[f.type]} value={f.quoi} onChange={(x) => set("quoi", x.target.value)} />
+            </label>
+          )}
           <label className="ag-champ">{f.type === "perso" ? "Qui est avec moi ? *" : "Pour qui ? (facultatif)"}
             <input type="text" maxLength={60} placeholder={f.type === "autre" ? "Moi, Shyrel…" : f.type === "transport" ? "Ma nièce, Maman…" : f.type === "perso" ? "Debo, Maman…" : "Prénom de la cliente ou du client"} value={f.pour} onChange={(x) => set("pour", x.target.value)} />
           </label>
@@ -1227,7 +1251,10 @@ function FormTache({ date, journee, initial = null, onFin, occupe = [], aujourdh
         </>
       )}
 
-      {f.type && !ponctuel && (
+      {aero && (
+        <FicheVolTache f={f} set={set} date={date} maison={journee && journee.domicile} connues={connues} idBase={"tache-vol-" + date + (initial ? initial.id : "")} onPlan={setPlanAero} />
+      )}
+      {f.type && !ponctuel && !aero && (
         <>
           <div className="ag-heures">
             <label className="ag-champ">{f.type === "transport" || f.type === "perso" ? "Je la prends à" : "De"} <input type="time" value={f.debut} onChange={(x) => set("debut", x.target.value)} /></label>

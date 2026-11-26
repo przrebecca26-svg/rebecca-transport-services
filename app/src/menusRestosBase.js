@@ -7,7 +7,9 @@ import { db } from "./firebase.js";
 // - Rebecca le reprend dans la fiche du site, le publie (reglages/vitrineCarte_ID) et le marque « publié ».
 // - admin/vitrineLiens : quelle fiche du site correspond à quel espace restaurant (privé : la clé n'est jamais publique).
 // - Offre de lancement : menu en ligne offert aux 10 premiers restaurants qui signent le contrat.
-export const OFFRE_LANCEMENT_MENU = 10;
+import { TARIFS } from "./pricing/config.js";
+export const offreLancementMenu = () => (TARIFS.menuEnLigne && TARIFS.menuEnLigne.offertsLancement) || 10;
+export const prixMenuMensuel = () => (TARIFS.menuEnLigne && TARIFS.menuEnLigne.prixMensuel) || 29;
 
 export function useMenuPropose(cle) {
   const [m, setM] = useState(undefined);

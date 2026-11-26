@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { reduirePhoto } from "../photoReduite.js";
-import { OFFRE_LANCEMENT_MENU, enregistrerLiensVitrine, marquerMenuPublie, useLiensVitrine, useMenuPropose, useRestosEtContrats } from "../menusRestosBase.js";
+import { offreLancementMenu, prixMenuMensuel, enregistrerLiensVitrine, marquerMenuPublie, useLiensVitrine, useMenuPropose, useRestosEtContrats } from "../menusRestosBase.js";
 import { ecrireCarte, erreursPanier, importerCarte, lireCarte, messagePanier, totalPanier } from "../pricing/carteResto.js";
 
 // RESTAURANTS SUR LE SITE (25 nov. 2026) - #/restaurants
@@ -251,7 +251,7 @@ export function VitrineRestosAdmin() {
   return (
     <div className="tb-bloc">
       <h3>🍽️ Restaurants visibles sur le site</h3>
-      <p className="tb-note">🎁 Offre de lancement : menu en ligne offert aux {OFFRE_LANCEMENT_MENU} premiers restaurants qui signent le contrat ({Math.min(signes, OFFRE_LANCEMENT_MENU)}/{OFFRE_LANCEMENT_MENU} déjà pris).</p>
+      <p className="tb-note">🎁 Offre de lancement : menu en ligne offert aux {offreLancementMenu()} premiers restaurants qui signent le contrat ({Math.min(signes, offreLancementMenu())}/{offreLancementMenu()} déjà pris). Ensuite : {prixMenuMensuel()} ₪ par mois, sans frais de création (modifiable dans Réglages → Tarifs).</p>
       <p className="tb-note">Page publique : rebeccaservices.com/#/restaurants. Le client commande au restaurant ; tu livres. Mets seulement les restaurants qui ont dit oui.</p>
       {liste.map((r) => (
         <div key={r.id} className="tb-actions" style={{ alignItems: "center" }}>

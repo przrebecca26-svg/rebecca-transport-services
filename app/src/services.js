@@ -5,6 +5,8 @@
 // Le vrai controle d'acces (Transport prive ferme par defaut) sera fait par les regles Firebase v7.
 
 import { TARIFS } from "./pricing/config.js";
+// 26 nov. 2026 (tests automatiques) : le « dès … ₪ » des cartes suit la grille (livraison affichait 30 ₪ au lieu de 25 ₪)
+const prixDepart = (liste, defaut) => (Array.isArray(liste) && liste.length ? Math.min(...liste.map((x) => Number(x.prix)).filter((n) => n > 0)) : defaut);
 import { validerPassager } from "./profil.js";
 import { detecterZone } from "./pricing/engine.js";
 import { localVersUtc } from "./pricing/calendrier.js";
@@ -92,12 +94,12 @@ export const ACTIVITES = {
 export const SERVICES = [
   { id: "transport", activite: "transport", titre: "Transport privé", icone: "🚗", texte: "Un trajet d'une adresse à une autre, aller simple ou aller-retour.", prix: "dès 30 ₪" },
   { id: "aeroport", activite: "transport", titre: "Aéroport Ben Gourion", icone: "✈️", texte: "Départ vers l'aéroport ou arrivée et transfert à votre adresse.", prix: "dès 250 ₪" },
-  { id: "livraison", activite: "coursier", titre: "Livraison", icone: "📦", texte: "Colis, clés, documents, enveloppes, achats, petits objets.", prix: "dès 30 ₪" },
-  { id: "courses", activite: "coursier", titre: "Courses et achats", icone: "🛍️", texte: "Je récupère vos achats ou je fais les courses pour vous.", prix: "dès 25 ₪" },
+  { id: "livraison", activite: "coursier", titre: "Livraison", icone: "📦", texte: "Colis, clés, documents, enveloppes, achats, petits objets.", get prix() { return `dès ${prixDepart(TARIFS.livraison && TARIFS.livraison.paliers, 30)} ₪`; } },
+  { id: "courses", activite: "coursier", titre: "Courses et achats", icone: "🛍️", texte: "Je récupère vos achats ou je fais les courses pour vous.", get prix() { return `dès ${prixDepart(TARIFS.courses && TARIFS.courses.achatsDejaPayes, 25)} ₪`; } },
   { id: "hatan_kala", activite: "transport", titre: "Hatan & Kala", icone: "💍", texte: "Transport des mariés, décoration du véhicule possible.", prix: "dès 220 ₪" },
   { id: "demenagement", activite: "coursier", titre: "Petit déménagement", icone: "📚", texte: "Valises, cartons, petits objets.", prix: "dès 130 ₪" },
   { id: "ramassage", activite: "transport", titre: "Ramassage scolaire", icone: "🎒", texte: "Je vais chercher vos enfants à l'école ou je les y emmène : un jour, à la semaine ou au mois. Trajet partageable avec d'autres familles.", prix: "dès 35 ₪ / trajet" },
-  { id: "attente", activite: "transport", titre: "Mise à disposition", icone: "⏱️", texte: "Attente, accompagnement, événements : à l'heure.", prix: "90 ₪ / heure" },
+  { id: "attente", activite: "transport", titre: "Mise à disposition", icone: "⏱️", texte: "Attente, accompagnement, événements : à l'heure.", get prix() { return `${TARIFS.attente.tarifHeure} ₪ / heure`; } },
 ];
 
 // Espace d'un service ("coursier" ou "transport")
@@ -136,8 +138,8 @@ const retour = [
   { name: "numeroVolRetour", label: "Numéro de vol du retour", type: "text", placeholder: "ex. LY002", si: (v) => v.typeTrajet === "ar" && v.direction !== undefined && v.numeroVol !== undefined, indice: "Pour suivre le vol le jour du retour (terminal, retard)." },
   { name: "heureVolRetour", label: (v) => (v.direction === "depuis" ? "Heure du vol du retour" : "Heure d'atterrissage du retour"), type: "time", si: (v) => v.typeTrajet === "ar" && v.direction !== undefined && v.numeroVol !== undefined },
   { name: "villeVolRetour", label: (v) => (v.direction === "depuis" ? "Ville de destination du retour" : "Ville de provenance du retour"), type: "text", placeholder: "ex. Paris", si: (v) => v.typeTrajet === "ar" && v.direction !== undefined && v.numeroVol !== undefined, indice: "Facultatif : laissée vide, elle se remplit toute seule d'après le numéro de vol." },
-  { name: "bagagesRetour", label: "Bagages en soute au retour (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", si: (v) => v.typeTrajet === "ar", indice: `${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute. Le nombre du haut compte pour l'aller.` },
-  { name: "attenteMinutes", label: "Attente sur place pendant le trajet", type: "select", si: (v) => v.typeTrajet === "ar", defaut: "0", options: [{ v: "0", l: "Aucune" }, { v: "30", l: "30 minutes" }, { v: "60", l: "1 heure" }, { v: "90", l: "1 h 30" }, { v: "120", l: "2 heures" }], indice: "10 minutes offertes, puis 100 ₪ / heure." },
+  { name: "bagagesRetour", label: "Bagages en soute au retour (grandes valises)", type: "nombre", min: 0, max: 10, defaut: "0", si: (v) => v.typeTrajet === "ar", get indice() { return TARIFS.bagages.supplementParSoute > 0 ? `${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute. Le nombre du haut compte pour l'aller.` : "Bagages inclus dans le prix. Le nombre du haut compte pour l'aller."; } },
+  { name: "attenteMinutes", label: "Attente sur place pendant le trajet", type: "select", si: (v) => v.typeTrajet === "ar", defaut: "0", options: [{ v: "0", l: "Aucune" }, { v: "30", l: "30 minutes" }, { v: "60", l: "1 heure" }, { v: "90", l: "1 h 30" }, { v: "120", l: "2 heures" }], get indice() { return `${TARIFS.attente.toleranceMinutes} minutes offertes, puis ${TARIFS.attente.tarifHeureAttente} ₪ / heure (à la minute).`; } },
 ];
 
 // Reserver pour quelqu'un d'autre (transport de personnes uniquement)
@@ -177,7 +179,9 @@ export const partageChamps = (mot) => {
   ];
 };
 
-const urgence = { name: "urgent", label: "C'est urgent", type: "case", indice: "Supplément de 30 à 50 ₪ selon le délai." };
+// 26 nov. 2026 (tests automatiques) : le texte suit la grille (il annonçait encore 30 à 50 ₪)
+const urgence = { name: "urgent", label: "C'est urgent", type: "case", get indice() { return `Supplément de ${TARIFS.urgence.standard} ₪ (${TARIFS.urgence.immediate} ₪ si c'est dans l'heure).`; } };
+const urgenceLivraison = { name: "urgent", label: "C'est urgent", type: "case", get indice() { return `Supplément de ${TARIFS.livraison.urgence} ₪.`; } };
 
 export const CHAMPS_CLIENT = [
   { name: "nom", label: "Votre nom", type: "text", required: true, autocomplete: "name" },
@@ -199,7 +203,7 @@ export const FORMULAIRES = {
     { name: "arrivee", label: "Adresse d'arrivée", type: "adresse", required: true },
     ...quand(),
     ...partageChamps("passager"),
-    { name: "bagages", label: (v) => (v.typeTrajet === "ar" ? "Bagages en soute à l'aller (grandes valises)" : "Bagages en soute (grandes valises)"), type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
+    { name: "bagages", label: (v) => (v.typeTrajet === "ar" ? "Bagages en soute à l'aller (grandes valises)" : "Bagages en soute (grandes valises)"), type: "nombre", min: 0, max: 10, defaut: "0", get indice() { return TARIFS.bagages.supplementParSoute > 0 ? `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` : "Bagages inclus dans le prix (pour prévoir la place dans la voiture)."; } },
     ...retour,
     { name: "arrets", label: "Arrêts supplémentaires", type: "nombre", min: 0, max: 5, defaut: "0", indice: "Le tarif des arrêts vous est communiqué avant validation." },
     urgence,
@@ -218,7 +222,7 @@ export const FORMULAIRES = {
     { name: "heureVol", label: (v) => (v.direction === "depuis" ? "Heure d'atterrissage" : "Heure du vol"), type: "time", required: true },
     ...quand(" souhaitée"),
     ...partageChamps("passager"),
-    { name: "valises", label: (v) => (v.typeTrajet === "ar" ? "Bagages en soute à l'aller (grandes valises)" : "Bagages en soute (grandes valises)"), type: "nombre", min: 0, max: 10, defaut: "0", indice: `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` },
+    { name: "valises", label: (v) => (v.typeTrajet === "ar" ? "Bagages en soute à l'aller (grandes valises)" : "Bagages en soute (grandes valises)"), type: "nombre", min: 0, max: 10, defaut: "0", get indice() { return TARIFS.bagages.supplementParSoute > 0 ? `Petit sac et valise cabine : gratuits. ${TARIFS.bagages.supplementParSoute} ₪ par bagage en soute.` : "Bagages inclus dans le prix (pour prévoir la place dans la voiture)."; } },
     ...retour,
     urgence,
     ...passager,
@@ -235,13 +239,13 @@ export const FORMULAIRES = {
     ...quand(),
     { name: "nbLivraisons", label: "Nombre de livraisons", type: "select", defaut: "1", options: [1, 2, 3, 4, 5].map((n) => ({ v: String(n), l: String(n) })), indice: `${TARIFS.arretsSupplementaires.netanya} ₪ par livraison supplémentaire dans Netanya ou sur la route ; plus loin, le trajet est ajouté au devis.` },
     ...[2, 3, 4, 5].map((n) => ({ name: "arretL" + n, label: `Adresse de la livraison ${n}`, type: "adresse", required: true, si: (v) => Number(v.nbLivraisons) >= n })),
-    urgence,
+    urgenceLivraison,
     { name: "infos", label: "Instructions particulières", type: "texte-long" },
   ],
 
   courses: [
     { name: "typePrestation", label: "Que souhaitez-vous ?", type: "choix", required: true, defaut: "recuperer", options: [{ v: "recuperer", l: "Récupérer des achats déjà payés" }, { v: "courses", l: "Que je fasse vos courses" }] },
-    { name: "articles", label: "Nombre d'articles", type: "nombre", min: 1, max: 100, required: true, defaut: "1", indice: "Au-delà de 10 articles : sur devis." },
+    { name: "articles", label: "Nombre d'articles", type: "nombre", min: 1, max: 100, required: true, defaut: "1", get indice() { const m = (l) => (Array.isArray(l) && l.length ? Math.max(...l.map((x) => Number(x.max) || 0)) : 10); return `Au-delà de ${m(TARIFS.courses.achatsDejaPayes)} articles à récupérer (${m(TARIFS.courses.courseFaiteParRebecca)} si je fais les courses) : sur devis.`; } },
     { name: "magasin", label: "Magasin", type: "text", required: true },
     { name: "liste", label: (v) => (v.typePrestation === "courses" ? "Liste des courses" : "Description des achats à récupérer"), type: "texte-long", required: true },
     { name: "avanceArgent", label: "Rebecca avance l'argent des achats", type: "case", si: (v) => v.typePrestation === "courses", indice: "Sans frais en plus : les achats vous sont facturés à part, au prix du ticket." },

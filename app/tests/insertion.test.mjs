@@ -150,3 +150,11 @@ test("ancien minimum de 80 ₪/h (17 nov.) remplacé par 40 : plus d'alerte sur 
   egal(alerteMinimum({ gainNet: 125, gainNetHeure: 71 }, m.min, 250), null);
   egal(minimumEffectif(60, Date.parse("2026-11-26T09:00:00Z")).min, 60); // enregistré après : gardé
 });
+
+section("Prix ami à part dans la rentabilité");
+import { separerPrixAmi } from "../src/pricing/rentabilite.js";
+test("les courses 💛 Prix ami sortent des ₪/h, avec leur résumé à part", () => {
+  const t = [{ demande: { prixAmi: true }, prix: 40, gainReel: 35, total: 30, km: 5 }, { demande: {}, prix: 100, gainReel: 80, total: 60, km: 10 }];
+  const s = separerPrixAmi(t);
+  egal([s.normaux.length, s.amis.length, s.resume.prix, s.resume.gainParHeure], [1, 1, 40, 70]);
+});

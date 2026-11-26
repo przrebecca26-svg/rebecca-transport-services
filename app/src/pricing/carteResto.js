@@ -72,3 +72,35 @@ export function messagePanier(resto, t, client = {}) {
     "Livraison assurée par Rebecca Services. Merci de me confirmer la commande et l'heure !",
   ].join("\n");
 }
+
+// 26 nov. 2026, 9h07 (Rebecca : un onglet menu avec le nom, le descriptif et le prix, ajouter et supprimer) :
+// la carte se modifie plat par plat ; elle est toujours enregistrée dans le même format texte (une ligne par plat).
+export function ecrireCarte(carte) {
+  const lignes = [];
+  for (const c of carte || []) {
+    const plats = (c.plats || []).filter((p) => String(p.nom || "").trim()).map((p) => ({ ...p, prix: Number(p.prix) >= 0 ? Number(p.prix) : 0 }));
+    if (!plats.length) continue;
+    lignes.push(`# ${String(c.nom || "Menu").replace(/[#;\n]/g, " ").trim().slice(0, 60) || "Menu"}`);
+    for (const p of plats) {
+      const desc = [String(p.description || "").replace(/;/g, ",").replace(/\n/g, " ").replace(/\s*(épuisé|epuise|indisponible)\s*/gi, " ").trim(), p.epuise ? "épuisé" : ""].filter(Boolean).join(" ");
+      lignes.push([String(p.nom).replace(/[;\n]/g, " ").trim().slice(0, 70), String(Math.round(Number(p.prix) * 100) / 100).replace(".", ","), desc].filter((x, i) => i < 2 || x).join(" ; "));
+    }
+  }
+  return lignes.join("\n");
+}
+
+// Import d'une liste collée (WhatsApp, Excel, Google Sheets) : « Nom ; prix ; description », ou séparée par des
+// tabulations (copier depuis un tableur), ou « Nom - 42 ₪ ». Les lignes déjà au bon format restent telles quelles.
+export function importerCarte(texte) {
+  const lignes = String(texte || "").split(/\r?\n/).map((l) => {
+    const x = l.trim();
+    if (!x || x.startsWith("#") || x.includes(";")) return x;
+    if (x.includes("\t")) {
+      const [nom, prix, ...desc] = x.split("\t").map((s) => s.trim());
+      return prix ? [nom, prix.replace(/[^\d.,]/g, ""), desc.join(" ")].filter((v, i) => i < 2 || v).join(" ; ") : `# ${nom}`;
+    }
+    const m = /^(.+?)\s*[-–:]\s*(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:₪|nis|ils|shekels?)?\s*(.*)$/i.exec(x);
+    return m ? [m[1], m[2], m[3]].filter((v, i) => i < 2 || v).join(" ; ") : `# ${x}`;
+  });
+  return lireCarte(lignes.join("\n"));
+}

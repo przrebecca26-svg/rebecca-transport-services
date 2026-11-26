@@ -416,7 +416,7 @@ function Evenement({ d, aujourdhui, admin = false, journee = null, avecMoi = [] 
         <span className="ag-heure">{d.heure}</span>
         <span className="ag-corps">
           <strong><Pastille d={d} /> {d.serviceTitre}</strong>
-          <small>{d.nom} · {textePrix(d)}{admin && d.prixAmi ? " 💛" : ""}{admin && badgeAvecMoi(journee, d.date, cleAvec)}</small>
+          <small>{d.nom} · {textePrix(d)}{admin && d.prixAmi ? " 💛" : ""}{admin && avecMoi.length === 0 && badgeAvecMoi(journee, d.date, cleAvec)}</small>
           {typeof d.kmEstime === "number" && typeof d.minutesEstimees === "number" && <small>🚗 Trajet {texteDuree(d.minutesEstimees, d.date, d.heure)}</small>}
           <InfoVol d={d} compact />
           {avecMoi.length > 0 && <small>👥 {avecMoi.join(", ")} avec toi dans la voiture</small>}
@@ -1329,7 +1329,8 @@ function BilanDeplacements({ jour, fil, evenements, domicile, persos }) {
           {b.kmPerso > 0 && <p>🏠 <b>Perso :</b> {b.kmPerso} km · essence ~{b.essencePerso} ₪ + usure ~{Math.max(0, b.coutPerso - b.essencePerso)} ₪ = ~{b.coutPerso} ₪ (pas dans tes comptes pro)</p>}
           <p>💼 <b>Chiffre d'affaires du jour :</b> {b.ca} ₪ (chaque trajet d'un aller-retour compte le jour où il est fait) · gain estimé ~{b.gain} ₪ pour ~{Math.round(b.minutesPro / 6) / 10} h de travail</p>
           <p>💰 L'encaissé est à part : un trajet déjà payé (retour d'un aller-retour payé à l'aller) ne se ré-encaisse pas.</p>
-          {b.trajets.map((t, i) => <p key={i}>{t.pro ? "💼" : "🏠"} {t.de} → {t.vers} · {Math.round(t.km)} km · ~{t.minutes} min</p>)}
+          {/* 26 nov. 2026 : noms en hébreu isolés (sinon « École → 0 · 5 אמנון… km ») ; moins de 1 km avec une décimale */}
+          {b.trajets.map((t, i) => <p key={i} dir="ltr">{t.pro ? "💼" : "🏠"} <bdi>{t.de}</bdi> → <bdi>{t.vers}</bdi> · {t.km < 1 ? String(Math.round(t.km * 10) / 10).replace(".", ",") : Math.round(t.km)} km · ~{t.minutes} min</p>)}
           <p>Estimation (distance par la route approchée) ; le trafic réel est dans « Trafic » le jour même. Les km quand quelqu'un est avec toi pendant une course restent pro (comptés une seule fois).</p>
         </div>
       )}

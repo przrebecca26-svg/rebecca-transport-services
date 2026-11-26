@@ -84,6 +84,7 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
     const lignes = [];
     const avant = (lire(jour) || {}).lignes || [];
     let erreur = "";
+    let limite = false;
     // 19 nov. 2026 : seulement les trajets pas encore faits (moins d'appels Google, liste plus claire).
     // 14h33 : un trajet en erreur n'arrete plus tout ; on garde son ancien calcul s'il y en a un.
     for (const t of trajets.filter((x) => !x.fait && x.arriveeMin > maintenant())) {
@@ -91,12 +92,20 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
         const estime = Math.max(maintenant() + 1, t.arriveeMin - 30);
         if (lignes.length) await pause(400);
         let d;
+        // 26 nov. 2026 (429 vu par Rebecca après plusieurs changements de sa journée) : Google limite le nombre de
+        // calculs ; après un refus, on n'insiste plus pendant ce calcul (temps sans trafic) et on réessaie dans 3 min.
+        if (limite) throw new Error("Trafic indisponible (429)");
         try {
           d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
         } catch (e1) {
           if (!/429/.test(String(e1 && e1.message))) throw e1;
           await pause(2500);
-          d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
+          try {
+            d = await dureeAvecTrafic(t.de, t.vers, departIso(jour, estime));
+          } catch (e2) {
+            if (/429/.test(String(e2 && e2.message))) limite = true;
+            throw e2;
+          }
         }
         lignes.push({ cle: t.cle, nomDe: t.nomDe, nomVers: t.nomVers, quoi: t.quoi, arriveeMin: t.arriveeMin, avec: Math.round(d.avecTrafic / 60), normal: Math.round(d.normal / 60), partir: departConseille(t.arriveeMin, d.avecTrafic), apresMin: t.apresMin, apresQuoi: t.apresQuoi });
       } catch (e) {
@@ -112,10 +121,10 @@ export default function TraficDuMatin({ jour, fil, domicile, ici = null, aLaMais
         }
       }
     }
-    const v = { sig, calculeMs: Date.now(), calculeA: new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }), lignes: enchainerDeparts(lignes), erreur };
+    const v = { sig, calculeMs: limite ? Date.now() - 17 * 60000 : Date.now(), calculeA: new Date().toLocaleTimeString("fr-FR", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }), lignes: enchainerDeparts(lignes), erreur };
     ecrire(jour, v);
     setRes(v);
-    setEtat(erreur ? `${erreur} (réseau ou Google) : certains trajets gardent le calcul précédent.` : "");
+    setEtat(limite ? "Google limite le nombre de calculs (trop de changements d'un coup) : temps sans trafic pour certains trajets, nouvel essai tout seul dans 3 minutes." : erreur ? `${erreur} (réseau ou Google) : certains trajets gardent le calcul précédent.` : "");
   };
   // Une fois par jour (ou si la journee a change) : calcul automatique a l'ouverture
   useEffect(() => {

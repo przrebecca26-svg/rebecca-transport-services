@@ -782,8 +782,8 @@ function Etape({ e, date, journee, valide = null, familles = [], suivante = null
         <span>
           {e.genre === "arret" ? "🎒 " : e.genre === "maison" ? "🏠 " : e.genre === "tache" ? iconeTache(e.tache) + " " : "🚗 "}
           {e.texte}
-          {e.genre === "tache" && e.jusqua ? ` (jusqu'à ${e.jusqua})` : ""}
-          {e.genre === "tache" && e.tache && e.tache.type !== "ramassage" && e.tache.pour && <small> · pour {e.tache.pour}</small>}
+          {e.genre === "tache" && e.jusqua && !(e.tache && e.tache.vol) ? ` (jusqu'à ${e.jusqua})` : ""}
+          {e.genre === "tache" && e.tache && e.tache.type !== "ramassage" && e.tache.pour && !e.tache.vol && <small> · pour {e.tache.pour}</small>}
           {e.genre === "tache" && e.tache && libelleAge(e.tache.age) && <small> · {libelleAge(e.tache.age)}</small>}
           {e.lieu && <small> · {e.lieu}{e.marge ? ` · ${e.marge}` : ""}</small>}
           {e.genre === "arret" && journee && journee.heureChangee(date, e.ids) && <small className="ag-etape-modif"> · heure changée ce jour</small>}

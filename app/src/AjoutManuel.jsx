@@ -9,6 +9,7 @@ import { SERVICES } from "./services.js";
 import { TARIFS } from "./pricing/config.js";
 import { calculerTrajet } from "./routing.js";
 import { AvisJournee } from "./components/InsertionJournee.jsx";
+import { REDUCTIONS_AMI, RELATIONS, champsRelation, prixPropose } from "./pricing/relation.js";
 import { construireFiches, estSansCompte, filtrer, telNormalise } from "./pricing/clients.js";
 import { MARGE_DEFAUT, clePaire, datesDe, extremites, phrase, trajetsACalculer, verifier, voisins } from "./pricing/enchainement.js";
 import {
@@ -102,6 +103,16 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
   const [origine, setOrigine] = useState("");
   const jour = aujourdhui();
   const [f, setF] = useState(() => ({ service: "livraison", date: jour, heure: heureRonde(), adresses: {}, direction: "vers", magasin: "", prix: "", etat: "afaire", recu: "", moyen: "", pourboireConfirme: true, notes: "", ...(prerempli || {}) }));
+  // 26 nov. 2026 (9h53) : pour qui est la course ? Cliente (prix du devis), Ami(e) (réduction), Famille (prix libre, 0 = offert)
+  const [relation, setRelation] = useState("cliente");
+  const [reduc, setReduc] = useState(null);
+  const devisBase = prerempli && prerempli.prix ? Number(prerempli.prix) : null;
+  const choisirRelation = (r, red = null) => {
+    setRelation(r);
+    setReduc(red);
+    const p = prixPropose(devisBase, r, red);
+    if (p != null) setF((x) => ({ ...x, prix: String(p) }));
+  };
   const [verif, setVerif] = useState(null);
   const [erreur, setErreur] = useState("");
   const [enCours, setEnCours] = useState(false);
@@ -223,7 +234,7 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
 
   const enregistrer = async (forcer = false) => {
     const errClient = validerClient(client);
-    const errCourse = mode === "course" ? validerCourse(f, jour) : "";
+    const errCourse = mode === "course" ? validerCourse(f, jour, { famille: relation === "famille" }) : "";
     if (errClient || errCourse) {
       setErreur(errClient || errCourse);
       return;
@@ -262,10 +273,10 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
         const ref = doc(collection(db, "demandes"));
         demandeId = ref.id;
         const qui = moi && moi !== "rebecca" ? { attribueA: moi, ...(d.statut === "terminee" ? { realisePar: moi } : {}) } : {};
-        lot.set(ref, { ...d, ...qui, creeLe: serverTimestamp(), majLe: serverTimestamp() });
+        lot.set(ref, { ...d, ...qui, ...champsRelation(relation), creeLe: serverTimestamp(), majLe: serverTimestamp() });
         const paiement = paiementCourse(f, ref.id, jour);
         if (paiement) lot.set(doc(collection(db, "mouvements")), { ...paiement, ...champOperateur(moi), creeLe: serverTimestamp() });
-        lignes.push(`${d.serviceTitre} · ${d.nom} · ${shekels(d.prixFinal)}`);
+        lignes.push(`${d.serviceTitre} · ${d.nom} · ${d.prixFinal === 0 ? "offert" : shekels(d.prixFinal)}${relation === "famille" ? " · 👨‍👩‍👧 Famille" : relation === "ami" ? " · 💛 Prix ami" : ""}`);
         lignes.push(d.statut === "terminee" ? "Marquée terminée : elle compte dans tes finances à sa date." : "Ajoutée à ton agenda et à « Aujourd'hui ».");
         if (paiement) lignes.push(`Paiement enregistré : ${shekels(paiement.montant)} (${paiement.moyen}).`);
         if (d.pourboire) lignes.push(`Pourboire : ${shekels(d.pourboire)}, compté à part.`);
@@ -371,6 +382,13 @@ export default function AjoutManuel({ mode = "course", demandes = [], marge = MA
               </div>
             ))}
             <label className="am-label">Détails (facultatif)<textarea className="am-champ" rows={2} maxLength={1000} value={f.notes} onChange={(e) => changer("notes", e.target.value)} placeholder="Ex : commande livrée chez moi, mot écrit pour la cliente…" /></label>
+            <p className="am-titre">Pour qui ?</p>
+            <Choix options={RELATIONS.map((r) => ({ id: r.v, label: r.l }))} valeur={relation} onChoisir={(v) => choisirRelation(v)} label="Pour qui" />
+            <p className="tb-note">{(RELATIONS.find((r) => r.v === relation) || {}).aide}{devisBase ? ` Prix du devis : ${devisBase} ₪.` : ""}</p>
+            {relation === "ami" && devisBase > 0 && (
+              <Choix options={REDUCTIONS_AMI.map((x) => ({ id: String(x), label: `-${x} % (${prixPropose(devisBase, "ami", x)} ₪)` }))} valeur={reduc ? String(reduc) : ""} onChoisir={(v) => choisirRelation("ami", Number(v))} label="Réduction" />
+            )}
+            {relation === "famille" && <button type="button" className="tb-bouton tb-clair" onClick={() => changer("prix", "0")}>Offert (0 ₪)</button>}
             <label className="am-label">Prix convenu (₪) *<input className="am-champ" inputMode="decimal" value={f.prix} onChange={(e) => changer("prix", e.target.value)} placeholder="Ex : 60" /></label>
             <p className="am-titre">État</p>
             <Choix options={[{ id: "afaire", label: "À faire" }, { id: "faite", label: "Déjà faite" }]} valeur={f.etat} onChoisir={(v) => changer("etat", v)} label="État" />

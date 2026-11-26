@@ -14,7 +14,7 @@ const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asi
 const CINQ_MINUTES = 5 * 60 * 1000;
 const memoire = new Map(); // numero -> { quand, promesse }
 
-function lireTableau(numero) {
+export function lireTableau(numero) {
   const deja = memoire.get(numero);
   if (deja && Date.now() - deja.quand < CINQ_MINUTES - 5000) return deja.promesse;
   const promesse = fetch(adresseRecherche(numero))

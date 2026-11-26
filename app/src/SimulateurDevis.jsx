@@ -9,6 +9,8 @@ import Devis from "./components/Devis.jsx";
 import IconeService from "./components/IconeService.jsx";
 import AjoutManuel from "./AjoutManuel.jsx";
 import RamassagePlanning from "./RamassagePlanning.jsx";
+import PlanVol from "./components/PlanVol.jsx";
+import { AvisJournee } from "./components/InsertionJournee.jsx";
 import { SERVICES, FORMULAIRES, CHAMPS_CLIENT, valeursInitiales, champsVisibles, trajetACalculer, besoinDistance, versDemande } from "./services.js";
 import { calculerTrajet } from "./routing.js";
 import { calculer } from "./pricing/engine.js";
@@ -30,9 +32,10 @@ const adresseSaisie = (a) => !!(a && typeof a === "object" && String(a.label || 
 
 // course (16 nov. 2026) : « Modifier le devis » d'une course deja enregistree -> formulaire pre-rempli,
 // prix convenu modifiable, et « Enregistrer les modifications » met la course a jour (agenda, devis, suivi).
-function Formulaire({ service, retour, aller, course = null, onEnregistrer = null, enCours = false }) {
+// 26 nov. 2026 : depuisCalendrier = course ajoutée depuis le Calendrier (date du jour choisi, bouton direct « Ajouter »)
+function Formulaire({ service, retour, aller, course = null, onEnregistrer = null, enCours = false, dateInitiale = "", depuisCalendrier = false }) {
   const infos = SERVICES.find((s) => s.id === service);
-  const [v, setV] = useState(() => (course ? valeursDepuisDemande(course) : valeursInitiales(service)));
+  const [v, setV] = useState(() => (course ? valeursDepuisDemande(course) : { ...valeursInitiales(service), ...(dateInitiale ? { date: dateInitiale } : {}) }));
   const [trajet, setTrajet] = useState(null);
   const [copie, setCopie] = useState("");
   const [tel, setTel] = useState(course ? course.telephone || "" : "");
@@ -137,8 +140,8 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
         extraDemande={champsPart}
         clientPrerempli={{ prenom: cli.prenom.trim(), nom: cli.nom.trim(), telephone: tel.trim(), email: cli.email.trim() }}
         onFermer={() => setAjout(false)}
-        onOuvrirDemande={(id) => aller("demandes", id)}
-        onOuvrirFiche={(id) => aller("clients", id)}
+        onOuvrirDemande={aller ? (id) => aller("demandes", id) : null}
+        onOuvrirFiche={aller ? (id) => aller("clients", id) : null}
       />
     );
   }
@@ -159,6 +162,15 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
         </div>
         <Devis resultat={resultat} trajet={trajet} pretPourCalcul={pret} manque={manque} quand={{ date: v.date, heure: v.heure }} />
       </div>
+
+      {service === "aeroport" && <PlanVol v={v} trajet={trajet} onChange={changer} />}
+      {depuisCalendrier && calcule && (
+        <section className="tdb-bloc">
+          <h2>🗓️ Dans ma journée</h2>
+          <AvisJournee d={versDemande(service, v, distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null)} />
+          <button className="tdb-bouton" onClick={() => setAjout(true)}>➕ Ajouter à mon calendrier (Cliente, Ami ou Famille)</button>
+        </section>
+      )}
 
       {service === "livraison" && prosChoix.length > 0 && (
         <section className="tdb-bloc">
@@ -233,6 +245,29 @@ function Formulaire({ service, retour, aller, course = null, onEnregistrer = nul
 // « Modifier le devis » depuis la page d'une course (16 nov. 2026)
 export function ModifierDevis({ d, onEnregistrer, onFermer, enCours, aller }) {
   return <Formulaire service={d.service} course={d} retour={onFermer} aller={aller} onEnregistrer={onEnregistrer} enCours={enCours} />;
+}
+
+// 26 nov. 2026 (9h53, Rebecca) : « je veux pouvoir ajouter n'importe quelle course depuis le Calendrier, que tout se calcule »
+export function CourseAvecPrix({ date, onFin }) {
+  const [service, setService] = useState(null);
+  if (service) return <Formulaire key={service} service={service} retour={() => setService(null)} dateInitiale={date} depuisCalendrier />;
+  return (
+    <div className="tdb">
+      <div className="tdb-tete">
+        <h2>Ajouter une course avec prix</h2>
+        <p className="tdb-sous">Le prix, les horaires et ta journée se calculent ; tu choisis ensuite Cliente, Ami ou Famille.</p>
+      </div>
+      <div className="dr-services">
+        {SERVICES.filter((s) => s.id !== "ramassage").map((s) => (
+          <button key={s.id} className="tdb-tuile" onClick={() => setService(s.id)}>
+            <span className="tdb-icone"><IconeService id={s.id} taille={40} /></span>
+            <span className="tdb-tuile-texte"><b>{s.titre}</b></span>
+          </button>
+        ))}
+      </div>
+      <button className="dr-secondaire" onClick={onFin}>Fermer</button>
+    </div>
+  );
 }
 
 export default function SimulateurDevis({ aller }) {

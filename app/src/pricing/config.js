@@ -245,6 +245,8 @@ export const TARIFS = {
   // 26 nov. 2026 (9h30, Rebecca) : menu en ligne des restaurants partenaires
   // - offre de lancement (10 premiers qui signent) : création offerte + abonnement 29 ₪/mois la première année ;
   // - à partir du 11e : frais de création + abonnement normal. Montants normaux proposés par Claude, à valider.
+  // 26 nov. 2026 (9h53) : course aéroport ajoutée depuis le Calendrier : avance conseillée avant un vol, et après un atterrissage
+  planVol: { avanceConseillee: 180, apresAtterrissage: 30 },
   menuEnLigne: { offertsLancement: 10, prixLancement: 29, moisLancement: 12, fraisCreation: 150, prixMensuel: 39 },
   tournee: { margeRouteMinutes: 0, arretMinutes: 5, retardMaxMinutes: 10, places: 4, retourMaisonMinutes: 30, libreMinutes: 20 },
   // libreMinutes (12 nov. 2026, 16h07) : pendant une activite (basket...), si j'attends au moins 20 min entre la depose

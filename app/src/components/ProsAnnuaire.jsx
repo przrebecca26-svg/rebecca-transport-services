@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { categoriesVisibles, libelleFormule, lienContactPro, nomCategorie, rechercherPros, villesDesFiches } from "../pricing/pros.js";
 import { fermetureEnCours } from "../pricing/assistance.js";
 import { compterPro, demanderRdvPro, useAgendaPro, useAnnuairePros, useCategoriesPros, useCellulesPro, useImagesPro } from "../prosBase.js";
+import { useHebreuPros } from "../prosBase.js";
 import { ajouterJoursDate, creneauxLibres, erreursDemandeClient } from "../pricing/prosAgenda.js";
 import { LANGUES_SITE, erreursTraduites, langueDepart, locale, memoriserLangue, nomMetier, sens, traduction } from "../pricing/prosTextes.js";
 
@@ -72,7 +73,7 @@ function ReserverPro({ f, apercu, t, langue }) {
       <label className="champ"><span>{t.jour}</span>
         <select value={form.date} onChange={(x) => setForm({ ...form, date: x.target.value, heure: "" })}>
           <option value="">Choisir…</option>
-          {jours.map((d) => <option key={d} value={d}>{new Date(`${d}T12:00:00Z`).toLocaleDateString(locale(langue), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</option>)}
+          {jours.map((d) => <option key={d} value={d}>{new Date(`${d}T12:00:00Z`).toLocaleDateString(locale(langueVue), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</option>)}
         </select>
       </label>
       {p && form.date && (
@@ -144,7 +145,9 @@ export default function ProsAnnuaire({ onAccueil, apercu = false, fichesApercu =
   const categories = useCategoriesPros();
   const [filtre, setFiltre] = useState({ categorie: "", ville: "", texte: "" });
   const [langue, setLangue] = useState(langueDepart);
-  const t = traduction(langue);
+  const hebreu = useHebreuPros(); // 26 nov. 2026 : hébreu caché tant que Rebecca ne l'active pas
+  const langueVue = hebreu ? langue : "fr";
+  const t = traduction(langueVue);
   const changerLangue = (l) => {
     setLangue(l);
     memoriserLangue(l);
@@ -167,12 +170,12 @@ export default function ProsAnnuaire({ onAccueil, apercu = false, fichesApercu =
     if (!apercu) window.history.replaceState(null, "", suite ? `#/pros/${suite}` : "#/pros");
   };
   return (
-    <section dir={sens(langue)} lang={langue}>
+    <section dir={sens(langueVue)} lang={langueVue}>
       <div className="pp-bloc">
         <div className="tb-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
           {onAccueil ? <button type="button" className="tdb-retour" onClick={onAccueil}>{t.accueil}</button> : <span />}
           <span className="tb-actions">
-            {LANGUES_SITE.map((l) => <button key={l.v} type="button" className={langue === l.v ? "pp-bouton" : "bouton-secondaire"} onClick={() => changerLangue(l.v)}>{l.l}</button>)}
+            {(hebreu ? LANGUES_SITE : []).map((l) => <button key={l.v} type="button" className={langueVue === l.v ? "pp-bouton" : "bouton-secondaire"} onClick={() => changerLangue(l.v)}>{l.l}</button>)}
           </span>
         </div>
         <h2>{t.titre}</h2>
@@ -181,7 +184,7 @@ export default function ProsAnnuaire({ onAccueil, apercu = false, fichesApercu =
           <span>{t.metier}</span>
           <select value={filtre.categorie} onChange={(e) => setFiltre({ ...filtre, categorie: e.target.value })}>
             <option value="">{t.tousMetiers}</option>
-            {cats.map((c) => <option key={c.id} value={c.id}>{c.icone} {nomMetier(c, langue)}</option>)}
+            {cats.map((c) => <option key={c.id} value={c.id}>{c.icone} {nomMetier(c, langueVue)}</option>)}
           </select>
         </label>
         <label className="champ">
@@ -196,7 +199,7 @@ export default function ProsAnnuaire({ onAccueil, apercu = false, fichesApercu =
         {!fiches && <p className="tb-note">{t.chargement}</p>}
         {fiches && !liste.length && <p className="tb-note">{visibles.length ? t.aucunResultat : t.bientot}</p>}
       </div>
-      {liste.map((f) => <Fiche key={f.id} f={f} categories={cats} ouverte={ouverte === f.id} onOuvrir={() => ouvrir(f.id)} apercu={apercu} t={t} langue={langue} />)}
+      {liste.map((f) => <Fiche key={f.id} f={f} categories={cats} ouverte={ouverte === f.id} onOuvrir={() => ouvrir(f.id)} apercu={apercu} t={t} langue={langueVue} />)}
       {!apercu && (
         <div className="pp-bloc">
           <p><b>{t.vousEtesPro}</b> {t.rejoindre}</p>

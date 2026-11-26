@@ -11,7 +11,7 @@ import { documentRest } from "../../src/pricing/rappelsAuto.js";
 import { TARIFS } from "../../src/pricing/config.js";
 import { appliquerTarifs, lireTarifs } from "../../src/pricing/catalogue.js";
 import { cleLieu } from "../../src/pricing/tournee.js";
-import { blocsDuJour, fabriquerDuree, requeteDepuisDemande, requeteValide, resumeAdmin, verifierInsertion } from "../../src/pricing/insertion.js";
+import { blocsDuJour, chaineAvecTrafic, fabriquerDuree, margeDe, requeteDepuisDemande, requeteValide, resumeAdmin, segmentsOption, verifierInsertion } from "../../src/pricing/insertion.js";
 
 const CLE_API = "AIzaSyDZOjiRg9tgHo620Dqw1PYJuBciJ80Enmg"; // cle publique du site (non secrete)
 const BASE = "https://firestore.googleapis.com/v1/projects/rebecca-transport/databases/(default)/documents";
@@ -60,6 +60,30 @@ async function tableOsrm(lieux) {
   } catch {
     return {};
   }
+}
+
+// Trafic Google à l'heure prévue (Routes API, clé du site enregistrée par Rebecca dans reglages/google)
+async function minutesGoogle(cle, de, vers, departIso) {
+  const pt = (a) => ({ location: { latLng: { latitude: a.lat, longitude: a.lon } } });
+  const corps = { origin: pt(de), destination: pt(vers), travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE", ...(departIso && Date.parse(departIso) > Date.now() + 60000 ? { departureTime: departIso } : {}) };
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), 4000);
+  try {
+    const r = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", { method: "POST", signal: ctrl.signal, headers: { "Content-Type": "application/json", "X-Goog-Api-Key": cle, "X-Goog-FieldMask": "routes.duration", Referer: "https://rebeccaservices.com/" }, body: JSON.stringify(corps) });
+    if (!r.ok) return null;
+    const route = ((await r.json()).routes || [])[0];
+    return route ? Math.max(1, Math.round((parseFloat(String(route.duration || "0").replace("s", "")) || 0) / 60)) : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+// « 2026-12-01 » + minutes -> heure ISO en Israël (UTC+2 l'hiver, UTC+3 l'été : on laisse Intl trouver le décalage)
+function isoIsrael(date, minutes) {
+  const essai = new Date(`${date}T${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(Math.round(minutes) % 60).padStart(2, "0")}:00Z`);
+  const decal = (new Date(essai.toLocaleString("en-US", { timeZone: "Asia/Jerusalem" })) - new Date(essai.toLocaleString("en-US", { timeZone: "UTC" }))) / 60000;
+  return new Date(essai.getTime() - decal * 60000).toISOString();
 }
 
 export default async function insertion(req) {
@@ -124,5 +148,21 @@ export default async function insertion(req) {
 
   if (!admin) return json({ possible: resultat.possible, proposition: resultat.proposition || null });
   const prix = demande ? [demande.prixFinal, demande.prixEstime].find((x) => typeof x === "number") : null;
-  return json({ ...resumeAdmin(resultat, journees, { prix, coutKm: (t.rentabilite && t.rentabilite.coutKmReel) || 1.2 }), routes: Object.keys(table).length ? "osrm" : "estimation", marge: resultat.marge });
+  const resume = resumeAdmin(resultat, journees, { prix, coutKm: (t.rentabilite && t.rentabilite.coutKmReel) || 1.2 });
+  // 26 nov. 2026 : l'option proposée revérifiée avec le trafic Google à l'heure prévue (Rebecca seule, 6 trajets au plus)
+  const cle = String(((await lireDoc(entetes, "reglages/google")) || {}).cle || "").trim();
+  if (/^[A-Za-z0-9_-]{20,80}$/.test(cle)) {
+    const marge = margeDe(t);
+    const surPlace = r.service === "courses" ? (r.faitesParRebecca ? 45 : 20) : 5;
+    resume.trafic = await Promise.all((resultat.legs || []).slice(0, 2).map(async (o) => {
+      const j = journees[o.date] || { blocs: [], domicile: null };
+      const s = segmentsOption(o, j, j.domicile);
+      if (!s || s.segs.length > 6) return null;
+      const depart = (i) => (i === 0 ? (s.avant ? s.avant.fin + marge : o.etapes[0].min - 30) : o.etapes[Math.min(i - 1, o.etapes.length - 1)].min + surPlace);
+      const minutes = {};
+      await Promise.all(s.segs.map(async (x) => { minutes[x.i] = await minutesGoogle(cle, x.de, x.vers, isoIsrael(o.date, depart(x.i))); }));
+      return chaineAvecTrafic(o, j, minutes, { marge, surPlace, domicile: j.domicile });
+    }));
+  }
+  return json({ ...resume, routes: Object.keys(table).length ? "osrm" : "estimation", marge: resultat.marge });
 }

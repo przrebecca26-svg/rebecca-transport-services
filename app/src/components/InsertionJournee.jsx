@@ -52,6 +52,11 @@ export default function InsertionJournee({ d }) {
                 {typeof etat.prix === "number" ? ` · +${etat.prix} ₪ de course (≈ ${etat.gain} ₪ gagnés)` : ""}
                 {etat.routes === "estimation" ? " · temps de route estimés" : ""}
               </p>
+              {(etat.trafic || []).map((x, i) => x && (
+                <p key={"t" + i} className="tb-note" style={x.ok ? undefined : { color: "#c0392b", fontWeight: 600 }}>
+                  🚦 {etat.trafic.length > 1 ? (i === 0 ? "Aller, " : "Retour, ") : ""}avec le trafic Google à cette heure : {x.ok ? `ça tient${x.apres ? ` (arrivée ${x.arriveeApres} pour ${x.apres})` : ""}.` : [x.retardCliente ? `${x.retardCliente} min de retard pour la cliente` : "", x.retardApres ? `${x.retardApres} min de retard pour ${x.apres} (arrivée ${x.arriveeApres})` : ""].filter(Boolean).join(" et ") + "."}
+                </p>
+              ))}
               {etat.lignes.map((l, i) => (
                 <div key={i}>
                   {etat.lignes.length > 1 && <p className="tb-note">{i === 0 ? "Aller" : "Retour"} :</p>}

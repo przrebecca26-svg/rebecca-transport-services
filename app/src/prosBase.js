@@ -209,3 +209,12 @@ export async function pageProsVisible() {
   const s = await getDoc(doc(db, "reglages", "pages"));
   return !!(s.exists() && s.data().pages && s.data().pages.pros && s.data().pages.pros.visible === true);
 }
+
+// 26 nov. 2026 (Rebecca : « cibler d'abord la clientèle francophone ») : l'hébreu de l'annuaire et de l'inscription
+// est caché tant que Rebecca ne l'active pas (Réglages → Pages du site). Document public reglages/langues.
+export function useHebreuPros() {
+  const [actif, setActif] = useState(false);
+  useEffect(() => onSnapshot(doc(db, "reglages", "langues"), (s) => setActif(!!(s.exists() && s.data().hebreuPros === true)), () => setActif(false)), []);
+  return actif;
+}
+export const enregistrerHebreuPros = (v) => setDoc(doc(db, "reglages", "langues"), { hebreuPros: v === true, majLe: serverTimestamp() }, { merge: true });

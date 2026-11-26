@@ -158,3 +158,20 @@ test("les courses 💛 Prix ami sortent des ₪/h, avec leur résumé à part", 
   const s = separerPrixAmi(t);
   egal([s.normaux.length, s.amis.length, s.resume.prix, s.resume.gainParHeure], [1, 1, 40, 70]);
 });
+test("course déjà passée à l'heure conseillée : plus de nouvelle heure (l'écart de 40 min est gardé)", () => {
+  const decalee = { ...arrivee, heure: "15:25", details: { ...arrivee.details, margeVol: 40 } };
+  egal(arriveeConseillee(decalee, etatDuVol(ligne("14:45"), volDeLaCourse(decalee))), null);
+  egal(arriveeConseillee(decalee, etatDuVol(ligne("15:00"), volDeLaCourse(decalee))).conseillee, "15:40");
+});
+
+section("Trafic Google sur l'option proposée");
+import { chaineAvecTrafic } from "../src/pricing/insertion.js";
+test("avec les temps Google : ça tient, ou le retard pour le rendez-vous suivant", () => {
+  const j = journee([course("c1", "12:00", HERZL, HERZLIYA, 30)]);
+  const r = verifierInsertion(req("transport", "11:15", KIKAR, AGAMIM), j);
+  const o = r.legs[0];
+  const bien = chaineAvecTrafic(o, j[DATE], { 0: 5, 1: 8, 2: 8 }, { domicile: MAISON });
+  vrai(bien.ok, "ça tient");
+  const mal = chaineAvecTrafic(o, j[DATE], { 0: 5, 1: 25, 2: 20 }, { domicile: MAISON });
+  vrai(!mal.ok && mal.retardApres > 0, `retard ${mal.retardApres}`);
+});

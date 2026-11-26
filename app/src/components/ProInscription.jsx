@@ -81,9 +81,14 @@ export default function ProInscription({ onAccueil }) {
         {choixLangue}
         <h2>{t.insTitre}</h2>
         <p>{t.insIntro}</p>
-        <ul>
-          {FORMULES_PRO.map((x) => <li key={x.v}><b>{formule(x.v)[0]}</b>{langueVue === "he" ? ": " : " : "}{formule(x.v)[1]}{x.v === "referencement" ? "" : t.surDevisFormule}</li>)}
-        </ul>
+        <div className="pp-formules">
+          {FORMULES_PRO.map((x) => (
+            <div key={x.v} className="pp-formule">
+              <strong>{formule(x.v)[0]}</strong>
+              <p style={{ margin: "6px 0 0" }}>{formule(x.v)[1]}{x.v === "referencement" ? "" : t.surDevisFormule}</p>
+            </div>
+          ))}
+        </div>
         <p className="tb-note">{t.insNote}</p>
       </div>
       <div className="pp-bloc">
@@ -122,16 +127,20 @@ export default function ProInscription({ onAccueil }) {
         <label className="case"><input type="checkbox" checked={f.whatsappPublic} onChange={() => cocher("whatsappPublic")} /><span>{t.afficherNumero}</span></label>
         <Champ label={t.email} k="email" f={f} setF={setF} e={e} type="email" />
         <Champ label={t.osek} k="osek" f={f} setF={setF} e={e} requis />
+        <Champ label={t.instagram} k="instagram" f={f} setF={setF} e={e} aide="@compte" />
+        <Champ label={t.facebook} k="facebook" f={f} setF={setF} e={e} />
+        <Champ label={t.siteWeb} k="siteWeb" f={f} setF={setF} e={e} aide="https://…" />
+        <p className="tb-note">📸 {t.logoPhotos}</p>
         <fieldset className="champ">
           <legend>{t.formuleSouhaitee}</legend>
           {FORMULES_PRO.map((x) => (
             <label key={x.v} className="case"><input type="radio" checked={f.formule === x.v} onChange={() => setF({ ...f, formule: x.v })} /><span>{formule(x.v)[0]}</span></label>
           ))}
         </fieldset>
-        <div className="champ">
-          <span>{t.conditionsTitre}</span>
+        <details className="champ">
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>{t.lireConditions} ({conditions.length})</summary>
           <ul className="tb-note">{conditions.map((c) => <li key={c}>{c}</li>)}</ul>
-        </div>
+        </details>
         <label className="case"><input type="checkbox" checked={f.independant} onChange={() => cocher("independant")} /><span>{t.jeSuisIndependant} *</span></label>
         {e.independant && <span className="erreur" role="alert">{e.independant}</span>}
         <label className="case"><input type="checkbox" checked={f.conditions} onChange={() => cocher("conditions")} /><span>{t.jAccepte} *</span></label>

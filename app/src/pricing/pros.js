@@ -170,6 +170,7 @@ export const dossierVide = () => ({
   email: "", osek: "", siteDigital: "", qualificationNecessaire: false, notePrivee: "", justificatifs: {}, journal: [],
   creeLeMs: 0, majLeMs: 0, source: "admin",
   projetDigital: "", abonnement: { mensuel: 0, debut: "", paiements: [], actif: false }, compteEmail: "", codeInvitation: "",
+  instagram: "", facebook: "", siteWeb: "", activiteRS: false,
 });
 export function normaliserDossier(d) {
   const v = { ...dossierVide(), ...(d || {}) };
@@ -214,7 +215,24 @@ export function normaliserDossier(d) {
     abonnement: lireAbonnement(v.abonnement),
     compteEmail: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v.compteEmail || "").trim()) ? String(v.compteEmail).trim().toLowerCase() : "",
     codeInvitation: /^[A-Za-z0-9]{12,40}$/.test(String(v.codeInvitation || "")) ? v.codeInvitation : "",
+    // 26 nov. 2026 : réseaux du pro, et « Activité Rebecca Services » (les activités de Rebecca elle-même)
+    instagram: txt(v.instagram, 120),
+    facebook: txt(v.facebook, 200),
+    siteWeb: txt(v.siteWeb, 200),
+    activiteRS: v.activiteRS === true,
   };
+}
+// Lien public d'un réseau : accepte « @compte », « compte » ou une adresse complète ; "" si rien d'utilisable
+export function lienReseau(type, valeur) {
+  const v = String(valeur || "").trim();
+  if (!v) return "";
+  if (/^https:\/\/[^\s]{4,200}$/.test(v)) return v;
+  if (/^(www\.|[a-z0-9-]+\.[a-z]{2,})/i.test(v) && type === "site") return "https://" + v.replace(/^https?:\/\//, "");
+  const compte = v.replace(/^@/, "").replace(/^https?:\/\/(www\.)?(instagram|facebook)\.com\//i, "").replace(/\/$/, "");
+  if (!/^[A-Za-z0-9._-]{2,60}$/.test(compte)) return "";
+  if (type === "instagram") return `https://www.instagram.com/${compte}`;
+  if (type === "facebook") return `https://www.facebook.com/${compte}`;
+  return "";
 }
 
 /* ---------- Abonnement mensuel (Vitrine, Business, Pack Pro) ----------
@@ -335,6 +353,10 @@ export function fichePublique(dossier, categories, aujourdhui) {
     formule: d.formule,
     siteDigital: formuleAvecPage(d.formule) ? d.siteDigital : "",
     verifie: badgeActif(d, categories, aujourdhui),
+    instagram: lienReseau("instagram", d.instagram),
+    facebook: lienReseau("facebook", d.facebook),
+    siteWeb: lienReseau("site", d.siteWeb),
+    activiteRS: d.activiteRS,
   };
 }
 export const annuairePublic = (dossiers, categories, aujourdhui) => (dossiers || []).map((d) => fichePublique(d, categories, aujourdhui)).filter(Boolean);
@@ -390,7 +412,7 @@ export function lienContactPro(fiche, fermeture = null, options = {}) {
 export const inscriptionVide = () => ({
   nomCommercial: "", prenom: "", nom: "", categorie: "", metier: "", description: "", prestations: "", tarifs: "",
   villes: "", zone: "", langues: ["Français"], horaires: "", telephone: "", whatsapp: "", whatsappPublic: true, email: "",
-  osek: "", formule: "referencement", conditions: false, independant: false,
+  osek: "", formule: "referencement", conditions: false, independant: false, instagram: "", facebook: "", siteWeb: "",
 });
 export function erreursInscription(f) {
   const e = erreursDossier(normaliserDossier(f));
@@ -418,6 +440,7 @@ export function messageInscriptionWhatsApp(f, categories) {
     `Langues : ${(f.langues || []).join(", ")}`,
     `Osek : ${f.osek}`,
     `Téléphone : ${f.telephone || "-"} · WhatsApp : ${f.whatsapp || "-"}${f.email ? " · " + f.email : ""}`,
+    ...(f.instagram || f.facebook || f.siteWeb ? [`Réseaux : ${[f.instagram && "Instagram " + f.instagram, f.facebook && "Facebook " + f.facebook, f.siteWeb && "Site " + f.siteWeb].filter(Boolean).join(" · ")}`] : []),
     `Formule souhaitée : ${libelleFormule(f.formule)}`,
     "",
     `Présentation : ${f.description}`,
@@ -463,3 +486,16 @@ export function messageInvitationPro(d, lien) {
     "Astuce : sur iPhone, Partager → « Sur l'écran d'accueil » pour l'avoir comme une application.",
   ].join("\n");
 }
+
+// 26 nov. 2026 (Rebecca) : ses propres activités dans l'annuaire, avec la mention « Activité Rebecca Services »
+// (RegenX déjà créée par elle). Fiches prêtes, sans tarifs (renvoi au site), modifiables ensuite dans l'admin.
+const RS_COMMUN = { prenom: "Rebecca", nom: "Perez", villes: "Netanya", zone: "Netanya et alentours – sur rendez-vous", langues: ["Français"], horaires: "Du dimanche au vendredi sur rendez-vous. Fermé Chabbat et fêtes juives.", telephone: "0547380193", whatsapp: "0547380193", whatsappPublic: true, osek: "329612337", tarifs: "Voir les prestations et réserver sur rebeccaservices.com", siteWeb: "https://rebeccaservices.com", instagram: "rebecca_services", formule: "referencement", activiteRS: true };
+export const ACTIVITES_RS_FICHES = [
+  { nomCommercial: "Nails Prestige", categorie: "beaute", metier: "Onglerie – semi-permanent, extensions, nail art", description: "Onglerie à Netanya : pose de semi-permanent, extensions, nail art et soins des mains, dans un cadre soigné et sur rendez-vous.", prestations: "• Semi-permanent mains et pieds\n• Extensions et remplissage\n• Nail art\n• Soins des mains" },
+  { nomCommercial: "Prestige Hair", categorie: "beaute", metier: "Coiffure femme – coupe, couleur, coiffure de mariée", description: "Près de 30 ans d'expérience en coiffure : coupe, couleur, brushing et coiffures de soirée ou de mariée, sur rendez-vous à Netanya.", prestations: "• Coupe et brushing\n• Couleur\n• Coiffure de soirée\n• Coiffure de mariée" },
+  { nomCommercial: "Prestige Slim & Lift", categorie: "beaute", metier: "Soins minceur et raffermissement", description: "Soins esthétiques minceur et raffermissement (radiofréquence, cavitation, anti-cellulite), approche non médicale, sur rendez-vous à Netanya.", prestations: "• Radiofréquence\n• Cavitation\n• Soins anti-cellulite\n• Programmes en plusieurs séances" },
+  { nomCommercial: "Boutique Epoxy", categorie: "autres", metier: "Créations personnalisées en résine", description: "Créations en résine faites main et personnalisées : décoration, rangement, objets de Chabbat et de fêtes, lampes, bougies, cadeaux.", prestations: "• Décoration personnalisée\n• Objets de Chabbat et de fêtes\n• Lampes et bougies\n• Cadeaux sur mesure", zone: "Toute Israël – livraison possible" },
+  { nomCommercial: "Digital & Applications", categorie: "autres", metier: "Création de sites web et d'applications pour professionnels", description: "Création de sites et d'applications pour les professionnels : page vitrine, espace de gestion, agenda en ligne, réservation et suivi des clients.", prestations: "• Page vitrine\n• Site Business avec espace administrateur\n• Pack Pro : agenda, fichier clients, rappels\n• Maintenance", zone: "Toute Israël – à distance" },
+].map((a) => ({ ...RS_COMMUN, ...a }));
+// Les fiches d'activités encore absentes (comparées au nom commercial)
+export const activitesRSManquantes = (dossiers) => ACTIVITES_RS_FICHES.filter((a) => !(dossiers || []).some((d) => sansAccents(d.nomCommercial) === sansAccents(a.nomCommercial)));

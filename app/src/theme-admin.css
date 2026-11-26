@@ -205,3 +205,10 @@
 /* 22 nov. 2026 : titres de section dans le menu (Ma journée, Rebecca Services, Restaurants…) */
 .theme-sombre .ts-section { margin: 14px 12px 4px; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--g-rose, #F1AEB7); opacity: 0.8; font-weight: 700; }
 .theme-sombre .ts-menu .ts-section:first-of-type { margin-top: 6px; }
+
+/* 26 nov. 2026 (Rebecca) : grand écran d'ordinateur, l'espace admin profite de la largeur */
+@media (min-width: 1400px) {
+  .theme-sombre .ts-contenu { max-width: 1040px; }
+  .theme-sombre .tdb-h2 { max-width: none; }
+  .admin-tableau > * { max-width: 960px; }
+}

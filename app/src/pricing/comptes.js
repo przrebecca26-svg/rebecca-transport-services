@@ -99,6 +99,7 @@ export function etatReservation(res, mouvements, reglages = REGLAGES_PAR_DEFAUT)
   if (res.statut === "terminee") return "terminee";
   if (res.statut === "annulee") return "annulee";
   if (res.statut !== "acceptee") return res.statut || "en attente";
+  if (res.sansAcompte === true) return "confirmee"; // 26 nov. 2026 : 💛 Prix ami, pas d'acompte demandé
   const acompte = calculerAcompte(res.prixConvenu, reglages);
   if (acompte == null) return "acompte_a_recevoir";
   return encaisseBrut(mouvements, res.id) >= acompte ? "confirmee" : "acompte_a_recevoir";
@@ -213,7 +214,7 @@ export function situationCourse(res, mouvements, reglages = REGLAGES_PAR_DEFAUT)
   const brut = encaisseBrut(mouvements, res.id);
   const annulation = annulationDe(mouvements, res.id);
   const remb = etatRemboursement(annulation, mouvements);
-  const acompte = calculerAcompte(prix, reglages);
+  const acompte = res.sansAcompte === true ? null : calculerAcompte(prix, reglages);
   return {
     etat: etatReservation(res, mouvements, reglages),
     prix,

@@ -383,6 +383,20 @@ export function messageRelance(d) {
   return [bonjour(d), texte, "Réservez sur mon site ou répondez simplement à ce message.", ...lignesSite(d), "À bientôt, Rebecca"].join("\n");
 }
 
+// 26 nov. 2026 (Rebecca, nouvelle grille) : objectif 55 ₪/h en moyenne, refus seulement sous 40 ₪/h. Un minimum
+// enregistré AVANT cette décision (ex. 80 ₪/h du 17 nov.) contredisait la pastille verte (« 71 ₪/h très rentable » avec
+// « sous ton minimum de 80 ») : il est remplacé par le seuil d'alerte de la grille, tant qu'elle ne le change pas.
+export const DECISION_GRILLE_26NOV_MS = Date.parse("2026-11-26T00:00:00+02:00");
+export function minimumEffectif(minParHeure, majLeMs, t = TARIFS) {
+  const n = Number(minParHeure) || 0;
+  const seuil = (t.rentabilite && t.rentabilite.seuilAlerteGainNetHeure) || 40;
+  if (n > 0 && Number.isFinite(majLeMs) && majLeMs < DECISION_GRILLE_26NOV_MS) return { min: seuil, ancien: n };
+  return { min: n, ancien: null };
+}
+const lireMs = (x) => (x && typeof x.toMillis === "function" ? x.toMillis() : typeof x === "string" ? Date.parse(x) : NaN);
+// Lecture du document reglages/rentabilite (Firestore) -> { min, ancien }
+export const minimumDuReglage = (data, t = TARIFS) => (data ? minimumEffectif(data.minParHeure, lireMs(data.majLe), t) : { min: 0, ancien: null });
+
 // Prix minimum : gain net par heure du devis sous le minimum de Rebecca -> alerte et prix conseille
 export function alerteMinimum(renta, minParHeure, prix) {
   const min = Number(minParHeure);

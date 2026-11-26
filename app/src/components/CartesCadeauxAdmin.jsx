@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { MOYENS_CADEAU, STATUTS_CADEAU, champsActivation, genererCode, normaliserCode, dateFrCadeau, finValidite, lienCarte, statutAffiche, utiliserCarte } from "../pricing/cartesCadeaux.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
@@ -42,6 +42,18 @@ export default function CartesCadeauxAdmin() {
     }
   };
   useEffect(() => onSnapshot(collection(db, "cartesCadeaux"), (s) => setCartes(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => setCartes([])), []);
+  // 26 nov. 2026 : index « code -> carte » (codesCadeaux/{CODE}) pour que la cliente puisse passer sa carte en crédit
+  // avec son seul code (règles v40 : elle lit un code précis, jamais la liste des cartes)
+  const indexes = useRef(new Set());
+  useEffect(() => {
+    for (const c of cartes || []) {
+      if (c.statut !== "active" || !c.code) continue;
+      const code = normaliserCode(c.code);
+      if (indexes.current.has(code + "|" + c.id)) continue;
+      indexes.current.add(code + "|" + c.id);
+      setDoc(doc(db, "codesCadeaux", code), { carteId: c.id }).catch(() => indexes.current.delete(code + "|" + c.id));
+    }
+  }, [cartes]);
   if (!cartes) return <p className="admin-texte tb-pad">Chargement…</p>;
   const maj = (id, champs) => updateDoc(doc(db, "cartesCadeaux", id), { ...champs, majLe: serverTimestamp() }).catch(() => setInfo("Enregistrement impossible (règles Firebase v26 ?)."));
   const utiliser = (c) => {

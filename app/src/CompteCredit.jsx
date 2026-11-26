@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
+import { carteVersCredit, normaliserCode } from "./pricing/cartesCadeaux.js";
 import { db } from "./firebase.js";
 import { TARIFS } from "./pricing/config.js";
 import { bonusRecharge, creditObtenu, ETATS_RECHARGE, validerRecharge } from "./pricing/credit.js";
@@ -89,6 +90,8 @@ export default function CompteCredit({ client, solde, onSolde }) {
         <p className="credit-montant">{solde} ₪</p>
         <p className="aide">Le crédit se déduit automatiquement de vos prochaines courses. Le reste éventuel se règle avec votre moyen de paiement.</p>
       </div>
+
+      <CarteVersCredit uid={user.uid} onFait={charger} />
 
       <form className="bloc compte-form" onSubmit={envoyer} noValidate>
         <h3>Recharger mon crédit</h3>
@@ -187,5 +190,57 @@ export default function CompteCredit({ client, solde, onSolde }) {
         </div>
       )}
     </div>
+  );
+}
+
+// 26 nov. 2026 (Rebecca) : « J'ai une carte cadeau » -> le code passe le solde de la carte sur mon crédit (une seule fois)
+function CarteVersCredit({ uid, onFait }) {
+  const [code, setCode] = useState("");
+  const [msg, setMsg] = useState("");
+  const [ok, setOk] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const valider = async (ev) => {
+    ev.preventDefault();
+    setMsg("");
+    setOk("");
+    const c = normaliserCode(code);
+    if (c.replace(/[^A-Z0-9]/g, "").length < 6) return setMsg("Tapez le code de votre carte cadeau.");
+    setEnCours(true);
+    try {
+      const index = await getDoc(doc(db, "codesCadeaux", c));
+      const carteId = index.exists() ? String(index.data().carteId || "") : "";
+      const s = carteId ? await getDoc(doc(db, "cartesCadeaux", carteId)) : null;
+      const carte = s && s.exists() ? s.data() : null;
+      const refus = carteVersCredit(carte, aujourdhui());
+      if (refus) {
+        setMsg(refus);
+      } else {
+        const montant = Math.round(Number(carte.solde) * 100) / 100;
+        const lot = writeBatch(db);
+        lot.update(doc(db, "cartesCadeaux", carteId), { statut: "utilisee", solde: 0, reclamePar: uid, reclameLe: serverTimestamp() });
+        lot.set(doc(db, "creditMouvements", "carte_" + carteId), { uid, kind: "cadeau", montant, carteId, code: c, date: aujourdhui(), creeLe: serverTimestamp() });
+        await lot.commit();
+        setOk(`🎁 ${montant} ₪ ajoutés à votre crédit ! Ils se déduiront de votre prochaine réservation.`);
+        setCode("");
+        await onFait();
+      }
+    } catch {
+      setMsg("Ce code ne peut pas être utilisé. Vérifiez-le, ou contactez Rebecca.");
+    }
+    setEnCours(false);
+    return undefined;
+  };
+  return (
+    <form className="bloc compte-form" onSubmit={valider} noValidate>
+      <h3>🎁 J'ai une carte cadeau</h3>
+      <p className="aide">Tapez son code : le montant de la carte s'ajoute à votre crédit.</p>
+      <div className="champ">
+        <label htmlFor="cc-code">Code de la carte cadeau</label>
+        <input id="cc-code" type="text" autoCapitalize="characters" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="RS-XXXX-XXXX" />
+        {msg && <span className="erreur" role="alert">{msg}</span>}
+        {ok && <span className="ok-adresse" role="status">{ok}</span>}
+      </div>
+      <button type="submit" className="bouton" disabled={enCours}>{enCours ? "Vérification…" : "Ajouter à mon crédit"}</button>
+    </form>
   );
 }

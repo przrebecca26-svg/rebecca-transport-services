@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { trajetACalculer } from "../services.js";
 import { kmEntre, MIN_PAR_KM } from "../pricing/coursesGroupees.js";
-import { auth } from "../firebase.js";
+import { auth, db } from "../firebase.js";
+import { doc, updateDoc } from "firebase/firestore";
+import { lienWhatsApp } from "../pricing/navigation.js";
 import { TABLEAU_AEROPORT, arriveeConseillee, adresseRecherche, choisirVol, etatDuVol, iconeVol, lieuDuVol, villeDuVol, volConsultable, volDeLaCourse } from "../pricing/vols.js";
 
 // Suivi du vol d'une course aeroport (17 nov. 2026) : terminal, a deposer ou a recuperer, a l'heure ou en retard.
@@ -75,8 +77,20 @@ function NouvelleHeure({ d, info }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cle]);
+  const [change, setChange] = useState("");
   if (!a) return null;
   const h = (x) => x.replace(":", "h");
+  const changer = async () => {
+    setChange("en cours");
+    try {
+      await updateDoc(doc(db, "demandes", d.id), d.estRetour ? { "details.heureRetour": a.conseillee, "details.margeVolRetour": a.marge } : { heure: a.conseillee, "details.margeVol": a.marge });
+      setChange("fait");
+    } catch {
+      setChange("erreur");
+    }
+  };
+  const prenom = String(d.nom || "").trim().split(" ")[0];
+  const lienCliente = d.telephone ? lienWhatsApp(d.telephone, `Bonjour${prenom ? " " + prenom : ""}, c'est Rebecca 😊\nVotre vol a ${a.ecartVol > 0 ? `${a.ecartVol} min de retard` : `${-a.ecartVol} min d'avance`} : je serai là pour vous vers ${h(a.conseillee)} au lieu de ${h(a.prevue)}. À tout à l'heure !`) : null;
   return (
     <>
       <p style={{ color: "#c0392b", fontWeight: 600 }}>
@@ -84,6 +98,15 @@ function NouvelleHeure({ d, info }) {
       </p>
       {verif.statut === "calcul" && <p className="tb-note">Je vérifie ta journée à {h(a.conseillee)}…</p>}
       {verif.statut === "ok" && verif.possible && <p className="tb-note">✅ Ta journée tient à {h(a.conseillee)} (marge de {verif.marge} min avant et après tes autres rendez-vous). Pense à prévenir la cliente.</p>}
+      {/* 26 nov. 2026 (Rebecca : « changer l'heure d'une course directement depuis la fiche du vol ») */}
+      {d.id && (
+        <div className="tb-actions">
+          {change !== "fait" && <button type="button" className="tb-bouton" disabled={change === "en cours"} onClick={changer}>{change === "en cours" ? "Enregistrement…" : `Passer la course à ${h(a.conseillee)}`}</button>}
+          {change === "fait" && <span className="tb-note">✅ Course passée à {h(a.conseillee)} : ta journée se recalcule.</span>}
+          {lienCliente && <a className="tb-bouton tb-clair" href={lienCliente} target="_blank" rel="noopener noreferrer">Prévenir la cliente</a>}
+        </div>
+      )}
+      {change === "erreur" && <p className="tb-note">Enregistrement impossible : vérifie la connexion.</p>}
       {verif.statut === "ok" && !verif.possible && (
         <p className="tb-note" style={{ color: "#c0392b" }}>⚠️ À {h(a.conseillee)}, un autre rendez-vous de ta journée n'est plus tenu{verif.proposition ? ` (première heure faisable : ${h(verif.proposition)})` : ""}. Regarde ton Calendrier ou confie une course à Jérémy.</p>
       )}

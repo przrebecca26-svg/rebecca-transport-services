@@ -179,8 +179,11 @@ export function arriveeConseillee(d, info) {
   const nouveauVol = enM(info.nouvelle);
   const moi = enM(notee);
   if (prevuVol == null || nouveauVol == null || moi == null || Math.abs(info.ecartMinutes || 0) < 5) return null;
-  const marge = moi - prevuVol; // ex. 40 min entre l'atterrissage prévu et mon arrivée
+  // ex. 40 min entre l'atterrissage prévu et mon arrivée ; gardé dans la course quand je l'ai déjà décalée
+  const gardee = Number(d.estRetour ? v.margeVolRetour : v.margeVol);
+  const marge = Number.isFinite(gardee) && gardee >= 0 && gardee <= 600 ? gardee : moi - prevuVol;
   const conseillee = ((nouveauVol + marge) % 1440 + 1440) % 1440;
   const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  if (conseillee === moi) return null; // déjà à la bonne heure
   return { prevue: hhmm(moi), conseillee: hhmm(conseillee), ecartVol: info.ecartMinutes, marge };
 }

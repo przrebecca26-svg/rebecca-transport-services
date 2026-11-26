@@ -426,3 +426,43 @@ export function messageCliente(d, resume) {
   if (resume.possible) return `${debut}\nC'est bon pour ${quoi} le ${jour} à ${h(d.heure)}${typeof prix === "number" ? ` (${prix} ₪)` : ""}. Je vous confirme et je vous préviens quand je pars.`;
   return `${debut}\nPour ${quoi} le ${jour}, je ne peux pas être là à ${h(d.heure)}, mais je peux à ${h(resume.proposition)}${typeof prix === "number" ? ` (même prix : ${prix} ₪)` : ""}. Est-ce que ça vous convient ?`;
 }
+
+// 26 nov. 2026 (Rebecca : « utiliser le trafic Google en direct dans le calcul de ta journée ») : l'option choisie est
+// revérifiée avec les vrais temps Google à l'heure prévue (quelques trajets seulement : coût maîtrisé).
+// trajets = les segments de l'option dans l'ordre : [avant -> 1re étape, étape -> étape, ..., dernière -> après]
+export function segmentsOption(option, journee, domicile = null) {
+  if (!option || option.trouLivraison != null) return null; // livraison séparée : pas revérifiée
+  const blocs = (journee && journee.blocs) || [];
+  const avant = option.trou > 0 ? blocs[option.trou - 1] : null;
+  const apres = blocs[option.trou] || null;
+  const points = [avant ? avant.a || avant.de : domicile, ...option.etapes.map((e) => e.lieu), apres ? apres.de || apres.a : null];
+  const segs = [];
+  for (let i = 0; i < points.length - 1; i++) if (ok(points[i]) && ok(points[i + 1])) segs.push({ i, de: points[i], vers: points[i + 1] });
+  return { avant, apres, segs, nbPoints: points.length };
+}
+// minutes[i] = temps Google du segment i (null = inconnu) ; surPlace = minutes sur place à chaque étape
+export function chaineAvecTrafic(option, journee, minutes, { marge = MARGE_DEFAUT, surPlace = SUR_PLACE_NOUVEAU, domicile = null } = {}) {
+  const s = segmentsOption(option, journee, domicile);
+  if (!s) return null;
+  const g = (i) => (typeof minutes[i] === "number" ? minutes[i] : null);
+  if (s.segs.some((x) => g(x.i) == null)) return null;
+  const etapes = option.etapes;
+  let cur = s.avant ? s.avant.fin + marge : null;
+  let retardCliente = 0;
+  const heures = [];
+  etapes.forEach((e, k) => {
+    const route = g(k) || 0;
+    const arr = cur == null ? e.min : cur + route;
+    if (k === 0 && arr > e.min) retardCliente = Math.round(arr - e.min);
+    const t0 = k === 0 ? Math.max(arr, e.min) : arr;
+    heures.push(t0);
+    cur = t0 + surPlace;
+  });
+  let arriveeApres = null;
+  let retardApres = 0;
+  if (s.apres) {
+    arriveeApres = cur + (g(etapes.length) || 0);
+    retardApres = Math.max(0, Math.round(arriveeApres - (s.apres.debut - marge)));
+  }
+  return { ok: retardCliente === 0 && retardApres === 0, retardCliente, retardApres, arriveeApres: arriveeApres != null ? hFr(Math.round(arriveeApres)) : "", heures: heures.map((m) => hFr(Math.round(m))), apres: s.apres ? `${hFr(s.apres.debut)} ${s.apres.texte}` : "" };
+}

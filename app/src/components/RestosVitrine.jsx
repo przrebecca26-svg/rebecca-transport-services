@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 import { reduirePhoto } from "../photoReduite.js";
+import { erreursPanier, lireCarte, messagePanier, totalPanier } from "../pricing/carteResto.js";
 
 // RESTAURANTS SUR LE SITE (25 nov. 2026) - #/restaurants
 // Fiche complète (décision de Rebecca) : logo, photos, présentation, spécialités, cacherout, horaires, menu (lien PDF
@@ -18,12 +19,68 @@ function useImages(id) {
   useEffect(() => (id ? onSnapshot(doc(db, "reglages", "vitrineImg_" + id), (s) => setImg(s.exists() ? s.data() : {}), () => setImg({})) : undefined), [id]);
   // le menu a son propre document (taille maximale d'un document Firebase : 1 Mo)
   useEffect(() => (id ? onSnapshot(doc(db, "reglages", "vitrineMenu_" + id), (s) => setMenu(s.exists() ? s.data().pages || [] : []), () => setMenu([])) : undefined), [id]);
-  return { ...img, menu };
+  // 26 nov. 2026 : la carte en ligne (texte, une ligne par plat) a aussi son document
+  const [carte, setCarte] = useState("");
+  useEffect(() => (id ? onSnapshot(doc(db, "reglages", "vitrineCarte_" + id), (s) => setCarte(s.exists() ? String(s.data().texte || "") : ""), () => setCarte("")) : undefined), [id]);
+  return { ...img, menu, carteTexte: carte };
+}
+
+// 26 nov. 2026 : menu et panier en ligne. La commande part au restaurant par WhatsApp ; le client paie son repas
+// au restaurant et Rebecca Services livre. Rien n'est enregistré en base (règles Firebase inchangées).
+function Panier({ r, carte, onFermer }) {
+  const [panier, setPanier] = useState({});
+  const [client, setClient] = useState({ nom: "", telephone: "", adresse: "", note: "" });
+  const [erreurs, setErreurs] = useState({});
+  const t = totalPanier(carte, panier);
+  const plus = (id, n) => setPanier((x) => ({ ...x, [id]: Math.max(0, Math.min(20, (x[id] || 0) + n)) }));
+  const envoyer = () => {
+    const e = erreursPanier(t, client);
+    setErreurs(e);
+    if (Object.keys(e).length) return;
+    window.open(`https://wa.me/${nettoie(r.whatsapp)}?text=${encodeURIComponent(messagePanier(r, t, client))}`, "_blank", "noopener");
+  };
+  const champ = (k, label, type = "text") => (
+    <label className="champ">{label}
+      <input type={type} value={client[k]} onChange={(e) => setClient({ ...client, [k]: e.target.value })} />
+      {erreurs[k] && <span className="erreur">{erreurs[k]}</span>}
+    </label>
+  );
+  return (
+    <div style={{ marginTop: 10 }}>
+      {carte.map((c) => (
+        <div key={c.nom} style={{ marginBottom: 10 }}>
+          <h4 style={{ margin: "8px 0 4px" }}>{c.nom}</h4>
+          {c.plats.map((p) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.08)", opacity: p.epuise ? 0.5 : 1 }}>
+              <span style={{ flex: 1 }}><b>{p.nom}</b>{p.description ? <><br /><small>{p.description}</small></> : null}</span>
+              <span style={{ whiteSpace: "nowrap" }}>{String(p.prix).replace(".", ",")} ₪</span>
+              {!p.epuise && (
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <button type="button" className="bouton-secondaire" aria-label={`Retirer ${p.nom}`} onClick={() => plus(p.id, -1)} style={{ minWidth: 34 }}>−</button>
+                  <span style={{ minWidth: 18, textAlign: "center" }}>{panier[p.id] || 0}</span>
+                  <button type="button" className="bouton-secondaire" aria-label={`Ajouter ${p.nom}`} onClick={() => plus(p.id, 1)} style={{ minWidth: 34 }}>+</button>
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+      <p><b>🛒 {t.articles} article{t.articles > 1 ? "s" : ""} · {String(t.total).replace(".", ",")} ₪</b> <small>(payé au restaurant ; frais de livraison indiqués par le restaurant)</small></p>
+      {erreurs.panier && <p className="erreur">{erreurs.panier}</p>}
+      {champ("nom", "Votre nom")}{champ("telephone", "Votre téléphone", "tel")}{champ("adresse", "Adresse de livraison")}{champ("note", "Note (facultatif)")}
+      <div className="tb-actions">
+        <button type="button" className="pp-bouton" onClick={envoyer}>💬 Envoyer ma commande au restaurant</button>
+        <button type="button" className="bouton-secondaire" onClick={onFermer}>Fermer</button>
+      </div>
+    </div>
+  );
 }
 
 function FicheResto({ r }) {
   const img = useImages(r.id);
   const [ouvert, setOuvert] = useState(false);
+  const [commande, setCommande] = useState(false);
+  const carte = lireCarte(img.carteTexte);
   const msg = `Bonjour ${r.nom}, je souhaite commander en livraison (vu sur le site Rebecca Services).\nMa commande : \nMon adresse : `;
   return (
     <article className="pp-bloc" style={{ padding: 12 }}>
@@ -45,11 +102,13 @@ function FicheResto({ r }) {
       {r.zone && <p>🛵 Livraison : {r.zone}</p>}
       {r.adresse && <p>📍 {r.adresse}</p>}
       <div className="tb-actions">
-        {r.whatsapp && <a className="pp-bouton" href={`https://wa.me/${nettoie(r.whatsapp)}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener noreferrer">💬 Commander</a>}
+        {r.whatsapp && carte.length > 0 && <button type="button" className="pp-bouton" onClick={() => setCommande(!commande)}>🛒 {commande ? "Fermer la commande" : "Commander en ligne"}</button>}
+        {r.whatsapp && <a className={carte.length ? "bouton-secondaire" : "pp-bouton"} href={`https://wa.me/${nettoie(r.whatsapp)}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener noreferrer">💬 {carte.length ? "WhatsApp" : "Commander"}</a>}
         {r.telephone && <a className="bouton-secondaire" href={`tel:${r.telephone}`}>📞 Appeler</a>}
         {r.menu && <a className="bouton-secondaire" href={r.menu} target="_blank" rel="noopener noreferrer">📋 Menu (PDF)</a>}
         {(img.menu || []).length > 0 && <button type="button" className="bouton-secondaire" onClick={() => setOuvert(!ouvert)}>📋 {ouvert ? "Fermer le menu" : "Voir le menu"}</button>}
       </div>
+      {commande && <Panier r={r} carte={carte} onFermer={() => setCommande(false)} />}
       {ouvert && (img.menu || []).map((p, i) => <img key={i} src={p} alt={`Menu page ${i + 1}`} style={{ width: "100%", marginTop: 8, borderRadius: 8 }} />)}
     </article>
   );
@@ -82,6 +141,9 @@ export function VitrineRestosAdmin() {
   const [imgs, setImgs] = useState(null);
   useEffect(() => setImgs(null), [f && f.id]);
   const vues = imgs || { logo: img.logo || "", photos: img.photos || [], menu: img.menu || [] };
+  const [carteTexte, setCarteTexte] = useState(null);
+  useEffect(() => setCarteTexte(null), [f && f.id]);
+  const texteCarte = carteTexte != null ? carteTexte : img.carteTexte || "";
   if (!liste) return <p className="tb-note">Chargement…</p>;
   const sauver = async (l) => { try { await setDoc(doc(db, "reglages", "vitrineRestos"), { json: JSON.stringify(l.slice(0, 50)), majLe: serverTimestamp() }); setInfo("✓ Enregistré : visible sur rebeccaservices.com/#/restaurants"); } catch { setInfo("Enregistrement impossible."); } };
   const champ = (k, label, ph = "") => <label className="champ">{label}<input value={f[k] || ""} placeholder={ph} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></label>;
@@ -95,6 +157,10 @@ export function VitrineRestosAdmin() {
   const enregistrer = async () => {
     const l = liste.some((x) => x.id === f.id) ? liste.map((x) => (x.id === f.id ? f : x)) : [...liste, f];
     await sauver(l);
+    if (carteTexte != null) {
+      try { await setDoc(doc(db, "reglages", "vitrineCarte_" + f.id), { texte: carteTexte.slice(0, 20000), majLe: serverTimestamp() }); }
+      catch { setInfo("Textes enregistrés, mais la carte n'a pas pu l'être : réessaie."); return; }
+    }
     if (imgs) {
       try {
         await setDoc(doc(db, "reglages", "vitrineImg_" + f.id), { logo: imgs.logo || "", photos: imgs.photos || [], majLe: serverTimestamp() });
@@ -135,6 +201,10 @@ export function VitrineRestosAdmin() {
           {champ("zone", "Zone de livraison", "Netanya et alentours")}{champ("menu", "Menu PDF (lien, facultatif)", "https://…")}
           <label className="champ">Ou photos du menu (4 pages au plus) <input type="file" accept="image/*" multiple onChange={(e) => ajouterPhoto("menu", e.target.files, 4)} /></label>
           <div>{vignettes("menu")}</div>
+          <label className="champ">🛒 Carte en ligne (panier) : une ligne par plat « Nom ; prix ; description », une catégorie avec « # »
+            <textarea rows={8} value={texteCarte} placeholder={"# Sushis\nCalifornia saumon ; 42 ; 8 pièces\nPoké thon ; 58\n# Boissons\nCoca ; 10"} onChange={(e) => setCarteTexte(e.target.value)} />
+          </label>
+          {texteCarte.trim() && <p className="tb-note">Aperçu : {lireCarte(texteCarte).map((c) => `${c.nom} (${c.plats.length})`).join(" · ") || "aucune ligne lisible (vérifie « Nom ; prix »)"}. Mets « épuisé » dans la description pour bloquer un plat.</p>}
           {champ("telephone", "Téléphone")}{champ("whatsapp", "WhatsApp (commandes)", "05…")}{champ("adresse", "Adresse")}{champ("icone", "Emoji (si pas de logo)", "🍣")}
           <div className="tb-actions">
             <button type="button" className="tb-bouton" disabled={!String(f.nom || "").trim()} onClick={enregistrer}>Enregistrer</button>

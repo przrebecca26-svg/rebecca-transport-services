@@ -4,6 +4,7 @@ import { LANGUES_SITE, langueDepart, memoriserLangue, nomMetier, sens, traductio
 import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 import { envoyerCandidature, useCategoriesPros } from "../prosBase.js";
+import { useHebreuPros } from "../prosBase.js";
 
 // « VOUS ÊTES PROFESSIONNEL EN ISRAËL ? » (25 nov. 2026) - #/pro, en français et en hébreu (RTL)
 // Page de recrutement + inscription. Aucune promesse de clients ni de revenus. Le dossier est « soumis » : il n'est
@@ -25,7 +26,9 @@ export default function ProInscription({ onAccueil }) {
   const categories = useCategoriesPros();
   const cats = categoriesVisibles(categories || []);
   const [langue, setLangue] = useState(langueDepart);
-  const t = traduction(langue);
+  const hebreu = useHebreuPros(); // 26 nov. 2026 : hébreu caché tant que Rebecca ne l'active pas
+  const langueVue = hebreu ? langue : "fr";
+  const t = traduction(langueVue);
   const [f, setF] = useState(inscriptionVide);
   const [eBrut, setE] = useState({});
   const [etat, setEtat] = useState({ fait: false, lien: "", enCours: false });
@@ -55,13 +58,13 @@ export default function ProInscription({ onAccueil }) {
     <div className="tb-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
       {onAccueil ? <button type="button" className="tdb-retour" onClick={onAccueil}>{t.accueil}</button> : <span />}
       <span className="tb-actions">
-        {LANGUES_SITE.map((l) => <button key={l.v} type="button" className={langue === l.v ? "pp-bouton" : "bouton-secondaire"} onClick={() => changerLangue(l.v)}>{l.l}</button>)}
+        {(hebreu ? LANGUES_SITE : []).map((l) => <button key={l.v} type="button" className={langueVue === l.v ? "pp-bouton" : "bouton-secondaire"} onClick={() => changerLangue(l.v)}>{l.l}</button>)}
       </span>
     </div>
   );
   if (etat.fait)
     return (
-      <section className="pp-bloc" dir={sens(langue)} lang={langue}>
+      <section className="pp-bloc" dir={sens(langueVue)} lang={langueVue}>
         <h2>{t.merci}</h2>
         <p>{etat.enLigne ? t.merciEnLigne : t.merciWhatsApp}</p>
         <div className="tb-actions">
@@ -72,13 +75,13 @@ export default function ProInscription({ onAccueil }) {
     );
   const cocher = (k) => setF({ ...f, [k]: !f[k] });
   return (
-    <section dir={sens(langue)} lang={langue}>
+    <section dir={sens(langueVue)} lang={langueVue}>
       <div className="pp-bloc">
         {choixLangue}
         <h2>{t.insTitre}</h2>
         <p>{t.insIntro}</p>
         <ul>
-          {FORMULES_PRO.map((x) => <li key={x.v}><b>{formule(x.v)[0]}</b>{langue === "he" ? ": " : " : "}{formule(x.v)[1]}{x.v === "referencement" ? "" : t.surDevisFormule}</li>)}
+          {FORMULES_PRO.map((x) => <li key={x.v}><b>{formule(x.v)[0]}</b>{langueVue === "he" ? ": " : " : "}{formule(x.v)[1]}{x.v === "referencement" ? "" : t.surDevisFormule}</li>)}
         </ul>
         <p className="tb-note">{t.insNote}</p>
       </div>
@@ -91,7 +94,7 @@ export default function ProInscription({ onAccueil }) {
           <span>{t.metier} *</span>
           <select value={f.categorie} onChange={(x) => setF({ ...f, categorie: x.target.value })}>
             <option value="">{t.choisir}</option>
-            {cats.map((c) => <option key={c.id} value={c.id}>{c.icone} {nomMetier(c, langue)}</option>)}
+            {cats.map((c) => <option key={c.id} value={c.id}>{c.icone} {nomMetier(c, langueVue)}</option>)}
           </select>
           {e.categorie && <span className="erreur" role="alert">{e.categorie}</span>}
         </label>

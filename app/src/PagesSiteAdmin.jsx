@@ -4,6 +4,7 @@ import { db } from "./firebase.js";
 import { repertoireCourant } from "./pricing/repertoire.js";
 import { OU, PAGES, POUR, empreinte, reglagePage, resumePage, telPourEmpreinte } from "./pricing/pagesSite.js";
 import { rechargerPagesSite } from "./pagesSiteBase.js";
+import { enregistrerHebreuPros, useHebreuPros } from "./prosBase.js";
 
 // RÉGLAGES -> PAGES DU SITE (20 nov. 2026, Rebecca) : un interrupteur par page (affichée / cachée) et un bouton
 // ⚙️ Réglages : « Bientôt », ouverture programmée, pour qui, où (pages partenaires), lien direct, personnes bloquées.
@@ -18,6 +19,7 @@ export default function PagesSiteAdmin() {
   const [info, setInfo] = useState("");
   const [tel, setTel] = useState("");
   const [nomBloque, setNomBloque] = useState("");
+  const hebreuPros = useHebreuPros();
   useEffect(() => onSnapshot(doc(db, "reglages", "pages"), (s) => setReglages(s.exists() ? s.data() : { pages: {} }), () => setReglages({ pages: {} })), []);
   if (!reglages) return <p className="tb-note tb-pad">Chargement…</p>;
 
@@ -57,6 +59,11 @@ export default function PagesSiteAdmin() {
   return (
     <section className="tb-liste">
       <p className="tb-note tb-pad">Ce que les clientes voient sur le site. Fermer une page ne casse rien : les demandes déjà reçues, les liens déjà envoyés (espaces des restaurants, contrats, suivis) continuent de marcher.</p>
+      {/* 26 nov. 2026 : l'hébreu du réseau de professionnels reste caché tant que Rebecca ne passe pas le site en deux langues */}
+      <label className="tb-note tb-pad" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="checkbox" checked={hebreuPros} onChange={(e) => enregistrerHebreuPros(e.target.checked).then(() => setInfo(e.target.checked ? "✓ Hébreu affiché sur l'annuaire et l'inscription des pros." : "✓ Annuaire et inscription des pros en français seulement.")).catch(() => setInfo("Enregistrement impossible : vérifie la connexion."))} style={{ width: 22, height: 22 }} />
+        Réseau de professionnels : proposer aussi l'hébreu (à activer quand la relecture sera faite)
+      </label>
       <p className="tb-pad"><a className="tb-bouton tb-clair" href="/?apercu=cliente#/" target="_blank" rel="noopener noreferrer">👁️ Voir le site comme une cliente</a></p>
       {PAGES.map((p) => {
         const r = reglagePage(reglages, p.id);

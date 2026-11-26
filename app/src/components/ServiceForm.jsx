@@ -143,7 +143,7 @@ export default function ServiceForm({ service, depart, onRetour, onEnvoye, onCom
   const demandeInsertion = useMemo(() => {
     if (!resultatBrut || !resultatBrut.bloque || !resultatBrut.periode || resultatBrut.periode.type !== "personnel" || !SERVICES_INSERABLES.includes(service) || !t) return null;
     const dm = versDemande(service, v, distanceOk ? { km: trajet.km, minutes: trajet.minutes } : null);
-    return { service, date: dm.date, heure: dm.heure, depart: { lat: t.depart.lat, lon: t.depart.lon }, arrivee: { lat: t.arrivee.lat, lon: t.arrivee.lon }, allerRetour: !!dm.allerRetour, heureRetour: dm.heureRetour || "", dateRetour: dm.dateRetour || "", attenteMinutes: dm.attenteMinutes || 0 };
+    return { service, date: dm.date, heure: dm.heure, depart: { lat: t.depart.lat, lon: t.depart.lon }, arrivee: { lat: t.arrivee.lat, lon: t.arrivee.lon }, allerRetour: !!dm.allerRetour, heureRetour: dm.heureRetour || "", dateRetour: dm.dateRetour || "", attenteMinutes: dm.attenteMinutes || 0, faitesParRebecca: !!dm.courseFaiteParRebecca };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultatBrut, service, cle]);
   const cleInsertion = demandeInsertion ? JSON.stringify(demandeInsertion) : "";

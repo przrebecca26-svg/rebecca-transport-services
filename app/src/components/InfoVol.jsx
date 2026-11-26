@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { trajetACalculer } from "../services.js";
 import { kmEntre, MIN_PAR_KM } from "../pricing/coursesGroupees.js";
-import { TABLEAU_AEROPORT, adresseRecherche, choisirVol, etatDuVol, iconeVol, lieuDuVol, villeDuVol, volConsultable, volDeLaCourse } from "../pricing/vols.js";
+import { auth } from "../firebase.js";
+import { TABLEAU_AEROPORT, arriveeConseillee, adresseRecherche, choisirVol, etatDuVol, iconeVol, lieuDuVol, villeDuVol, volConsultable, volDeLaCourse } from "../pricing/vols.js";
 
 // Suivi du vol d'une course aeroport (17 nov. 2026) : terminal, a deposer ou a recuperer, a l'heure ou en retard.
 // Lecture du tableau officiel de l'aeroport Ben Gourion (data.gov.il), relue toutes les 5 minutes tant que l'ecran
@@ -48,6 +49,48 @@ export function useVol(d) {
   return vol ? { vol, ...r } : null;
 }
 
+// Étape 3 (26 nov. 2026) : le vol bouge -> ma nouvelle heure conseillée, et ma journée tient-elle à cette heure-là ?
+function NouvelleHeure({ d, info }) {
+  const a = arriveeConseillee(d, info);
+  const [verif, setVerif] = useState({ statut: "" });
+  const cle = a ? `${d.id}|${d.estRetour ? "r" : "a"}|${a.conseillee}` : "";
+  useEffect(() => {
+    if (!a || !d.id) return undefined;
+    let actif = true;
+    setVerif({ statut: "calcul" });
+    (async () => {
+      try {
+        const u = auth.currentUser;
+        const jeton = u ? await u.getIdToken() : "";
+        const corps = { demandeId: d.id, ...(d.estRetour ? { heureRetour: a.conseillee } : { heure: a.conseillee }) };
+        const r = await fetch("/.netlify/functions/insertion", { method: "POST", headers: { "Content-Type": "application/json", ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}) }, body: JSON.stringify(corps) });
+        const o = r.ok ? await r.json() : null;
+        if (actif) setVerif(o && o.possible != null ? { statut: "ok", ...o } : { statut: "erreur" });
+      } catch {
+        if (actif) setVerif({ statut: "erreur" });
+      }
+    })();
+    return () => {
+      actif = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cle]);
+  if (!a) return null;
+  const h = (x) => x.replace(":", "h");
+  return (
+    <>
+      <p style={{ color: "#c0392b", fontWeight: 600 }}>
+        🕒 Sois là vers {h(a.conseillee)} au lieu de {h(a.prevue)} (vol {a.ecartVol > 0 ? `en retard de ${a.ecartVol}` : `en avance de ${-a.ecartVol}`} min, même écart de {a.marge} min après l'atterrissage).
+      </p>
+      {verif.statut === "calcul" && <p className="tb-note">Je vérifie ta journée à {h(a.conseillee)}…</p>}
+      {verif.statut === "ok" && verif.possible && <p className="tb-note">✅ Ta journée tient à {h(a.conseillee)} (marge de {verif.marge} min avant et après tes autres rendez-vous). Pense à prévenir la cliente.</p>}
+      {verif.statut === "ok" && !verif.possible && (
+        <p className="tb-note" style={{ color: "#c0392b" }}>⚠️ À {h(a.conseillee)}, un autre rendez-vous de ta journée n'est plus tenu{verif.proposition ? ` (première heure faisable : ${h(verif.proposition)})` : ""}. Regarde ton Calendrier ou confie une course à Jérémy.</p>
+      )}
+    </>
+  );
+}
+
 // compact : une seule ligne (liste du jour) ; sinon bloc detaille (fiche de la course)
 export default function InfoVol({ d, compact = false }) {
   const s = useVol(d);
@@ -76,6 +119,10 @@ export default function InfoVol({ d, compact = false }) {
     return (
       <small style={style}>
         {icone} {vol.texte.toUpperCase()}{ville ? ` ${ville}` : ""}{heureVol ? ` · ${mot.toLowerCase()} ${heureVol}` : ""} · {suite} · {base.action}
+        {(() => {
+          const a = info ? arriveeConseillee(d, info) : null;
+          return a ? ` · 🕒 sois là vers ${a.conseillee.replace(":", "h")}` : "";
+        })()}
       </small>
     );
   }
@@ -105,6 +152,7 @@ export default function InfoVol({ d, compact = false }) {
       {ligne("État", info ? [info.etat, info.suite].filter(Boolean).join(" · ") : suite, style)}
       {ligne("Enregistrement", info && info.comptoirs)}
       {conseil && <p><strong>🕒 Info :</strong> {conseil}</p>}
+      {info && <NouvelleHeure d={d} info={info} />}
       <p className="tb-note">
         {s.statut === "ok" ? `Tableau de l'aéroport Ben Gourion, lu à ${s.a}, relu toutes les 5 minutes. ` : ""}
         <a href={TABLEAU_AEROPORT} target="_blank" rel="noopener noreferrer">Voir le tableau de l'aéroport</a>

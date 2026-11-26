@@ -164,3 +164,23 @@ export function volConsultable(vol, aujourdhui) {
   const jours = (minutesDe(`${vol.date}T00:00`) - minutesDe(`${aujourdhui}T00:00`)) / 1440;
   return jours >= -1 && jours <= 1;
 }
+
+// ÉTAPE 3 (26 nov. 2026) : décaler mon heure d'arrivée à l'aéroport selon l'heure mise à jour du vol (CHPTOL).
+// Rebecca : « atterrissage prévu 14h20, je note être là vers 15h00 (40 min pour sortir avec les valises et les
+// enfants) ; s'il atterrit à 14h45, mon arrivée conseillée passe à 15h25 (même écart de 40 min) ».
+// d = la course (ou le retour, estRetour) ; info = etatDuVol(...). -> { prevue, conseillee, ecartVol, marge } ou null
+export function arriveeConseillee(d, info) {
+  const vol = volDeLaCourse(d);
+  if (!vol || vol.sens !== "arrivee" || !info || !info.trouve || /annul/i.test(info.etat || "")) return null;
+  const v = (d && d.details) || {};
+  const notee = d.heure; // l'heure où je dois être là (celle de la course ; pour un retour, l'heure du retour)
+  const enM = (h) => (HEURE_OK.test(h || "") ? Number(h.slice(0, 2)) * 60 + Number(h.slice(3)) : null);
+  const prevuVol = enM(info.prevu) != null ? enM(info.prevu) : enM(d.estRetour ? v.heureVolRetour : v.heureVol);
+  const nouveauVol = enM(info.nouvelle);
+  const moi = enM(notee);
+  if (prevuVol == null || nouveauVol == null || moi == null || Math.abs(info.ecartMinutes || 0) < 5) return null;
+  const marge = moi - prevuVol; // ex. 40 min entre l'atterrissage prévu et mon arrivée
+  const conseillee = ((nouveauVol + marge) % 1440 + 1440) % 1440;
+  const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  return { prevue: hhmm(moi), conseillee: hhmm(conseillee), ecartVol: info.ecartMinutes, marge };
+}

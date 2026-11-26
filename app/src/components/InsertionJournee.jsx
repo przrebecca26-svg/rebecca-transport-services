@@ -3,7 +3,7 @@
 // au site public. Calcul automatique à l'ouverture d'une demande en attente (transport, aéroport, livraison).
 import { useEffect, useState } from "react";
 import { auth } from "../firebase.js";
-import { SERVICES_INSERABLES, messageCliente } from "../pricing/insertion.js";
+import { SERVICES_INSERABLES, messageCliente, requeteDepuisDemande } from "../pricing/insertion.js";
 import { lienWhatsApp } from "../pricing/navigation.js";
 
 export default function InsertionJournee({ d }) {
@@ -84,4 +84,47 @@ export default function InsertionJournee({ d }) {
       )}
     </div>
   );
+}
+
+// 26 nov. 2026, 8h03 (test de Rebecca : « Attention à l'enchaînement » sur une course de test à 11h30 après la livraison
+// de Kelly) : sous l'alerte, l'avis de l'insertion sur TOUTE la journée (tournée, tâches, courses), avec la marge
+// avant et après, et la première heure faisable. La course n'est pas encore enregistrée : on envoie ses adresses.
+export function AvisJournee({ d }) {
+  const r = d ? requeteDepuisDemande(d) : null;
+  const cle = r ? JSON.stringify(r) : "";
+  const [etat, setEtat] = useState({ statut: "" });
+  useEffect(() => {
+    if (!r) return undefined;
+    let actif = true;
+    setEtat({ statut: "calcul" });
+    (async () => {
+      try {
+        const u = auth.currentUser;
+        const jeton = u ? await u.getIdToken() : "";
+        const rep = await fetch("/.netlify/functions/insertion", { method: "POST", headers: { "Content-Type": "application/json", ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}) }, body: JSON.stringify({ ...r, ...(d.id ? { sauf: d.id } : {}) }) });
+        const o = rep.ok ? await rep.json() : null;
+        if (actif) setEtat(o && o.possible != null ? { statut: "ok", ...o } : { statut: "erreur" });
+      } catch {
+        if (actif) setEtat({ statut: "erreur" });
+      }
+    })();
+    return () => {
+      actif = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cle]);
+  if (!r) return null;
+  const h = (x) => String(x || "").replace(":", "h");
+  if (etat.statut === "calcul") return <p className="tb-note">🧩 Je regarde toute ta journée (tournée, tâches, courses)…</p>;
+  if (etat.statut !== "ok") return null;
+  const l = (etat.lignes || [])[0];
+  if (etat.possible) {
+    return (
+      <div>
+        <p className="tb-note"><strong>🧩 D'après toute ta journée, elle s'insère quand même</strong>{l ? ` après ${l.apres}${l.avant ? `, avant ${l.avant}` : ""}` : ""} (+{etat.detourMin} min de détour, marge {etat.marge} min).</p>
+        {l && <ol className="tb-liste">{l.ordre.map((e, k) => <li key={k} style={e.nouveau ? { fontWeight: 600 } : { opacity: 0.75 }}>{e.heure} {e.texte}</li>)}</ol>}
+      </div>
+    );
+  }
+  return <p className="tb-note"><strong>🧩 D'après toute ta journée : pas à {h(d.heure)}</strong>{etat.proposition ? `. Première heure faisable ce jour-là : ${h(etat.proposition)}.` : " (marge non tenue)."}</p>;
 }

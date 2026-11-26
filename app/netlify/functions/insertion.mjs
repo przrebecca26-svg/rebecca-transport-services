@@ -113,7 +113,7 @@ export default async function insertion(req) {
   ]);
   const demandes = [...new Map(listes.flat().map((d) => [d.id, d])).values()];
   const donnees = { demandes, tourneeJson, joursJson, repertoireJson };
-  const sauf = corps.demandeId ? String(corps.demandeId) : "";
+  const sauf = corps.demandeId ? String(corps.demandeId) : admin && ID_OK.test(String(corps.sauf || "")) ? String(corps.sauf) : "";
 
   // Une première passe (estimations) donne les lieux ; puis les vrais temps de route
   const brouillon = Object.fromEntries(dates.map((d) => [d, blocsDuJour(d, donnees, { t, sauf })]));

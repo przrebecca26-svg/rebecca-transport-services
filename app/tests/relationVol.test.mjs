@@ -80,3 +80,10 @@ test("demande d'avis : le site et BIENVENUE10 ne sont pas répétés si le merci
   vrai(messageAvis(d).includes("BIENVENUE10"));
   vrai(!messageAvis({ ...d, merciEnvoyeLe: "2026-11-26" }).includes("BIENVENUE10"));
 });
+import { etapesCourses } from "../src/pricing/traficMatin.js";
+test("bilan Ma journée : une course terminée garde ses km (le trafic, lui, l'ignore)", () => {
+  const d = { id: "k1", statut: "terminee", service: "livraison", heure: "11:15", details: { recuperation: { label: "A", lat: 32.33, lon: 34.86 }, livraison: { label: "B", lat: 32.30, lon: 34.87 } } };
+  const sansOption = etapesCourses([d]).length;
+  const bilan = etapesCourses([d], { terminees: true }).length;
+  egal([sansOption, bilan], [0, 2]);
+});

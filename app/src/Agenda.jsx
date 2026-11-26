@@ -83,6 +83,7 @@ const titreMois = (d) => dateUtc(d).toLocaleDateString("fr-FR", { month: "long",
 const prixActuel = (d) => (typeof d.prixFinal === "number" ? d.prixFinal : d.prixEstime);
 const textePrix = (d) => {
   const p = prixActuel(d);
+  if (p === 0 && d.prixFamille) return "offert"; // 26 nov. 2026 : course Famille offerte
   if (typeof p === "number") return p + " ₪";
   return d.surDevis ? "Sur devis" : "À fixer";
 };
@@ -417,7 +418,7 @@ function Evenement({ d, aujourdhui, admin = false, journee = null, avecMoi = [] 
         <span className="ag-heure">{d.heure}</span>
         <span className="ag-corps">
           <strong><Pastille d={d} /> {d.serviceTitre}</strong>
-          <small>{d.nom} · {textePrix(d)}{admin && d.prixAmi ? " 💛" : ""}{admin && avecMoi.length === 0 && badgeAvecMoi(journee, d.date, cleAvec)}</small>
+          <small>{d.nom} · {textePrix(d)}{admin && d.prixAmi ? (d.prixFamille ? " 👨‍👩‍👧" : " 💛") : ""}{admin && avecMoi.length === 0 && badgeAvecMoi(journee, d.date, cleAvec)}</small>
           {typeof d.kmEstime === "number" && typeof d.minutesEstimees === "number" && <small>🚗 Trajet {texteDuree(d.minutesEstimees, d.date, d.heure)}</small>}
           <InfoVol d={d} compact />
           {avecMoi.length > 0 && <small>👥 {avecMoi.join(", ")} avec toi dans la voiture</small>}
@@ -492,7 +493,7 @@ function EtapesEtModifier({ d }) {
         </ul>
       )}
       {!a && d.noteAdmin && <p className="tb-note">📝 {d.noteAdmin}</p>}
-      {d.prixAmi && <p className="tb-note">💛 Prix ami : faveur, pas une course mal tarifée.</p>}
+      {d.prixAmi && <p className="tb-note">{d.prixFamille ? "👨‍👩‍👧 Famille" : "💛 Prix ami"} : faveur, pas une course mal tarifée.</p>}
       {!ouvert ? (
         <button type="button" className="ag-modifier" onClick={() => { setF({ date: (d.estRetour ? v.dateRetour : d.date) || "", heure: heure || "", note: d.noteAdmin || "", ami: d.prixAmi === true }); setOuvert(true); setMsg(""); }}>✏️ Modifier l'heure, la date ou la note</button>
       ) : (

@@ -310,6 +310,7 @@ export function avisADemander(demandes, aujourdhui) {
   if (!DATE_OK.test(aujourdhui || "")) return [];
   const debut = plusJours(aujourdhui, -7);
   return (demandes || []).filter((d) => {
+    if (d.prixFamille) return false; // 26 nov. 2026 : pas de demande d'avis à la famille
     if (d.statut !== "terminee" || d.avisDemandeLe || d.service === "ramassage" || d.service === "digital" || (d.details && d.details.commandeResto)) return false; // 19 nov. : pas pour un restaurant // 17 nov. : pas pour un paiement Digital
     const fin = estAllerRetour(d) && DATE_OK.test((d.details || {}).dateRetour || "") ? d.details.dateRetour : d.date;
     return DATE_OK.test(fin || "") && fin >= debut && fin < aujourdhui;

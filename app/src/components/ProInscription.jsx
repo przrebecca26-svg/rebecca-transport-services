@@ -5,6 +5,7 @@ import { lienWhatsApp } from "../pricing/navigation.js";
 import { WHATSAPP } from "../contact.js";
 import { envoyerCandidature, useCategoriesPros } from "../prosBase.js";
 import { useHebreuPros } from "../prosBase.js";
+import "../partenariat.css";
 
 // « VOUS ÊTES PROFESSIONNEL EN ISRAËL ? » (25 nov. 2026) - #/pro, en français et en hébreu (RTL)
 // Page de recrutement + inscription. Aucune promesse de clients ni de revenus. Le dossier est « soumis » : il n'est
@@ -75,7 +76,7 @@ export default function ProInscription({ onAccueil }) {
     );
   const cocher = (k) => setF({ ...f, [k]: !f[k] });
   return (
-    <section dir={sens(langueVue)} lang={langueVue}>
+    <section className="pp-inscription" dir={sens(langueVue)} lang={langueVue}>
       <div className="pp-bloc">
         {choixLangue}
         <h2>{t.insTitre}</h2>
@@ -106,12 +107,14 @@ export default function ProInscription({ onAccueil }) {
         <Champ label={t.zone} k="zone" f={f} setF={setF} e={e} aide={t.aideZone} />
         <fieldset className="champ">
           <legend>{t.langues}</legend>
+          <div className="pp-deux-colonnes">
           {LANGUES.map((l) => (
             <label key={l} className="case">
               <input type="checkbox" checked={f.langues.includes(l)} onChange={() => setF({ ...f, langues: f.langues.includes(l) ? f.langues.filter((x) => x !== l) : [...f.langues, l] })} />
               <span>{(t.nomsLangues && t.nomsLangues[l]) || l}</span>
             </label>
           ))}
+          </div>
         </fieldset>
         <Champ label={t.horaires} k="horaires" f={f} setF={setF} e={e} />
         <Champ label={t.telephone} k="telephone" f={f} setF={setF} e={e} type="tel" />
@@ -134,7 +137,7 @@ export default function ProInscription({ onAccueil }) {
         <label className="case"><input type="checkbox" checked={f.conditions} onChange={() => cocher("conditions")} /><span>{t.jAccepte} *</span></label>
         {e.conditions && <span className="erreur" role="alert">{e.conditions}</span>}
         {Object.keys(e).length > 0 && <p className="erreur" role="alert">{t.verifiez}</p>}
-        <button type="button" className="pp-bouton" disabled={etat.enCours} onClick={envoyer}>{etat.enCours ? t.envoi : t.envoyerInscription}</button>
+        <button type="button" className="pp-bouton pp-large" disabled={etat.enCours} onClick={envoyer}>{etat.enCours ? t.envoi : t.envoyerInscription}</button>
       </div>
     </section>
   );

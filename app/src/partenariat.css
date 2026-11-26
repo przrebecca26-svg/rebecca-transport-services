@@ -46,3 +46,12 @@
 .pp-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
 .pp-table th, .pp-table td { border-bottom: 1px solid rgba(185, 120, 112, 0.35); padding: 6px 4px; text-align: left; vertical-align: top; }
 .pp-table th { color: #c9967a; font-weight: 600; }
+
+/* 26 nov. 2026 (relecture de l'inscription #/pro) : e-mail au même style que les autres champs, langues sur deux
+   colonnes, gros bouton d'envoi, place en bas pour le bouton flottant « Mon espace » */
+.pp-inscription { padding-bottom: 96px; }
+.pp-inscription input[type="email"] {
+  width: 100%; min-height: 48px; padding: 10px 12px; font: inherit; border-radius: 12px; appearance: none; -webkit-appearance: none;
+}
+.pp-deux-colonnes { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.pp-large { width: 100%; font-size: 18px; padding: 16px 22px; }

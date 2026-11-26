@@ -89,7 +89,7 @@ html, body { background: #080709; }
 
 /* ---------- Formulaires ---------- */
 .theme-site .bloc { background: var(--g-carte); border-color: var(--g-bord); }
-.theme-site input[type="text"], .theme-site input[type="tel"], .theme-site input[type="email"], .theme-site input[type="password"],
+.theme-site input:not([type]), .theme-site input[type="text"], .theme-site input[type="tel"], .theme-site input[type="email"], .theme-site input[type="password"],
 .theme-site input[type="date"], .theme-site input[type="time"], .theme-site input[type="number"], .theme-site input[type="search"],
 .theme-site select, .theme-site textarea {
   color: var(--g-texte); background-color: var(--g-champ); border: 1px solid var(--g-bord); color-scheme: dark;

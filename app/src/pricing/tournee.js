@@ -1068,7 +1068,8 @@ export function etapesVol(x) {
   if (!v) return [];
   const qui = x.pour ? ` ${x.pour}` : "";
   const vol = `${v.numero ? "vol " + v.numero : "vol"}${v.heureVol ? (v.sens === "vers" ? " · décolle " : " · atterrit ") + v.heureVol.replace(":", "h") : ""}${v.terminal ? " · T" + v.terminal : ""}`;
-  const aeroport = { label: AEROPORT_BEN_GOURION.label, lat: AEROPORT_BEN_GOURION.lat, lon: AEROPORT_BEN_GOURION.lon };
+  // Terminal 1 (vols low cost) n'est pas au même endroit que le Terminal 3 : Waze va au bon terminal
+  const aeroport = v.terminal === "1" ? { label: "Aéroport Ben Gourion · Terminal 1", lat: 32.0004, lon: 34.8706 } : { label: "Aéroport Ben Gourion · Terminal 3", lat: AEROPORT_BEN_GOURION.lat, lon: AEROPORT_BEN_GOURION.lon };
   const chezElle = v.sens === "vers" ? x.prise || null : x.lieu || null;
   const etape = (heure, texte, adresse, cle, duree = 5) => ({ min: enMin(heure), heure: hm(enMin(heure)), jusqua: hm(enMin(heure) + duree), texte, adresse, cle: cle + "@" + x.id });
   const sortie = [etape(v.partir, `🚗 Partir de la maison${v.sens === "vers" ? " (prendre" + qui + ")" : " pour l'aéroport"}`, null, "partir")];

@@ -20,6 +20,7 @@ import CommandesEpoxy from "./components/CommandesEpoxy.jsx";
 import ProjetsDigital from "./ProjetsDigital.jsx";
 import Partenaires from "./Partenaires.jsx";
 import ProsAdmin from "./ProsAdmin.jsx";
+import PagesProAdmin from "./PagesProAdmin.jsx"; // 27 nov. 2026 : generateur de pages professionnelles (lot 1)
 import EspacePro from "./EspacePro.jsx";
 import { lierComptePro, useComptePro } from "./prosBase.js";
 import { lireAccesPro } from "./pricing/pros.js";
@@ -141,6 +142,7 @@ const RUBRIQUES = [
   { id: "commandes-resto", label: "Commandes restaurants", adminOnly: true, section: "restos" }, // 19 nov. 2026 : toutes les commandes des restaurants partenaires
   { id: "partenaires", label: "Partenaires (restos, coursiers)", adminOnly: true, section: "restos" }, // 17 nov. 2026 : inscriptions des futurs coursiers
   { id: "pros", label: "Annuaire des professionnels", adminOnly: true, section: "pros" }, // 25 nov. 2026 : réseau de professionnels partenaires
+  { id: "pages-pros", label: "Pages des pros (Digital)", adminOnly: true, section: "pros" }, // 27 nov. 2026 : generateur de pages (lot 1)
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true, section: "boutique" },
   { id: "projets-digital", label: "Projets Digital", adminOnly: true, section: "boutique" }, // 17 nov. 2026 : devis, paiements 40/30/30, cahier des charges
   { id: "repertoire", label: "Répertoire", section: "carnet" }, // 12 nov. 2026 : mes lieux et les adresses des clientes (Rebecca et son equipe)
@@ -419,6 +421,7 @@ export default function Admin() {
     else if (onglet === "projets-digital" && estAdmin) contenu = <ProjetsDigital />;
     else if (onglet === "partenaires" && estAdmin) contenu = <Partenaires aller={aller} />;
     else if (onglet === "pros" && estAdmin) contenu = <ProsAdmin />;
+    else if (onglet === "pages-pros" && estAdmin) contenu = <PagesProAdmin />;
     else if (onglet === "transferts") contenu = <Transferts {...props} />;
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;
     else if (onglet === "agenda") contenu = <Agenda {...props} />;

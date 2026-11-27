@@ -1,4 +1,9 @@
 rules_version = '2';
+// Regles Rebecca Services v42 (27 novembre 2026, generateur de pages professionnelles, lot 1) = v41 INCHANGEE +
+//   5 nouvelles collections ajoutees a la fin (rien d'autre ne change) :
+//   - pagesProAdmin, pagesProVersions : pages en preparation, tarifs des clients, anciennes versions -> Rebecca seule ;
+//   - pagesPubliques/{adresse}, pagesApercus/{jeton}, pagesPhotos/{id} : on lit UN document par son adresse / numero,
+//     personne ne peut en obtenir la liste ; seule Rebecca ecrit (taille limitee).
 // Regles Rebecca Services v41 (27 novembre 2026) = v40 + le robot des notifications peut LIRE les inscriptions a
 //   l'annuaire (prosCandidatures) pour prevenir Rebecca d'une nouvelle inscription. Rien d'autre ne change.
 // Regles Rebecca Services v40 (26 novembre 2026, carte cadeau passee en credit par la cliente) = v39 +
@@ -1621,6 +1626,47 @@ service cloud.firestore {
             && request.resource.data.texte is string && request.resource.data.texte.size() <= 20000
             && request.resource.data.statut == "a_valider"
             && request.resource.data.majLe == request.time);
+    }
+
+    // ---------- v42 (27 nov. 2026) : generateur de pages professionnelles ----------
+    // Pages completes (brouillon, tarif du client, historique, notes) et anciennes versions : Rebecca seule.
+    match /pagesProAdmin/{id} {
+      allow read, write: if estAdmin();
+    }
+    match /pagesProVersions/{id} {
+      allow read, write: if estAdmin();
+    }
+    // Version en ligne : lue par son adresse (rebeccaservices.com/p/ADRESSE), jamais listee. Ni tarif ni note dedans.
+    match /pagesPubliques/{adresse} {
+      allow get: if true;
+      allow list: if estAdmin();
+      allow delete: if estAdmin();
+      allow create, update: if estAdmin()
+        && adresse.matches("[a-z0-9][a-z0-9-]{1,38}[a-z0-9]")
+        && request.resource.data.keys().hasOnly(["json", "majLe"])
+        && request.resource.data.json is string && request.resource.data.json.size() <= 200000;
+    }
+    // Apercu prive envoye au client : lien secret (jeton de 28 caracteres), jamais liste
+    match /pagesApercus/{jeton} {
+      allow get: if true;
+      allow list: if estAdmin();
+      allow delete: if estAdmin();
+      allow create, update: if estAdmin()
+        && jeton.matches("[A-Za-z0-9]{20,40}")
+        && request.resource.data.keys().hasOnly(["json", "expireLeMs", "majLe"])
+        && request.resource.data.json is string && request.resource.data.json.size() <= 200000
+        && request.resource.data.expireLeMs is number;
+    }
+    // Photos des pages : une par document, lue par son numero, jamais listee (sauf Rebecca)
+    match /pagesPhotos/{id} {
+      allow get: if true;
+      allow list: if estAdmin();
+      allow delete: if estAdmin();
+      allow create, update: if estAdmin()
+        && id.matches("[A-Za-z0-9]{12,40}")
+        && request.resource.data.keys().hasOnly(["donnees", "pageId", "octets", "majLe"])
+        && request.resource.data.donnees is string && request.resource.data.donnees.size() <= 900000
+        && request.resource.data.donnees.matches("data:image/(jpeg|png|webp);base64,.*");
     }
 
     // Tout le reste : Rebecca peut lire, mais rien d'autre n'est ecrit sans regle precise

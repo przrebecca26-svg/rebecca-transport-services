@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./pages-pro-admin.css";
 import {
-  ICONES, PRESTATIONS_REBECCA, UNIVERS_REBECCA, categoriesDuPartenaire, categoriesParDefaut, idDepuisNom, lireAccueil, nombreParCategorie,
+  ICONES, UNIVERS_REBECCA, categoriesDuPartenaire, categoriesParDefaut, idDepuisNom, lireAccueil, nombreParCategorie,
   normaliserCategorie, partenairesDepuis, specialitesDuPartenaire, texteUnivers,
 } from "./pricing/accueilV2.js";
 import { annuairePublic } from "./pricing/pros.js";
@@ -94,7 +94,7 @@ function EditeurCategorie({ c, i, config, anciensMetiers, nb, maj, setInfo }) {
       <div className="pg-ligne" style={{ margin: 0 }}>
         <span style={{ color: "#f1aeb7", display: "inline-flex" }}>{c.photo ? <Vignette id={c.photo} taille={34} /> : <IconeCategorie nom={c.icone} taille={28} />}</span>
         <button type="button" onClick={() => setOuvert(!ouvert)} style={{ flex: 1, textAlign: "left", background: "none", border: 0, color: "inherit", padding: 6, cursor: "pointer", font: "inherit" }}>
-          <b>{c.nom}</b><br /><small className="tb-note">{c.visible ? "Visible" : "Cachée"} · {nb} partenaire{nb > 1 ? "s" : ""} · {specs.length} spécialité{specs.length > 1 ? "s" : ""}{c.visible && !nb && c.masquerSiVide && !c.rebecca.length ? " · masquée car vide" : ""} {ouvert ? "▲" : "▼"}</small>
+          <b>{c.nom}</b><br /><small className="tb-note">{c.visible ? "Visible" : "Cachée"} · {nb} partenaire{nb > 1 ? "s" : ""} · {specs.length} spécialité{specs.length > 1 ? "s" : ""}{c.visible && !nb && c.masquerSiVide ? " · masquée car vide" : ""} {ouvert ? "▲" : "▼"}</small>
         </button>
         <Fleches onHaut={() => maj({ ...config, categories: deplacer(config.categories, i, -1) })} onBas={() => maj({ ...config, categories: deplacer(config.categories, i, 1) })} />
       </div>
@@ -129,9 +129,7 @@ function EditeurCategorie({ c, i, config, anciensMetiers, nb, maj, setInfo }) {
           <p className="tb-note">Les pros de l'annuaire dont le métier est coché arrivent tout seuls ici (tu peux ensuite changer pro par pro dans l'onglet « Partenaires »).</p>
           {anciensMetiers.map((m) => <Case key={m.id} label={`${m.icone} ${m.nom}`} coche={c.anciens.includes(m.id)} onChange={(v) => majC({ anciens: v ? [...c.anciens, m.id] : c.anciens.filter((x) => x !== m.id) })} />)}
           <Case label="🍽️ Les restaurants de « Restaurants visibles sur le site »" coche={c.restos} onChange={(v) => majC({ restos: v })} />
-          <h4 style={{ margin: "16px 0 4px" }}>« Aussi chez Rebecca Services »</h4>
-          <p className="tb-note">Tes propres prestations proposées dans cette catégorie, bien séparées des partenaires.</p>
-          {PRESTATIONS_REBECCA.map((p) => <Case key={p.id} label={p.nom} coche={c.rebecca.includes(p.id)} onChange={(v) => majC({ rebecca: v ? [...c.rebecca, p.id] : c.rebecca.filter((x) => x !== p.id) })} />)}
+          <p className="tb-note">Tes propres prestations (Nails, Hair, Slim & Lift, RegenX, Epoxy, Digital) ne sont jamais rangées ici : elles restent dans ton univers Rebecca Services.</p>
           <div className="tb-actions"><button type="button" className="bouton-secondaire" onClick={() => { if (window.confirm(`Supprimer la catégorie « ${c.nom} » ? Les partenaires ne sont pas supprimés.`)) maj({ ...config, categories: config.categories.filter((_, j) => j !== i) }); }}>🗑️ Supprimer cette catégorie</button></div>
         </div>
       )}
@@ -230,7 +228,7 @@ export default function AccueilV2Admin() {
           </div>
           <p className="tb-note">Pense à appuyer sur « Enregistrer » avant d'ouvrir l'aperçu pour voir tes derniers changements.</p>
           <ul className="tb-note">
-            <li>{config.categories.filter((c) => c.visible).length} catégories visibles sur {config.categories.length} · {config.categories.filter((c) => c.visible && !nb[c.id] && c.masquerSiVide && !c.rebecca.length).length} masquées car vides</li>
+            <li>{config.categories.filter((c) => c.visible).length} catégories visibles sur {config.categories.length} · {config.categories.filter((c) => c.visible && !nb[c.id] && c.masquerSiVide).length} masquées car vides</li>
             <li>{fiches.length} professionnel{fiches.length > 1 ? "s" : ""} accepté{fiches.length > 1 ? "s" : ""} et actif{fiches.length > 1 ? "s" : ""} · {(restos || []).filter((r) => r.visible !== false).length} restaurant(s) visible(s)</li>
             <li>{partenaires.filter((p) => !categoriesDuPartenaire(config, p).length).length} partenaire(s) sans catégorie (onglet « Partenaires »)</li>
           </ul>

@@ -331,12 +331,6 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
           <select value={ville} onChange={(e) => setVille(e.target.value)}><option value="">Toutes les villes</option>{villes.map((v) => <option key={v}>{v}</option>)}</select>
         </label>
       )}
-      {categorie.rebecca.some((id) => visibleRS((PRESTATIONS_REBECCA.find((p) => p.id === id) || {}).page)) && (
-        <div className="na-aussi">
-          <h3>Aussi chez Rebecca Services</h3>
-          {PRESTATIONS_REBECCA.filter((p) => categorie.rebecca.includes(p.id) && pages.etat(p.page) === "ouverte").map((p) => <MarqueLigne key={p.id} p={p} onClick={() => ouvrirMarque(p.id)} />)}
-        </div>
-      )}
       <p className="na-mention">Professionnels indépendants : chacun réalise ses prestations et fixe ses prix. Vous les contactez directement.</p>
       <div className="na-liste">{listeCat.map((p) => <CartePartenaire key={p.cle} p={p} image={listeCat.length <= 12} nouveau={config.nouveaux.includes(p.cle)} />)}</div>
       {!listeCat.length && <p className="na-note">Aucun partenaire {vue.specialite || ville ? "pour ce choix" : "pour le moment"}. <a href={lienWhatsApp(WHATSAPP, `Bonjour Rebecca, je cherche un professionnel : ${categorie.nom}.`)} target="_blank" rel="noopener noreferrer">Demandez-moi conseil</a>.</p>}

@@ -47,6 +47,7 @@ await import("./deplacementsJour.test.mjs");
 await import("./pros.test.mjs");
 await import("./pagesPro.test.mjs");
 await import("./accueilV2.test.mjs");
+await import("./recherche.test.mjs");
 await import("./prosAgenda.test.mjs");
 await import("./ramassagePlanning.test.mjs");
 await import("./partage.test.mjs");

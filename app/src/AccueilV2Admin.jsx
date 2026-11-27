@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./pages-pro-admin.css";
 import {
-  ICONES, UNIVERS_REBECCA, categoriesDuPartenaire, categoriesParDefaut, idDepuisNom, lireAccueil, nombreParCategorie,
+  ICONES, PRESTATIONS_REBECCA, UNIVERS_REBECCA, categoriesDuPartenaire, categoriesParDefaut, idDepuisNom, lireAccueil, nombreParCategorie,
   normaliserCategorie, partenairesDepuis, specialitesDuPartenaire, texteUnivers,
 } from "./pricing/accueilV2.js";
 import { annuairePublic } from "./pricing/pros.js";
+import { prestationDeFiche, rangRS } from "./pricing/recherche.js";
 import { enregistrerAccueilV2, supprimerPhotosAccueil, useAccueilV2 } from "./accueilV2Base.js";
 import { aujourdhuiIsrael, useAnnuairePros, useCategoriesPros, useDossiersPros } from "./prosBase.js";
 import { useVitrineRestos } from "./vitrineRestosBase.js";
@@ -17,7 +18,7 @@ import { SITE_OFFICIEL } from "./site.js";
 // partenaires (plusieurs catégories), mis en avant, nouveaux partenaires, bannières, annonces et offres, univers Rebecca.
 // Rien n'est visible des clientes tant que le nouvel accueil n'a pas remplacé l'actuel (accord de Rebecca).
 
-const ONGLETS = [["apercu", "Aperçu"], ["categories", "Catégories"], ["partenaires", "Partenaires"], ["bannieres", "Bannières"], ["annonces", "Annonces et offres"], ["univers", "Mes univers"]];
+const ONGLETS = [["apercu", "Aperçu"], ["activites", "Mes activités"], ["categories", "Catégories"], ["partenaires", "Partenaires"], ["bannieres", "Bannières"], ["annonces", "Annonces et offres"], ["univers", "Mes univers"]];
 const nouvelId = (p) => p + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
 const deplacer = (l, i, d) => {
   const j = i + d;
@@ -154,13 +155,13 @@ function LignePartenaire({ p, config, maj }) {
   return (
     <div className="pg-item" style={{ display: "block" }}>
       <button type="button" onClick={() => setOuvert(!ouvert)} style={{ width: "100%", textAlign: "left", background: "none", border: 0, color: "inherit", padding: 0, cursor: "pointer", font: "inherit" }}>
-        <b>{p.type === "resto" ? "🍽️" : "💼"} {p.nom}</b>{avant ? " ⭐" : ""}{nouveau ? " 🆕" : ""}<br />
+        <b>{p.type === "resto" ? "🍽️" : p.type === "rs" ? "✨" : "💼"} {p.nom}</b>{p.type === "rs" ? " · mon activité (toujours en premier)" : ""}{avant ? " ⭐" : ""}{nouveau ? " 🆕" : ""}<br />
         <small className="tb-note">{cats.length ? cats.map(nomCat).join(", ") : "⚠️ Aucune catégorie : n'apparaît pas"}{choix ? " (ton choix)" : " (automatique)"} {ouvert ? "▲" : "▼"}</small>
       </button>
       {ouvert && (
         <div style={{ padding: "8px 0" }}>
-          <Case label="⭐ À la une (en haut de l'accueil et de sa catégorie)" coche={avant} onChange={(v) => maj({ ...config, misEnAvant: bascule(config.misEnAvant, p.cle, v) })} />
-          <Case label="🆕 Dans « Nouveaux partenaires »" coche={nouveau} onChange={(v) => maj({ ...config, nouveaux: bascule(config.nouveaux, p.cle, v) })} />
+          {p.type !== "rs" && <Case label="⭐ Mis en avant (indiqué « Mis en avant », toujours après mes activités)" coche={avant} onChange={(v) => maj({ ...config, misEnAvant: bascule(config.misEnAvant, p.cle, v) })} />}
+          {p.type !== "rs" && <Case label="🆕 Dans « Nouveaux partenaires »" coche={nouveau} onChange={(v) => maj({ ...config, nouveaux: bascule(config.nouveaux, p.cle, v) })} />}
           <h4 style={{ margin: "12px 0 4px" }}>Catégories (jusqu'à 5)</h4>
           {config.categories.map((c) => <Case key={c.id} label={c.nom} coche={cats.includes(c.id)} onChange={(v) => { const l = bascule(cats, c.id, v).slice(0, 5); majClassement({ cats: l }); }} />)}
           {cats.length > 0 && <h4 style={{ margin: "12px 0 4px" }}>Spécialités</h4>}
@@ -169,6 +170,32 @@ function LignePartenaire({ p, config, maj }) {
           <p className="tb-note">Fiche : <a href={p.lien} target="_blank" rel="noopener noreferrer">{p.lien}</a></p>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------- Mes activités : ordre de priorité (décision définitive du 27 nov., 15h30) ---------- */
+function MesActivites({ config, dossiers, maj }) {
+  const fiches = (dossiers || []).filter((d) => d.activiteRS);
+  const entrees = [{ cle: "s:transport", nom: "Transport & Livraison", detail: "Transport privé, aéroport, ramassage, livraison, courses, déménagement…", prestation: "" }];
+  for (const p of PRESTATIONS_REBECCA) {
+    const f = fiches.find((x) => prestationDeFiche(x) === p.id);
+    entrees.push({ cle: "x:" + p.id, nom: f ? f.nomCommercial : p.nom, detail: f ? `Fiche de l'annuaire · ${f.statut === "accepte" && f.actif ? "visible" : "pas encore visible"}` : "Pas de fiche dans l'annuaire (trouvée quand même dans la recherche)", prestation: p.id });
+  }
+  for (const f of fiches.filter((x) => !prestationDeFiche(x))) entrees.push({ cle: "p:" + f.id, nom: f.nomCommercial, detail: `Nouvelle activité · ${f.metier || ""}`, prestation: "" });
+  const ordre = [...entrees].sort((a, b) => rangRS(config.prioriteRS, a.cle, a.prestation) - rangRS(config.prioriteRS, b.cle, b.prestation));
+  const changer = (i, d) => maj({ ...config, prioriteRS: deplacer(ordre, i, d).map((e) => e.cle) });
+  return (
+    <div className="tb-bloc">
+      <p className="tb-note">Tes activités passent <b>toujours avant les partenaires</b> quand elles correspondent à la recherche (métier, catégorie, ville et ta zone), même si un partenaire a une formule Business ou une mise en avant. Quand plusieurs de tes activités correspondent, celle qui contient les mots tapés passe d'abord, puis l'ordre ci-dessous.</p>
+      {ordre.map((e, i) => (
+        <div key={e.cle} className="pg-item">
+          <b style={{ width: 24, color: "#f1aeb7" }}>{i + 1}</b>
+          <div className="pg-item-int"><b>{e.nom}</b><small className="tb-note">{e.detail}</small></div>
+          <Fleches onHaut={() => changer(i, -1)} onBas={() => changer(i, 1)} />
+        </div>
+      ))}
+      <p className="tb-note">Une nouvelle activité : dans « Annuaire des professionnels », crée sa fiche et coche « ✨ C'est une de mes activités ». Elle arrive ici toute seule, en dernier, et passe déjà avant les partenaires. Ta ville et ta zone se règlent dans la fiche (champs Villes et Zone).</p>
     </div>
   );
 }
@@ -235,6 +262,8 @@ export default function AccueilV2Admin() {
           {annuaireFerme && <p className="tb-note">⚠️ L'annuaire des professionnels est fermé au public (Réglages → Pages du site) : ses fiches ne s'affichent pas encore sur le nouvel accueil. Les restaurants, eux, s'affichent.</p>}
         </div>
       )}
+
+      {onglet === "activites" && <MesActivites config={config} dossiers={dossiers} maj={maj} />}
 
       {onglet === "categories" && (
         <div className="tb-bloc">

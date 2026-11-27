@@ -20,7 +20,8 @@ const lienOk = (x) => {
 };
 const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 
-export const sansAccents = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[''`’\-&/,.()]/g, " ").replace(/\s+/g, " ").trim();
+import { MOTS_RS, correspond, correspondDirect, prestationDeFiche, rangRS, sansAccents, separerVille, trierAvecPriorite, villeCanon, villeCouverte } from "./recherche.js";
+export { correspond, sansAccents };
 export const idDepuisNom = (nom) => sansAccents(nom).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "categorie";
 
 /* ---------- Icônes (dessins fins rose poudré, choisies dans l'admin) ---------- */
@@ -115,7 +116,7 @@ const normaliserAnnonce = (a = {}) => ({
 // clé d'un partenaire : « p:ID » pour un pro de l'annuaire, « r:ID » pour un restaurant
 const cleOk = (k) => typeof k === "string" && /^[pr]:[A-Za-z0-9_-]{1,40}$/.test(k);
 
-export const accueilVide = () => ({ categories: categoriesParDefaut(), classement: {}, misEnAvant: [], nouveaux: [], bannieres: [], annonces: [], univers: {}, publie: false });
+export const accueilVide = () => ({ categories: categoriesParDefaut(), classement: {}, misEnAvant: [], nouveaux: [], bannieres: [], annonces: [], univers: {}, prioriteRS: [], publie: false });
 export function lireAccueil(json) {
   let v = null;
   try {
@@ -145,6 +146,7 @@ export function lireAccueil(json) {
     bannieres: (Array.isArray(v.bannieres) ? v.bannieres : []).map(normaliserBanniere).slice(0, 8),
     annonces: (Array.isArray(v.annonces) ? v.annonces : []).map(normaliserAnnonce).slice(0, 10),
     univers,
+    prioriteRS: [...new Set((Array.isArray(v.prioriteRS) ? v.prioriteRS : []).filter((k) => typeof k === "string" && /^(p:[A-Za-z0-9_-]{1,40}|x:(nails|hair|regenx|slim|epoxy|digital)|s:transport)$/.test(k)))].slice(0, 40),
     publie: v.publie === true,
   };
 }
@@ -160,37 +162,39 @@ export const bannieresActives = (config, jour) => (config.bannieres || []).filte
 export const annoncesActives = (config, jour) => (config.annonces || []).filter((a) => enCours(a, jour) && a.texte);
 
 /* ---------- Partenaires : pros (annuaire public) + restaurants (vitrine) ---------- */
-// racine d'un mot : « coiffeuse », « coiffure » et « coiffeur » se retrouvent ; « plombier » trouve « plomberie »
-const racine = (m) => (m.length >= 6 ? m.slice(0, 5) : m.length >= 4 ? m.slice(0, 4) : m);
-const mots = (s) => sansAccents(s).split(" ").filter((m) => m.length >= 2 && !["de", "des", "du", "la", "le", "les", "et", "en", "un", "une", "au", "aux", "pour", "a", "d", "l"].includes(m));
-export const correspond = (texte, cible) => {
-  const r = mots(cible).map(racine);
-  const t = mots(texte);
-  return t.length > 0 && t.every((m) => r.some((x) => x.startsWith(racine(m)) || racine(m).startsWith(x)));
-};
-
+// Zone par défaut de mes activités quand leur fiche n'existe pas (sinon : la ville et la zone de la fiche)
+export const ZONES_RS = { nails: "Netanya et alentours", hair: "Netanya et alentours", regenx: "Netanya et alentours", slim: "Netanya et alentours", epoxy: "Netanya et alentours", digital: "Toute Israël, à distance" };
+// 27 nov. 2026, 15h30 (Rebecca) : ses activités (fiches « Activité Rebecca Services ») font partie de l'annuaire, en premier
 export function partenairesDepuis(fiches = [], restos = []) {
   const pros = (fiches || [])
-    .filter((f) => f && f.id && f.nomCommercial && f.activiteRS !== true) // les activités de Rebecca restent dans son univers
-    .map((f) => ({
-      cle: "p:" + f.id, type: "pro", id: f.id, nom: f.nomCommercial, metier: f.metier || "", texte: f.description || "",
-      recherche: `${f.nomCommercial} ${f.metier} ${f.prestations} ${f.description}`, villes: `${f.villes || ""} ${f.zone || ""}`,
-      ancienne: f.categorie || "", verifie: f.verifie === true, lien: f.siteDigital && /^https?:|^\/p\//.test(f.siteDigital) ? f.siteDigital : `#/pros/${f.id}`, boutique: false,
-    }));
+    .filter((f) => f && f.id && f.nomCommercial)
+    .map((f) => {
+      const rs = f.activiteRS === true;
+      const prestation = rs ? prestationDeFiche(f) : "";
+      return {
+        cle: "p:" + f.id, type: rs ? "rs" : "pro", id: f.id, nom: f.nomCommercial, metier: f.metier || "", texte: f.description || "", prestation,
+        recherche: `${f.nomCommercial} ${f.metier} ${f.prestations} ${f.description}`, villes: `${f.villes || ""}, ${f.zone || ""}`,
+        ancienne: f.categorie || "", verifie: f.verifie === true,
+        lien: prestation ? `#/rs/${prestation}` : f.siteDigital && /^https?:|^\/p\//.test(f.siteDigital) ? f.siteDigital : `#/pros/${f.id}`,
+      };
+    });
   const r = (restos || [])
     .filter((x) => x && x.id && x.nom && x.visible !== false)
     .map((x) => ({
-      cle: "r:" + x.id, type: "resto", id: x.id, nom: x.nom, metier: x.cuisine || "Restaurant", texte: x.description || "",
-      recherche: `${x.nom} ${x.cuisine || ""} ${x.cacherout || ""} ${x.description || ""} restaurant`, villes: `${x.adresse || ""} ${x.zone || ""}`,
+      cle: "r:" + x.id, type: "resto", id: x.id, nom: x.nom, metier: x.cuisine || "Restaurant", texte: x.description || "", prestation: "",
+      recherche: `${x.nom} ${x.cuisine || ""} ${x.cacherout || ""} ${x.description || ""} restaurant`, villes: `${x.adresse || ""}, ${x.zone || ""}`,
       ancienne: "", verifie: false, lien: x.page || "#/restaurants", icone: x.icone || "🍽️",
     }));
   return [...pros, ...r];
 }
 
+// Catégories par défaut de mes activités (Rebecca peut les changer dans l'admin, onglet « Partenaires »)
+const CATS_RS = { nails: ["beaute"], hair: ["beaute"], regenx: ["beaute"], slim: ["beaute", "sante"], digital: ["services-pro"], epoxy: ["autres"] };
 // Catégories d'un partenaire : choix de Rebecca (classement) sinon rangement automatique (ancien métier, restaurant)
 export function categoriesDuPartenaire(config, p) {
   const choix = config.classement[p.cle];
   if (choix && choix.cats.length) return choix.cats;
+  if (p.type === "rs" && CATS_RS[p.prestation]) return CATS_RS[p.prestation].filter((id) => config.categories.some((c) => c.id === id));
   return config.categories.filter((c) => (p.type === "resto" ? c.restos : c.anciens.includes(p.ancienne))).map((c) => c.id).slice(0, 1);
 }
 // Spécialités : choix de Rebecca, sinon celles qui apparaissent dans son métier ou ses prestations
@@ -206,8 +210,9 @@ export function partenairesDeCategorie(config, partenaires, categorieId, { speci
   const l = partenaires.filter((p) => categoriesDuPartenaire(config, p).includes(categorieId)).filter((p) => !specialite || specialitesDuPartenaire(config, p, c).includes(specialite)).filter((p) => villeOk(p, ville));
   return trier(config, l);
 }
-const villeOk = (p, ville) => !ville || sansAccents(p.villes).includes(sansAccents(ville)) || /toute?s? (israel|le pays)/.test(sansAccents(p.villes));
-const trier = (config, l) => [...l].sort((a, b) => (config.misEnAvant.includes(b.cle) - config.misEnAvant.includes(a.cle)) || (b.verifie - a.verifie) || a.nom.localeCompare(b.nom, "fr"));
+const villeOk = (p, ville) => !ville || villeCouverte(ville, p.villes);
+// Mes activités d'abord (dans mon ordre), puis les partenaires mis en avant, vérifiés, par nom
+const trier = (config, l) => trierAvecPriorite(l, { priorite: config.prioriteRS, estRS: (p) => p.type === "rs", cle: (p) => p.cle, prestation: (p) => p.prestation, avant: (p) => config.misEnAvant.includes(p.cle), verifie: (p) => p.verifie, nom: (p) => p.nom });
 
 export const nombreParCategorie = (config, partenaires) => Object.fromEntries(config.categories.map((c) => [c.id, partenaires.filter((p) => categoriesDuPartenaire(config, p).includes(c.id)).length]));
 // Catégories montrées aux clientes : visibles, et non vides (sauf si Rebecca a décoché « masquer si vide »).
@@ -217,8 +222,9 @@ export function categoriesAffichees(config, partenaires) {
   return config.categories.filter((c) => c.visible && (n[c.id] > 0 || !c.masquerSiVide));
 }
 export const specialitesAffichees = (config, partenaires, categorie) => categorie.specialites.filter((s) => s.visible && (partenaires.some((p) => categoriesDuPartenaire(config, p).includes(categorie.id) && specialitesDuPartenaire(config, p, categorie).includes(s.id)) || !categorie.masquerSiVide));
-export const misEnAvantListe = (config, partenaires) => config.misEnAvant.map((k) => partenaires.find((p) => p.cle === k)).filter(Boolean);
-export const nouveauxListe = (config, partenaires) => config.nouveaux.map((k) => partenaires.find((p) => p.cle === k)).filter(Boolean);
+// Mises en avant : partenaires seulement (mes activités sont déjà toujours en premier)
+export const misEnAvantListe = (config, partenaires) => config.misEnAvant.map((k) => partenaires.find((p) => p.cle === k && p.type !== "rs")).filter(Boolean);
+export const nouveauxListe = (config, partenaires) => config.nouveaux.map((k) => partenaires.find((p) => p.cle === k && p.type !== "rs")).filter(Boolean);
 export const villesDesPartenaires = (partenaires) => {
   const m = new Map();
   for (const p of partenaires) for (const v of String(p.villes).split(/[,;/]/)) {
@@ -229,27 +235,40 @@ export const villesDesPartenaires = (partenaires) => {
 };
 
 /* ---------- Recherche générale ---------- */
-// services = SERVICES (transport et coursier) ; visible(page) dit si l'activité est ouverte pour ce visiteur
+// 27 nov. 2026, 15h30 (Rebecca) : mes activités qui correspondent (métier, ville, zone) TOUJOURS en premier, dans mon
+// ordre ; puis les partenaires (mis en avant compris). Ville tapée dans la recherche reconnue (« ongles natania »).
 export function rechercher(texte, { config, partenaires = [], services = [], visible = () => true, ville = "" } = {}) {
-  const t = txt(texte, 80);
-  const vide = { rebecca: [], partenaires: [], categories: [], specialites: [] };
-  if (sansAccents(t).length < 2 && !ville) return vide;
+  const vide = { rebecca: [], partenaires: [], categories: [], specialites: [], ville: "" };
+  const sep = separerVille(texte, partenaires.flatMap((p) => String(p.villes).split(/[,;/]/)));
+  const v = ville || sep.ville;
+  const t = ville ? sansAccents(texte) : sep.reste;
+  if (t.length < 2 && !v) return vide;
+  const ok = (cible) => !t || correspond(t, cible);
+  const fichesRS = partenaires.filter((p) => p.type === "rs");
   const rebecca = [
-    ...services.filter((s) => visible(s.activite)).filter((s) => correspond(t, `${s.titre} ${s.texte} ${MOTS_SERVICES[s.id] || ""}`)).map((s) => ({ type: "service", id: s.id, nom: s.titre, texte: s.texte, univers: "transport" })),
-    ...PRESTATIONS_REBECCA.filter((p) => visible(p.page)).filter((p) => correspond(t, `${p.nom} ${p.texte} ${p.mots}`)).map((p) => ({ type: "prestation", id: p.id, nom: p.nom, texte: p.texte, univers: p.univers })),
-  ];
+    ...services.filter((s) => visible(s.activite)).filter((s) => ok(`${s.titre} ${s.texte} ${MOTS_SERVICES[s.id] || ""}`))
+      .map((s, i) => ({ type: "service", id: s.id, nom: s.titre, texte: s.texte, univers: "transport", rang: (t && !correspondDirect(t, `${s.titre} ${s.texte}`) ? 1000 : 0) + rangRS(config.prioriteRS, "s:transport") + i / 100 })),
+    ...PRESTATIONS_REBECCA.filter((p) => visible(p.page)).map((p) => ({ p, f: fichesRS.find((x) => x.prestation === p.id) }))
+      .filter(({ p, f }) => ok(`${p.nom} ${p.texte} ${p.mots} ${MOTS_RS[p.id] || ""} ${f ? f.recherche : ""}`) && villeCouverte(v, f ? f.villes : ZONES_RS[p.id]))
+      .map(({ p, f }) => ({ type: "prestation", id: p.id, nom: p.nom, texte: p.texte, univers: p.univers, rang: (t && !correspondDirect(t, `${p.nom} ${p.texte} ${f ? f.recherche : ""}`) ? 1000 : 0) + rangRS(config.prioriteRS, f ? f.cle : "x:" + p.id, p.id) })),
+    // une future activité de Rebecca (fiche sans prestation connue) : trouvée et classée sans changer le code
+    ...fichesRS.filter((f) => !f.prestation && ok(`${f.recherche} ${f.villes}`) && villeCouverte(v, f.villes))
+      .map((f) => ({ type: "fiche", id: f.id, nom: f.nom, texte: f.metier, partenaire: f, rang: (t && !correspondDirect(t, f.recherche) ? 1000 : 0) + rangRS(config.prioriteRS, f.cle) })),
+  ].sort((a, b) => a.rang - b.rang);
   const cats = config.categories.filter((c) => c.visible);
   const categories = t ? cats.filter((c) => correspond(t, c.nom) || c.specialites.some((s) => s.visible && correspond(t, s.nom))) : [];
   const specialites = t ? cats.flatMap((c) => c.specialites.filter((s) => s.visible && correspond(t, s.nom)).map((s) => ({ ...s, categorie: c.id, nomCategorie: c.nom }))) : [];
   const visibles = new Set(cats.map((c) => c.id));
   const parts = partenaires
+    .filter((p) => p.type !== "rs")
     .filter((p) => categoriesDuPartenaire(config, p).some((c) => visibles.has(c)))
-    .filter((p) => villeOk(p, ville))
+    .filter((p) => villeOk(p, v))
     .filter((p) => {
       if (!t) return true;
       const nomsCats = categoriesDuPartenaire(config, p).map((id) => (config.categories.find((c) => c.id === id) || {}).nom || "").join(" ");
       const specs = specialitesDuPartenaire(config, p).map((id) => (config.categories.flatMap((c) => c.specialites).find((s) => s.id === id) || {}).nom || "").join(" ");
-      return correspond(t, `${p.recherche} ${p.villes} ${nomsCats} ${specs}`);
+      return correspond(t, `${p.recherche} ${nomsCats} ${specs}`);
     });
-  return { rebecca: ville && !t ? [] : rebecca, partenaires: trier(config, parts), categories, specialites };
+  return { rebecca, partenaires: trier(config, parts), categories, specialites, ville: v ? v.replace(/\b\w/g, (x) => x.toUpperCase()) : "" };
 }
+export { villeCanon };

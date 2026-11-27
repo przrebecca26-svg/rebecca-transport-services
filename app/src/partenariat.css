@@ -55,3 +55,7 @@
 }
 .pp-deux-colonnes { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 .pp-large { width: 100%; font-size: 18px; padding: 16px 22px; }
+
+/* 27 nov. 2026 (décision de Rebecca, 15h30) : ses activités en tête de l'annuaire, à son identité noir et or rose */
+.pp-bloc.pp-fiche-rs { background: linear-gradient(135deg, #0c0a0b 0%, #1d1418 100%); border: 1.5px solid #d9a38f; box-shadow: 0 0 0 1px rgba(241, 174, 183, 0.15), 0 8px 28px rgba(185, 120, 112, 0.18); }
+.pp-badge-rs { display: inline-block; margin-inline-start: 6px; padding: 2px 9px; border-radius: 999px; background: linear-gradient(90deg, #f1aeb7, #d9a38f); color: #141214 !important; font-weight: 700; font-size: 11px; vertical-align: middle; }

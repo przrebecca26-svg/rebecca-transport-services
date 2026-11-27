@@ -54,6 +54,8 @@ const lireModeNouveau = () => {
   }
   try { return window.sessionStorage.getItem(CLE_NOUVEL_ACCUEIL) === "1"; } catch { return false; }
 };
+// 27 nov. 2026 (15h30) : accès direct aux prestations de Rebecca depuis l'annuaire et la recherche : #/rs/nails, #/rs/hair…
+const lireRS = (h) => (/^#\/rs\/(nails|hair|regenx|slim|epoxy|digital|transport)$/.exec(h || "") || [])[1] || "";
 const OffrirCarte = lazy(() => import("./components/CarteCadeau.jsx"));
 const VoirCarte = lazy(() => import("./components/CarteCadeau.jsx").then((m) => ({ default: m.VoirCarte })));
 import "./client-commun.css";
@@ -499,6 +501,7 @@ export default function App() {
   const [lienPros, setLienPros] = useState(() => lirePros(window.location.hash));
   const [lienContratResto, setLienContratResto] = useState(() => lireContratResto(window.location.hash));
   const [modeNouveau, setModeNouveau] = useState(lireModeNouveau);
+  const [lienRS, setLienRS] = useState(() => lireRS(window.location.hash));
   const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
   useEffect(() => {
     const suivre = () => {
@@ -519,6 +522,7 @@ export default function App() {
       setLienAssistance(lireLienAssistance(window.location.hash));
       setLienAvis(window.location.hash === "#/avis");
       setLienContratResto(lireContratResto(window.location.hash));
+      if (lireRS(window.location.hash)) setLienRS(lireRS(window.location.hash));
       if (window.location.hash === "#/nouvel-accueil") { setModeNouveau(lireModeNouveau()); setEcran({ nom: "accueil" }); }
     };
     window.addEventListener("hashchange", suivre);
@@ -546,6 +550,19 @@ export default function App() {
     const id = setTimeout(() => setPopup(true), 2500);
     return () => clearTimeout(id);
   }, [client.phase]);
+
+  // Lien #/rs/... : ouvre la prestation si sa page est ouverte (Réglages → Pages du site), sinon l'accueil
+  useEffect(() => {
+    if (!lienRS || !pages.charge) return;
+    const id = lienRS;
+    setLienRS("");
+    window.location.hash = "";
+    if (id === "transport") {
+      try { window.sessionStorage.setItem("rs_nouvel_accueil_vue", JSON.stringify({ onglet: "rebecca", univers: "transport" })); } catch { /* navigation privée */ }
+      setEcran({ nom: "accueil" });
+    } else setEcran({ nom: pages.etat(id) === "ouverte" ? "catalogue-" + id : "accueil" });
+    window.scrollTo(0, 0);
+  }, [lienRS, pages.charge]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const aller = (e) => {
     setEcran(e);

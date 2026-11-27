@@ -1,0 +1,68 @@
+[
+ {
+  "id": "pmwxwch3wewz80",
+  "nomCommercial": "Nails Prestige",
+  "categorie": "beaute",
+  "metier": "Onglerie – semi-permanent, extensions, nail art",
+  "description": "Onglerie à Netanya : pose de semi-permanent, extensions, nail art et soins des mains, dans un cadre soigné et sur rendez-vous.",
+  "prestations": "• Semi-permanent mains et pieds\n• Extensions et remplissage\n• Nail art\n• Soins des mains",
+  "villes": "Netanya",
+  "zone": "Netanya  – sur rendez-vous",
+  "activiteRS": true
+ },
+ {
+  "id": "pmwxwch3whis21",
+  "nomCommercial": "Prestige Hair",
+  "categorie": "beaute",
+  "metier": "Coiffure femme – coupe, couleur, coiffure de mariée",
+  "description": "Près de 30 ans d'expérience en coiffure : coupe, couleur, brushing et coiffures de soirée ou de mariée, sur rendez-vous à Netanya.",
+  "prestations": "• Coupe et brushing\n• Couleur\n• Coiffure de soirée\n• Coiffure de mariée",
+  "villes": "Netanya",
+  "zone": "Netanya  – sur rendez-vous",
+  "activiteRS": true
+ },
+ {
+  "id": "pmwxwch3wcpe62",
+  "nomCommercial": "Prestige Slim & Lift",
+  "categorie": "beaute",
+  "metier": "Soins minceur et raffermissement",
+  "description": "Soins esthétiques minceur et raffermissement (radiofréquence, cavitation, anti-cellulite), approche non médicale, sur rendez-vous à Netanya.",
+  "prestations": "• Radiofréquence\n• Cavitation\n• Soins anti-cellulite\n• Programmes en plusieurs séances",
+  "villes": "Netanya",
+  "zone": "Netanya  – sur rendez-vous",
+  "activiteRS": true
+ },
+ {
+  "id": "pmwxwch3w2omn3",
+  "nomCommercial": "Boutique Epoxy",
+  "categorie": "autres",
+  "metier": "Créations personnalisées en résine",
+  "description": "Créations en résine faites main et personnalisées : décoration, rangement, objets de Chabbat et de fêtes, lampes, bougies, cadeaux.",
+  "prestations": "• Décoration personnalisée\n• Objets de Chabbat et de fêtes\n• Lampes et bougies\n• Cadeaux sur mesure",
+  "villes": "Netanya",
+  "zone": "Toute Israël – livraison possible",
+  "activiteRS": true
+ },
+ {
+  "id": "pmwxwch3whuoc4",
+  "nomCommercial": "Digital & Applications",
+  "categorie": "autres",
+  "metier": "Création de sites web et d'applications pour professionnels",
+  "description": "Création de sites et d'applications pour les professionnels : page vitrine, espace de gestion, agenda en ligne, réservation et suivi des clients.",
+  "prestations": "• Page vitrine\n• Site Business avec espace administrateur\n• Pack Pro : agenda, fichier clients, rappels\n• Maintenance",
+  "villes": "Netanya",
+  "zone": "Toute Israël – à distance",
+  "activiteRS": true
+ },
+ {
+  "id": "pmwxvtr8wcrkj",
+  "nomCommercial": "RegenX by rebecca",
+  "categorie": "beaute",
+  "metier": "Soins capillaires avancés – Cheveux, barbe et sourcils",
+  "description": "Forte de près de 30 ans d’expérience dans la coiffure et formée au protocole RegenX, je propose des soins personnalisés pour les cheveux, la barbe et les sourcils, destinés aux femmes et aux hommes. Une approche esthétique non médicale visant à améliorer l’apparence, la densité visuelle et la vitalité des cheveux et des poils. Chaque accompagnement est adapté aux besoins de la personne.",
+  "prestations": "• Protocole RegenX cheveux femme et homme\n• Protocole RegenX barbe\n• Protocole RegenX sourcils\n• Bilan esthétique personnalisé\n• Accompagnement et suivi des séances",
+  "villes": "Netanya",
+  "zone": "Netanya – sur rendez-vous",
+  "activiteRS": true
+ }
+]

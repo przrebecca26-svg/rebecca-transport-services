@@ -251,14 +251,16 @@ function Apercu({ page, dossier, onFermer }) {
   return (
     <div className="pg-apercu" role="dialog" aria-modal="true">
       <div className="pg-apercu-barre">
+        <button type="button" className="pp-bouton" onClick={onFermer}>← Retour</button>
         {[[390, "📱 Téléphone"], [820, "Tablette"], [1280, "💻 Ordinateur"]].map(([l, t]) => <button key={l} type="button" className={largeur === l ? "pp-bouton" : "bouton-secondaire"} onClick={() => setLargeur(l)}>{t}</button>)}
-        <button type="button" className="bouton-secondaire" onClick={onFermer}>✕ Fermer</button>
       </div>
+      <p className="tb-note pg-apercu-note">Aperçu seulement : ton brouillon est enregistré automatiquement, rien n'est publié.</p>
       <div className="pg-apercu-zone" ref={zone}>
         <div style={{ width: largeur, transform: `scale(${echelle})`, transformOrigin: "top left", height: 0 }}>
           <div className="pg-apercu-cadre" style={{ width: largeur }}><PageProVue page={pub} largeur={largeur} apercu /></div>
         </div>
       </div>
+      <button type="button" className="pg-apercu-retour" onClick={onFermer}>← Retour à l'édition</button>
     </div>
   );
 }

@@ -44,6 +44,16 @@ const lireContratResto = (h) => { const m = /^#\/contrat-resto\/([A-Za-z0-9]{10,
 const Assistance = lazy(() => import("./components/Assistance.jsx")); // 19 nov. 2026 : #/assistance
 import { lireLienAssistance } from "./pricing/assistance.js";
 import { enApercu, usePagesSite } from "./pagesSiteBase.js";
+// 27 nov. 2026 (lot P1) : nouvel accueil « deux univers », version cachée #/nouvel-accueil (l'accueil actuel ne change pas)
+const NouvelAccueil = lazy(() => import("./components/NouvelAccueil.jsx"));
+const CLE_NOUVEL_ACCUEIL = "rs_nouvel_accueil";
+const lireModeNouveau = () => {
+  if (window.location.hash === "#/nouvel-accueil") {
+    try { window.sessionStorage.setItem(CLE_NOUVEL_ACCUEIL, "1"); } catch { /* navigation privée */ }
+    return true;
+  }
+  try { return window.sessionStorage.getItem(CLE_NOUVEL_ACCUEIL) === "1"; } catch { return false; }
+};
 const OffrirCarte = lazy(() => import("./components/CarteCadeau.jsx"));
 const VoirCarte = lazy(() => import("./components/CarteCadeau.jsx").then((m) => ({ default: m.VoirCarte })));
 import "./client-commun.css";
@@ -488,6 +498,7 @@ export default function App() {
   const lirePros = (h) => (/^#\/pros(\/[A-Za-z0-9_-]{2,30})?$/.test(h) ? "annuaire" : h === "#/pro" ? "inscription" : "");
   const [lienPros, setLienPros] = useState(() => lirePros(window.location.hash));
   const [lienContratResto, setLienContratResto] = useState(() => lireContratResto(window.location.hash));
+  const [modeNouveau, setModeNouveau] = useState(lireModeNouveau);
   const [lienCadeau, setLienCadeau] = useState(() => (window.location.hash === "#/cadeau" ? "offrir" : lireLienCarte(window.location.hash)));
   useEffect(() => {
     const suivre = () => {
@@ -508,6 +519,7 @@ export default function App() {
       setLienAssistance(lireLienAssistance(window.location.hash));
       setLienAvis(window.location.hash === "#/avis");
       setLienContratResto(lireContratResto(window.location.hash));
+      if (window.location.hash === "#/nouvel-accueil") { setModeNouveau(lireModeNouveau()); setEcran({ nom: "accueil" }); }
     };
     window.addEventListener("hashchange", suivre);
     return () => window.removeEventListener("hashchange", suivre);
@@ -678,22 +690,38 @@ export default function App() {
       </div>
     );
   return (
-    <div className="appli theme-site">
+    <div className={"appli theme-site" + (modeNouveau ? " na-mode" : "")}>
       <main>
         {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
           <>
           {enApercu() && <p className="consigne" role="status" style={{ background: "#3a2a2e", padding: 8, borderRadius: 8 }}>👁️ Aperçu : tu vois l'accueil comme une cliente sans compte.</p>}
-          <Accueil client={enApercu() ? { phase: "anonyme", user: null, profil: null } : client} acces={enApercu() ? {} : acces} pages={pages} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />
+          {modeNouveau ? (
+            <Suspense fallback={chargement}>
+              <NouvelAccueil
+                client={enApercu() ? null : client}
+                pages={pages}
+                onChoix={(id) => versFormulaire(id)}
+                onCompte={() => versCompte()}
+                onMarque={(id) => aller({ nom: "catalogue-" + id })}
+                onQuitter={() => {
+                  try { window.sessionStorage.removeItem(CLE_NOUVEL_ACCUEIL); window.sessionStorage.removeItem("rs_nouvel_accueil_vue"); } catch { /* navigation privée */ }
+                  window.location.hash = "";
+                  setModeNouveau(false);
+                  aller({ nom: "accueil" });
+                }}
+              />
+            </Suspense>
+          ) : <Accueil client={enApercu() ? { phase: "anonyme", user: null, profil: null } : client} acces={enApercu() ? {} : acces} pages={pages} onChoix={(id) => versFormulaire(id)} onCompte={() => versCompte()} onFavori={(f) => versFormulaire(f.service, { details: f.details })} onNails={() => aller({ nom: "catalogue-nails" })} onRegenX={() => aller({ nom: "catalogue-regenx" })} onEpoxy={() => aller({ nom: "catalogue-epoxy" })} onSlim={() => aller({ nom: "catalogue-slim" })} onHair={() => aller({ nom: "catalogue-hair" })} onDigital={() => aller({ nom: "catalogue-digital" })} />}
           </>
         )}
-        {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
+        {!modeNouveau && !lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && (
           <section className="accueil-favoris">
             <h3>🎁 Une idée cadeau ?</h3>
             <div><button type="button" onClick={() => { window.location.hash = "#/cadeau"; }}>Offrir une carte cadeau</button></div>
           </section>
         )}
         {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && <InstallerAppli />}
-        {!lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && <AvisPublics />}
+        {!modeNouveau && !lienBienvenue && !lienPartage && !lienRamassage && ecran.nom === "accueil" && <AvisPublics />}
         {ecran.nom === "catalogue-nails" && (
           <CatalogueNails onRetour={() => aller({ nom: "accueil" })} />
         )}

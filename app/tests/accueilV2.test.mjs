@@ -46,7 +46,8 @@ test("univers : texte personnalisé, sinon celui d'origine", () => {
 section("Nouvel accueil : partenaires et catégories");
 const P = partenairesDepuis(FICHES, RESTOS);
 const C = lireAccueil(null);
-test("les activités de Rebecca ne sont pas mélangées aux partenaires", () => vrai(!P.some((p) => p.nom === "Prestige Hair")));
+test("mes activités sont dans l'annuaire, marquées « Rebecca Services » (jamais « partenaire »)", () => egal(P.find((p) => p.nom === "Prestige Hair").type, "rs"));
+test("Beauté : Prestige Hair (Rebecca) en premier, avant la coiffeuse partenaire vérifiée", () => egal(partenairesDeCategorie(C, P, "beaute").map((p) => p.nom), ["Prestige Hair", "Salon Léa"]));
 test("restaurant caché non repris", () => vrai(!P.some((p) => p.nom === "Caché")));
 test("rangement automatique : ancien métier beauté -> Beauté & Esthétique", () => egal(categoriesDuPartenaire(C, P.find((p) => p.id === "p1")), ["beaute"]));
 test("restaurants -> Restaurants & Traiteurs, lien vers sa page", () => {
@@ -82,18 +83,14 @@ test("spécialités vides masquées", () => {
   const beaute = C.categories.find((c) => c.id === "beaute");
   egal(specialitesAffichees(C, P, beaute).map((s) => s.id), ["coiffure"]);
 });
-test("compte des partenaires par catégorie", () => { const n = nombreParCategorie(C, P); egal(n.beaute, 1); egal(n.restaurants, 1); });
+test("compte par catégorie (mes activités comprises)", () => { const n = nombreParCategorie(C, P); egal(n.beaute, 2); egal(n.restaurants, 1); });
 test("mis en avant d'abord, dans l'ordre choisi", () => {
   const c = lireAccueil({ misEnAvant: ["r:r1", "p:p3", "p:inconnu"] });
   egal(misEnAvantListe(c, P).map((p) => p.cle), ["r:r1", "p:p3"]);
 });
 test("villes proposées sans doublons", () => egal(villesDesPartenaires(P), ["Hadera", "Netanya"]));
 
-test("mes prestations ne remplissent JAMAIS une catégorie partenaire (cas réel du 27 nov.)", () => {
-  const seulesMesFiches = partenairesDepuis([FICHES[3]], []);
-  egal(seulesMesFiches.length, 0);
-  egal(categoriesAffichees(C, seulesMesFiches).length, 0);
-});
+test("cas réel du 27 nov. : mes fiches seules suffisent à montrer Beauté & Esthétique", () => egal(categoriesAffichees(C, partenairesDepuis([FICHES[3]], [])).map((c) => c.id), ["beaute"]));
 test("ancien réglage « Aussi chez Rebecca » ignoré", () => vrai(!("rebecca" in lireAccueil({ categories: [{ id: "beaute", nom: "Beauté", rebecca: ["hair"] }] }).categories[0])));
 
 section("Nouvel accueil : recherche générale");
@@ -113,10 +110,10 @@ test("« plombier » : la plomberie partenaire et la catégorie Travaux", () => 
   vrai(r.categories.some((c) => c.id === "travaux"));
 });
 test("« sushi » : le restaurant partenaire", () => egal(rechercher("sushi", { config: C, partenaires: P, services: SERVICES, visible: toutOuvert }).partenaires.map((p) => p.cle), ["r:r1"]));
-test("par ville seule : les partenaires de la ville, pas mes services", () => {
+test("par ville seule (Hadera) : mes services qui y vont d'abord, puis les partenaires de Hadera", () => {
   const r = rechercher("", { config: C, partenaires: P, services: SERVICES, visible: toutOuvert, ville: "Hadera" });
   egal(r.partenaires.map((p) => p.id), ["p3"]);
-  egal(r.rebecca.length, 0);
+  vrai(r.rebecca.some((x) => x.id === "aeroport") && !r.rebecca.some((x) => x.id === "hair"));
 });
 test("sans accents ni majuscules", () => vrai(correspond("ÉPICERIE", "Épiceries")));
 test("texte trop court : rien", () => egal(rechercher("a", { config: C, partenaires: P, services: SERVICES }).partenaires.length, 0));

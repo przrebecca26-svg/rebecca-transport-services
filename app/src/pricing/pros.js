@@ -14,6 +14,7 @@
 // Plus tard, avec les regles v37 : inscription en ligne (prosCandidatures), demandes et statistiques.
 
 import { NOMS_HE_DEFAUT } from "./prosTextes.js";
+import { MOTS_RS, correspondDirect, correspond as correspondRecherche, prestationDeFiche, separerVille, trierAvecPriorite, villeCouverte } from "./recherche.js";
 
 export const FORMULES_PRO = [
   { v: "referencement", l: "Référencement", detail: "Fiche standard dans l'annuaire (gratuit au lancement)" },
@@ -372,17 +373,23 @@ export function lireAnnuaire(json) {
 
 /* ---------- Recherche ---------- */
 export const sansAccents = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[''`-]/g, " ").replace(/\s+/g, " ").trim();
-export function rechercherPros(fiches, { categorie = "", ville = "", texte = "" } = {}) {
-  const v = sansAccents(ville);
-  const t = sansAccents(texte);
+// 27 nov. 2026, 15h30 (Rebecca, décision définitive) : ses activités (« Activité Rebecca Services ») passent TOUJOURS
+// en premier quand elles correspondent (métier, catégorie, ville, zone), puis les partenaires. Recherche tolérante
+// (synonymes, fautes courantes, Natanya / Natania…) et ville tapée dans la recherche (« ongles natania »).
+export function rechercherPros(fiches, { categorie = "", ville = "", texte = "" } = {}, priorite = []) {
+  const sep = separerVille(texte, (fiches || []).flatMap((f) => String(f.villes || "").split(/[,;/]/)));
+  const v = ville || sep.ville;
+  const t = ville ? texte : sep.reste;
+  const nomsCats = (f) => (f.nomCategorie || "");
   const liste = (fiches || []).filter((f) => {
     if (categorie && f.categorie !== categorie) return false;
-    if (v && !sansAccents(`${f.villes} ${f.zone}`).includes(v) && !/toute?s? (israel|le pays)/.test(sansAccents(f.zone))) return false;
-    if (t && !sansAccents(`${f.nomCommercial} ${f.metier} ${f.description} ${f.prestations}`).includes(t)) return false;
+    if (v && !villeCouverte(v, `${f.villes}, ${f.zone}`)) return false;
+    const motsRS = f.activiteRS ? MOTS_RS[prestationDeFiche(f)] || "" : "";
+    if (sansAccents(t) && !correspondRecherche(t, `${f.nomCommercial} ${f.metier} ${f.description} ${f.prestations} ${nomsCats(f)} ${motsRS}`)) return false;
     return true;
   });
-  // Les pros verifies d'abord, puis par nom
-  return liste.sort((a, b) => (b.verifie === true) - (a.verifie === true) || a.nomCommercial.localeCompare(b.nomCommercial, "fr"));
+  const texteFiche = (f) => `${f.nomCommercial} ${f.metier} ${f.description} ${f.prestations}`;
+  return trierAvecPriorite(liste, { priorite, direct: (f) => !sansAccents(t) || correspondDirect(t, texteFiche(f)) });
 }
 // Villes proposees dans la recherche (celles des fiches publiees)
 export function villesDesFiches(fiches) {

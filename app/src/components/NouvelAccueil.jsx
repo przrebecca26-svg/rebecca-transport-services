@@ -41,18 +41,21 @@ function Photo({ id, defaut, alt = "", className }) {
 /* ---------- Petites pièces ---------- */
 function Etiquette({ type }) {
   if (type === "rebecca") return <span className="na-etiq na-etiq-rs">Rebecca Services</span>;
+  if (type === "rs") return <span className="na-etiq na-etiq-rs">✦ Activité Rebecca Services</span>;
   if (type === "resto") return <span className="na-etiq">Restaurant partenaire</span>;
   return <span className="na-etiq">Partenaire indépendant</span>;
 }
-function CartePartenaire({ p, image = false, nouveau = false }) {
-  const img = useImagesPro(image && p.type === "pro" ? p.id : "");
+// avant = partenaire mis en avant (clairement indiqué) ; une activité de Rebecca garde son identité noir et or rose
+function CartePartenaire({ p, image = false, nouveau = false, avant = false }) {
+  const img = useImagesPro((image || p.type === "rs") && p.type !== "resto" ? p.id : "");
+  const logo = img.logo || (p.type === "rs" ? LOGOS[p.prestation] : "");
   return (
-    <a className="na-part" href={p.lien}>
-      <span className="na-part-logo">{img.logo ? <img src={img.logo} alt="" /> : <span aria-hidden="true">{p.type === "resto" ? p.icone : p.nom.slice(0, 1).toUpperCase()}</span>}</span>
+    <a className={"na-part" + (p.type === "rs" ? " rs" : "")} href={p.lien}>
+      <span className="na-part-logo">{logo ? <img src={logo} alt="" /> : <span aria-hidden="true">{p.type === "resto" ? p.icone : p.nom.slice(0, 1).toUpperCase()}</span>}</span>
       <span className="na-part-corps">
         <strong>{p.nom}</strong>
         <small>{[p.metier, String(p.villes).split(/[,;]/)[0]].filter(Boolean).join(" · ")}</small>
-        <span className="na-part-etiq"><Etiquette type={p.type} />{p.verifie && <span className="na-etiq na-etiq-ok">✓ Vérifié</span>}{nouveau && <span className="na-etiq na-etiq-new">Nouveau</span>}</span>
+        <span className="na-part-etiq"><Etiquette type={p.type} />{p.verifie && p.type !== "rs" && <span className="na-etiq na-etiq-ok">✓ Vérifié</span>}{avant && p.type !== "rs" && <span className="na-etiq na-etiq-avant">⭐ Mis en avant</span>}{nouveau && <span className="na-etiq na-etiq-new">Nouveau</span>}</span>
       </span>
       <span className="na-fleche" aria-hidden="true">›</span>
     </a>
@@ -265,7 +268,7 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
       </Section>
       {misEnAvantListe(config, partenaires).length > 0 && (
         <Section titre="À la une" sous="Partenaires mis en avant">
-          <div className="na-liste">{misEnAvantListe(config, partenaires).map((p) => <CartePartenaire key={p.cle} p={p} image />)}</div>
+          <div className="na-liste">{misEnAvantListe(config, partenaires).map((p) => <CartePartenaire key={p.cle} p={p} image avant />)}</div>
         </Section>
       )}
       {nouveauxListe(config, partenaires).length > 0 && (
@@ -331,8 +334,8 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
           <select value={ville} onChange={(e) => setVille(e.target.value)}><option value="">Toutes les villes</option>{villes.map((v) => <option key={v}>{v}</option>)}</select>
         </label>
       )}
-      <p className="na-mention">Professionnels indépendants : chacun réalise ses prestations et fixe ses prix. Vous les contactez directement.</p>
-      <div className="na-liste">{listeCat.map((p) => <CartePartenaire key={p.cle} p={p} image={listeCat.length <= 12} nouveau={config.nouveaux.includes(p.cle)} />)}</div>
+      <p className="na-mention">Les activités Rebecca Services apparaissent en premier. Les professionnels indépendants réalisent eux-mêmes leurs prestations et fixent leurs prix : vous les contactez directement.</p>
+      <div className="na-liste">{listeCat.map((p) => <CartePartenaire key={p.cle} p={p} image={listeCat.length <= 12} nouveau={config.nouveaux.includes(p.cle)} avant={config.misEnAvant.includes(p.cle)} />)}</div>
       {!listeCat.length && <p className="na-note">Aucun partenaire {vue.specialite || ville ? "pour ce choix" : "pour le moment"}. <a href={lienWhatsApp(WHATSAPP, `Bonjour Rebecca, je cherche un professionnel : ${categorie.nom}.`)} target="_blank" rel="noopener noreferrer">Demandez-moi conseil</a>.</p>}
     </>
   ) : (
@@ -360,11 +363,13 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
       {!texte && !ville && <div className="na-puces">{exemples.map((x) => <button key={x} type="button" onClick={() => setTexte(x)}>{x}</button>)}</div>}
       {(texte || ville) && (
         <>
+          {res.ville && !ville && <p className="na-note">📍 Ville : {res.ville}</p>}
           {res.rebecca.length > 0 && (
             <div className="na-resultats">
               <h3><span className="na-etiq na-etiq-rs">Rebecca Services</span> Mes prestations</h3>
               {res.rebecca.map((r) => (r.type === "service"
                 ? <ServiceLigne key={r.id} s={SERVICES.find((s) => s.id === r.id)} onClick={() => onChoix(r.id)} />
+                : r.type === "fiche" ? <CartePartenaire key={r.id} p={r.partenaire} />
                 : <MarqueLigne key={r.id} p={PRESTATIONS_REBECCA.find((p) => p.id === r.id)} onClick={() => ouvrirMarque(r.id)} />))}
             </div>
           )}
@@ -379,7 +384,7 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
           {res.partenaires.length > 0 && (
             <div className="na-resultats">
               <h3><span className="na-etiq">Partenaires indépendants</span></h3>
-              <div className="na-liste">{res.partenaires.slice(0, 30).map((p) => <CartePartenaire key={p.cle} p={p} />)}</div>
+              <div className="na-liste">{res.partenaires.slice(0, 30).map((p) => <CartePartenaire key={p.cle} p={p} avant={config.misEnAvant.includes(p.cle)} />)}</div>
             </div>
           )}
           {!res.rebecca.length && !res.partenaires.length && !res.categories.length && (

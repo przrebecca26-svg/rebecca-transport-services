@@ -3,6 +3,8 @@ import { categoriesVisibles, libelleFormule, lienContactPro, nomCategorie, reche
 import { fermetureEnCours } from "../pricing/assistance.js";
 import { compterPro, demanderRdvPro, useAgendaPro, useAnnuairePros, useCategoriesPros, useCellulesPro, useImagesPro } from "../prosBase.js";
 import { useHebreuPros } from "../prosBase.js";
+import { useAccueilV2 } from "../accueilV2Base.js";
+import { prestationDeFiche } from "../pricing/recherche.js";
 import "../partenariat.css";
 import { ajouterJoursDate, creneauxLibres, erreursDemandeClient } from "../pricing/prosAgenda.js";
 import { LANGUES_SITE, erreursTraduites, langueDepart, locale, memoriserLangue, nomMetier, sens, traduction } from "../pricing/prosTextes.js";
@@ -11,6 +13,8 @@ import { LANGUES_SITE, erreursTraduites, langueDepart, locale, memoriserLangue, 
 // Page cachée du public jusqu'à l'accord de Rebecca (Réglages -> Pages du site). Rebecca la voit en aperçu dans son
 // espace (Professionnels -> Aperçu). Mention « Prestataire indépendant » sur chaque fiche ; aucune demande envoyée
 // pendant Chabbat et les fêtes ; Rebecca Services ne réalise pas ces prestations et n'en encaisse pas le prix.
+// Logos des activités de Rebecca (ses vraies images) quand la fiche n'a pas encore de logo
+const LOGOS_RS = { nails: "/brand/logo-nails-prestige.png", hair: "/brand/logo-prestige-hair.png", regenx: "/brand/logo-regenx.png", slim: "/brand/logo-prestige-slim-lift.png", epoxy: "/brand/logo-epoxy.png", digital: "/brand/logo-digital-applications.png" };
 const idDansLien = (h) => (/^#\/pros\/([A-Za-z0-9_-]{2,30})$/.exec(h || "") || [])[1] || "";
 
 // 25 nov. 2026, 20h23 (Rebecca) : pas de blocage Chabbat pour les pros (seul l'agenda de Rebecca Services est fermé)
@@ -102,13 +106,13 @@ function Fiche({ f, categories, ouverte, onOuvrir, apercu, t, langue }) {
     if (ouverte && !apercu) compterPro(f.id, "visites");
   }, [ouverte, f.id, apercu]);
   return (
-    <article className="pp-bloc" style={{ padding: 12 }}>
+    <article className={"pp-bloc" + (f.activiteRS ? " pp-fiche-rs" : "")} style={{ padding: 12 }}>
       <button type="button" onClick={onOuvrir} style={{ all: "unset", cursor: "pointer", display: "flex", gap: 12, alignItems: "center", width: "100%" }} aria-expanded={ouverte}>
-        {img.logo ? <img src={img.logo} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 12 }} /> : <span style={{ fontSize: 40 }}>{(categories.find((c) => c.id === f.categorie) || {}).icone || "✨"}</span>}
+        {img.logo || (f.activiteRS && LOGOS_RS[prestationDeFiche(f)]) ? <img src={img.logo || LOGOS_RS[prestationDeFiche(f)]} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: f.activiteRS ? "50%" : 12 }} /> : <span style={{ fontSize: 40 }}>{(categories.find((c) => c.id === f.categorie) || {}).icone || "✨"}</span>}
         <span style={{ flex: 1 }}>
           <strong style={{ fontSize: "1.1em" }}><bdi>{f.nomCommercial}</bdi></strong>
           {f.verifie && <span title={t.verifieTitre} style={{ marginInlineStart: 6 }}>{t.verifie}</span>}
-          {f.activiteRS && <small style={{ marginInlineStart: 6, color: "#e8a9b4", fontWeight: 600 }}>{t.activiteRS}</small>}
+          {f.activiteRS && <small className="pp-badge-rs">{t.activiteRS}</small>}
           <br />
           <small>{[nomMetier(categories.find((c) => c.id === f.categorie), langue) || nomCategorie(categories, f.categorie), f.metier].filter(Boolean).map((x, i) => <Fragment key={i}>{i > 0 && " · "}<bdi>{x}</bdi></Fragment>)}</small>
           <br />
@@ -133,7 +137,7 @@ function Fiche({ f, categories, ouverte, onOuvrir, apercu, t, langue }) {
               {[["instagram", t.instagram], ["facebook", t.facebook], ["siteWeb", t.siteWeb]].filter(([k]) => f[k]).map(([k, l], i) => <Fragment key={k}>{i > 0 && " · "}<a className="lien" href={f[k]} target="_blank" rel="noopener noreferrer">{l}</a></Fragment>)}
             </p>
           )}
-          {f.activiteRS && <p><a className="bouton-secondaire" href="https://rebeccaservices.com">{t.voirSiteRS}</a></p>}
+          {f.activiteRS && <p><a className="pp-bouton" href={prestationDeFiche(f) ? `#/rs/${prestationDeFiche(f)}` : "https://rebeccaservices.com"}>{prestationDeFiche(f) ? "Voir les prestations, les tarifs et réserver" : t.voirSiteRS}</a></p>}
           <Contact fiche={f} t={t} onClic={() => !apercu && compterPro(f.id, "whatsapp")} />
           <ReserverPro f={f} apercu={apercu} t={t} langue={langue} />
           <p className="tb-note" style={{ marginTop: 8 }}>
@@ -170,7 +174,8 @@ export default function ProsAnnuaire({ onAccueil, apercu = false, fichesApercu =
   const cats = categoriesVisibles(categories || []);
   // une fiche d'un metier cache n'apparait jamais, meme si la liste publique n'est pas encore a jour
   const visibles = useMemo(() => (fiches || []).filter((f) => cats.some((c) => c.id === f.categorie)), [fiches, cats]);
-  const liste = rechercherPros(visibles, filtre);
+  const accueil = useAccueilV2();
+  const liste = rechercherPros(visibles, filtre, accueil ? accueil.prioriteRS : []);
   const villes = villesDesFiches(visibles);
   const ouvrir = (id) => {
     const suite = ouverte === id ? "" : id;

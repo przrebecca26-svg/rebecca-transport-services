@@ -117,3 +117,12 @@ test("message d'avis : lien vers la page #/avis", () => {
   vrai(messageAvis({ nom: "Kelly", telephone: "050" }).includes("rebeccaservices.com/#/avis"));
   vrai(messageAvis({ nom: "Kelly", uid: "u" }).includes("Mon historique"));
 });
+import { messageSite } from "../src/pricing/planningNotif.js";
+test("27 nov. : notifications annuaire, menu resto, liste d'attente", () => {
+  const m = messageSite("prosCandidatures", { id: "x", json: JSON.stringify({ nomCommercial: "Studio Léa", metier: "Coiffure", villes: "Netanya" }) });
+  vrai(m && m.titre.includes("annuaire") && m.corps.includes("Studio Léa"));
+  vrai(messageSite("prosCandidatures", { id: "y", json: "pas du json" }).corps.length > 0);
+  vrai(messageSite("menusRestos", { id: "r", statut: "a_valider" }).titre.includes("Menu"));
+  vrai(messageSite("menusRestos", { id: "r", statut: "publie" }) === null);
+  vrai(messageSite("listeAttente", { id: "l", prenom: "Kelly", service: "nails", date: "2026-12-01" }).corps.includes("01/12"));
+});

@@ -28,7 +28,7 @@ function useImages(id) {
 
 // 26 nov. 2026 : menu et panier en ligne. La commande part au restaurant par WhatsApp ; le client paie son repas
 // au restaurant et Rebecca Services livre. Rien n'est enregistré en base (règles Firebase inchangées).
-function Panier({ r, carte, onFermer }) {
+export function Panier({ r, carte, onFermer }) {
   const [panier, setPanier] = useState({});
   const [client, setClient] = useState({ nom: "", telephone: "", adresse: "", note: "" });
   const [erreurs, setErreurs] = useState({});
@@ -119,6 +119,7 @@ function FicheResto({ r }) {
         {r.whatsapp && <a className={carte.length ? "bouton-secondaire" : "pp-bouton"} href={`https://wa.me/${nettoie(r.whatsapp)}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener noreferrer">💬 {carte.length ? "WhatsApp" : "Commander"}</a>}
         {r.telephone && <a className="bouton-secondaire" href={`tel:${r.telephone}`}>📞 Appeler</a>}
         {r.menu && <a className="bouton-secondaire" href={r.menu} target="_blank" rel="noopener noreferrer">📋 Menu (PDF)</a>}
+        {r.page && <a className="bouton-secondaire" href={r.page}>✨ Voir sa page</a>}
         {(img.menu || []).length > 0 && <button type="button" className="bouton-secondaire" onClick={() => setOuvert(!ouvert)}>📋 {ouvert ? "Fermer le menu" : "Voir le menu"}</button>}
       </div>
       {commande && <Panier r={r} carte={carte} onFermer={() => setCommande(false)} />}

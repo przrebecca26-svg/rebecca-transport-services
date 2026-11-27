@@ -7,12 +7,15 @@ import {
   abonnementDepuisContrat, adresseDepuisNom, adresseUnique, ajouterJournalPage, calculTarif, changerModele, compteurEspace, contratDepuisTarif,
   contratEnVigueur, dupliquerPage, enLigne, enMo, erreursPage, libelleStatutPage, lienApercu, lienPage, lienWhatsAppPage, modele, modifsNonPubliees,
   nombrePhotos, normaliserPage, pagePublique, pageVide, poidsPhotos, restaurerVersion, sectionsDePage, sectionsPermises,
+  formulePage, modelesPour, offreLancement, pageDepuisFicheResto,
 } from "./pricing/pagesPro.js";
+import { fraisCreationMenu, moisMenuLancement, offreLancementMenu, prixMenuLancement, prixMenuMensuel } from "./menusRestosBase.js";
+import { useVitrineRestos } from "./vitrineRestosBase.js";
 import { CATEGORIES_DEFAUT, FORMULES_PRO, dossierVide, etatAbonnement, libelleFormule, normaliserDossier, nouvelIdPro, ajouterJournal } from "./pricing/pros.js";
 import { aujourdhuiIsrael, enregistrerDossiers, useCategoriesPros, useDossiersPros } from "./prosBase.js";
 import {
   ajouterPhoto, creerApercu, enregistrerPageAdmin, exporterPages, lirePublique, publierPage, rangerPhotos, restaurerSauvegarde, retirerPage,
-  supprimerApercu, useGrilleDigitalPro, usePagesAdmin, usePhoto, useVersionsPage,
+  supprimerApercu, useGrilleDigitalPro, usePagesAdmin, usePhoto, useVersionsPage, lireContratsSignes, lienSurFicheResto,
 } from "./pagesProBase.js";
 import { SITE_OFFICIEL } from "./site.js";
 
@@ -81,6 +84,52 @@ function CompteurEspace({ pages }) {
   );
 }
 
+// Un restaurant n'a pas de dossier Digital : sa page a toujours les sections d'un restaurant (lot R1)
+const DOSSIER_RESTO = { id: "", statut: "accepte", formule: "restaurant", modules: [], nomCommercial: "" };
+
+/* ---------- Creation d'une page de restaurant (Admin Restaurants, lot R1) ---------- */
+function NouvellePageResto({ fiches, pages, onCree, onAnnuler }) {
+  const [ficheId, setFicheId] = useState("");
+  const [nom, setNom] = useState("");
+  const [demo, setDemo] = useState(false);
+  const [modeleId, setModeleId] = useState("r-sushi");
+  const [info, setInfo] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const avecPage = new Set((pages || []).map((p) => p.restoId).filter(Boolean));
+  const creer = async () => {
+    const fiche = (fiches || []).find((f) => f.id === ficheId);
+    if (!fiche && !nom.trim()) return setInfo("Choisis le restaurant, ou écris le nom d'un nouveau restaurant.");
+    setEnCours(true);
+    try {
+      let page = pageDepuisFicheResto(fiche || { nom: nom.trim() }, modeleId);
+      page = ajouterJournalPage({ ...page, demo, adresse: adresseUnique(page.adresse, pages, page.id), sections: sectionsDePage([], "restaurant", []).map(({ id, actif }) => ({ id, actif })) }, demo ? "Page de démonstration créée" : "Page créée");
+      await enregistrerPageAdmin(page);
+      onCree(page.id);
+    } catch (e) { setInfo("Création impossible : " + (e && e.message ? e.message : "vérifie la connexion.")); }
+    return setEnCours(false);
+  };
+  return (
+    <div className="pp-bloc">
+      <h3 style={{ marginTop: 0 }}>Nouvelle page de restaurant</h3>
+      <Champ label="Restaurant de ta liste « Restaurants visibles sur le site »" aide="Le logo, les photos, la carte en ligne et le menu PDF de sa fiche sont repris tels quels (rien n'est recopié).">
+        <select value={ficheId} onChange={(e) => setFicheId(e.target.value)}>
+          <option value="">Nouveau restaurant (pas encore de fiche)</option>
+          {(fiches || []).map((f) => <option key={f.id} value={f.id}>{f.nom}{avecPage.has(f.id) ? " · a déjà une page" : ""}</option>)}
+        </select>
+      </Champ>
+      {!ficheId && <Texte label="Nom du restaurant" valeur={nom} max={80} onChange={setNom} />}
+      <label className="pg-case"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /><span>Page de <b>démonstration</b> (privée, pour la présenter avant la signature)</span></label>
+      <div className="pg-modeles">
+        {modelesPour("restos").map((m) => (
+          <button key={m.id} type="button" className={`pg-modele ${modeleId === m.id ? "actif" : ""}`} onClick={() => setModeleId(m.id)}><MiniModele m={m} /><b>{m.nom}</b><small>{m.pour}</small></button>
+        ))}
+      </div>
+      {info && <p className="erreur" role="alert">{info}</p>}
+      <div className="tb-actions"><button type="button" className="pp-bouton" disabled={enCours} onClick={creer}>{enCours ? "Création…" : "Créer la page"}</button><button type="button" className="bouton-secondaire" onClick={onAnnuler}>Annuler</button></div>
+    </div>
+  );
+}
+
 /* ---------- Creation d'une page ---------- */
 function NouvellePage({ dossiers, categories, pages, onCree, onAnnuler }) {
   const [etape, setEtape] = useState(1);
@@ -145,7 +194,7 @@ function NouvellePage({ dossiers, categories, pages, onCree, onAnnuler }) {
               <p className="tb-note">Le client est ajouté à tes professionnels en « brouillon » : il n'apparaît pas dans l'annuaire tant que tu ne l'acceptes pas.</p>
             </>
           )}
-          <label className="pg-case"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /> Page de <b>démonstration</b> (privée, pour présenter avant signature ; aucun abonnement)</label>
+          <label className="pg-case"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /><span>Page de <b>démonstration</b> (privée, pour présenter avant signature ; aucun abonnement)</span></label>
           {info && <p className="erreur" role="alert">{info}</p>}
           <div className="tb-actions"><button type="button" className="pp-bouton" onClick={suivant}>Suivant : le modèle</button><button type="button" className="bouton-secondaire" onClick={onAnnuler}>Annuler</button></div>
         </>
@@ -217,15 +266,16 @@ function Apercu({ page, dossier, onFermer }) {
 /* ---------- Editeur ---------- */
 const ONGLETS = [["contenu", "Contenu"], ["photos", "Photos"], ["produits", "Produits"], ["style", "Style"], ["sections", "Sections"], ["forfait", "Forfait et tarif"], ["publier", "Publier"]];
 
-function Editeur({ pageInitiale, pages, dossiers, categories, grille, onRetour }) {
+function Editeur({ pageInitiale, pages, dossiers, categories, grille, onRetour, univers = "pros" }) {
   const [page, setPageBrut] = useState(pageInitiale);
   const [onglet, setOnglet] = useState("contenu");
   const [etat, setEtat] = useState("ok");
   const [info, setInfo] = useState("");
   const [voir, setVoir] = useState(false);
-  const versions = useVersionsPage(page.id);
-  const dossier = (dossiers || []).find((d) => d.id === page.proId) || null;
-  const formule = dossier ? dossier.formule : "vitrine";
+  const versions = useVersionsPage(page.id, page.type);
+  const resto = page.type === "restaurant";
+  const dossier = resto ? DOSSIER_RESTO : (dossiers || []).find((d) => d.id === page.proId) || null;
+  const formule = formulePage(page, dossier);
   const modules = dossier ? dossier.modules : [];
   const minuteur = useRef(null);
   const derniere = useRef(page);
@@ -286,8 +336,8 @@ function Editeur({ pageInitiale, pages, dossiers, categories, grille, onRetour }
         </div>
         <button type="button" className="pp-bouton pg-bouton-voir" onClick={() => setVoir(true)}>👁 Aperçu</button>
       </div>
-      <p className="tb-note" style={{ margin: "4px 0 8px" }}>{libelleEtat}{dossier ? ` · ${dossier.nomCommercial} · formule ${libelleFormule(formule)}` : " · ⚠️ dossier du pro introuvable"}</p>
-      <div className="pg-onglets">{ONGLETS.map(([v, l]) => <button key={v} type="button" className={onglet === v ? "actif" : ""} onClick={() => setOnglet(v)}>{l}</button>)}</div>
+      <p className="tb-note" style={{ margin: "4px 0 8px" }}>{libelleEtat}{resto ? " · restaurant partenaire" : dossier ? ` · ${dossier.nomCommercial} · formule ${libelleFormule(formule)}` : " · ⚠️ dossier du pro introuvable"}</p>
+      <div className="pg-onglets">{ONGLETS.map(([v, l]) => <button key={v} type="button" className={onglet === v ? "actif" : ""} onClick={() => setOnglet(v)}>{resto && v === "forfait" ? "Offre et tarif" : l}</button>)}</div>
       {info && <p className="erreur" role="alert" onClick={() => setInfo("")}>{info}</p>}
       {envoi && <p className="tb-note">⏳ {envoi}</p>}
 
@@ -299,6 +349,16 @@ function Editeur({ pageInitiale, pages, dossiers, categories, grille, onRetour }
           </select></Champ>
           <Texte label="Nom commercial" valeur={page.nom} max={80} onChange={maj("nom")} />
           <Texte label="Catégorie / spécialité" valeur={page.specialite} max={80} placeholder="Ex. Boutique de mode femme" onChange={maj("specialite")} />
+          {resto && <Texte label="Cacherout (si applicable)" valeur={page.cacherout} max={120} placeholder="Ex. Cacher – Rabbanout Netanya" onChange={maj("cacherout")} />}
+          {resto && (
+            <div className="pp-bloc" style={{ background: "#120f11" }}>
+              <b>Commande (combinables)</b>
+              <Texte label="A · Lien vers son site de commande" valeur={page.lienCommande} max={300} placeholder="https://…" aide="Le bouton envoie le client sur le site du restaurant (ex. Ohi Sushi)." onChange={maj("lienCommande")} />
+              <Texte label="Texte de ce bouton" valeur={page.boutonCommande} max={60} onChange={maj("boutonCommande")} />
+              <label className="pg-case"><input type="checkbox" checked={page.carteEnLigne} onChange={(e) => maj("carteEnLigne")(e.target.checked)} /> B · Afficher la carte en ligne de sa fiche (commande envoyée au restaurant sur WhatsApp)</label>
+              <Texte label="C · Lien du menu PDF" valeur={page.menuPdf} max={300} placeholder="https://…" aide="Les photos du menu et la carte en ligne se gèrent dans « Restaurants visibles sur le site » : la page les reprend toute seule." onChange={maj("menuPdf")} />
+            </div>
+          )}
           <Texte label="Phrase d'accroche" valeur={page.accroche} max={160} onChange={maj("accroche")} />
           <Texte label="Présentation de l'entreprise" long max={2000} valeur={page.presentation} onChange={maj("presentation")} />
           {permises.includes("tarifs") && <Texte label="Tarifs (facultatif)" long max={1500} valeur={page.tarifsTexte} aide="Laisse vide pour ne pas afficher de tarifs." onChange={maj("tarifsTexte")} />}
@@ -385,7 +445,7 @@ function Editeur({ pageInitiale, pages, dossiers, categories, grille, onRetour }
           <h4 style={{ marginTop: 0 }}>Modèle</h4>
           <p className="tb-note">Changer de modèle remplace seulement les couleurs, les polices et la disposition : textes et photos restent.</p>
           <div className="pg-modeles">
-            {MODELES.map((m) => (
+            {modelesPour(univers).map((m) => (
               <button key={m.id} type="button" className={`pg-modele ${page.modele === m.id ? "actif" : ""}`} onClick={() => { if (m.id === page.modele || window.confirm(`Passer au modèle « ${m.nom} » ? Tes couleurs et ta disposition actuelles seront remplacées (textes et photos gardés).`)) setPage((p) => changerModele(p, m.id)); }}>
                 <MiniModele m={m} /><b>{m.nom}</b>
               </button>
@@ -424,7 +484,7 @@ function Editeur({ pageInitiale, pages, dossiers, categories, grille, onRetour }
         </div>
       )}
 
-      {onglet === "forfait" && <Forfait page={page} setPage={setPage} dossier={dossier} grille={grille} majDossier={majDossier} />}
+      {onglet === "forfait" && (resto ? <OffreResto page={page} setPage={setPage} /> : <Forfait page={page} setPage={setPage} dossier={dossier} grille={grille} majDossier={majDossier} />)}
       {onglet === "publier" && <Publier page={page} setPage={setPage} pages={pages} dossier={dossier} versions={versions} majDossier={majDossier} enregistrerMaintenant={enregistrerMaintenant} menage={menage} setInfo={setInfo} />}
       {voir && <Apercu page={page} dossier={dossier} onFermer={() => setVoir(false)} />}
     </div>
@@ -467,24 +527,8 @@ function Avis({ avis, onChange }) {
 
 /* ---------- Forfait, options et tarif du client ---------- */
 function Forfait({ page, setPage, dossier, grille, majDossier }) {
-  const [info, setInfo] = useState("");
-  const [appliquer, setAppliquer] = useState(true);
   if (!dossier) return <div className="pp-bloc"><p className="erreur">Le dossier de ce professionnel est introuvable.</p></div>;
-  const t = page.tarif;
-  const c = calculTarif(t, grille, dossier.formule, dossier.modules);
-  const majT = (patch) => setPage((p) => ({ ...p, tarif: { ...p.tarif, ...patch } }));
-  const majOpt = (id, patch) => majT({ options: { ...t.options, [id]: { ...(t.options[id] || {}), ...patch } } });
-  const nombre = (v) => (v === "" ? null : Number(v));
-  const contrat = contratEnVigueur(page);
   const ab = etatAbonnement(dossier.abonnement, aujourdhuiIsrael());
-  const accepter = async () => {
-    const k = contratDepuisTarif(t, grille, dossier.formule, dossier.modules);
-    setPage((p) => ajouterJournalPage({ ...p, contrats: [k, ...(p.contrats || [])].slice(0, 40) }, `Tarif accepté : ${shekels(k.totalCreation)} + ${shekels(k.totalMensuel)}/mois`));
-    if (appliquer && !page.demo) {
-      await majDossier({ abonnement: abonnementDepuisContrat(k, dossier.abonnement) }, `Abonnement : ${shekels(k.totalMensuel)}/mois à partir du ${k.premierMoisPaye || k.debut || "?"}`);
-      setInfo("Tarif enregistré dans l'historique et abonnement mis à jour dans son dossier.");
-    } else setInfo(page.demo ? "Tarif gardé dans l'historique. Page de démonstration : aucun abonnement démarré." : "Tarif enregistré dans l'historique.");
-  };
   return (
     <>
       <div className="pp-bloc">
@@ -501,10 +545,39 @@ function Forfait({ page, setPage, dossier, grille, majDossier }) {
           </div>
         )}
       </div>
+      <TarifClient page={page} setPage={setPage} grille={grille} formule={dossier.formule} modules={dossier.modules}
+        suivi={ab.actif ? `Abonnement suivi : ${shekels(dossier.abonnement.mensuel)}/mois · ${ab.payes} mois payés · ${ab.retard > 0 ? `${ab.retard} mois en retard` : "à jour"}${ab.prochaine ? ` · prochaine échéance ${ab.prochaine.split("-").reverse().join("/")}` : ""}` : ""}
+        appliquerAbonnement={(k) => majDossier({ abonnement: abonnementDepuisContrat(k, dossier.abonnement) }, `Abonnement : ${shekels(k.totalMensuel)}/mois à partir du ${k.premierMoisPaye || k.debut || "?"}`)} />
+    </>
+  );
+}
+
+// Tarif du client et historique des tarifs acceptés (commun aux pros et aux restaurants)
+function TarifClient({ page, setPage, grille, formule, modules, suivi = "", appliquerAbonnement = null, nomFormule = "" }) {
+  const [info, setInfo] = useState("");
+  const [appliquer, setAppliquer] = useState(true);
+  const t = page.tarif;
+  const c = calculTarif(t, grille, formule, modules);
+  if (nomFormule) c.lignes[0].nom = nomFormule;
+  const majT = (patch) => setPage((p) => ({ ...p, tarif: { ...p.tarif, ...patch } }));
+  const majOpt = (id, patch) => majT({ options: { ...t.options, [id]: { ...(t.options[id] || {}), ...patch } } });
+  const nombre = (v) => (v === "" ? null : Number(v));
+  const contrat = contratEnVigueur(page);
+  const accepter = async () => {
+    const k = contratDepuisTarif(t, grille, formule, modules);
+    if (nomFormule) k.lignes[0].nom = nomFormule;
+    setPage((p) => ajouterJournalPage({ ...p, contrats: [k, ...(p.contrats || [])].slice(0, 40) }, `Tarif accepté : ${shekels(k.totalCreation)} + ${shekels(k.totalMensuel)}/mois`));
+    if (appliquerAbonnement && appliquer && !page.demo) {
+      await appliquerAbonnement(k);
+      setInfo("Tarif enregistré dans l'historique et abonnement mis à jour dans son dossier.");
+    } else setInfo(page.demo ? "Tarif gardé dans l'historique. Page de démonstration : aucun abonnement démarré." : "Tarif enregistré dans l'historique.");
+  };
+  return (
+    <>
       <div className="pp-bloc">
         <h4 style={{ marginTop: 0 }}>Tarif de ce client</h4>
         {page.demo && <p className="tb-note">🎭 Page de démonstration : rien n'est facturé, aucun abonnement n'est démarré.</p>}
-        <p className="tb-note">Prix de départ = ta grille Digital. Change ce que tu veux pour ce client : ta grille n'est pas modifiée, et un tarif accepté ne change plus jamais, même si tu modifies ta grille.</p>
+        <p className="tb-note">Prix de départ = ta grille. Change ce que tu veux pour ce client : ta grille n'est pas modifiée, et un tarif accepté ne change plus jamais, même si tu modifies ta grille.</p>
         <table className="pg-table"><thead><tr><th></th><th>Création</th><th>Par mois</th></tr></thead><tbody>
           {c.lignes.map((l, i) => (
             <tr key={l.nom}>
@@ -524,28 +597,62 @@ function Forfait({ page, setPage, dossier, grille, majDossier }) {
         </div>
         <label className="pg-case"><input type="checkbox" checked={t.creationOfferte} onChange={(e) => majT({ creationOfferte: e.target.checked })} /> Création offerte</label>
         <label className="pg-case"><input type="checkbox" checked={t.preferentiel} onChange={(e) => majT({ preferentiel: e.target.checked })} /> Tarif préférentiel permanent</label>
-        <Texte label="Note sur ce tarif (privée)" valeur={t.note} max={300} onChange={(v) => majT({ note: v })} />
+        <Texte label="Note sur ce tarif (privée)" long valeur={t.note} max={300} onChange={(v) => majT({ note: v })} />
         <div className="pg-total">
           <p>Création : <b>{shekels(c.totalCreation)}</b>{c.remiseCreation > 0 && <small> (grille {shekels(c.grilleCreation)})</small>}</p>
           <p>Abonnement : <b>{shekels(c.totalMensuel)} / mois</b>{c.remiseMensuel > 0 && <small> (grille {shekels(c.grilleMensuel)})</small>}</p>
           {c.moisOfferts > 0 && <p>🎁 {c.moisOfferts} mois offerts{c.premierMoisPaye ? ` : premier mois payé le ${c.premierMoisPaye.split("-").reverse().join("/")}` : ""}</p>}
         </div>
-        {!page.demo && <label className="pg-case"><input type="checkbox" checked={appliquer} onChange={(e) => setAppliquer(e.target.checked)} /> Mettre à jour le suivi d'abonnement de son dossier</label>}
+        {appliquerAbonnement && !page.demo && <label className="pg-case"><input type="checkbox" checked={appliquer} onChange={(e) => setAppliquer(e.target.checked)} /> Mettre à jour le suivi d'abonnement de son dossier</label>}
         <button type="button" className="pp-bouton" onClick={accepter}>✓ Le client accepte ce tarif</button>
         {info && <p className="tb-note">{info}</p>}
       </div>
       <div className="pp-bloc">
         <h4 style={{ marginTop: 0 }}>Historique des tarifs acceptés</h4>
-        {ab.actif && <p className="tb-note">Abonnement suivi : {shekels(dossier.abonnement.mensuel)}/mois · {ab.payes} mois payés · {ab.retard > 0 ? <b style={{ color: "#e05a5a" }}>{ab.retard} mois en retard</b> : "à jour"}{ab.prochaine ? ` · prochaine échéance ${ab.prochaine.split("-").reverse().join("/")}` : ""}</p>}
+        {suivi && <p className="tb-note">{suivi}</p>}
         {!(page.contrats || []).length && <p className="tb-note">Aucun tarif accepté pour l'instant.</p>}
         {(page.contrats || []).map((k, i) => (
           <div key={k.leMs} className="pg-contrat">
-            <b>{i === 0 ? "En vigueur · " : ""}{fmt(k.leMs)}</b> · {libelleFormule(k.formule)}{k.modules.length ? ` + ${k.modules.length} option(s)` : ""}
+            <b>{i === 0 ? "En vigueur · " : ""}{fmt(k.leMs)}</b>{k.formule !== "vitrine" || !nomFormule ? ` · ${nomFormule || libelleFormule(k.formule)}` : ` · ${nomFormule}`}{(k.modules || []).length ? ` + ${k.modules.length} option(s)` : ""}
             <br />Création {shekels(k.totalCreation)}{k.creationOfferte ? " (offerte)" : ""} · {shekels(k.totalMensuel)}/mois{k.moisOfferts ? ` · ${k.moisOfferts} mois offerts` : ""}{k.preferentiel ? " · tarif préférentiel" : ""}{k.note ? ` · ${k.note}` : ""}
           </div>
         ))}
-        {contrat && <p className="tb-note">Les encaissements de l'abonnement se notent dans le dossier du pro (Annuaire des professionnels). Le tableau de bord Digital complet arrive au lot 3.</p>}
+        {contrat && appliquerAbonnement && <p className="tb-note">Les encaissements de l'abonnement se notent dans le dossier du pro (Annuaire des professionnels). Le tableau de bord Digital complet arrive au lot 3.</p>}
       </div>
+    </>
+  );
+}
+
+// Restaurants (lot R1) : offre des 10 premiers restaurants qui ont SIGNÉ leur contrat, puis tarif du restaurant
+function OffreResto({ page, setPage }) {
+  const [contrats, setContrats] = useState(null);
+  useEffect(() => { lireContratsSignes().then(setContrats, () => setContrats([])); }, []);
+  const o = offreLancement(contrats || [], offreLancementMenu());
+  const benef = o.beneficiaires.find((b) => b.id === page.contratId);
+  const grille = { vitrine: { creation: fraisCreationMenu(), mois: prixMenuMensuel() } };
+  const appliquerOffre = () => setPage((p) => ajouterJournalPage({ ...p, tarif: { ...p.tarif, creationOfferte: true, mensuel: prixMenuLancement(), note: `Offre de lancement (${benef ? `${benef.rang}e restaurant signé` : "restaurant signé"}) : création offerte, ${prixMenuLancement()} ₪/mois pendant ${moisMenuLancement()} mois puis ${prixMenuMensuel()} ₪/mois. Les livraisons restent payantes selon le contrat.` } }, "Offre de lancement appliquée"));
+  return (
+    <>
+      <div className="pp-bloc">
+        <h4 style={{ marginTop: 0 }}>Offre des {o.places} premiers restaurants</h4>
+        {contrats === null ? <p className="tb-note">Chargement des contrats…</p> : (
+          <>
+            <p><b>{o.restantes}</b> place{o.restantes > 1 ? "s" : ""} restante{o.restantes > 1 ? "s" : ""} sur {o.places} · {o.signes} contrat{o.signes > 1 ? "s" : ""} signé{o.signes > 1 ? "s" : ""}</p>
+            <p className="tb-note">Comptés dans l'ordre de signature du contrat partenaire (pas les simples formulaires). L'offre concerne la page et le menu ; les livraisons restent payantes selon les formules A et B.</p>
+            {o.beneficiaires.map((b) => <p key={b.id} className="tb-note" style={{ margin: "2px 0" }}>{b.rang}. {b.nom || "Restaurant"} · signé le {fmt(b.signeLeMs)}</p>)}
+            <Champ label="Contrat de ce restaurant">
+              <select value={page.contratId || ""} onChange={(e) => setPage((p) => ({ ...p, contratId: e.target.value }))}>
+                <option value="">Pas encore signé</option>
+                {(contrats || []).map((c) => <option key={c.id} value={c.id}>{c.nom || c.id}</option>)}
+              </select>
+            </Champ>
+            {page.contratId && (benef
+              ? <><p>🎁 Ce restaurant bénéficie de l'offre ({benef.rang}e signé).</p><button type="button" className="pp-bouton" onClick={appliquerOffre}>Appliquer l'offre de lancement au tarif</button></>
+              : <p className="tb-note">Ce restaurant n'est pas dans les {o.places} premiers : tarif normal ({fraisCreationMenu()} ₪ de création + {prixMenuMensuel()} ₪/mois).</p>)}
+          </>
+        )}
+      </div>
+      <TarifClient page={page} setPage={setPage} grille={grille} formule="vitrine" modules={[]} nomFormule="Page et menu en ligne" />
     </>
   );
 }
@@ -560,7 +667,9 @@ function Publier({ page, setPage, pages, dossier, versions, majDossier, enregist
   const nbErreurs = Object.keys(erreurs).length;
   useEffect(() => { if (enLigne(page)) QRCode.toDataURL(lien, { margin: 1, width: 600 }).then(setQr, () => setQr("")); else setQr(""); }, [lien, page.statut]); // eslint-disable-line react-hooks/exhaustive-deps
   const lienAnnuaire = (actif) => {
-    if (!dossier || page.demo) return Promise.resolve();
+    if (page.demo) return Promise.resolve();
+    if (page.type === "restaurant") return lienSurFicheResto(page.restoId, actif ? lien : "").catch(() => {});
+    if (!dossier) return Promise.resolve();
     const nouveau = actif ? lien : dossier.siteDigital === lien ? "" : dossier.siteDigital;
     return nouveau === dossier.siteDigital ? Promise.resolve() : majDossier({ siteDigital: nouveau }, actif ? `Page en ligne : ${lien}` : "Page retirée de la fiche");
   };
@@ -672,8 +781,11 @@ function Publier({ page, setPage, pages, dossier, versions, majDossier, enregist
 const libelleModele = (id) => modele(id).nom;
 
 /* ---------- Liste des pages ---------- */
-export default function PagesProAdmin() {
-  const pages = usePagesAdmin();
+export default function PagesProAdmin({ univers = "pros" }) {
+  const restos = univers === "restos";
+  const pages = usePagesAdmin(univers);
+  const autres = usePagesAdmin(restos ? "pros" : "restos"); // le compteur d'espace compte TOUTES les pages
+  const fiches = useVitrineRestos();
   const dossiers = useDossiersPros();
   const categories = useCategoriesPros();
   const grille = useGrilleDigitalPro();
@@ -684,11 +796,12 @@ export default function PagesProAdmin() {
   const fichierZip = useRef(null);
   if (!pages || !dossiers) return <p className="tb-note">Chargement…</p>;
   const dossierDe = (p) => dossiers.find((d) => d.id === p.proId);
+  if (vue.nom === "nouvelle" && restos) return <NouvellePageResto fiches={fiches} pages={pages} onCree={(id) => setVue({ nom: "attente", id })} onAnnuler={() => setVue({ nom: "liste" })} />;
   if (vue.nom === "nouvelle") return <NouvellePage dossiers={dossiers} categories={categories} pages={pages} onCree={(id) => setVue({ nom: "attente", id })} onAnnuler={() => setVue({ nom: "liste" })} />;
   if (vue.nom === "attente" || vue.nom === "editeur") {
     const p = pages.find((x) => x.id === vue.id);
     if (!p) return <p className="tb-note">Ouverture de la page…</p>;
-    return <Editeur key={p.id} pageInitiale={p} pages={pages} dossiers={dossiers} categories={categories} grille={grille} onRetour={() => setVue({ nom: "liste" })} />;
+    return <Editeur key={p.id} univers={univers} pageInitiale={p} pages={pages} dossiers={dossiers} categories={categories} grille={grille} onRetour={() => setVue({ nom: "liste" })} />;
   }
   const filtrees = pages.filter((p) => (filtre === "toutes" ? p.statut !== "archivee" : filtre === "demo" ? p.demo : filtre === "preparation" ? STATUTS_PREPARATION.includes(p.statut) : p.statut === filtre));
   const dupliquer = async (p) => {
@@ -698,7 +811,7 @@ export default function PagesProAdmin() {
   };
   const toutExporter = async () => {
     setEnCours("Préparation de la sauvegarde complète…");
-    try { telecharger(await exporterPages(pages), `sauvegarde-pages-pros-${aujourdhuiIsrael()}.zip`); } catch { setInfo("Sauvegarde impossible."); }
+    try { telecharger(await exporterPages(pages), `sauvegarde-pages-${restos ? "restaurants" : "pros"}-${aujourdhuiIsrael()}.zip`); } catch { setInfo("Sauvegarde impossible."); }
     setEnCours("");
   };
   const restaurer = async (f) => {
@@ -709,8 +822,8 @@ export default function PagesProAdmin() {
   };
   return (
     <div className="pg-admin">
-      <h2 style={{ marginTop: 0 }}>Pages des professionnels</h2>
-      <p className="tb-note">Crée et publie toi-même les pages de tes clients (Référencement, Vitrine, Business, Pack Pro). Elles sont en ligne tout de suite, sans publication Netlify.</p>
+      <h2 style={{ marginTop: 0 }}>{restos ? "Pages des restaurants" : "Pages des professionnels"}</h2>
+      <p className="tb-note">{restos ? "Crée et publie toi-même la page de chaque restaurant partenaire : son site de commande, ta carte en ligne ou son menu PDF. En ligne tout de suite, sans publication Netlify." : "Crée et publie toi-même les pages de tes clients (Référencement, Vitrine, Business, Pack Pro). Elles sont en ligne tout de suite, sans publication Netlify."}</p>
       <button type="button" className="pp-bouton" onClick={() => setVue({ nom: "nouvelle" })}>+ Créer une page</button>
       <div className="pg-filtres">
         {[["toutes", "En cours"], ["preparation", "En préparation"], ["publiee", "Publiées"], ["demo", "Démonstrations"], ["suspendue", "Suspendues"], ["archivee", "Archivées"]].map(([v, l]) => <button key={v} type="button" className={filtre === v ? "actif" : ""} onClick={() => setFiltre(v)}>{l}</button>)}
@@ -725,7 +838,7 @@ export default function PagesProAdmin() {
               <div style={{ minWidth: 0 }}>
                 <b>{p.nom || "Sans nom"}</b>{p.demo && <span className="pg-badge">démo</span>}
                 <br /><small style={{ color: COULEUR_STATUT[p.statut] }}>● {libelleStatutPage(p.statut)}{modifsNonPubliees(p) ? " · modifs non publiées" : ""}</small>
-                <br /><small className="tb-note">{d ? libelleFormule(d.formule) : "dossier introuvable"} · {modele(p.modele).nom} · {nombrePhotos(p)} photos ({enMo(poidsPhotos(p))})</small>
+                <br /><small className="tb-note">{restos ? "Restaurant" : d ? libelleFormule(d.formule) : "dossier introuvable"} · {modele(p.modele).nom} · {nombrePhotos(p)} photos ({enMo(poidsPhotos(p))})</small>
                 {ab && ab.retard > 0 && <><br /><small style={{ color: "#e05a5a" }}>⚠️ {ab.retard} mois d'abonnement en retard</small></>}
                 {enLigne(p) && <><br /><small><a href={lienPage(SITE_OFFICIEL, p.adresse)} target="_blank" rel="noopener noreferrer">/p/{p.adresse}</a></small></>}
               </div>
@@ -737,7 +850,7 @@ export default function PagesProAdmin() {
           </div>
         );
       })}
-      <CompteurEspace pages={pages} />
+      <CompteurEspace pages={[...pages, ...(autres || [])]} />
       <div className="pp-bloc">
         <h3 style={{ marginTop: 0 }}>💾 Sauvegarde de toutes les pages</h3>
         <p className="tb-note">Un fichier ZIP avec les textes, les anciennes versions et toutes les photos, à garder dans ton iPhone (Fichiers) ou ton Google Drive. Conseillé une fois par semaine. Rien n'est recopié dans Firebase.</p>

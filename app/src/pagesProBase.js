@@ -10,21 +10,28 @@ import {
 // Regles v42 : pagesProAdmin et pagesProVersions = Rebecca seule ; pagesPubliques, pagesApercus, pagesPhotos =
 // lecture d'UN document par son identifiant (jamais de liste), ecriture par Rebecca seule.
 
+// Lot R1 (27 nov. 2026) : les pages des RESTAURANTS (type « restaurant ») sont dans les memes collections protegees
+// (Rebecca seule, regles v42, aucune nouvelle regle) mais n'apparaissent QUE dans l'Admin Restaurants ;
+// celles des pros n'apparaissent que dans « Pages des pros ». Revenus et tarifs restent separes.
+const colAdmin = () => "pagesProAdmin";
+const colVersions = () => "pagesProVersions";
+
 /* ---------- Pages (espace prive de Rebecca) ---------- */
-export function usePagesAdmin() {
+export function usePagesAdmin(univers = "pros") {
   const [l, setL] = useState(null);
-  useEffect(() => onSnapshot(collection(db, "pagesProAdmin"), (s) => {
+  useEffect(() => onSnapshot(collection(db, colAdmin()), (s) => {
     const pages = [];
-    s.forEach((d) => { try { pages.push(normaliserPage(JSON.parse(d.data().json || "{}"))); } catch { /* page illisible ignoree */ } });
+    const type = univers === "restos" ? "restaurant" : "pro";
+    s.forEach((d) => { try { const p = normaliserPage(JSON.parse(d.data().json || "{}")); if (p.type === type) pages.push(p); } catch { /* page illisible ignoree */ } });
     setL(pages.sort((a, b) => b.majLeMs - a.majLeMs));
-  }, () => setL([])), []);
+  }, () => setL([])), [univers]);
   return l;
 }
-export const enregistrerPageAdmin = (page) => setDoc(doc(db, "pagesProAdmin", page.id), { json: JSON.stringify(normaliserPage(page)), majLe: serverTimestamp() });
+export const enregistrerPageAdmin = (page) => setDoc(doc(db, colAdmin(page.type), page.id), { json: JSON.stringify(normaliserPage(page)), majLe: serverTimestamp() });
 
-export function useVersionsPage(id) {
+export function useVersionsPage(id, type = "pro") {
   const [v, setV] = useState([]);
-  useEffect(() => (id ? onSnapshot(doc(db, "pagesProVersions", id), (s) => setV(s.exists() ? lireVersions(s.data().json) : []), () => setV([])) : undefined), [id]);
+  useEffect(() => (id ? onSnapshot(doc(db, colVersions(type), id), (s) => setV(s.exists() ? lireVersions(s.data().json) : []), () => setV([])) : undefined), [id, type]);
   return v;
 }
 // Version en ligne (lue par son adresse)
@@ -55,8 +62,8 @@ export async function publierPage(page, dossier, versions, ancienneAdresse = "")
   const lot = writeBatch(db);
   lot.set(doc(db, "pagesPubliques", p.adresse), { json: JSON.stringify(pagePublique(p, dossier)), majLe: serverTimestamp() });
   if (ancienneAdresse && ancienneAdresse !== p.adresse) lot.delete(doc(db, "pagesPubliques", ancienneAdresse));
-  lot.set(doc(db, "pagesProVersions", p.id), { json: JSON.stringify(ajouterVersion(versions, p, maintenant)), majLe: serverTimestamp() });
-  lot.set(doc(db, "pagesProAdmin", p.id), { json: JSON.stringify(p), majLe: serverTimestamp() });
+  lot.set(doc(db, colVersions(p.type), p.id), { json: JSON.stringify(ajouterVersion(versions, p, maintenant)), majLe: serverTimestamp() });
+  lot.set(doc(db, colAdmin(p.type), p.id), { json: JSON.stringify(p), majLe: serverTimestamp() });
   await lot.commit();
   return p;
 }
@@ -65,7 +72,7 @@ export async function retirerPage(page, statut) {
   const p = normaliserPage({ ...page, statut, majLeMs: Date.now() });
   const lot = writeBatch(db);
   if (p.adresse) lot.set(doc(db, "pagesPubliques", p.adresse), { json: JSON.stringify(pageHorsLigne(p, statut === "archivee" ? "archivee" : "suspendue")), majLe: serverTimestamp() });
-  lot.set(doc(db, "pagesProAdmin", p.id), { json: JSON.stringify(p), majLe: serverTimestamp() });
+  lot.set(doc(db, colAdmin(p.type), p.id), { json: JSON.stringify(p), majLe: serverTimestamp() });
   await lot.commit();
   return p;
 }
@@ -148,7 +155,7 @@ export async function restaurerSauvegarde(fichier) {
       await remettrePhoto(id, `data:image/jpeg;base64,${b64}`, p.id);
     }
     await enregistrerPageAdmin(p);
-    if (Array.isArray(versions) && versions.length) await setDoc(doc(db, "pagesProVersions", p.id), { json: JSON.stringify(versions), majLe: serverTimestamp() });
+    if (Array.isArray(versions) && versions.length) await setDoc(doc(db, colVersions(p.type), p.id), { json: JSON.stringify(versions), majLe: serverTimestamp() });
     restaurees.push(p.nom || p.id);
   }
   return restaurees;
@@ -156,3 +163,32 @@ export async function restaurerSauvegarde(fichier) {
 
 /* ---------- Grille Digital et dossier pro ---------- */
 export { useGrilleDigitalPro, GRILLE_DEPART } from "./components/DigitalPro.jsx";
+
+/* ---------- Restaurants (lot R1) ---------- */
+// Contrats signes (pour l'offre des 10 premiers) : nom et date de signature seulement
+export async function lireContratsSignes() {
+  const { getDocs, query, where } = await import("firebase/firestore");
+  const r = await getDocs(query(collection(db, "contratsRestos"), where("statut", "in", ["signe", "valide"])));
+  return r.docs.map((d) => { const x = d.data(); return { id: d.id, nom: x.nom || "", signeLeMs: x.signeLe && x.signeLe.toMillis ? x.signeLe.toMillis() : 0 }; });
+}
+// Lien de la page sur la fiche du restaurant (#/restaurants) : bouton « Voir sa page »
+export async function lienSurFicheResto(restoId, lienPage) {
+  if (!restoId) return;
+  const s = await getDoc(doc(db, "reglages", "vitrineRestos"));
+  let l = [];
+  try { l = JSON.parse((s.exists() && s.data().json) || "[]"); } catch { l = []; }
+  if (!l.some((x) => x.id === restoId)) return;
+  const suite = l.map((x) => (x.id === restoId ? { ...x, page: lienPage || "" } : x));
+  await setDoc(doc(db, "reglages", "vitrineRestos"), { json: JSON.stringify(suite.slice(0, 50)), majLe: serverTimestamp() });
+}
+// Carte en ligne et photos du menu deja gerees dans la fiche du restaurant (aucune copie)
+export function useMenuFicheResto(restoId) {
+  const [m, setM] = useState({ carteTexte: "", pages: [] });
+  useEffect(() => {
+    if (!restoId) return undefined;
+    const a = onSnapshot(doc(db, "reglages", "vitrineCarte_" + restoId), (s) => setM((x) => ({ ...x, carteTexte: s.exists() ? String(s.data().texte || "") : "" })), () => {});
+    const b = onSnapshot(doc(db, "reglages", "vitrineMenu_" + restoId), (s) => setM((x) => ({ ...x, pages: s.exists() ? s.data().pages || [] : [] })), () => {});
+    return () => { a(); b(); };
+  }, [restoId]);
+  return m;
+}

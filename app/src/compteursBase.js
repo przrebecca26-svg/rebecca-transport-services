@@ -40,6 +40,10 @@ export function useCompteurs(role) {
   const assistance = useCompte(admin, () => collection(db, "assistance"), aTraiterAssistance); // 19 nov. 2026
   const avenants = useCompte(admin, () => query(collection(db, "avenantsResto"), where("statut", "==", "demandee"))); // 20 nov. 2026 : changements de formule demandés par un restaurant
   const menus = useCompte(admin, () => query(collection(db, "menusRestos"), where("statut", "==", "a_valider"))); // 26 nov. 2026 : menus proposés par un restaurant (règles v38)
+  // 27 nov. 2026 (Rebecca : une inscription à l'annuaire n'apparaissait nulle part) : inscriptions des pros à vérifier
+  const pros = useCompte(admin, () => collection(db, "prosCandidatures"));
+  // 27 nov. 2026 : cartes cadeaux annoncées payées par l'acheteur, à confirmer
+  const cartesAConfirmer = useCompte(admin, () => query(collection(db, "cartesCadeaux"), where("statut", "==", "a_payer")), (c) => !!c.annonceLe);
   const partenaires = (candidats || 0) + (aActiver || 0) + (restosSignes || 0) + (avenants || 0) + (menus || 0);
   // 17 nov. 2026 : rappels, avis, relances et recus a faire (onglet Aujourd'hui du Tableau de bord)
   const [aFaire, setAFaire] = useState(0);
@@ -58,5 +62,5 @@ export function useCompteurs(role) {
     if (!admin) return undefined;
     return onSnapshot(query(collection(db, "paiementsDeclares"), where("statut", "==", "a confirmer")), (s) => setDeclares(new Set(s.docs.map((x) => { const p = x.data(); return `${p.resId}|${p.montant}|${p.sorte}`; })).size), () => setDeclares(0));
   }, [admin]);
-  return { tableau: aFaire + declares, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: recharges, "projets-digital": digital, partenaires, assistance };
+  return { tableau: aFaire + declares, demandes, ramassage, "commandes-epoxy": epoxy, equipe: acces, clients: (recharges || 0) + (cartesAConfirmer || 0), pros, "projets-digital": digital, partenaires, assistance };
 }

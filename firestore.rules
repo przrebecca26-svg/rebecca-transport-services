@@ -1,4 +1,6 @@
 rules_version = '2';
+// Regles Rebecca Services v41 (27 novembre 2026) = v40 + le robot des notifications peut LIRE les inscriptions a
+//   l'annuaire (prosCandidatures) pour prevenir Rebecca d'une nouvelle inscription. Rien d'autre ne change.
 // Regles Rebecca Services v40 (26 novembre 2026, carte cadeau passee en credit par la cliente) = v39 +
 //   - codesCadeaux/{CODE} : index code -> carte, ecrit par Rebecca ; une cliente connectee lit UN code (jamais la liste) ;
 //   - cartesCadeaux : la cliente passe une carte ACTIVE (non expiree, jamais reclamee) a « utilisee », solde 0, a son nom ;
@@ -1541,6 +1543,7 @@ service cloud.firestore {
         && request.resource.data.json.size() >= 50 && request.resource.data.json.size() <= 20000
         && request.resource.data.creeLe == request.time;
       allow read, delete: if estAdmin();
+      allow read: if estRobot(); // v41 : notification « nouvelle inscription à l'annuaire »
     }
     // Compteurs d'une fiche (visites, clics WhatsApp) : +1 seulement, et seulement quand l'annuaire est ouvert
     match /prosStats/{id} {

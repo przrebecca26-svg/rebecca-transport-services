@@ -445,7 +445,7 @@ export default function Admin() {
             {totalATraiter > 0 && <span className="ts-pastille" aria-label={`${totalATraiter} à traiter`}>{totalATraiter > 99 ? "99+" : totalATraiter}</span>}
           </button>
           <span className="ts-titre" style={{ flex: 1 }}>{(rubriques.find((r) => r.id === onglet) || rubriques[0]).label}</span>
-          {role === "admin" && <CentreNotifs />}
+          {role === "admin" && <CentreNotifs aTraiter={rubriques.filter((r) => compteurs[r.id] > 0).map((r) => ({ id: r.id, label: r.label, n: compteurs[r.id] }))} onAller={aller} />}
         </header>
         <div className={"ts-voile" + (menu ? " ouvert" : "")} onClick={() => setMenu(false)} aria-hidden="true" />
         <nav className={"ts-menu" + (menu ? " ouvert" : "")} aria-label="Rubriques">

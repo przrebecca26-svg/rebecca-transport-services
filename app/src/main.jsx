@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import RetourAdmin from "./components/RetourAdmin.jsx";
@@ -66,9 +66,25 @@ class Filet extends React.Component {
   }
 }
 
+// 27 nov. 2026 (generateur de pages pros, lot 1) : rebeccaservices.com/p/ADRESSE = page d'un professionnel,
+// #/apercu/JETON = apercu prive envoye au client. Elles s'ouvrent SEULES (sans l'appli Rebecca Services autour).
+const cheminPage = /^\/p\/([a-z0-9][a-z0-9-]{1,38}[a-z0-9])\/?$/.exec(window.location.pathname) || /^#\/p\/([a-z0-9][a-z0-9-]{1,38}[a-z0-9])$/.exec(window.location.hash);
+const jetonApercu = /^#\/apercu\/([A-Za-z0-9]{20,40})$/.exec(window.location.hash);
+const PageEnLigne = lazy(() => import("./components/PageProPublique.jsx").then((m) => ({ default: m.PageEnLigne })));
+const ApercuPrive = lazy(() => import("./components/PageProPublique.jsx").then((m) => ({ default: m.ApercuPrive })));
+const attente = <p style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>Chargement…</p>;
+
 createRoot(document.getElementById("root")).render(
   <Filet>
-    <App />
-    <RetourAdmin />
+    {cheminPage ? (
+      <Suspense fallback={attente}><PageEnLigne adresse={cheminPage[1]} /></Suspense>
+    ) : jetonApercu ? (
+      <Suspense fallback={attente}><ApercuPrive jeton={jetonApercu[1]} /></Suspense>
+    ) : (
+      <>
+        <App />
+        <RetourAdmin />
+      </>
+    )}
   </Filet>
 );

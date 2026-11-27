@@ -60,12 +60,13 @@ export const MOTS_SERVICES = {
 
 /* ---------- Les 13 catégories validées (27 nov., 14h46) ---------- */
 // anciens = métiers de l'annuaire actuel (reglages/prosCategories) rangés automatiquement dans cette catégorie
-// rebecca = prestations de Rebecca proposées en plus, bien séparées (« Aussi chez Rebecca Services »)
+// 27 nov. 2026, 15h21 (Rebecca) : ses propres prestations ne sont JAMAIS dans une catégorie partenaire ; elles restent
+// dans son univers et n'apparaissent dans la recherche que dans le groupe « Rebecca Services ».
 export const CATEGORIES_V2_DEFAUT = [
   { id: "restaurants", nom: "Restaurants & Traiteurs", icone: "couverts", anciens: ["traiteur"], restos: true, specialites: ["Restaurants", "Traiteurs", "Pâtisseries", "Boulangeries", "Cafés", "Sushis", "Restauration rapide"] },
   { id: "epicerie", nom: "Épicerie & Supermarché", icone: "chariot", anciens: [], specialites: ["Épiceries", "Supermarchés", "Primeurs", "Boucheries", "Produits du monde", "Boissons"] },
   { id: "travaux", nom: "Travaux & Dépannage", icone: "cle", anciens: ["travaux"], specialites: ["Plomberie", "Électricité", "Serrurerie", "Peinture", "Climatisation", "Petits travaux", "Rénovation"] },
-  { id: "beaute", nom: "Beauté & Esthétique", icone: "ciseaux", anciens: ["beaute"], rebecca: ["nails", "hair", "regenx", "slim"], specialites: ["Coiffure", "Onglerie", "Esthétique", "Maquillage", "Épilation", "Cils et sourcils", "Massage"] },
+  { id: "beaute", nom: "Beauté & Esthétique", icone: "ciseaux", anciens: ["beaute"], specialites: ["Coiffure", "Onglerie", "Esthétique", "Maquillage", "Épilation", "Cils et sourcils", "Massage"] },
   { id: "mode", nom: "Mode & Boutiques", icone: "sac", anciens: [], specialites: ["Prêt-à-porter", "Accessoires", "Bijoux", "Perruques", "Chaussures", "Créateurs"] },
   { id: "maison", nom: "Maison & Entretien", icone: "maison", anciens: ["menage"], specialites: ["Ménage", "Repassage", "Nettoyage", "Jardinage", "Décoration"] },
   { id: "famille", nom: "Famille & Enfants", icone: "bebe", anciens: ["garde"], specialites: ["Garde d'enfants", "Activités enfants", "Anniversaires", "Puériculture"] },
@@ -96,7 +97,6 @@ export function normaliserCategorie(c = {}) {
     masquerSiVide: c.masquerSiVide !== false,
     restos: c.restos === true,
     anciens: Array.isArray(c.anciens) ? c.anciens.filter(idOk).slice(0, 20) : [],
-    rebecca: Array.isArray(c.rebecca) ? c.rebecca.filter((x) => PRESTATIONS_REBECCA.some((p) => p.id === x)) : [],
     specialites: specialitesDepuis(c.specialites),
   };
 }
@@ -210,10 +210,11 @@ const villeOk = (p, ville) => !ville || sansAccents(p.villes).includes(sansAccen
 const trier = (config, l) => [...l].sort((a, b) => (config.misEnAvant.includes(b.cle) - config.misEnAvant.includes(a.cle)) || (b.verifie - a.verifie) || a.nom.localeCompare(b.nom, "fr"));
 
 export const nombreParCategorie = (config, partenaires) => Object.fromEntries(config.categories.map((c) => [c.id, partenaires.filter((p) => categoriesDuPartenaire(config, p).includes(c.id)).length]));
-// Catégories montrées aux clientes : visibles, et non vides (sauf si Rebecca a décoché « masquer si vide »)
+// Catégories montrées aux clientes : visibles, et non vides (sauf si Rebecca a décoché « masquer si vide »).
+// Seuls les PARTENAIRES comptent : les prestations de Rebecca ne remplissent jamais une catégorie partenaire.
 export function categoriesAffichees(config, partenaires) {
   const n = nombreParCategorie(config, partenaires);
-  return config.categories.filter((c) => c.visible && (n[c.id] > 0 || c.rebecca.length > 0 || !c.masquerSiVide));
+  return config.categories.filter((c) => c.visible && (n[c.id] > 0 || !c.masquerSiVide));
 }
 export const specialitesAffichees = (config, partenaires, categorie) => categorie.specialites.filter((s) => s.visible && (partenaires.some((p) => categoriesDuPartenaire(config, p).includes(categorie.id) && specialitesDuPartenaire(config, p, categorie).includes(s.id)) || !categorie.masquerSiVide));
 export const misEnAvantListe = (config, partenaires) => config.misEnAvant.map((k) => partenaires.find((p) => p.cle === k)).filter(Boolean);

@@ -65,7 +65,7 @@ test("filtre par spécialité et par ville", () => {
   egal(partenairesDeCategorie(C, P, "travaux", { ville: "Haïfa" }).length, 0);
   egal(partenairesDeCategorie(C, P, "travaux", { ville: "hadera" }).length, 1);
 });
-test("catégories vides masquées automatiquement (sauf celles avec mes prestations)", () => {
+test("catégories vides masquées automatiquement", () => {
   const ids = categoriesAffichees(C, P).map((c) => c.id);
   vrai(ids.includes("beaute") && ids.includes("travaux") && ids.includes("restaurants"));
   vrai(!ids.includes("automobile") && !ids.includes("epicerie"));
@@ -88,6 +88,13 @@ test("mis en avant d'abord, dans l'ordre choisi", () => {
   egal(misEnAvantListe(c, P).map((p) => p.cle), ["r:r1", "p:p3"]);
 });
 test("villes proposées sans doublons", () => egal(villesDesPartenaires(P), ["Hadera", "Netanya"]));
+
+test("mes prestations ne remplissent JAMAIS une catégorie partenaire (cas réel du 27 nov.)", () => {
+  const seulesMesFiches = partenairesDepuis([FICHES[3]], []);
+  egal(seulesMesFiches.length, 0);
+  egal(categoriesAffichees(C, seulesMesFiches).length, 0);
+});
+test("ancien réglage « Aussi chez Rebecca » ignoré", () => vrai(!("rebecca" in lireAccueil({ categories: [{ id: "beaute", nom: "Beauté", rebecca: ["hair"] }] }).categories[0])));
 
 section("Nouvel accueil : recherche générale");
 test("« coiffeuse » : Prestige Hair (Rebecca) ET la coiffeuse partenaire, séparés", () => {

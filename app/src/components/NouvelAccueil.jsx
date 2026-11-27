@@ -184,6 +184,8 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
   const [vue, setVueBrute] = useState(lireVue);
   const [texte, setTexte] = useState("");
   const [ville, setVille] = useState("");
+  // Version de test : Rebecca peut aussi voir les catégories encore vides (les clientes ne les verront pas)
+  const [vides, setVides] = useState(() => { try { return window.sessionStorage.getItem("rs_na_vides") === "1"; } catch { return false; } });
   const setVue = (v) => {
     setVueBrute(v);
     try { window.sessionStorage.setItem(CLE_VUE, JSON.stringify(v)); } catch { /* navigation privée */ }
@@ -199,7 +201,7 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
   const ouvrirMarque = (id) => onMarque(id);
 
   if (!config) return <p className="na-chargement">Chargement…</p>;
-  const cats = categoriesAffichees(config, partenaires);
+  const cats = vides ? config.categories.filter((c) => c.visible) : categoriesAffichees(config, partenaires);
   const nb = nombreParCategorie(config, partenaires);
   const univers = UNIVERS_REBECCA.map((u) => texteUnivers(config, u.id)).filter((u) => u.pages.some((p) => ["ouverte", "bientot"].includes(pages.etat(p)) || (p === "transport" && pages.etat(p) === "cachee" && pages.reglage(p).visible)));
   const categorie = vue.categorie && config.categories.find((c) => c.id === vue.categorie);
@@ -232,7 +234,9 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
   );
   const bandeauTest = (
     <div className="na-test" role="status">
-      <span>👁️ Nouvel accueil — version de test, invisible pour les clientes</span>
+      <span>👁️ Nouvel accueil — version de test, invisible pour les clientes
+        <button type="button" className="na-test-vides" onClick={() => { const v = !vides; setVides(v); try { window.sessionStorage.setItem("rs_na_vides", v ? "1" : "0"); } catch { /* navigation privée */ } }}>{vides ? "Masquer les catégories vides (comme les clientes)" : "Voir aussi les catégories encore vides"}</button>
+      </span>
       <button type="button" onClick={onQuitter}>Quitter</button>
     </div>
   );
@@ -316,10 +320,10 @@ export default function NouvelAccueil({ client, pages, onChoix, onCompte, onMarq
         <span className="na-cat-icone grand">{categorie.photo ? <Photo id={categorie.photo} className="na-cat-photo" /> : <IconeCategorie nom={categorie.icone} taille={34} />}</span>
         <div><h1>{categorie.nom}</h1>{categorie.texte && <p>{categorie.texte}</p>}</div>
       </div>
-      {specialitesAffichees(config, partenaires, categorie).length > 0 && (
+      {(vides ? categorie.specialites.filter((s) => s.visible) : specialitesAffichees(config, partenaires, categorie)).length > 0 && (
         <div className="na-puces" role="group" aria-label="Spécialités">
           <button type="button" className={!vue.specialite ? "actif" : ""} onClick={() => setVue({ ...vue, specialite: "" })}>Tout</button>
-          {specialitesAffichees(config, partenaires, categorie).map((s) => <button key={s.id} type="button" className={vue.specialite === s.id ? "actif" : ""} onClick={() => setVue({ ...vue, specialite: s.id })}>{s.nom}</button>)}
+          {(vides ? categorie.specialites.filter((s) => s.visible) : specialitesAffichees(config, partenaires, categorie)).map((s) => <button key={s.id} type="button" className={vue.specialite === s.id ? "actif" : ""} onClick={() => setVue({ ...vue, specialite: s.id })}>{s.nom}</button>)}
         </div>
       )}
       {villes.length > 1 && (

@@ -21,6 +21,7 @@ import ProjetsDigital from "./ProjetsDigital.jsx";
 import Partenaires from "./Partenaires.jsx";
 import ProsAdmin from "./ProsAdmin.jsx";
 import PagesProAdmin from "./PagesProAdmin.jsx"; // 27 nov. 2026 : generateur de pages professionnelles (lot 1)
+import AccueilV2Admin from "./AccueilV2Admin.jsx"; // 27 nov. 2026 : nouvel accueil (lot P1, version cachée)
 import EspacePro from "./EspacePro.jsx";
 import { lierComptePro, useComptePro } from "./prosBase.js";
 import { lireAccesPro } from "./pricing/pros.js";
@@ -154,6 +155,7 @@ const RUBRIQUES = [
   { id: "statistiques", label: "Statistiques", section: "argent" },
   { id: "rapports", label: "Rapports et exports", section: "argent" },
   { id: "equipe", label: "Équipe", section: "reglages" },
+  { id: "nouvel-accueil", label: "Nouvel accueil (caché)", adminOnly: true, section: "reglages" }, // 27 nov. 2026 : lot P1
   { id: "reglages", label: "Réglages", section: "reglages" },
 ];
 // Anciens noms d'onglets (liens internes et memoire de la session)
@@ -424,6 +426,7 @@ export default function Admin() {
     else if (onglet === "pros" && estAdmin) contenu = <ProsAdmin />;
     else if (onglet === "pages-pros" && estAdmin) contenu = <PagesProAdmin />;
     else if (onglet === "pages-restos" && estAdmin) contenu = <PagesProAdmin key="restos" univers="restos" />;
+    else if (onglet === "nouvel-accueil" && estAdmin) contenu = <AccueilV2Admin />;
     else if (onglet === "transferts") contenu = <Transferts {...props} />;
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;
     else if (onglet === "agenda") contenu = <Agenda {...props} />;

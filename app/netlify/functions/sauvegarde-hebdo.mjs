@@ -12,7 +12,7 @@ export const config = { schedule: "0 18,19 * * 0" }; // 21h en Israel, l'hiver (
 const CLE_API = "AIzaSyDZOjiRg9tgHo620Dqw1PYJuBciJ80Enmg";
 const BASE = "https://firestore.googleapis.com/v1/projects/rebecca-transport/databases/(default)/documents";
 const EMAILJS = { service: "service_apqztvn", cle: "bdJTayNK-YJyKZ79V" };
-const COLLECTIONS = ["demandes", "mouvements", "depenses", "autresRevenus", "clients", "clientsAdmin", "suivi", "commandes", "paiementsDeclares", "projetsDigital", "projetsDigitalPrive", "trajetsPartages", "recharges", "creditMouvements", "avis", "promos", "codesClient", "catalogue", "reglages", "fermetures", "equipe", "vehicules", "reversements", "coursiers", "missionsCoursiers", "reglementsCoursiers", "candidaturesPartenaires", "missionsEquipe", "cartesCadeaux", "admin", "agendaJours", "creneauxOccupes", "disposEquipe", "autorisations", "activites"];
+const COLLECTIONS = ["demandes", "mouvements", "depenses", "autresRevenus", "clients", "clientsAdmin", "suivi", "commandes", "paiementsDeclares", "projetsDigital", "projetsDigitalPrive", "trajetsPartages", "recharges", "creditMouvements", "avis", "promos", "codesClient", "catalogue", "reglages", "fermetures", "equipe", "vehicules", "reversements", "coursiers", "missionsCoursiers", "reglementsCoursiers", "candidaturesPartenaires", "missionsEquipe", "cartesCadeaux", "admin", "agendaJours", "creneauxOccupes", "disposEquipe", "autorisations", "activites", "pagesProAdmin", "pagesProVersions", "pagesPubliques"];
 const DOCS_ADMIN = ["admin/tournee", "admin/tourneeJours", "admin/objectifs"];
 const MORCEAU = 900000; // un document Firestore = 1 Mo au plus
 const GARDER = 8;

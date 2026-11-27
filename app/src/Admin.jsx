@@ -140,7 +140,8 @@ const RUBRIQUES = [
   { id: "assistance", label: "Assistance clients", adminOnly: true, section: "rs" }, // 19 nov. 2026 : messages des clients (bouton « 💬 Assistance »)
   { id: "clients", label: "Clients et codes promo", section: "rs" },
   { id: "commandes-resto", label: "Commandes restaurants", adminOnly: true, section: "restos" }, // 19 nov. 2026 : toutes les commandes des restaurants partenaires
-  { id: "partenaires", label: "Partenaires (restos, coursiers)", adminOnly: true, section: "restos" }, // 17 nov. 2026 : inscriptions des futurs coursiers
+  { id: "partenaires", label: "Partenaires (restos, coursiers)", adminOnly: true, section: "restos" },
+  { id: "pages-restos", label: "Pages des restaurants", adminOnly: true, section: "restos" }, // 27 nov. 2026 : lot R1 // 17 nov. 2026 : inscriptions des futurs coursiers
   { id: "pros", label: "Annuaire des professionnels", adminOnly: true, section: "pros" }, // 25 nov. 2026 : réseau de professionnels partenaires
   { id: "pages-pros", label: "Pages des pros (Digital)", adminOnly: true, section: "pros" }, // 27 nov. 2026 : generateur de pages (lot 1)
   { id: "commandes-epoxy", label: "Commandes Epoxy", adminOnly: true, section: "boutique" },
@@ -422,6 +423,7 @@ export default function Admin() {
     else if (onglet === "partenaires" && estAdmin) contenu = <Partenaires aller={aller} />;
     else if (onglet === "pros" && estAdmin) contenu = <ProsAdmin />;
     else if (onglet === "pages-pros" && estAdmin) contenu = <PagesProAdmin />;
+    else if (onglet === "pages-restos" && estAdmin) contenu = <PagesProAdmin key="restos" univers="restos" />;
     else if (onglet === "transferts") contenu = <Transferts {...props} />;
     else if (onglet === "demandes") contenu = <Demandes key={"d" + (cibleDe("demandes") || "")} {...props} cible={cibleDe("demandes")} membre={membre} />;
     else if (onglet === "agenda") contenu = <Agenda {...props} />;

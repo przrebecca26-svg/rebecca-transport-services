@@ -105,12 +105,39 @@ export const MODELES = [
     disposition: { entete: "centre", menu: "aucun", titres: "filet", produits: "liste", galerie: "grille", largeur: "etroite", fond: "uni", boutons: "carre", flottant: "non" },
     couleurs: { fond: "#ffffff", surface: "#ffffff", texte: "#111111", doux: "#777777", accent: "#111111", accent2: "#f2f2f2" }, titre: "inter", texte: "inter" },
 ];
-export const modele = (id) => MODELES.find((m) => m.id === id) || MODELES[7];
+// Lot R1 (27 nov. 2026) : 7 modeles reserves aux pages des restaurants partenaires (Admin Restaurants)
+export const MODELES_RESTOS = [
+  { id: "r-sushi", nom: "Sushi et cuisine japonaise", pour: "Sushi, japonais, asiatique",
+    disposition: { entete: "plein", menu: "ancres", titres: "majuscules", produits: "menu", galerie: "mosaique", largeur: "etroite", fond: "uni", boutons: "carre", flottant: "oui" },
+    couleurs: { fond: "#0d0d0f", surface: "#17171b", texte: "#f4f1ea", doux: "#a9a39a", accent: "#d64545", accent2: "#2a2224" }, titre: "dmserif", texte: "inter" },
+  { id: "r-rapide", nom: "Restauration rapide", pour: "Burgers, pizzas, snacks, shawarma",
+    disposition: { entete: "bandeau", menu: "aucun", titres: "souligne", produits: "cartes", galerie: "defilement", largeur: "large", fond: "cartes", boutons: "pilule", flottant: "oui" },
+    couleurs: { fond: "#fff8ec", surface: "#ffffff", texte: "#231a12", doux: "#7a6450", accent: "#e8551f", accent2: "#ffe2b8" }, titre: "oswald", texte: "poppins" },
+  { id: "r-gastro", nom: "Restaurant gastronomique", pour: "Cuisine raffinée, chef, dîner",
+    disposition: { entete: "centre", menu: "ancres", titres: "filet", produits: "menu", galerie: "polaroid", largeur: "etroite", fond: "uni", boutons: "contour", flottant: "non" },
+    couleurs: { fond: "#f7f3ec", surface: "#fffdf8", texte: "#2b241d", doux: "#857867", accent: "#8a6a3b", accent2: "#ece2d0" }, titre: "cormorant", texte: "lora" },
+  { id: "r-traiteur", nom: "Traiteur et événements", pour: "Traiteurs, buffets, plateaux",
+    disposition: { entete: "partage", menu: "aucun", titres: "numeros", produits: "alterne", galerie: "grille", largeur: "large", fond: "alterne", boutons: "arrondi", flottant: "oui" },
+    couleurs: { fond: "#f4f6f2", surface: "#ffffff", texte: "#1f2a1f", doux: "#5f6e5c", accent: "#3f7a4a", accent2: "#dfe9dc" }, titre: "playfair", texte: "inter" },
+  { id: "r-boulangerie", nom: "Boulangerie", pour: "Pain, viennoiseries, sandwichs",
+    disposition: { entete: "magazine", menu: "aucun", titres: "filet", produits: "liste", galerie: "grille", largeur: "etroite", fond: "uni", boutons: "arrondi", flottant: "oui" },
+    couleurs: { fond: "#fbf4e8", surface: "#ffffff", texte: "#3a2a17", doux: "#8a7459", accent: "#b5701f", accent2: "#f2e2c4" }, titre: "lora", texte: "josefin" },
+  { id: "r-patisserie", nom: "Pâtisserie", pour: "Gâteaux, desserts, commandes sur mesure",
+    disposition: { entete: "centre", menu: "aucun", titres: "majuscules", produits: "cartes", galerie: "mosaique", largeur: "etroite", fond: "alterne", boutons: "pilule", flottant: "oui" },
+    couleurs: { fond: "#fff6f8", surface: "#ffffff", texte: "#4a2a36", doux: "#9a7484", accent: "#c95f86", accent2: "#fde3ea" }, titre: "greatvibes", texte: "poppins" },
+  { id: "r-cafe", nom: "Café et brunch", pour: "Cafés, brunchs, salons de thé",
+    disposition: { entete: "partage", menu: "ancres", titres: "souligne", produits: "liste", galerie: "polaroid", largeur: "etroite", fond: "uni", boutons: "pilule", flottant: "non" },
+    couleurs: { fond: "#f3ece4", surface: "#fffaf4", texte: "#3b2c22", doux: "#86705f", accent: "#6f4e37", accent2: "#e6d6c4" }, titre: "dmserif", texte: "manrope" },
+];
+export const modelesPour = (univers) => (univers === "restos" ? [...MODELES_RESTOS, MODELES[5]] : MODELES);
+export const modele = (id) => MODELES.find((m) => m.id === id) || MODELES_RESTOS.find((m) => m.id === id) || MODELES[7];
 export const LIBELLES_COULEURS = { fond: "Fond de la page", surface: "Fond des blocs", texte: "Texte", doux: "Texte secondaire", accent: "Couleur principale (boutons)", accent2: "Couleur d'accompagnement" };
 
 /* ---------- Sections et forfaits ---------- */
 export const SECTIONS = [
   { id: "presentation", nom: "Présentation" },
+  { id: "commander", nom: "Commander" },
+  { id: "menu", nom: "Notre menu" },
   { id: "galerie", nom: "Galerie photos" },
   { id: "produits", nom: "Produits et prestations" },
   { id: "tarifs", nom: "Tarifs" },
@@ -126,13 +153,17 @@ export const nomSection = (id) => (SECTIONS.find((s) => s.id === id) || { nom: i
 const SECTIONS_REFERENCEMENT = ["presentation", "horaires", "zone", "contact"];
 const SECTIONS_VITRINE = ["presentation", "galerie", "produits", "tarifs", "horaires", "zone", "livraison", "infos", "avis", "contact"];
 // Ce que la formule permet. Changer de formule ou d'option change cette liste ; les DONNEES restent dans la page.
+const SECTIONS_RESTAURANT = ["presentation", "commander", "menu", "produits", "galerie", "horaires", "zone", "livraison", "infos", "avis", "contact"];
 export function sectionsPermises(formule, modules = []) {
+  if (formule === "restaurant") return [...SECTIONS_RESTAURANT];
   if (formule === "referencement") return [...SECTIONS_REFERENCEMENT];
   const l = [...SECTIONS_VITRINE];
   if (formule === "packpro" || (formule === "business" && (modules || []).includes("agenda"))) l.splice(4, 0, "reservation");
   return l;
 }
 export const photosPermises = (formule) => formule !== "referencement";
+// Formule qui decide des sections : un restaurant a toujours ses sections de restaurant
+export const formulePage = (page, dossier) => (page && page.type === "restaurant" ? "restaurant" : (dossier && dossier.formule) || "vitrine");
 // Ordre choisi par Rebecca ; les sections non permises sont cachees (pas effacees : elles reviennent avec l'option)
 export function sectionsDePage(sections, formule, modules) {
   const permises = sectionsPermises(formule, modules);
@@ -272,7 +303,7 @@ const nouvelId = () => `pg${Date.now().toString(36)}${Math.floor(Math.random() *
 export function pageVide(dossier = {}, modeleId = "minimaliste") {
   const m = modele(modeleId);
   return {
-    id: nouvelId(), proId: dossier.id || "", statut: "en_creation", demo: false, adresse: adresseDepuisNom(dossier.nomCommercial),
+    id: nouvelId(), type: "pro", restoId: "", proId: dossier.id || "", statut: "en_creation", demo: false, adresse: adresseDepuisNom(dossier.nomCommercial),
     modele: m.id, couleurs: { ...m.couleurs }, policeTitre: m.titre, policeTexte: m.texte, disposition: { ...m.disposition },
     nom: txt(dossier.nomCommercial, 80), specialite: txt(dossier.metier, 80), accroche: "", presentation: txt(dossier.description, 2000),
     logo: "", couverture: "", galerie: [], produits: [], tarifsTexte: txt(dossier.tarifs, 1500), horaires: txt(dossier.horaires, 600),
@@ -281,6 +312,7 @@ export function pageVide(dossier = {}, modeleId = "minimaliste") {
     messageWhatsApp: "", boutonWhatsApp: "Commander ou se renseigner sur WhatsApp",
     instagram: txt(dossier.instagram, 120), boutonInstagram: "Voir tout le catalogue sur Instagram", facebook: txt(dossier.facebook, 200), tiktok: "", siteWeb: txt(dossier.siteWeb, 200), autresLiens: [],
     livraison: "", infos: "", lienRdv: "", avis: [], sections: [],
+    lienCommande: "", boutonCommande: "Consulter le menu et commander", menuPdf: "", cacherout: "", carteEnLigne: true,
     he: { actif: false },
     seo: { titre: "", description: "" },
     tarif: tarifVide(), contrats: [], photosInfo: {}, notePrivee: "",
@@ -301,6 +333,9 @@ export function normaliserPage(p) {
   for (const [id, o] of Object.entries(v.photosInfo || {})) if (photoOk(id)) photosInfo[id] = Math.max(0, Math.round(Number(o) || 0));
   return {
     id: txt(v.id, 30) || nouvelId(),
+    type: v.type === "restaurant" ? "restaurant" : "pro",
+    restoId: txt(v.restoId, 40),
+    contratId: txt(v.contratId, 40),
     proId: txt(v.proId, 30),
     statut: STATUTS_PAGE.some((s) => s.v === v.statut) ? v.statut : "brouillon",
     demo: v.demo === true,
@@ -336,6 +371,13 @@ export function normaliserPage(p) {
     livraison: txt(v.livraison, 1200),
     infos: txt(v.infos, 1500),
     lienRdv: lien(v.lienRdv),
+    // Restaurants (lot R1) : A = lien vers son site de commande ; B = carte en ligne de Rebecca Services (fiche du
+    // restaurant, panier envoye au restaurant) ; C = menu PDF et photos du menu (fiche du restaurant). Combinables.
+    lienCommande: lien(v.lienCommande),
+    boutonCommande: txt(v.boutonCommande, 60) || "Consulter le menu et commander",
+    menuPdf: lien(v.menuPdf),
+    cacherout: txt(v.cacherout, 120),
+    carteEnLigne: v.carteEnLigne !== false,
     // Avis : seulement de VRAIS avis de clients du pro, recopies par Rebecca (jamais inventes)
     avis: (Array.isArray(v.avis) ? v.avis : []).filter((a) => a && txt(a.texte, 400)).slice(0, 12).map((a) => ({ nom: txt(a.nom, 40), texte: txt(a.texte, 400), note: Math.max(0, Math.min(5, Math.round(Number(a.note) || 0))) })),
     sections: (Array.isArray(v.sections) ? v.sections : []).filter((s) => s && SECTIONS.some((x) => x.id === s.id)).map((s) => ({ id: s.id, actif: s.actif !== false })),
@@ -365,7 +407,7 @@ export function dupliquerPage(page, prises = []) {
   const id = nouvelId();
   const copie = {
     ...page, id, statut: "en_creation", nom: `${page.nom} (copie)`, logo: "", couverture: "", galerie: [], produits: (page.produits || []).map((p) => ({ ...p, photo: "" })),
-    tarif: tarifVide(), contrats: [], photosInfo: {}, apercu: { jeton: "", expireLeMs: 0 }, publieeLeMs: 0, journal: [], creeLeMs: Date.now(), majLeMs: Date.now(),
+    restoId: "", tarif: tarifVide(), contrats: [], photosInfo: {}, apercu: { jeton: "", expireLeMs: 0 }, publieeLeMs: 0, journal: [], creeLeMs: Date.now(), majLeMs: Date.now(),
   };
   copie.adresse = adresseUnique(adresseDepuisNom(copie.nom), prises, id);
   return copie;
@@ -449,7 +491,7 @@ export function erreursPage(page, pages = [], dossier = null) {
 /* ---------- Ce qui sort en public (jamais le tarif, les contrats ni les notes) ---------- */
 export function pagePublique(page, dossier) {
   const p = normaliserPage(page);
-  const formule = (dossier && dossier.formule) || "vitrine";
+  const formule = formulePage(p, dossier);
   const modules = (dossier && dossier.modules) || [];
   const photos = photosPermises(formule);
   const { tarif, contrats, notePrivee, journal, apercu, photosInfo, creeLeMs, proId, demo, ...visible } = p; // eslint-disable-line no-unused-vars
@@ -506,4 +548,21 @@ export function jetonAleatoire(n = 24) {
   const t = new Uint8Array(n);
   (globalThis.crypto || { getRandomValues: (a) => a.map(() => Math.floor(Math.random() * 256)) }).getRandomValues(t);
   return [...t].map((x) => c[x % c.length]).join("");
+}
+
+/* ---------- Restaurants (lot R1) : offre des 10 premiers restaurants qui SIGNENT leur contrat ---------- */
+// contrats = contratsRestos signes ou valides [{ id, nom, signeLeMs }] ; le rang suit la date de signature
+export function offreLancement(contrats, places = 10) {
+  const l = [...(contrats || [])].filter((c) => c && Number(c.signeLeMs) > 0).sort((a, b) => a.signeLeMs - b.signeLeMs);
+  const beneficiaires = l.slice(0, places).map((c, i) => ({ ...c, rang: i + 1 }));
+  return { places, signes: l.length, restantes: Math.max(0, places - l.length), beneficiaires, estBeneficiaire: (id) => beneficiaires.some((b) => b.id === id) };
+}
+// Fiche du restaurant (reglages/vitrineRestos) -> page de depart, sans recopier les photos (elles restent dans la fiche)
+export function pageDepuisFicheResto(fiche = {}, modeleId = "r-sushi") {
+  const p = pageVide({ nomCommercial: fiche.nom, metier: fiche.cuisine, description: fiche.description, horaires: fiche.horaires, telephone: fiche.telephone, whatsapp: fiche.whatsapp }, modeleId);
+  return {
+    ...p, type: "restaurant", restoId: txt(fiche.id, 40), proId: "", cacherout: txt(fiche.cacherout, 120), menuPdf: lien(fiche.menu),
+    adressePostale: txt(fiche.adresse, 200), zone: txt(fiche.zone, 300), tarifsTexte: "", boutonWhatsApp: "Commander sur WhatsApp",
+    messageWhatsApp: `Bonjour ${fiche.nom || ""}, je souhaite commander (vu sur Rebecca Services).`,
+  };
 }

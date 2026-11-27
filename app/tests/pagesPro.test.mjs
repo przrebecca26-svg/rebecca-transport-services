@@ -136,3 +136,28 @@ test("aperçu WhatsApp : titre, description, image, base", () => {
   const h = remplacerEntete('<html><head><title>X</title><meta name="description" content="a" /><meta property="og:title" content="b" /></head></html>', { titre: "Mode <26>", description: "Desc", url: "https://r.com/p/m", image: "https://r.com/p-photo/x.jpg" });
   vrai(h.includes('<base href="/" />') && h.includes("<title>Mode &lt;26&gt;</title>") && h.includes('property="og:image" content="https://r.com/p-photo/x.jpg"') && h.includes('name="description" content="Desc"'));
 });
+
+/* ---------- Lot R1 : restaurants ---------- */
+import { MODELES_RESTOS, modelesPour, offreLancement, pageDepuisFicheResto, formulePage } from "../src/pricing/pagesPro.js";
+section("Pages restaurants (lot R1)");
+test("7 modèles restaurants, tous différents", () => { egal(MODELES_RESTOS.length, 7); egal(new Set(MODELES_RESTOS.map((m) => JSON.stringify(m.disposition))).size, 7); });
+test("l'Admin Restaurants propose ses modèles (+ Restaurant et Gastronomie), pas ceux des pros", () => { const l = modelesPour("restos").map((m) => m.id); vrai(l.includes("r-sushi") && l.includes("restaurant") && !l.includes("luxe")); });
+test("sections d'un restaurant : commander et menu", () => egal(sectionsPermises("restaurant").slice(0, 4), ["presentation", "commander", "menu", "produits"]));
+test("une page restaurant ignore la formule d'un dossier", () => egal(formulePage({ type: "restaurant" }, { formule: "referencement" }), "restaurant"));
+test("page depuis la fiche du restaurant (sans recopier les photos)", () => {
+  const p = normaliserPage(pageDepuisFicheResto({ id: "r1", nom: "Ohi Sushi", cuisine: "Japonais", cacherout: "Cacher", whatsapp: "0541112233", menu: "https://exemple.com/menu.pdf", zone: "Netanya" }));
+  egal([p.type, p.restoId, p.nom, p.specialite, p.cacherout, p.menuPdf, p.logo, p.galerie.length], ["restaurant", "r1", "Ohi Sushi", "Japonais", "Cacher", "https://exemple.com/menu.pdf", "", 0]);
+});
+test("mode A : lien vers le site de commande en public", () => {
+  const p = normaliserPage({ ...pageDepuisFicheResto({ id: "r1", nom: "Ohi" }), lienCommande: "https://ohisushi.co.il" });
+  const pub = pagePublique(p, null);
+  egal([pub.lienCommande, pub.sections.includes("commander"), pub.formule], ["https://ohisushi.co.il", true, "restaurant"]);
+});
+test("lien de commande non sécurisé refusé", () => egal(normaliserPage({ lienCommande: "http://x.com" }).lienCommande, ""));
+test("offre des 10 premiers : ordre de SIGNATURE, places restantes", () => {
+  const c = Array.from({ length: 12 }, (_, i) => ({ id: "c" + i, nom: "R" + i, signeLeMs: 1000 - i }));
+  const o = offreLancement(c, 10);
+  egal([o.signes, o.restantes, o.beneficiaires.length, o.beneficiaires[0].id, o.estBeneficiaire("c0"), o.estBeneficiaire("c11")], [12, 0, 10, "c11", false, true]);
+});
+test("offre : 3 contrats signés -> 7 places restantes", () => egal(offreLancement([{ id: "a", signeLeMs: 1 }, { id: "b", signeLeMs: 2 }, { id: "c", signeLeMs: 3 }]).restantes, 7));
+test("un contrat sans date de signature ne compte pas", () => egal(offreLancement([{ id: "a", signeLeMs: 0 }]).signes, 0));

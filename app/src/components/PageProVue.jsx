@@ -3,7 +3,9 @@ import "../pages-pro.css";
 import {
   lienPolices, lienReseauPage, lienWhatsAppPage, messageParDefaut, messageProduit, nomSection, police,
 } from "../pricing/pagesPro.js";
-import { usePhoto } from "../pagesProBase.js";
+import { useMenuFicheResto, usePhoto } from "../pagesProBase.js";
+import { Panier } from "./RestosVitrine.jsx";
+import { lireCarte } from "../pricing/carteResto.js";
 
 // MOTEUR D'AFFICHAGE DES PAGES PROFESSIONNELLES (lot 1, 27 nov. 2026)
 // Une seule composante dessine TOUTES les pages : le modele choisit la structure (en-tete, menu, titres, produits,
@@ -45,6 +47,10 @@ const paragraphes = (t) => String(t || "").split(/\n{2,}|\n/).filter((x) => x.tr
 
 export default function PageProVue({ page, largeur = 0, apercu = false }) {
   const [zoom, setZoom] = useState(null);
+  const [panier, setPanier] = useState(false);
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  const ficheMenu = useMenuFicheResto(page && page.type === "restaurant" ? page.restoId : "");
+  const carte = page && page.carteEnLigne !== false ? lireCarte(ficheMenu.carteTexte) : [];
   const p = page || {};
   const d = p.disposition || {};
   const c = p.couleurs || {};
@@ -90,7 +96,29 @@ export default function PageProVue({ page, largeur = 0, apercu = false }) {
   const boutonInsta = insta ? <a className="pv-bouton pv-bouton-2" href={insta} target="_blank" rel="noopener noreferrer">{p.boutonInstagram}</a> : null;
   const titreSection = (id, n) => <h2 className="pv-h2">{d.titres === "numeros" && <span className="pv-num">{String(n).padStart(2, "0")}</span>}<span>{nomSection(id)}</span></h2>;
 
+  const resto = p.type === "restaurant";
   const contenus = {
+    // Restaurants (lot R1) : A site du restaurant, B carte en ligne (panier envoye au restaurant), C menu PDF / photos
+    commander: resto && (p.lienCommande || carte.length || wa) ? (
+      <div>
+        <div className="pv-actions">
+          {p.lienCommande && <a className="pv-bouton" href={p.lienCommande} target="_blank" rel="noopener noreferrer">{p.boutonCommande} ↗</a>}
+          {carte.length > 0 && wa && <button type="button" className="pv-bouton" onClick={() => setPanier(!panier)}>{panier ? "Fermer la commande" : "Commander en ligne"}</button>}
+          {wa && <a className="pv-bouton pv-bouton-2" href={wa} target="_blank" rel="noopener noreferrer">{p.boutonWhatsApp}</a>}
+        </div>
+        <p className="pv-note">Vous commandez et payez votre repas directement au restaurant. La livraison peut être assurée par Rebecca Services selon le restaurant.</p>
+        {panier && <div className="pv-panier"><Panier r={{ nom: p.nom, whatsapp: p.whatsapp || p.telephone }} carte={carte} onFermer={() => setPanier(false)} /></div>}
+      </div>
+    ) : null,
+    menu: resto && (p.menuPdf || ficheMenu.pages.length) ? (
+      <div>
+        <div className="pv-actions">
+          {p.menuPdf && <a className="pv-bouton pv-bouton-2" href={p.menuPdf} target="_blank" rel="noopener noreferrer">Menu (PDF)</a>}
+          {ficheMenu.pages.length > 0 && <button type="button" className="pv-bouton pv-bouton-2" onClick={() => setMenuOuvert(!menuOuvert)}>{menuOuvert ? "Fermer le menu" : "Voir le menu"}</button>}
+        </div>
+        {menuOuvert && ficheMenu.pages.map((src, i) => <img key={i} src={src} alt={`Menu, page ${i + 1}`} className="pv-menu-page" />)}
+      </div>
+    ) : null,
     presentation: p.presentation ? <>{paragraphes(p.presentation)}</> : null,
     galerie: (p.galerie || []).length ? (
       <div className="pv-galerie">
@@ -147,10 +175,13 @@ export default function PageProVue({ page, largeur = 0, apercu = false }) {
       {p.couverture && <div className="pv-couverture"><Img id={p.couverture} alt="" /></div>}
       <div className="pv-entete-texte">
         {p.logo && <Img id={p.logo} alt={`Logo ${p.nom}`} className="pv-logo" />}
-        {p.specialite && <p className="pv-specialite">{p.specialite}</p>}
+        {(p.specialite || p.cacherout) && <p className="pv-specialite">{[p.specialite, p.cacherout].filter(Boolean).join(" · ")}</p>}
         <h1 className="pv-h1">{p.nom}</h1>
         {p.accroche && <p className="pv-accroche">{p.accroche}</p>}
-        <div className="pv-actions">{boutonWa()}{boutonInsta}</div>
+        <div className="pv-actions">
+          {resto && p.lienCommande ? <a className="pv-bouton" href={p.lienCommande} target="_blank" rel="noopener noreferrer">{p.boutonCommande} ↗</a> : boutonWa()}
+          {resto ? p.lienCommande && wa && <a className="pv-bouton pv-bouton-2" href={wa} target="_blank" rel="noopener noreferrer">{p.boutonWhatsApp}</a> : boutonInsta}
+        </div>
       </div>
     </header>
   );
@@ -176,7 +207,7 @@ export default function PageProVue({ page, largeur = 0, apercu = false }) {
       </main>
       <footer className="pv-pied">
         <p>© {new Date().getFullYear()} {p.nom}</p>
-        <p className="pv-signature">Page réalisée par <a href="https://rebeccaservices.com" target="_blank" rel="noopener noreferrer">Rebecca Services</a> · Prestataire indépendant</p>
+        <p className="pv-signature">{resto ? "Restaurant partenaire de " : "Page réalisée par "}<a href="https://rebeccaservices.com" target="_blank" rel="noopener noreferrer">Rebecca Services</a> · {resto ? "établissement indépendant" : "Prestataire indépendant"}</p>
       </footer>
       {d.flottant === "oui" && wa && <a className="pv-flottant" href={wa} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">WhatsApp</a>}
       {zoom !== null && <Zoom photos={p.galerie || []} depart={zoom} onFermer={() => setZoom(null)} />}
